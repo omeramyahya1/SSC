@@ -5,7 +5,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 # Import Base and your models (like User) from your models file
 from models import Base, SQLITE_URL, DB_FILE_PATH 
-from contextlib import contextmanager
 
 # --- 1. Database Initialization ---
 
