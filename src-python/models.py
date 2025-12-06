@@ -1,5 +1,5 @@
 # src-python/models.py
-
+from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, Enum, Numeric, Date, DateTime, Boolean, BigInteger, DECIMAL, ForeignKey, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -31,8 +31,8 @@ class Organization(Base):
     legal_email = Column(String(255))
     registration_date = Column(Date)
     status = Column(Enum('active', 'suspended', 'pending'), default='active', nullable=False)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
     branches = relationship("Branch", back_populates="organization")
     users = relationship("OrganizationUser", back_populates="organization")
@@ -54,8 +54,8 @@ class Branch(Base):
     branch_location = Column(String(255))
     contact_email = Column(String(255))
     contact_phone = Column(String(255))
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
     organization = relationship("Organization", back_populates="branches")
     users = relationship("OrganizationUser", back_populates="branch")
@@ -81,8 +81,8 @@ class User(Base):
     registration_date = Column(Date, nullable=False)
     status = Column(Enum('active', 'expired', 'trial', 'grace'), default='trial', nullable=False)
     language = Column(Integer, nullable=False)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
     auth = relationship("Authentication", back_populates="user", uselist=False)
     subscriptions = relationship("Subscription", back_populates="user")
@@ -106,7 +106,7 @@ class OrganizationUser(Base):
     user_id = Column(Integer, ForeignKey("Users.user_id"), nullable=False)
     role = Column(Enum('admin', 'manager', 'user'), default='user', nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
 
     __table_args__ = (
         UniqueConstraint("organization_id", "user_id", "branch_id", name="org_user_unique"),
@@ -132,8 +132,8 @@ class Authentication(Base):
     device_id = Column(String(255))
     is_logged_in = Column(Boolean, default=False)
     last_active = Column(DateTime)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
     user = relationship("User", back_populates="auth")
 
@@ -153,8 +153,8 @@ class Customer(Base):
     address = Column(Text)
     tax_id = Column(String(255))
     notes = Column(Text)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
     organization = relationship("Organization", back_populates="customers")
     branch = relationship("Branch", back_populates="customers")
@@ -175,8 +175,8 @@ class License(Base):
     issued_at = Column(DateTime, nullable=False)
     expires_at = Column(DateTime)
     max_seats = Column(Integer, default=1, nullable=False)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
     issued_for_org = relationship("Organization", back_populates="licenses")
     issued_for_user = relationship("User", back_populates="licenses")
@@ -199,8 +199,8 @@ class Payment(Base):
     verified_by = Column(String(255))
     verification_date = Column(Date)
     status = Column(Enum('pending','verified','rejected'), default='pending', nullable=False)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
     user = relationship("User", back_populates="payments")
     subscriptions = relationship("Subscription", back_populates="payment")
@@ -223,8 +223,8 @@ class Subscription(Base):
     verification_status = Column(Enum('pending','verified','revoked'), default='pending', nullable=False)
     issued_by = Column(String(255))
     payment_id = Column(Integer, ForeignKey("Payments.payment_id"))
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
     user = relationship("User", back_populates="subscriptions")
     license = relationship("License", back_populates="subscriptions")
@@ -244,7 +244,7 @@ class LicenseAudit(Base):
     server_signature = Column(String(1024))
     verification_result = Column(Enum('ok','tampered','expired','unknown'), nullable=False)
     notes = Column(Text)
-    created_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
 
     license = relationship("License", back_populates="audits")
 
@@ -261,7 +261,7 @@ class ApplicationSetting(Base):
     value = Column(Text)
     value_type = Column(Enum('string','number','boolean','json'), default='string')
     updated_by_user = Column(Integer, ForeignKey("Users.user_id"))
-    updated_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
     __table_args__ = (
         UniqueConstraint("organization_id", "key_name"),
@@ -284,8 +284,8 @@ class Project(Base):
     customer_id = Column(Integer, ForeignKey("Customers.customer_id"))
     client_name = Column(String(255), nullable=False)
     project_status = Column(Enum('under evaluation','under execution','executed','canceled','other'), nullable=False)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
     total_cost = Column(Integer)
     proposal_path = Column(Text)
     loads_breakdown_path = Column(Text)

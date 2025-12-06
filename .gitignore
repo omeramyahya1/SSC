@@ -31,3 +31,7 @@ __pycache__/
 *.db
 dist/
 build/
+test/
+
+.gemini/
+gha-creds-*.json

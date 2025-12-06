@@ -25,17 +25,14 @@ def initialize_database():
             echo=False # Set to True for debugging SQL queries
         )
         
-        # 2. Create all tables defined by Base.metadata
-        Base.metadata.create_all(engine)
-        
-        # 3. Define the session factory
+        # 2. Define the session factory
         SessionLocal = sessionmaker(
             autocommit=False, 
             autoflush=False, 
             bind=engine
         )
         
-        print(f"✅ Database initialized and session factory created at: {DB_FILE_PATH}")
+        print(f"✅ Database session factory created for: {DB_FILE_PATH}")
         return SessionLocal
         
     except Exception as e:
