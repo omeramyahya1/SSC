@@ -3,12 +3,14 @@
   "productName": "ssc",
   "version": "0.1.0",
   "identifier": "com.omeramyahya.ssc",
+
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
+
   "app": {
     "windows": [
       {
@@ -21,6 +23,7 @@
       "csp": null
     }
   },
+
   "bundle": {
     "active": true,
     "targets": "all",
@@ -30,6 +33,17 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "externalBin": [
+      "python-sidecar"
     ]
+  },
+
+  "plugins": {
+    "shell": {
+      "scope": [
+        "python-sidecar"
+      ]
+    }
   }
 }
