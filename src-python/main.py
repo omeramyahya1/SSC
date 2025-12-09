@@ -22,6 +22,9 @@ app = create_app()
 # to talk to the Flask server. In production, you'd restrict this to localhost:[Tauri Port].
 CORS(app)
 
+# --- PDF Generation Endpoints ---
+
+
 # --- Health Check (Crucial for Sidecar integration testing) ---
 @app.route('/health', methods=['GET'])
 def health_check():
