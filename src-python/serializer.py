@@ -5,9 +5,15 @@ import base64
 from sqlalchemy.inspection import inspect
 
 def serialize_value(value):
-    """Convert Python/SQLAlchemy values into JSON-friendly values."""
+    """
+    Convert Python/SQLAlchemy values into JSON-friendly values.
+    Handles datetime, date, and bytes objects.
+    """
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+    if isinstance(value, bytes):
+        # Encode bytes to a Base64 string to make it JSON serializable
+        return base64.b64encode(value).decode('utf-8')
     return value
 
 def model_to_dict(obj, include_relationships=False, backrefs=False):
@@ -56,32 +62,3 @@ def model_to_dict(obj, include_relationships=False, backrefs=False):
                 data[name] = model_to_dict(related_value, include_relationships=False)
 
     return data
-
-
-def user_to_json_serializable(user_obj):
-    """
-    Converts a SQLAlchemy User object into a dictionary, encoding BLOBs 
-    to Base64 strings to make them JSON serializable.
-    """
-    user_dict = user_obj.__dict__.copy()
-    
-    # Remove SQLAlchemy internal state key
-    user_dict.pop('_sa_instance_state', None)
-
-    # Check and encode the binary fields
-    if user_dict.get('business_logo') is not None:
-        # 1. Decode the bytes object into a Base64 string
-        # 2. Decode the Base64 bytes object into a standard string (utf-8)
-        user_dict['business_logo'] = base64.b64encode(user_dict['business_logo']).decode('utf-8')
-    
-    # Handle other non-JSON serializable types (like datetime objects)
-    for key, value in user_dict.items():
-        if isinstance(value, datetime):
-            user_dict[key] = value.isoformat() # Convert datetime to ISO 8601 string
-
-    return user_dict
-
-# --- Example Usage in your API/Endpoint ---
-# fetched_users = session.scalars(select(User)).all() 
-# serializable_users = [user_to_json_serializable(user) for user in fetched_users]
-# return serializable_users # This list can now be converted to JSON
