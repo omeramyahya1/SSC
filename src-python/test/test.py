@@ -221,7 +221,7 @@ def create_test_files(file_names: list, folder_path: str):
         print(f"✓ Created test file: {test_file_path}")
 
 if __name__ == "__main__":
-    # generate_pydantic_schemas()
+    generate_pydantic_schemas()
     # generate_crud_files()
 
     # create_test_files(

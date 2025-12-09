@@ -1,39 +1,39 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db
-from models import LicenseAudit
-from schemas import LicenseAuditCreate, LicenseAuditUpdate
+from models import Document
+from schemas import DocumentCreate, DocumentUpdate
 from serializer import model_to_dict
 
-license_audit_bp = Blueprint('license_audit_bp', __name__, url_prefix='/license_audits')
+document_bp = Blueprint('document_bp', __name__, url_prefix='/documents')
 
-@license_audit_bp.route('/', methods=['POST'])
-def create_license_audit():
+@document_bp.route('/', methods=['POST'])
+def create_document():
     try:
         # Validate request data using the Pydantic schema
-        validated_data = LicenseAuditCreate(**request.json)
+        validated_data = DocumentCreate(**request.json)
     except ValidationError as e:
         # Return a 400 Bad Request with validation errors
         return jsonify({"errors": e.errors()}), 400
 
     with get_db() as db:
         # Create the SQLAlchemy model from validated data
-        new_item = LicenseAudit(**validated_data.dict())
+        new_item = Document(**validated_data.dict())
         db.add(new_item)
         db.commit()
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
 
-@license_audit_bp.route('/<int:item_id>', methods=['PUT'])
-def update_license_audit(item_id):
+@document_bp.route('/<int:item_id>', methods=['PUT'])
+def update_document(item_id):
     with get_db() as db:
-        item = db.query(LicenseAudit).filter(LicenseAudit.audit_id == item_id).first()
+        item = db.query(Document).filter(Document.doc_id == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
             
         try:
             # Validate request data
-            validated_data = LicenseAuditUpdate(**request.json)
+            validated_data = DocumentUpdate(**request.json)
         except ValidationError as e:
             return jsonify({"errors": e.errors()}), 400
 
@@ -46,24 +46,24 @@ def update_license_audit(item_id):
         db.refresh(item)
         return jsonify(model_to_dict(item))
 
-@license_audit_bp.route('/', methods=['GET'])
-def get_all_license_audit():
+@document_bp.route('/', methods=['GET'])
+def get_all_document():
     with get_db() as db:
-        items = db.query(LicenseAudit).all()
+        items = db.query(Document).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@license_audit_bp.route('/<int:item_id>', methods=['GET'])
-def get_license_audit(item_id):
+@document_bp.route('/<int:item_id>', methods=['GET'])
+def get_document(item_id):
     with get_db() as db:
-        item = db.query(LicenseAudit).filter(LicenseAudit.audit_id == item_id).first()
+        item = db.query(Document).filter(Document.doc_id == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@license_audit_bp.route('/<int:item_id>', methods=['DELETE'])
-def delete_license_audit(item_id):
+@document_bp.route('/<int:item_id>', methods=['DELETE'])
+def delete_document(item_id):
     with get_db() as db:
-        item = db.query(LicenseAudit).filter(LicenseAudit.audit_id == item_id).first()
+        item = db.query(Document).filter(Document.doc_id == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
         db.delete(item)

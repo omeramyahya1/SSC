@@ -4,12 +4,16 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from routes import all_blueprints
 from werkzeug.exceptions import HTTPException
+from db_setup import create_db_and_tables
 
 
 # --- Flask App Setup ---
 def create_app():
     app = Flask(__name__)
     
+    # On startup, ensure the database and its tables are created.
+    create_db_and_tables()
+
     # Register all blueprints dynamically
     for bp in all_blueprints:
         app.register_blueprint(bp, url_prefix=bp.url_prefix)
