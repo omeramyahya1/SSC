@@ -9,7 +9,9 @@ import io
 import os
 import sys
 import json
-from sqlalchemy import Session 
+
+from invoice import create_invoice_pdf
+
 
 # --- Configuration ---
 API_BASE_URL = "http://localhost:5000"
@@ -33,6 +35,7 @@ def get_data(project_id: int) -> dict:
     except requests.RequestException as e:
         print(f"❌ Error fetching data for Project ID {project_id}:\n{e}")
         return None
+    
 
 def generate_pdf_document(data: dict, file_name: str ="doc", output_path: str ="") -> str:
     """
@@ -64,7 +67,8 @@ def generate_pdf_document(data: dict, file_name: str ="doc", output_path: str ="
 # Execute
 if __name__ == "__main__":
     #fetch data for a specific project
-    data = get_data(3)
+    # data = get_data(3)
 
-    #generate pdf document from fetched data
-    generate_pdf_document(data, file_name="project_report_3", output_path=".")
+    # #generate pdf document from fetched data
+    # generate_pdf_document(data, file_name="project_report_3", output_path=".")
+    pass
