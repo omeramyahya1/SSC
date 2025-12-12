@@ -2,44 +2,47 @@
 # BLE API endpoint
 
 import sys
-sys.path.append("..")  # Adjust the path as necessary to import utils and models
+import os
+from flask import Blueprint, jsonify
+from sqlalchemy.orm import joinedload
 
-import json
-from sqlalchemy.orm import joinedload, selectinload
-from sqlalchemy import select
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from db_setup import SessionLocal
-from models import Project, SystemConfiguration, Appliance, ApplicationSettings
+from models import Project
+from .ble import BLE, get_geo_data
 
-def get_project_data(project_id: int) -> str:
-    """
-    Fetch data from the database for the given project_id and return as a JSON string.
-    """
+# --- Blueprint Setup ---
+ble_bp = Blueprint(
+    'ble_bp', __name__,
+    url_prefix='/ble'
+)
 
+# --- API Endpoints ---
+@ble_bp.route('/calculate/<int:project_id>', methods=['GET'])
+def calculate_system(project_id: int):
+    """
+    Calculate the required solar system configuration based on project data.
+    """
     with SessionLocal() as session:
-        # load project data
-        stmt = (
-            select(Project)
-            .where(Project.project_id == project_id)
-        )
+        # 1. Fetch project data with related appliances
+        project = session.query(Project).options(
+            joinedload(Project.appliances)
+        ).filter(Project.project_id == project_id).first()
 
-        project = session.scalar(stmt)
-        
         if not project:
-            print(f"❌ No project found with ID {project_id}")
-            return None
+            return jsonify({"status": "error", "message": f"Project with ID {project_id} not found."}), 404
+
+        if not project.project_location:
+            return jsonify({"status": "error", "message": "Project location is not set."}), 400
+
+        # 2. Get Peak Sun Hours from geo data
+        geo_data = get_geo_data(project.project_location)
+        if geo_data is None:
+            return jsonify({"status": "error", "message": f"Could not find geo data for location: {project.project_location}"}), 400
         
-        return json.dumps({
-            "project_id": project.project_id,
-            "customer_id": project.customer_id,
-            "user_id": project.user_id,
-            "status": project.status,
-            "system_config_id": project.system_config_id,
-            "project_location": project.project_location if project.project_location else None
-        }, indent=4)
+        # 3. Instantiate BLE and run calculations
+        ble_instance = BLE(project_data=project, geo_data=geo_data)
+        response_data = ble_instance.run_calculations()
 
-
-def create_system_configuration(data: dict):
-    """
-    Create new SystemConfiguration entry in the database.
-    """
-    pass
+        return jsonify(response_data)

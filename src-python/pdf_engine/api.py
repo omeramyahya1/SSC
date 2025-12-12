@@ -84,5 +84,3 @@ def get_invoice_data(project_id: int) -> str:
 
         return json.dumps(output_data, indent=4)
 
-
-

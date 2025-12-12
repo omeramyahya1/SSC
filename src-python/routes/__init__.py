@@ -1,4 +1,8 @@
 # For easier import in main.py
+import sys 
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from .appliance import appliance_bp
 from .application_settings import application_settings_bp
@@ -13,6 +17,7 @@ from .subscription import subscription_bp
 from .sync_log import sync_log_bp
 from .system_configuration import system_configuration_bp
 from .user import user_bp
+from ble.api import ble_bp
 
 all_blueprints = [
     appliance_bp,
@@ -28,4 +33,5 @@ all_blueprints = [
     sync_log_bp,
     system_configuration_bp,
     user_bp,
+    ble_bp,
 ]
