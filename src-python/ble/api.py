@@ -42,7 +42,7 @@ def calculate_system(project_id: int):
             return jsonify({"status": "error", "message": f"Could not find geo data for location: {project.project_location}"}), 400
         
         # 3. Instantiate BLE and run calculations
-        ble_instance = BLE(project_data=project, geo_data=geo_data)
+        ble_instance = BLE(project_data=project, geo_data=geo_data, db_session=session)
         response_data = ble_instance.run_calculations()
 
         return jsonify(response_data)
