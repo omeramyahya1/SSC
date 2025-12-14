@@ -31,6 +31,8 @@ __pycache__/
 *.db
 dist/
 build/
+src-python/ble/dataset/*.py
+src-python/ble/test.py
 
 .gemini/
 gha-creds-*.json

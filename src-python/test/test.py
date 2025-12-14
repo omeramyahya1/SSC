@@ -221,10 +221,11 @@ def create_test_files(file_names: list, folder_path: str):
         print(f"✓ Created test file: {test_file_path}")
 
 if __name__ == "__main__":
-    # generate_pydantic_schemas()
+    generate_pydantic_schemas()
     # generate_crud_files()
 
-    create_test_files(
-        file_names=["config", "client", "conftest", "test_health", "test_user", "test_projects", "test_organizations"],
-        folder_path="test/api automated test"
-    )
+    # create_test_files(
+    #     file_names=["config", "client", "conftest", "test_health", "test_user", "test_projects", "test_organizations"],
+    #     folder_path="test/api automated test"
+    # )
+    pass

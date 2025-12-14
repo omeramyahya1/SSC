@@ -1,9 +1,8 @@
 # src-python/models.py
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, Enum, Numeric, Date, DateTime, Boolean, BigInteger, DECIMAL, ForeignKey, create_engine
+from sqlalchemy import JSON, CheckConstraint, Column, Float, Integer, LargeBinary, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.schema import UniqueConstraint
+from sqlalchemy.orm import relationship
 import os
 
 # --- 1. Define Base and Configuration ---
@@ -18,355 +17,250 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE_PATH = os.path.join(BASE_DIR, 'db', 'local_data.db')
 SQLITE_URL = f"sqlite:///{DB_FILE_PATH}"
 
-# --- 3. SQL-Python Models Schema translation ---
+# --- 3. Define Models ---
 
-# ---------------------------------------------------------
-# Organizations
-# ---------------------------------------------------------
-class Organization(Base):
-    __tablename__ = "Organizations"
-
-    organization_id = Column(Integer, primary_key=True, autoincrement=True)
-    organization_name = Column(String(255), nullable=False, unique=True)
-    legal_email = Column(String(255))
-    registration_date = Column(Date)
-    status = Column(Enum('active', 'suspended', 'pending'), default='active', nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-    branches = relationship("Branch", back_populates="organization")
-    users = relationship("OrganizationUser", back_populates="organization")
-    customers = relationship("Customer", back_populates="organization")
-    settings = relationship("ApplicationSetting", back_populates="organization")
-    projects = relationship("Project", back_populates="organization")
-    licenses = relationship("License", back_populates="issued_for_org")
-
-
-# ---------------------------------------------------------
-# Branches
-# ---------------------------------------------------------
-class Branch(Base):
-    __tablename__ = "Branches"
-
-    branch_id = Column(Integer, primary_key=True, autoincrement=True)
-    organization_id = Column(Integer, ForeignKey("Organizations.organization_id"), nullable=False)
-    branch_name = Column(String(255), nullable=False)
-    branch_location = Column(String(255))
-    contact_email = Column(String(255))
-    contact_phone = Column(String(255))
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-    organization = relationship("Organization", back_populates="branches")
-    users = relationship("OrganizationUser", back_populates="branch")
-    customers = relationship("Customer", back_populates="branch")
-    projects = relationship("Project", back_populates="branch")
-
-
-# ---------------------------------------------------------
-# Users (Core)
-# ---------------------------------------------------------
 class User(Base):
-    __tablename__ = "Users"
+    __tablename__ = 'user'
 
-    user_id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String(255), nullable=False, unique=True)
-    business_name = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=False, unique=True)
-    phone_number = Column(String(255), nullable=False)
-    location = Column(String(255), nullable=False)
-    logo_path = Column(Text, nullable=False)
-    business_email = Column(String(255), nullable=False)
-    business_phone = Column(String(255), nullable=False)
-    registration_date = Column(Date, nullable=False)
-    status = Column(Enum('active', 'expired', 'trial', 'grace'), default='trial', nullable=False)
-    language = Column(Integer, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-    auth = relationship("Authentication", back_populates="user", uselist=False)
-    subscriptions = relationship("Subscription", back_populates="user")
-    payments = relationship("Payment", back_populates="user")
-    org_links = relationship("OrganizationUser", back_populates="user")
-    settings = relationship("ApplicationSetting", back_populates="updated_by")
-    projects = relationship("Project", back_populates="user")
-    sync_logs = relationship("SyncLog", back_populates="user")
-    licenses = relationship("License", back_populates="issued_for_user")
-
-
-# ---------------------------------------------------------
-# OrganizationUsers (mapping table)
-# ---------------------------------------------------------
-class OrganizationUser(Base):
-    __tablename__ = "OrganizationUsers"
-
-    org_user_id = Column(Integer, primary_key=True, autoincrement=True)
-    organization_id = Column(Integer, ForeignKey("Organizations.organization_id"), nullable=False)
-    branch_id = Column(Integer, ForeignKey("Branches.branch_id"))
-    user_id = Column(Integer, ForeignKey("Users.user_id"), nullable=False)
-    role = Column(Enum('admin', 'manager', 'user'), default='user', nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    user_id = Column(Integer, primary_key=True)
+    username = Column(String, nullable=False)
+    registration_date = Column(DateTime, default=datetime.utcnow)
+    email = Column(String, nullable=False)
+    business_name = Column(String)
+    account_type = Column(String, default="standard")
+    location = Column(String)
+    business_logo = Column(LargeBinary)
+    business_email = Column(String)
+    status = Column(String)
+    org_id = Column(Integer, nullable=True)
+    org_name = Column(String, nullable=True)
+    branch_id = Column(Integer, nullable=True)
+    branch_location = Column(String, nullable=True)
+    role = Column(String, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("organization_id", "user_id", "branch_id", name="org_user_unique"),
+        CheckConstraint(account_type.in_(["enterprise", "standard"]), name="check_account_type"),
+        CheckConstraint(status.in_(["active","expired","grace","trial"]), name="check_user_status"),
+        CheckConstraint(role.in_(["admin","employee"]), name="check_user_role"),
     )
 
-    organization = relationship("Organization", back_populates="users")
-    branch = relationship("Branch", back_populates="users")
-    user = relationship("User", back_populates="org_links")
+    # relationships
+    settings = relationship("ApplicationSettings", back_populates="user", uselist=False)
+    customers = relationship("Customer", back_populates="user")
+    projects = relationship("Project", back_populates="user")
+    invoices = relationship("Invoice", back_populates="user")
+    subscriptions = relationship("Subscription", back_populates="user")
+    auth = relationship("Authentication", back_populates="user", uselist=False)
+    sync_logs = relationship("SyncLog", back_populates="user")
 
 
-# ---------------------------------------------------------
-# Authentication
-# ---------------------------------------------------------
-class Authentication(Base):
-    __tablename__ = "Authentication"
+class ApplicationSettings(Base):
+    __tablename__ = 'application_settings'
 
-    auth_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("Users.user_id"), unique=True, nullable=False)
-    password_hash = Column(String(512), nullable=False)
-    password_salt = Column(String(255))
-    current_jwt = Column(Text)
-    jwt_issued_at = Column(DateTime)
-    device_id = Column(String(255))
-    is_logged_in = Column(Boolean, default=False)
-    last_active = Column(DateTime)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+    id = Column(Integer, primary_key=True)
+    language = Column(String)
+    last_saved_path = Column(String)
+    other_settings = Column(JSON)
+    user_id = Column(Integer, ForeignKey("user.user_id"))
 
-    user = relationship("User", back_populates="auth")
+    __table_args__ = (
+        CheckConstraint(language.in_(["ar","en"]), name="check_language"),
+    )
+
+    user = relationship("User", back_populates="settings")
 
 
-# ---------------------------------------------------------
-# Customers
-# ---------------------------------------------------------
 class Customer(Base):
-    __tablename__ = "Customers"
+    __tablename__ = 'customers'
 
-    customer_id = Column(Integer, primary_key=True, autoincrement=True)
-    organization_id = Column(Integer, ForeignKey("Organizations.organization_id"))
-    branch_id = Column(Integer, ForeignKey("Branches.branch_id"))
-    name = Column(String(255), nullable=False)
-    contact_email = Column(String(255))
-    contact_phone = Column(String(255))
-    address = Column(Text)
-    tax_id = Column(String(255))
-    notes = Column(Text)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+    customer_id = Column(Integer, primary_key=True)
+    full_name = Column(String, nullable=False)
+    date_created = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    phone_number = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    org_id = Column(Integer, nullable=True)
+    user_id = Column(Integer, ForeignKey("user.user_id"), nullable=True)
 
-    organization = relationship("Organization", back_populates="customers")
-    branch = relationship("Branch", back_populates="customers")
+    user = relationship("User", back_populates="customers")
     projects = relationship("Project", back_populates="customer")
 
 
-# ---------------------------------------------------------
-# Licenses
-# ---------------------------------------------------------
-class License(Base):
-    __tablename__ = "Licenses"
+class SystemConfiguration(Base):
+    __tablename__ = 'system_configurations'
 
-    license_id = Column(Integer, primary_key=True, autoincrement=True)
-    license_code = Column(String(255), nullable=False, unique=True)
-    license_plan = Column(Enum('monthly', 'annual', 'lifetime'), nullable=False)
-    issued_for_org_id = Column(Integer, ForeignKey("Organizations.organization_id"))
-    issued_for_user_id = Column(Integer, ForeignKey("Users.user_id"))
-    issued_at = Column(DateTime, nullable=False)
-    expires_at = Column(DateTime)
-    max_seats = Column(Integer, default=1, nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+    system_config_id = Column(Integer, primary_key=True)
+    config_items = Column(JSON)
+    total_wattage = Column(Float)
 
-    issued_for_org = relationship("Organization", back_populates="licenses")
-    issued_for_user = relationship("User", back_populates="licenses")
-    audits = relationship("LicenseAudit", back_populates="license")
-    subscriptions = relationship("Subscription", back_populates="license")
+    projects = relationship("Project", back_populates="system_config")
 
 
-# ---------------------------------------------------------
-# Payments
-# ---------------------------------------------------------
-class Payment(Base):
-    __tablename__ = "Payments"
+class Project(Base):
+    __tablename__ = 'projects'
 
-    payment_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("Users.user_id"), nullable=False)
-    paymed_date = Column(DateTime, nullable=False)
-    payment_method = Column(Enum('bankak','fawry','bnmb','ocash','mycashi','bravo','bede','other'), nullable=False)
-    amount = Column(Integer, nullable=False)
-    transaction_ref = Column(String(255), nullable=False)
-    verified_by = Column(String(255))
-    verification_date = Column(Date)
-    status = Column(Enum('pending','verified','rejected'), default='pending', nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-    user = relationship("User", back_populates="payments")
-    subscriptions = relationship("Subscription", back_populates="payment")
-
-
-# ---------------------------------------------------------
-# Subscriptions
-# ---------------------------------------------------------
-class Subscription(Base):
-    __tablename__ = "Subscriptions"
-
-    subscription_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("Users.user_id"), nullable=False)
-    license_code = Column(String(255), ForeignKey("Licenses.license_code"), nullable=False)
-    plan_type = Column(Enum('trial','monthly','annual','lifetime'), default='trial', nullable=False)
-    start_date = Column(DateTime, nullable=False)
-    end_date = Column(DateTime)
-    grace_period_end = Column(DateTime)
-    is_active = Column(Boolean, default=True)
-    verification_status = Column(Enum('pending','verified','revoked'), default='pending', nullable=False)
-    issued_by = Column(String(255))
-    payment_id = Column(Integer, ForeignKey("Payments.payment_id"))
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-
-    user = relationship("User", back_populates="subscriptions")
-    license = relationship("License", back_populates="subscriptions")
-    payment = relationship("Payment", back_populates="subscriptions")
-
-
-# ---------------------------------------------------------
-# License Audit
-# ---------------------------------------------------------
-class LicenseAudit(Base):
-    __tablename__ = "LicenseAudit"
-
-    audit_id = Column(Integer, primary_key=True, autoincrement=True)
-    license_code = Column(String(255), ForeignKey("Licenses.license_code"), nullable=False)
-    checked_at_local = Column(DateTime, nullable=False)
-    server_time = Column(DateTime)
-    server_signature = Column(String(1024))
-    verification_result = Column(Enum('ok','tampered','expired','unknown'), nullable=False)
-    notes = Column(Text)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-
-    license = relationship("License", back_populates="audits")
-
-
-# ---------------------------------------------------------
-# Application Settings
-# ---------------------------------------------------------
-class ApplicationSetting(Base):
-    __tablename__ = "ApplicationSettings"
-
-    setting_id = Column(Integer, primary_key=True, autoincrement=True)
-    organization_id = Column(Integer, ForeignKey("Organizations.organization_id"))
-    key_name = Column(String(255), nullable=False)
-    value = Column(Text)
-    value_type = Column(Enum('string','number','boolean','json'), default='string')
-    updated_by_user = Column(Integer, ForeignKey("Users.user_id"))
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
+    project_id = Column(Integer, primary_key=True)
+    date_created = Column(DateTime, default=datetime.utcnow)
+    last_edited_date = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    customer_id = Column(Integer, ForeignKey("customers.customer_id"))
+    status = Column(String)
+    system_config_id = Column(Integer, ForeignKey("system_configurations.system_config_id"))
+    user_id = Column(Integer, ForeignKey("user.user_id"))
+    org_id = Column(Integer, nullable=True)
+    project_location = Column(String, nullable=True)
 
     __table_args__ = (
-        UniqueConstraint("organization_id", "key_name"),
+        CheckConstraint(status.in_(["planning","execution","done","archived"]), name="check_project_status"),
     )
 
-    organization = relationship("Organization", back_populates="settings")
-    updated_by = relationship("User", back_populates="settings")
-
-
-# ---------------------------------------------------------
-# Projects
-# ---------------------------------------------------------
-class Project(Base):
-    __tablename__ = "Projects"
-
-    project_id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("Users.user_id"), nullable=False)
-    organization_id = Column(Integer, ForeignKey("Organizations.organization_id"))
-    branch_id = Column(Integer, ForeignKey("Branches.branch_id"))
-    customer_id = Column(Integer, ForeignKey("Customers.customer_id"))
-    client_name = Column(String(255), nullable=False)
-    project_status = Column(Enum('under evaluation','under execution','executed','canceled','other'), nullable=False)
-    created_at = Column(DateTime, nullable=False, default=datetime.now)
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
-    total_cost = Column(Integer)
-    proposal_path = Column(Text)
-    loads_breakdown_path = Column(Text)
-
-    user = relationship("User", back_populates="projects")
-    organization = relationship("Organization", back_populates="projects")
-    branch = relationship("Branch", back_populates="projects")
     customer = relationship("Customer", back_populates="projects")
+    system_config = relationship("SystemConfiguration", back_populates="projects")
+    user = relationship("User", back_populates="projects")
     appliances = relationship("Appliance", back_populates="project")
-    config = relationship("SolarSystemConfig", back_populates="project")
-    items = relationship("ProjectItem", back_populates="project")
+    invoices = relationship("Invoice", back_populates="project")
+    documents = relationship("Document", back_populates="project")
 
 
-# ---------------------------------------------------------
-# Appliances
-# ---------------------------------------------------------
 class Appliance(Base):
-    __tablename__ = "Appliances"
+    __tablename__ = 'appliances'
 
-    appliance_id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(Integer, ForeignKey("Projects.project_id"), nullable=False)
-    appliance_name = Column(Text, nullable=False)
-    wattage = Column(Numeric(8,2), nullable=False)
-    quantiy = Column(Integer, nullable=False)
-    user_time_hours = Column(Numeric(8,2), nullable=False)
-    energy_consumption = Column(Numeric(12,4), nullable=False)
+    appliance_id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.project_id"))
+    appliance_name = Column(String)
+    type = Column(String)
+    qty = Column(Integer)
+    use_hours_night = Column(Float)
+    wattage = Column(Float)
+    energy_consumption = Column(Float)
 
     project = relationship("Project", back_populates="appliances")
 
 
-# ---------------------------------------------------------
-# Solar System Config
-# ---------------------------------------------------------
-class SolarSystemConfig(Base):
-    __tablename__ = "SolarSystemConfig"
+class Invoice(Base):
+    __tablename__ = 'invoices'
 
-    config_id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(Integer, ForeignKey("Projects.project_id"), nullable=False)
-    panel_brand = Column(String(255), nullable=False)
-    panel_type = Column(String(255), nullable=False)
-    panel_wattage = Column(Numeric(8,2), nullable=False)
-    panel_connection = Column(Enum('series','parallel','mixed'), nullable=False)
-    inverter_brand = Column(String(255), nullable=False)
-    inverter_capacity = Column(Numeric(8,2), nullable=False)
-    battery_brand = Column(String(255), nullable=False)
-    battery_type = Column(Enum('liquid','dry','lithium','mixed'), nullable=False)
-    battery_connection = Column(Enum('series','parallel','mixed'), nullable=False)
-    total_system_cost = Column(Integer, nullable=False)
+    invoice_id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.project_id"))
+    user_id = Column(Integer, ForeignKey("user.user_id"))
+    amount = Column(Float)
+    status = Column(String)
+    issued_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    project = relationship("Project", back_populates="config")
+    __table_args__ = (
+        CheckConstraint(status.in_(["paid","pending","partial"]), name="check_invoice_status"),
+    )
 
-
-# ---------------------------------------------------------
-# Project Items
-# ---------------------------------------------------------
-class ProjectItem(Base):
-    __tablename__ = "ProjectItems"
-
-    item_id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(Integer, ForeignKey("Projects.project_id"), nullable=False)
-    item_category = Column(Enum('panel','inverter','battery','accessory'), nullable=False)
-    item_name = Column(String(255), nullable=False)
-    unit_price = Column(Integer, nullable=False)
-    quantity = Column(Integer, nullable=False)
-    total_price = Column(Integer, nullable=False)
-
-    project = relationship("Project", back_populates="items")
+    project = relationship("Project", back_populates="invoices")
+    user = relationship("User", back_populates="invoices")
+    payments = relationship("Payment", back_populates="invoice")
 
 
-# ---------------------------------------------------------
-# Sync Log
-# ---------------------------------------------------------
+class Payment(Base):
+    __tablename__ = 'payments'
+
+    payment_id = Column(Integer, primary_key=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.invoice_id"))
+    date_created = Column(DateTime, default=datetime.utcnow)
+    last_edited_date = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    amount = Column(Float)
+    method = Column(String)
+
+    invoice = relationship("Invoice", back_populates="payments")
+
+
+class SubscriptionPayment(Base):
+    __tablename__ = 'subscription_payments'
+
+    payment_id = Column(Integer, primary_key=True)
+    amount = Column(Float)
+    payment_method = Column(String)
+    payment_date = Column(DateTime, default=datetime.utcnow)
+    transaction_reference = Column(LargeBinary)
+    status = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        CheckConstraint(status.in_(["under_processing","approved","declined"]), name="check_subscription_payment_status"),
+    )
+
+    subscriptions = relationship("Subscription", back_populates="payment")
+
+
+class Subscription(Base):
+    __tablename__ = 'subscriptions'
+
+    subscription_id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("user.user_id"))
+    payment_id = Column(Integer, ForeignKey("subscription_payments.payment_id"))
+    date_created = Column(DateTime, default=datetime.utcnow)
+    expiration_date = Column(DateTime)
+    grace_period_end = Column(DateTime)
+    type = Column(String)
+    status = Column(String)
+    license_code = Column(String)
+
+    __table_args__ = (
+        CheckConstraint(type.in_(["monthly","annual","lifetime"]), name="check_subscription_type"),
+        CheckConstraint(status.in_(["active","expired"]), name="check_subscription_status"),
+    )
+
+    user = relationship("User", back_populates="subscriptions")
+    payment = relationship("SubscriptionPayment", back_populates="subscriptions")
+
+
+class Document(Base):
+    __tablename__ = 'documents'
+
+    doc_id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.project_id"))
+    date_created = Column(DateTime, default=datetime.utcnow)
+    last_edited_date = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    doc_type = Column(String)
+    file_name = Column(String)
+    file_blob = Column(LargeBinary)
+
+    __table_args__ = (
+        CheckConstraint(doc_type.in_(["Invoice","Project Breakdown"]), name="check_document_type"),
+    )
+
+    project = relationship("Project", back_populates="documents")
+
+
+class Authentication(Base):
+    __tablename__ = 'authentication'
+
+    auth_id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("user.user_id"))
+    password_hash = Column(String)
+    password_salt = Column(String)
+    current_jwt = Column(String, nullable=True)
+    jwt_issued_at = Column(DateTime)
+    device_id = Column(String, nullable=True)
+    is_logged_in = Column(Boolean)
+    last_active = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="auth")
+
+
 class SyncLog(Base):
-    __tablename__ = "SyncLog"
+    __tablename__ = 'sync_log'
 
-    sync_id = Column(Integer, primary_key=True, autoincrement=True)
-    sync_date = Column(DateTime, nullable=False)
-    user_id = Column(Integer, ForeignKey("Users.user_id"), nullable=False)
-    sync_type = Column(Enum('download','upload'), nullable=False)
-    data_type = Column(Enum('projects','proposals','sales','settings'), nullable=False)
-    status = Column(Enum('success','failed'), nullable=False)
-    notes = Column(Text)
+    sync_id = Column(Integer, primary_key=True)
+    sync_date = Column(DateTime, default=datetime.utcnow)
+    sync_type = Column(String)
+    data_type = Column(String)
+    status = Column(String)
+    user_id = Column(Integer, ForeignKey("user.user_id"))
+
+    __table_args__ = (
+        CheckConstraint(sync_type.in_(["full","incremental"]), name="check_sync_type"),
+        CheckConstraint(data_type.in_(["projects","proposals","sales","settings"]), name="check_data_type"),
+        CheckConstraint(status.in_(["success","failed"]), name="check_sync_status"),
+    )
 
     user = relationship("User", back_populates="sync_logs")

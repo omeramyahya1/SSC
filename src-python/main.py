@@ -4,12 +4,16 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from routes import all_blueprints
 from werkzeug.exceptions import HTTPException
+from db_setup import create_db_and_tables
 
 
 # --- Flask App Setup ---
 def create_app():
     app = Flask(__name__)
     
+    # On startup, ensure the database and its tables are created.
+    create_db_and_tables()
+
     # Register all blueprints dynamically
     for bp in all_blueprints:
         app.register_blueprint(bp, url_prefix=bp.url_prefix)
@@ -21,6 +25,9 @@ app = create_app()
 # Apply CORS to allow your React frontend (running on a different port) 
 # to talk to the Flask server. In production, you'd restrict this to localhost:[Tauri Port].
 CORS(app)
+
+# --- PDF Generation Endpoints ---
+
 
 # --- Health Check (Crucial for Sidecar integration testing) ---
 @app.route('/health', methods=['GET'])

@@ -1,12 +1,19 @@
 # serializers.py
 
 from datetime import datetime, date
+import base64
 from sqlalchemy.inspection import inspect
 
 def serialize_value(value):
-    """Convert Python/SQLAlchemy values into JSON-friendly values."""
+    """
+    Convert Python/SQLAlchemy values into JSON-friendly values.
+    Handles datetime, date, and bytes objects.
+    """
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+    if isinstance(value, bytes):
+        # Encode bytes to a Base64 string to make it JSON serializable
+        return base64.b64encode(value).decode('utf-8')
     return value
 
 def model_to_dict(obj, include_relationships=False, backrefs=False):
