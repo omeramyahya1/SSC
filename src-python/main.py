@@ -50,8 +50,9 @@ def handle_exception(e):
     # Now you're handling non-HTTP exceptions only
     return jsonify(error=f"An unexpeced error occured: {str(e)}"), 500
 
-# --- API Shutdown Hook (Useful during development) ---
+# --- API Shutdown Hook (used by Tauri) ---
 def shutdown_server():
+    """Gracefully shutdown the Flask server."""
     func = request.environ.get('werkzeug.server.shutdown')
     if func is None:
         raise RuntimeError('Not running with the Werkzeug Server')
@@ -64,5 +65,5 @@ def shutdown():
 
 # --- Run the Flask app ---
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    app.run(port=5000, debug=False)
 
