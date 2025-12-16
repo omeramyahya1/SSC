@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run build:py && tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "build:py": "src-python/.venv/bin/python -m PyInstaller src-python/main.py --name python-sidecar-x86_64-unknown-linux-gnu --onefile --distpath src-tauri --clean"
   },
   "dependencies": {
     "react": "^19.1.0",
