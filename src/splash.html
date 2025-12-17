@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Splash</title>
+  <style>
+    @font-face {
+      font-family: "inter";
+      src: url("assets/fonts/Inter/Inter-VariableFont_opsz\,wght.ttf") format("ttf-variations");
+      font-weight: 100 900;
+      font-display: swap;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+
+    }
+
+    .splash-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+      background-color: "#E9F5FF";
+    }
+
+    .non-selectable {
+    -webkit-user-select: none; /* Safari */
+    -ms-user-select: none;     /* IE 10 and IE 11 */
+    user-select: none;         /* Standard syntax */
+    cursor: default;           /* Optional: changes cursor from text selection icon to default pointer */
+    }
+
+    .splash-logo {
+      width: 120px;
+      height: auto;
+      margin-bottom: 1rem;
+    }
+
+    .splash-container h1 {
+      font-family: "inter";
+      font-size: 2rem;
+      font-weight: bold;
+      color: "#1F1f1f";
+      margin: 0;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="non-selectable splash-container">
+    <img src="/ssc.svg" alt="Logo" class="splash-logo">
+    <h1>SSC</h1>
+  </div>
+
+  <script>
+    // window.addEventListener('DOMContentLoaded', async () => {
+    //   await new Promise(r => setTimeout(r, 3000))
+    //   console.log("Wating")
+    //   try {
+    //     const invoke = window.__TAURI__.core.invoke;
+    //     await invoke("splash_screen");
+    //     console.log("Finnished")
+    //   } catch (e) {
+    //     console.error("Something went Wrong", e)
+    //   }
+    // });
+  </script>
+
+
+
+
+</body>
+</html>

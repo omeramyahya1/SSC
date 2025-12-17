@@ -1,116 +1,89 @@
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafb);
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* 2. Global Variables */
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
+  /* Brand Colors */
+  --color-primary: #1156B0;
+  --color-primary-light: #93BFEF;
+  --color-primary-lighter: #E9F5FF;
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
+  /* Neutral & Backgrounds */
+  --color-text-main: #1F1F1F;
+  --color-bg: #FFFFFF;
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
+  /* Semantic Colors */
+  --color-success: #4caf50;
+  --color-error: #ef5350;
+  --color-warning: #ff9800;
+  --color-info: #03a9f4;
+
+  /* Typography & Design Tokens */
+  --font-primary: 'Inter', 'Noto Kufi Arabic', sans-serif;
+  --radius-base: 6px; /* Midpoint of 4px - 8px */
 }
 
-.container {
-  margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
+/* When language is Arabic, prioritize Noto Kufi */
+[lang="ar"] {
+  font-family: 'Noto Kufi Arabic', sans-serif;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
+/* When language is English, prioritize Inter */
+[lang="en"] {
+  font-family: 'Inter';
 }
 
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
-  cursor: pointer;
-}
-
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-input,
-button {
-  outline: none;
-}
-
-#greet-input {
-  margin-right: 5px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
+@layer base {
+  html {
+    /* Ensures the alignment follows the 'dir' attribute automatically */
+    text-align: start;
   }
 
-  a:hover {
-    color: #24c8db;
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-main);
+    font-family: var(--font-primary);
+    
+    /* Compact Layout Settings */
+    line-height: 1.4;
+    font-size: 14px;
+    
+    /* Font Smoothing */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  input,
-  button {
+  /* Reset heading weights to work better with Noto/Inter mix */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    color: var(--color-text-main);
+  }
+}
+
+/* 3. Utility Component Classes (Optional usage) */
+@layer components {
+  /* Flat Button Style */
+  .btn-primary {
+    background-color: var(--color-primary);
     color: #ffffff;
-    background-color: #0f0f0f98;
+    border-radius: var(--radius-base);
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
   }
-  button:active {
-    background-color: #0f0f0f69;
+
+  .btn-secondary {
+    background-color: white;
+    color: #ffffff;
+    border-radius: var(--radius-base);
+    border: blue;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+  }
+
+  .btn-primary:hover {
+    /* Manually darkening #1156B0 slightly for hover effect */
+    background-color: #0d4691; 
   }
 }

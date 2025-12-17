@@ -1,52 +1,66 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
-
-import { Button } from "./components/ui/button";
+import { useTranslation } from "react-i18next";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
+  const { t, i18n } = useTranslation();
+
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'en' ? 'ar': 'en';
+    i18n.changeLanguage(newLang)
   }
 
+  async function waitForBackend() {
+  while (true) {
+    try {
+      const res = await fetch("http://localhost:5000/health");
+      if (res.ok) {
+        return;
+      }
+    } catch {
+      // backend not ready yet
+    }
+
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
+
+
+useEffect(() => {
+  let started = false;
+  if (started) return;
+  started = true;
+
+  (async () => {
+    while (true) {
+      try {
+        const res = await fetch("http://localhost:5000/health");
+        if (res.ok) break;
+      } catch {}
+      await new Promise(r => setTimeout(r, 500));
+    }
+    await invoke("splash_screen");
+  })();
+}, []);
+
+
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
+    <main>
+      <div className="p-4">
+      <h1 className="text-2xl font-bold">{t("welcome")}</h1>
+      <h1 className="text-start font-semibold">{t("test")}</h1>
+      <p className="text-neutral mt-2">{t('description')}</p>
+      
+      <button 
+        onClick={toggleLanguage}
+        className="btn-primary mt-4"
       >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <Button type="submit" onClick={(e) => setGreetMsg(name)}>Greet</Button>
-      </form>
-      <p>{greetMsg}</p>
-      <p className="text-3xl font-bold">Hello World</p>
+        {i18n.language === 'en' ? 'تحويل للعربية' : 'Switch to English'}
+      </button>
+    </div>
     </main>
   );
 }

@@ -5,6 +5,8 @@ from flask_cors import CORS
 from routes import all_blueprints
 from werkzeug.exceptions import HTTPException
 from db_setup import create_db_and_tables
+import signal
+import os
 
 
 # --- Flask App Setup ---
@@ -51,19 +53,12 @@ def handle_exception(e):
     return jsonify(error=f"An unexpeced error occured: {str(e)}"), 500
 
 # --- API Shutdown Hook (used by Tauri) ---
-def shutdown_server():
-    """Gracefully shutdown the Flask server."""
-    func = request.environ.get('werkzeug.server.shutdown')
-    if func is None:
-        raise RuntimeError('Not running with the Werkzeug Server')
-    func()
-
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
-    shutdown_server()
-    return 'Server shutting down...'
+    os.kill(os.getpid(), signal.SIGTERM)
+    return "Shutting down", 200
 
 # --- Run the Flask app ---
 if __name__ == "__main__":
-    app.run(port=5000, debug=False)
+    app.run(port=5000, debug=True, use_reloader=False)
 

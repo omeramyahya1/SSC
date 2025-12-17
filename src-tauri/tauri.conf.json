@@ -12,12 +12,26 @@
   },
 
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
-        "title": "ssc",
-        "width": 800,
-        "height": 600
-      }
+      "label": "main",
+      "title": "ssc",
+      "width": 800,
+      "height": 600,
+      "center": true,
+      "visible": false
+    },
+      {
+      "label": "splash",
+      "url": "src/splash.html",
+      "width": 400,
+      "height": 300,
+      "decorations": false,
+      "resizable": false,
+      "visible": true,
+      "center": true
+    }
     ],
     "security": {
       "csp": null
