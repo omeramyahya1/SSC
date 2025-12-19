@@ -13,6 +13,7 @@ module.exports = {
           DEFAULT: "var(--color-primary)",       // #1156B0
           light: "var(--color-primary-light)",   // #93BFEF
           lighter: "var(--color-primary-lighter)", // #E9F5FF
+          gray: "var(--color-primary-gray)", //#E2E2E2
         },
         neutral: {
           DEFAULT: "var(--color-text-main)",     // #1F1F1F (Text, lines, dark)

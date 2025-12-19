@@ -6,7 +6,7 @@
   /* Brand Colors */
   --color-primary: #1156B0;
   --color-primary-light: #93BFEF;
-  --color-primary-lighter: #E9F5FF;
+  --color-primary-gray: #E2E2E2;
 
   /* Neutral & Backgrounds */
   --color-text-main: #1F1F1F;
@@ -22,6 +22,33 @@
   --font-primary: 'Inter', 'Noto Kufi Arabic', sans-serif;
   --radius-base: 6px; /* Midpoint of 4px - 8px */
 }
+
+*:not(input, textarea) {
+  /* Standard syntax */
+  user-select: none;
+  
+  /* Vendor prefixes for broader compatibility */
+  -webkit-user-select: none; /* Safari, Chrome, Opera */
+  -moz-user-select: none;    /* Firefox */
+  -ms-user-select: none;     /* IE 10+ */
+  -khtml-user-select: none;  /* Konqueror HTML */
+}
+
+/* Ensure input and textarea have default (selectable) behavior */
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  -khtml-user-select: text;
+}
+
+img {
+  -webkit-user-drag: none; /* Chrome, Safari, Edge */
+  -khtml-user-drag: none; /* Konqueror HTML */
+  -moz-user-drag: none; /* Firefox (older versions) */
+}
+
 
 /* When language is Arabic, prioritize Noto Kufi */
 [lang="ar"] {

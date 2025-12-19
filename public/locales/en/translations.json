@@ -1,5 +1,14 @@
 {
   "welcome": "Welcome to the App",
   "description": "This is a bilingual desktop application.",
-  "test": "This is a test, Hello World!"
+  "test": "This is a test, Hello World!",
+  "login.banner.title": "Let's get started",
+  "login.create_account_link": "Create a new account",
+  "login.need_help": "Need Help?",
+  "login.form_title": "Welcome Back",
+  "login.form_subtitle": "Please enter your details to sign in.",
+  "login.email_label": "Email Address",
+  "login.password_label": "Password",
+  "login.submit_button": "Login",
+  "login.forgot_password": "Forgot password?"
 }

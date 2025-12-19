@@ -1,5 +1,15 @@
 {
   "welcome": "مرحباً بك في التطبيق",
   "description": "هذا تطبيق سطح مكتب ثنائي اللغة.",
-  "test": "مرحبا هذه تجربة"
+  "test": "مرحبا هذه تجربة",
+  "login.banner.title": "لنبدأ الآن",
+  "login.create_account_link": "إنشاء حساب جديد",
+  "login.need_help": "هل تحتاج إلى مساعدة؟",
+  "login.form_title": "مرحبًا بعودتك",
+  "login.form_subtitle": "يرجى إدخال بياناتك لتسجيل الدخول.",
+  "login.email_label": "البريد الإلكتروني",
+  "login.password_label": "كلمة المرور",
+  "login.submit_button": "تسجيل الدخول",
+  "login.forgot_password": "هل نسيت كلمة المرور؟"
+
 }
