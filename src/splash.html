@@ -50,30 +50,31 @@
       margin: 0;
     }
 
+    .splash-status {
+      font-family: "inter";
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 1rem;
+      position: absolute;
+      bottom: 2rem;
+    }
+
   </style>
 </head>
 <body>
   <div class="non-selectable splash-container">
     <img src="/ssc.svg" alt="Logo" class="splash-logo">
     <h1>SSC</h1>
+    <p id="status-message" class="splash-status">Initializing...</p>
   </div>
 
-  <script>
-    // window.addEventListener('DOMContentLoaded', async () => {
-    //   await new Promise(r => setTimeout(r, 3000))
-    //   console.log("Wating")
-    //   try {
-    //     const invoke = window.__TAURI__.core.invoke;
-    //     await invoke("splash_screen");
-    //     console.log("Finnished")
-    //   } catch (e) {
-    //     console.error("Something went Wrong", e)
-    //   }
-    // });
+  <script type="module">
+    import { runSplashScreenLogic } from '/src/splash.tsx';
+    
+    // Run the splash screen logic as soon as the DOM is ready.
+    document.addEventListener('DOMContentLoaded', () => {
+      runSplashScreenLogic();
+    });
   </script>
-
-
-
-
 </body>
 </html>
