@@ -58,15 +58,15 @@ export async function runSplashScreenLogic() {
       await useUserStore.getState().fetchUser(parseInt(userId, 10));
       // In a real scenario you would fetch settings related to the user
       // For now we will fetch all settings as an example
-      await useApplicationSettingsStore.getState().fetchItems();
+      await useApplicationSettingsStore.getState().fetchSettings();
 
 
       // Persist the loaded data to localStorage for the main window
-      const { userData } = useUserStore.getState();
-      const { items: settings } = useApplicationSettingsStore.getState();
+      const { currentUser } = useUserStore.getState();
+      const { settings } = useApplicationSettingsStore.getState();
       
-      if (userData) {
-        localStorage.setItem('preloaded-user', JSON.stringify(userData));
+      if (currentUser) {
+        localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
       }
       if (settings && settings.length > 0) {
         // Assuming we store the settings for the logged in user, or the first one for this example

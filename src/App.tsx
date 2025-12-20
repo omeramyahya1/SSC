@@ -44,7 +44,7 @@ function App() {
     if (preloadedUser) {
       try {
         const userData = JSON.parse(preloadedUser);
-        useUserStore.setState({ userData, isLoading: false });
+        useUserStore.setState({ currentUser: userData, isLoading: false });
         console.log('Hydrated user data from splash screen:', userData);
       } catch (e) {
         console.error("Failed to parse preloaded user data:", e);
@@ -54,9 +54,9 @@ function App() {
     if (preloadedSettings) {
       try {
         const settingsData = JSON.parse(preloadedSettings);
-        // Since settings are also a list, we set the 'items' state.
+        // Since settings are also a list, we set the 'settings' state.
         // And we assume here we only loaded one settings object.
-        useApplicationSettingsStore.setState({ items: [settingsData], isLoading: false });
+        useApplicationSettingsStore.setState({ settings: [settingsData], isLoading: false });
         console.log('Hydrated settings data from splash screen:', settingsData);
       } catch (e) {
         console.error("Failed to parse preloaded settings data:", e);

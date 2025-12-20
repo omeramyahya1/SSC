@@ -1,14 +1,18 @@
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useUserStore } from "@/store/useUserStore";
+import { useApplicationSettingsStore } from "@/store/useApplicationSettingsStore";
 
 
 export default function ForgotPassword() {
-    const { userData, isLoading, fetchUser } = useUserStore();
+    const { currentUser, isLoading: isUserLoading, fetchUser } = useUserStore();
+    const { currentSetting, isLoading: areSettingsLoading, fetchSetting } = useApplicationSettingsStore()
     
     useEffect(() => {
         fetchUser(1);
-    }, [fetchUser])
+        fetchSetting(1);
+
+    }, [fetchUser, fetchSetting])
 
     return (
         <div>
@@ -16,11 +20,14 @@ export default function ForgotPassword() {
                 Forgot Passowrd
             </h1>
             <div>
-                {isLoading ? (
+                {isUserLoading || areSettingsLoading ? (
                     //show a spinner or a progress animation
                     <p>Fethcing Data...</p>
                 ) : (
-                    <div>{JSON.stringify(userData, null, 2)}</div>
+                    <>
+                    <div>{JSON.stringify(currentUser, null, 2)}</div>
+                    <div>{JSON.stringify(currentSetting, null, 2)}</div>
+                    </>
                 )}
             </div>
             <button 

@@ -1,15 +1,14 @@
 // src/pages/CustomersPage.tsx
 import { useEffect } from 'react';
-import { useCustomerStore } from '@/store/useCustomerStore';
-import { NewCustomerData } from '@/api/customerService';
+import { useCustomerStore, NewCustomerData } from '@/store/useCustomerStore';
 
 export default function CustomersPage() {
-  const { items: customers, isLoading, error, fetchItems, createItem } = useCustomerStore();
+  const { customers, isLoading, error, fetchCustomers, createCustomer } = useCustomerStore();
 
   // Fetch customers when the component mounts
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    fetchCustomers();
+  }, [fetchCustomers]);
 
   // Handler to create a new customer with dummy data
   const handleCreateCustomer = () => {
@@ -20,7 +19,7 @@ export default function CustomersPage() {
       // org_id and user_id can be set according to your application's logic
     };
     
-    createItem(newCustomer)
+    createCustomer(newCustomer)
       .then(() => {
         console.log('Customer created successfully!');
       })

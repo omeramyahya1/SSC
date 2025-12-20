@@ -1,12 +1,120 @@
 // src/store/useAuthenticationStore.ts
-import { authenticationService, Authentication, NewAuthenticationData } from '@/api/authenticationService';
-import { createCrudStore } from './createCrudStore';
+import { create } from 'zustand';
+import api from '@/api/client';
 
-/**
- * The Zustand store for managing authentication data records.
- *
- * Note: This store is for direct CRUD management of authentication records,
- * which may be useful for admin panels. For user-facing login/logout,
- * a more specialized store (`useAuthStore` or similar) would be recommended.
- */
-export const useAuthenticationStore = createCrudStore<Authentication, NewAuthenticationData>(authenticationService);
+// --- 1. Define Types ---
+
+export interface Authentication {
+  auth_id: number;
+  user_id: number;
+  password_hash: string;
+  password_salt: string;
+  current_jwt?: string | null;
+  jwt_issued_at: string;
+  device_id?: string | null;
+  is_logged_in: boolean;
+  last_active: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NewAuthenticationData = Omit<Authentication, 'auth_id' | 'created_at' | 'updated_at'>;
+
+const resource = '/authentications';
+
+// --- 2. Define Store ---
+
+export interface AuthenticationStore {
+  authentications: Authentication[];
+  currentAuthentication: Authentication | null;
+  isLoading: boolean;
+  error: string | null;
+  fetchAuthentications: () => Promise<void>;
+  fetchAuthentication: (id: number) => Promise<void>;
+  createAuthentication: (data: NewAuthenticationData) => Promise<Authentication | undefined>;
+  updateAuthentication: (id: number, data: Partial<NewAuthenticationData>) => Promise<Authentication | undefined>;
+  deleteAuthentication: (id: number) => Promise<void>;
+  setCurrentAuthentication: (auth: Authentication | null) => void;
+}
+
+export const useAuthenticationStore = create<AuthenticationStore>((set) => ({
+  authentications: [],
+  currentAuthentication: null,
+  isLoading: false,
+  error: null,
+
+  setCurrentAuthentication: (auth) => {
+    set({ currentAuthentication: auth });
+  },
+
+  fetchAuthentications: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.get<Authentication[]>(resource);
+      set({ authentications: data, isLoading: false });
+    } catch (e: any) {
+      const errorMsg = e.message || "Failed to fetch authentications";
+      set({ error: errorMsg, isLoading: false });
+      console.error(errorMsg, e);
+    }
+  },
+
+  fetchAuthentication: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.get<Authentication>(`${resource}/${id}`);
+      set({ currentAuthentication: data, isLoading: false });
+    } catch (e: any) {
+      const errorMsg = e.message || `Failed to fetch authentication ${id}`;
+      set({ error: errorMsg, isLoading: false });
+      console.error(errorMsg, e);
+    }
+  },
+
+  createAuthentication: async (newAuthData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.post<Authentication>(resource, newAuthData);
+      set((state) => ({ authentications: [...state.authentications, data], isLoading: false }));
+      return data;
+    } catch (e: any) {
+      const errorMsg = e.message || "Failed to create authentication";
+      set({ error: errorMsg, isLoading: false });
+      console.error(errorMsg, e);
+      return undefined;
+    }
+  },
+
+  updateAuthentication: async (id, updatedData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.put<Authentication>(`${resource}/${id}`, updatedData);
+      set((state) => ({
+        authentications: state.authentications.map((a) => (a.auth_id === id ? data : a)),
+        currentAuthentication: state.currentAuthentication?.auth_id === id ? data : state.currentAuthentication,
+        isLoading: false,
+      }));
+      return data;
+    } catch (e: any) {
+      const errorMsg = e.message || `Failed to update authentication ${id}`;
+      set({ error: errorMsg, isLoading: false });
+      console.error(errorMsg, e);
+      return undefined;
+    }
+  },
+
+  deleteAuthentication: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.delete(`${resource}/${id}`);
+      set((state) => ({
+        authentications: state.authentications.filter((a) => a.auth_id !== id),
+        isLoading: false,
+      }));
+    } catch (e: any) {
+      const errorMsg = e.message || `Failed to delete authentication ${id}`;
+      set({ error: errorMsg, isLoading: false });
+      console.error(errorMsg, e);
+    }
+  },
+}));
