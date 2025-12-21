@@ -8,17 +8,53 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuthenticationStore } from "@/store/useAuthenticationStore";
+import { useUserStore } from "@/store/useUserStore";
+import api from '@/api/client';
+import { LoginResponse } from '@/store/useAuthenticationStore'; // Assuming LoginResponse is now exported from the store
 
 // Note: Ensure you place actual svg files in your /public/assets/ folder
 // placeholders used here: globe.svg, eye.svg, eye-slash.svg, logo-ssc.svg
 
 export default function LoginScreen() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const { setCurrentUser } = useUserStore();
+  const { setCurrentAuthentication } = useAuthenticationStore();
 
   const toggleLanguage = (lang: string) => {
     i18n.changeLanguage(lang);
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(''); // Clear previous errors
+
+    try {
+      const response = await api.post<LoginResponse>('/authentications/login', { "email": email, "password": password });
+      
+      const { user, authentication } = response.data;
+
+      // Update Zustand stores
+      setCurrentUser(user);
+      setCurrentAuthentication(authentication);
+
+      // Redirect to dashboard
+      navigate("/dashboard");
+
+    } catch (err: any) {
+      console.error("Login failed:", err);
+      if (err.response && err.response.data && err.response.data.error) {
+        setError(err.response.data.error);
+      } else {
+        setError("An unexpected error occurred during login.");
+      }
+    }
   };
 
   return (
@@ -89,7 +125,8 @@ export default function LoginScreen() {
             <p className="text-neutral/60 mt-2">{t('login.form_subtitle', 'Please enter your details to sign in.')}</p>
           </div>
 
-          <form className="space-y-5" onSubmit={() => {}}>
+          <form className="space-y-5" onSubmit={handleLogin}>
+            {error && <p className="text-red-500 text-center">{error}</p>}
             {/* Email Input */}
             <div className="space-y-1.5">
               <label className="block text-sm font-bold text-neutral/80 ps-1">
@@ -99,6 +136,8 @@ export default function LoginScreen() {
                 type="email" 
                 placeholder="name@example.com"
                 className="w-full px-4 py-3 border border-neutral/20 rounded-base focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
@@ -113,6 +152,8 @@ export default function LoginScreen() {
                   placeholder="••••••••"
                   // pe-12 adds padding to the end to make room for the button
                   className="w-full ps-4 pe-12 py-3 border border-neutral/20 rounded-base focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
                 {/* Toggle Visibility Button - positioned at the end */}
                 <button 
@@ -131,7 +172,7 @@ export default function LoginScreen() {
             </div>
 
             {/* Login Button */}
-            <button className="w-full bg-primary text-white py-3.5 rounded-base font-bold text-lg shadow-sm hover:bg-primary/90 hover:shadow-md transition-all active:scale-[0.99] mt-4">
+            <button type="submit" className="w-full bg-primary text-white py-3.5 rounded-base font-bold text-lg shadow-sm hover:bg-primary/90 hover:shadow-md transition-all active:scale-[0.99] mt-4">
               {t('login.submit_button', 'Login')}
             </button>
 

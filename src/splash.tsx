@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
+import { useAuthenticationStore } from "./store/useAuthenticationStore";
 
 /**
  * Updates the status message element on the splash.html page.
@@ -50,12 +51,12 @@ export async function runSplashScreenLogic() {
     // 3. Load required data
     updateStatus('Loading...');
     
-    // For now, we'll assume a user ID might be stored. If not, this will be skipped.
-    // In a real app, you'd fetch based on a stored session token.
-    const userId = localStorage.getItem('userId'); 
-    if (userId) {
+    const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
+    
+    if (latestAuth && latestAuth.user_id) {
+      const userId = latestAuth.user_id;
       // Fetch user data and settings
-      await useUserStore.getState().fetchUser(parseInt(userId, 10));
+      await useUserStore.getState().fetchUser(userId);
       // In a real scenario you would fetch settings related to the user
       // For now we will fetch all settings as an example
       await useApplicationSettingsStore.getState().fetchSettings();

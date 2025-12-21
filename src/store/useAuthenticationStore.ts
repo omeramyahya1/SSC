@@ -1,6 +1,7 @@
 // src/store/useAuthenticationStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { User } from './useUserStore'; // Import User type from useUserStore
 
 // --- 1. Define Types ---
 
@@ -22,6 +23,30 @@ export type NewAuthenticationData = Omit<Authentication, 'auth_id' | 'created_at
 
 const resource = '/authentications';
 
+// Login Response Types (matching auth_schemas.py)
+export interface LoginResponseAuthentication {
+    auth_id: number;
+    user_id: number;
+    is_logged_in: boolean;
+    current_jwt: string | null;
+    jwt_issued_at: string | null;
+    device_id: string | null;
+    last_active: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+// User type is already defined in useUserStore, so we can extend it or use it directly
+// For consistency with Python schema, creating a new interface that maps directly to the response
+export interface LoginResponseUser extends User {}
+
+
+export interface LoginResponse {
+    user: LoginResponseUser;
+    authentication: LoginResponseAuthentication;
+}
+
+
 // --- 2. Define Store ---
 
 export interface AuthenticationStore {
@@ -31,6 +56,7 @@ export interface AuthenticationStore {
   error: string | null;
   fetchAuthentications: () => Promise<void>;
   fetchAuthentication: (id: number) => Promise<void>;
+  fetchLatestAuthentication: () => Promise<Authentication | undefined>;
   createAuthentication: (data: NewAuthenticationData) => Promise<Authentication | undefined>;
   updateAuthentication: (id: number, data: Partial<NewAuthenticationData>) => Promise<Authentication | undefined>;
   deleteAuthentication: (id: number) => Promise<void>;
@@ -68,6 +94,20 @@ export const useAuthenticationStore = create<AuthenticationStore>((set) => ({
       const errorMsg = e.message || `Failed to fetch authentication ${id}`;
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
+    }
+  },
+
+  fetchLatestAuthentication: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.get<Authentication>(`${resource}/latest`);
+      set({ currentAuthentication: data, isLoading: false });
+      return data;
+    } catch (e: any) {
+      const errorMsg = e.message || `Failed to fetch latest authentication`;
+      set({ error: errorMsg, isLoading: false, currentAuthentication: null });
+      console.error(errorMsg, e);
+      return undefined;
     }
   },
 

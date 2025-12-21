@@ -4,6 +4,8 @@ from functools import wraps
 from flask import g, jsonify
 from contextlib import contextmanager
 from db_setup import SessionLocal
+import hashlib
+import os
 
 # Context manager to get a database session
 
@@ -41,5 +43,28 @@ def inject_db_session(func):
             print(f"Database error during route execution: {e}")
             return jsonify({"error": "An internal database error occurred."}), 500
         
-        return decorated_function
+    return decorated_function
 
+# Password Hashing Utilities
+def generate_salt():
+    """Generates a random salt for password hashing."""
+    return os.urandom(16).hex() # 16 bytes = 32 hex characters
+
+def hash_password(password, salt):
+    """Hashes a password with the given salt using SHA256."""
+    # Encode password and salt to bytes before hashing
+    password_bytes = password.encode('utf-8')
+    salt_bytes = salt.encode('utf-8')
+    hashed_password = hashlib.sha256(salt_bytes + password_bytes).hexdigest()
+    return hashed_password
+
+def verify_password(password, salt, stored_hash):
+    """Verifies a password against a stored hash and salt."""
+    return hash_password(password, salt) == stored_hash
+
+if __name__ == "__main__":
+    password = "Abcd1234"
+    salt = generate_salt()
+    hash = hash_password(password=password, salt=salt)
+
+    print(salt, '\n', hash)
