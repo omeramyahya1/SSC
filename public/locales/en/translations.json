@@ -10,5 +10,7 @@
   "login.email_label": "Email Address",
   "login.password_label": "Password",
   "login.submit_button": "Login",
-  "login.forgot_password": "Forgot password?"
+  "login.forgot_password": "Forgot password?",
+  "login.welcome": "Welcome to our platform powered by Sudan’s resilience and inspired by its sun. Built to turn energy into impact and ideas into action.",
+  "login.validateEmail": "Please enter a valid email address."
 }

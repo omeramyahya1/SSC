@@ -10,7 +10,7 @@
 
   /* Neutral & Backgrounds */
   --color-text-main: #1F1F1F;
-  --color-bg: #FFFFFF;
+  --color-bg: rgb(241, 245, 249);
 
   /* Semantic Colors */
   --color-success: #4caf50;
@@ -20,7 +20,7 @@
 
   /* Typography & Design Tokens */
   --font-primary: 'Inter', 'Noto Kufi Arabic', sans-serif;
-  --radius-base: 6px; /* Midpoint of 4px - 8px */
+  --radius-base: 10px; /* Midpoint of 4px - 8px */
 }
 
 *:not(input, textarea) {

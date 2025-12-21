@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { Routes, Route, useNavigate } from "react-router-dom";
+import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
 import Login from "./pages/authentication & onboarding/login";
 import CreateNewAccount from "./pages/authentication & onboarding/createNewAccount";
 import ForgotPassword from "./pages/authentication & onboarding/forgetPassword";
 import Dashboard from "./pages/dashboard";
-import CustomersPage from "./pages/CustomersPage";
+import ChangePassword from "./pages/authentication & onboarding/changePassword";
+import Help from "./pages/help";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
@@ -15,38 +16,33 @@ interface AppRoute {
   element: React.ReactNode;
 }
 
-const appRoutes: AppRoute[] = [
-  {
-    path: "/",
-    element: <Login />,
-  },
-  {
-    path: "/register",
-    element: <CreateNewAccount />,
-  },
-  {
-    path: "/forgotpassword",
-    element: <ForgotPassword />,
-  },
-  {
-    path: "/customers",
-    element: <CustomersPage />,
-  },
-  {
-    path: "/dashboard",
-    element: <Dashboard />,
-  }
-]
+// Routes for unauthenticated users
+const authRoutes: AppRoute[] = [
+  { path: "/", element: <Login /> },
+  { path: "/register", element: <CreateNewAccount /> },
+  { path: "/forgotpassword", element: <ForgotPassword /> },
+  { path: "/chagne_password", element: <ChangePassword /> },
+  { path: "/help", element: <Help /> },
+  // Redirect any other path to the login page
+  { path: "*", element: <Navigate to="/" replace /> },
+];
 
+// Routes for authenticated users
+const mainRoutes: AppRoute[] = [
+  { path: "/dashboard", element: <Dashboard /> },
+  { path: "/help", element: <Help /> },
+  // Redirect root and any other path to the dashboard
+  { path: "/", element: <Navigate to="/dashboard" replace /> },
+  { path: "*", element: <Navigate to="/dashboard" replace /> },
+];
 
 function App() {
-  const navigate = useNavigate();
-  const [initialRouteSet, setInitialRouteSet] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const { currentAuthentication, fetchLatestAuthentication } = useAuthenticationStore();
 
   useEffect(() => {
-    const hydrateAndNavigate = async () => {
-      // This effect runs once when the main window opens.
-      // It hydrates the Zustand stores from the data pre-loaded by the splash screen.
+    const hydrateAndCheckAuth = async () => {
+      // Hydrate stores from data pre-loaded by the splash screen
       const preloadedUser = localStorage.getItem('preloaded-user');
       const preloadedSettings = localStorage.getItem('preloaded-settings');
 
@@ -54,7 +50,6 @@ function App() {
         try {
           const userData = JSON.parse(preloadedUser);
           useUserStore.setState({ currentUser: userData, isLoading: false });
-          console.log('Hydrated user data from splash screen:', userData);
         } catch (e) {
           console.error("Failed to parse preloaded user data:", e);
         }
@@ -63,42 +58,43 @@ function App() {
       if (preloadedSettings) {
         try {
           const settingsData = JSON.parse(preloadedSettings);
-          // Since settings are also a list, we set the 'settings' state.
-          // And we assume here we only loaded one settings object.
           useApplicationSettingsStore.setState({ settings: [settingsData], isLoading: false });
-          console.log('Hydrated settings data from splash screen:', settingsData);
         } catch (e) {
           console.error("Failed to parse preloaded settings data:", e);
         }
       }
 
-      // Clean up localStorage to prevent using stale data on next launch
+      // Clean up localStorage
       localStorage.removeItem('preloaded-user');
       localStorage.removeItem('preloaded-settings');
 
-      // Fetch latest authentication to determine initial screen
-      const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
-      
-      if (latestAuth?.is_logged_in) {
-        navigate("/dashboard", { replace: true });
-      } else {
-        navigate("/", { replace: true });
-      }
-      setInitialRouteSet(true);
+      // Fetch the latest authentication state to determine login status
+      await fetchLatestAuthentication();
+      // The component will re-render when currentAuthentication changes,
+      // so we can derive the logged-in status from that.
     };
 
-    hydrateAndNavigate();
-  }, [navigate]);
+    hydrateAndCheckAuth();
+  }, [fetchLatestAuthentication]);
+
+  useEffect(() => {
+    // This effect runs whenever currentAuthentication changes or after the initial fetch
+    if (currentAuthentication !== undefined) { // Check if the fetch is complete
+      setIsLoggedIn(!!currentAuthentication?.is_logged_in);
+    }
+  }, [currentAuthentication]);
 
 
-  if (!initialRouteSet) {
-    // Optionally render a loading spinner or splash screen placeholder
+  if (isLoggedIn === null) {
+    // Render a loading state or nothing while we determine auth status
     return null; 
   }
 
+  const routesToRender = isLoggedIn ? mainRoutes : authRoutes;
+
   return (
     <Routes>
-      {appRoutes.map((route, index) => (
+      {routesToRender.map((route, index) => (
         <Route 
           key={index}
           path={route.path}
@@ -110,3 +106,4 @@ function App() {
 }
 
 export default App;
+

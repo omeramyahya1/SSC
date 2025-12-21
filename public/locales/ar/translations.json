@@ -10,6 +10,7 @@
   "login.email_label": "البريد الإلكتروني",
   "login.password_label": "كلمة المرور",
   "login.submit_button": "تسجيل الدخول",
-  "login.forgot_password": "هل نسيت كلمة المرور؟"
-
+  "login.forgot_password": "هل نسيت كلمة المرور؟",
+  "login.welcome": "مرحبًا بكم في منصة تستمد قوتها من صمود السودان وتستلهم نورها من شمسه. صُممت لتحويل الطاقة إلى أثر، والأفكار إلى واقع.",
+  "login.validateEmail": "يرجى إدخال عنوان بريد إلكتروني صالح."
 }
