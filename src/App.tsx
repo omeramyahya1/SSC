@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import { Routes, Route, useNavigate, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/authentication & onboarding/login";
-import CreateNewAccount from "./pages/authentication & onboarding/createNewAccount";
+import Registration from "./pages/authentication & onboarding/registration";
 import ForgotPassword from "./pages/authentication & onboarding/forgetPassword";
 import Dashboard from "./pages/dashboard";
 import ChangePassword from "./pages/authentication & onboarding/changePassword";
@@ -19,7 +19,7 @@ interface AppRoute {
 // Routes for unauthenticated users
 const authRoutes: AppRoute[] = [
   { path: "/", element: <Login /> },
-  { path: "/register", element: <CreateNewAccount /> },
+  { path: "/registration", element: <Registration /> },
   { path: "/forgotpassword", element: <ForgotPassword /> },
   { path: "/chagne_password", element: <ChangePassword /> },
   { path: "/help", element: <Help /> },

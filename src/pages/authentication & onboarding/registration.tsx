@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom"
 
-export default function CreateNewAccount() {
+export default function Registration() {
     return (
         <div>
             <h1>
-                Create New Page
+                Registration
             </h1>
             <Link to={"/"}>Login</Link>
         </div>

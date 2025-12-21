@@ -114,7 +114,7 @@ export default function LoginScreen() {
         <div className="flex items-center justify-between text-sm font-medium relative z-10 pt-6 border-t border-white/30">
           <button type="button" className="hover:text-primary-lighter transition-colors hover:underline"
             onClick={() => {
-              navigate("/register")
+              navigate("/registration")
             }}
           >
             {t('login.create_account_link', "Create a new account")}
