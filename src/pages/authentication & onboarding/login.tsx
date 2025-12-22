@@ -86,7 +86,7 @@ export default function LoginScreen() {
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-[var(--color-bg)] overflow-hidden">
       
       {/* --- LEFT PANEL (1/3 width) --- */}
-      <div className="w-full md:w-1/3 bg-primary text-white p-8 flex flex-col justify-between relative overflow-hidden">
+      <div className="w-full md:w-1/3 bg-primary text-white p-8 flex flex-col justify-between relative overflow-hidden rounded-3xl mt-5 ms-5 mb-5">
         
         {/* Top: Logo section */}
         <div className="flex items-center gap-4 relative z-10">
@@ -104,7 +104,7 @@ export default function LoginScreen() {
           <h2 className="text-4xl font-bold mb-6 leading-tight text-white">
             {t('login.banner.title', "Let's get started")}
           </h2>
-          {/* Lorem Ipsum placeholder */}
+          {/* Parapraph */}
           <p className="text-white/60 text-base leading-relaxed max-w-sm">
             {t('login.welcome', "Welcome to our platform powered by Sudan’s resilience and inspired by its sun. Built to turn energy into impact and ideas into action.")}
           </p>
