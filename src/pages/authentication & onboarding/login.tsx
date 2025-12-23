@@ -166,8 +166,8 @@ export default function LoginScreen() {
               <input 
                 type="email" 
                 placeholder="name@example.com"
-                className={`w-full px-4 py-3 border border-neutral/20 rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40
-                          ${!isEmailValid ? 'ring-red-500 ring-2' : 'focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
+                className={`w-full px-4 py-3 border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40
+                          ${!isEmailValid ? 'ring-red-500 ring-2' : 'focus:shadow-md focus:ring-2 focus:ring-primary/20'}`}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -180,7 +180,7 @@ export default function LoginScreen() {
             </div>
 
             {/* Password Input */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 flex flex-col content-start">
               <label className="block text-sm font-bold text-neutral/80 ps-1">
                  {t('login.password_label', 'Password')}
               </label>
@@ -189,7 +189,7 @@ export default function LoginScreen() {
                   type={showPassword ? "text" : "password"} 
                   placeholder="••••••••"
                   // pe-12 adds padding to the end to make room for the button
-                  className="w-full ps-4 pe-12 py-3 border border-neutral/20 rounded-base focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
+                  className="w-full ps-4 pe-12 py-3 border border-neutral/20 rounded-base shadow-sm focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -209,7 +209,7 @@ export default function LoginScreen() {
               </div>
 
               {/* Forgot Password Link */}
-            <Link to='/forgotpassword' className="text-center mt-5 pl-2 ">
+            <Link to='/forgotpassword' className="text-center ps-2 mt-2">
               <button type="button" className="text-primary font-semibold hover:underline text-sm">
                 {t('login.forgot_password', 'Forgot password?')}
               </button>

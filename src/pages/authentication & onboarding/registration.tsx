@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Select,
@@ -13,11 +13,124 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Check, ChevronsUpDown, X } from "lucide-react"
+import { cn } from "@/lib/utils"
+// Import CSV raw
+import geoDataCsv from '@/assets/dataset/geo_data.csv?raw';
 
 // --- Constants ---
-const TOTAL_STAGES = 7;
+const TOTAL_STAGES = 8;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_MIN_LENGTH = 6;
 
+// --- Types ---
+type RegistrationState = {
+  stage1: {
+    username: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+  };
+  stage2: {
+    accountType: 'Standard' | 'Enterprise' | '';
+  };
+  stage3: {
+    plan: 'Monthly' | 'Annual' | 'Lifetime' | 'Tier1' | 'Tier2' | '';
+    employees: number; // For Enterprise Tier 1
+    tier1Duration: 'Monthly' | 'Annual' | 'Lifetime'; // For Enterprise Tier 1 duration
+  };
+  stage4: {
+    businessName: string; // Or Organization Name
+    locationState: string;
+    locationCity: string;
+    latitude: string;
+    longitude: string;
+    logo: File | null;
+    logoPreview: string | null;
+    isSkipped: boolean;
+  };
+  stage5: {
+    acceptedTerms: boolean;
+    acceptedProcessing: boolean;
+  };
+  stage6: {
+    paymentMethod: string;
+    referralCode: string;
+    discountApplied: boolean;
+    confirmedTransfer: boolean; 
+  };
+  stage7: {
+    referenceNumber: string;
+    receipt: File | null;
+    receiptPreview: string | null;
+  };
+};
+
+const INITIAL_STATE: RegistrationState = {
+  stage1: { username: '', email: '', password: '', confirmPassword: '' },
+  stage2: { accountType: '' },
+  stage3: { plan: '', employees: 1, tier1Duration: 'Monthly' },
+  stage4: { businessName: '', locationState: '', locationCity: '', latitude: '', longitude: '', logo: null, logoPreview: null, isSkipped: false },
+  stage5: { acceptedTerms: false, acceptedProcessing: false },
+  stage6: { paymentMethod: '', referralCode: '', discountApplied: false, confirmedTransfer: false },
+  stage7: { referenceNumber: '', receipt: null, receiptPreview: null },
+};
+
+// --- Helper Functions ---
+const dummyAsyncCheck = async (field: string, value: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Mock logic: fail if value contains "fail"
+      if (value.toLowerCase().includes('fail')) resolve(false);
+      else resolve(true);
+    }, 1000); // 1s delay
+  });
+};
+
+const parseCsv = (csv: string) => {
+    const lines = csv.split('\n');
+    const headers = lines[0].split(',');
+    const data: any[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const currentLine = lines[i].split(',');
+        const obj: any = {};
+        for (let j = 0; j < headers.length; j++) {
+            obj[headers[j].trim()] = currentLine[j]?.trim();
+        }
+        data.push(obj);
+    }
+    return data;
+};
+
+const toTitleCase = (str: string) => {
+  return str.replace(
+    /\w\S*/g,
+    text => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase()
+  );
+};
 
 // --- Main Registration Component ---
 export default function RegistrationScreen() {
@@ -27,24 +140,29 @@ export default function RegistrationScreen() {
   const [currentStage, setCurrentStage] = useState(1);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  // Default show alert if offline on mount
+  const [showInternetAlert, setShowInternetAlert] = useState(!navigator.onLine);
   
-  // This state would eventually be a single state object
-  const [formData, setFormData] = useState({
-    accountType: '',
-    plan: '',
-  });
+  const [formData, setFormData] = useState<RegistrationState>(INITIAL_STATE);
 
+  // Update layout based on stage
   useEffect(() => {
     setIsExpanded(currentStage >= 3);
   }, [currentStage]);
 
+  // Online status listener
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
+    const handleOnline = () => {
+        setIsOnline(true);
+        setShowInternetAlert(false);
+    };
+    const handleOffline = () => {
+        setIsOnline(false);
+        setShowInternetAlert(true);
+    };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
+    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -52,7 +170,23 @@ export default function RegistrationScreen() {
   }, []);
 
   const handleNext = () => {
+    // Check connection first
+    if (!navigator.onLine) {
+        setIsOnline(false);
+        setShowInternetAlert(true);
+        return;
+    }
+
     if (currentStage < TOTAL_STAGES) {
+      if (currentStage === 4) {
+         // Check if actually skipped logic if needed, but here we just proceed
+         // If "Next" is clicked and it's stage 4, we mark as skipped only if empty?
+         // Logic requested previously was "Next turns to Skip".
+         // We'll update the skipped flag if fields are empty.
+         if (!areStage4FieldsFilled(formData.stage4)) {
+            updateFormData('stage4', { ...formData.stage4, isSkipped: true });
+         }
+      }
       setCurrentStage(prev => prev + 1);
     }
   };
@@ -67,24 +201,70 @@ export default function RegistrationScreen() {
     i18n.changeLanguage(lang);
   };
   
+  const updateFormData = (stage: keyof RegistrationState, data: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [stage]: data
+    }));
+  };
+
   const progressPercentage = (currentStage / TOTAL_STAGES) * 100;
+
+  // Callback for child components to set validation status
+  const [stepValid, setStepValid] = useState(false);
+  useEffect(() => {
+     // Default validity checks (can be overridden by children via setStepValid)
+     if (currentStage === 4) setStepValid(true); // Skippable
+     else if (currentStage === 8) setStepValid(true); // Completion
+     else setStepValid(false);
+  }, [currentStage]);
+
 
   return (
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-[var(--color-bg)] overflow-hidden">
-       <InternetAlert isOnline={isOnline} />
+       {/* Lifted Internet Alert - Shows if showInternetAlert is true AND user is actually offline */}
+       {showInternetAlert && !isOnline && (
+            <div className="fixed top-0 inset-x-0 z-50 p-4 w-fit max-w-md mx-auto animate-in slide-in-from-top-16 duration-300">
+                <Alert className="bg-yellow-100 border-yellow-500 text-yellow-900 shadow-sm rounded-base gap-2">
+                <div className="relative flex flex-col items-center">
+                    <button
+                    className="absolute start-2 top-2 font-bold opacity-70 hover:opacity-100"
+                    onClick={() => setShowInternetAlert(false)}
+                    aria-label={t('registration.close_alert', "Close alert")}
+                    >
+                    ✕
+                    </button>
+                    <img
+                    src="/eva-icons (2)/fill/alert-triangle.png"
+                    className="h-5 w-5 opacity-70 mb-1"
+                    alt={t('registration.warning_alt', 'Warning')}
+                    />
+                    <AlertTitle className="text-yellow-900 font-bold text-center">
+                    {t('registration.warning_title', 'Warning')}
+                    </AlertTitle>
+                    <AlertDescription className="text-yellow-900 text-center">
+                    {t(
+                        'registration.internet_required',
+                        'Internet is required to continue the registration process.'
+                    )}
+                    </AlertDescription>
+                </div>
+                </Alert>
+            </div>
+       )}
 
       {/* Main Grid Container */}
-      <div className={`w-full min-h-screen grid transition-all duration-500 ease-in-out ${isExpanded ? 'grid-cols-[0fr_1fr]' : 'md:grid-cols-[1fr_2fr]'}`}>
+      <div className={`w-full min-h-screen flex transition-all duration-500 ease-in-out ${isExpanded ? 'flex-row' : 'flex-col md:flex-row'}`}>
 
         {/* --- LEFT PANEL --- */}
         <LeftPanel isVisible={!isExpanded} />
         
         {/* --- RIGHT PANEL (MAIN CONTENT) --- */}
-        <div className="relative w-full bg-[var(--color-bg)] p-8 md:p-12 flex flex-col">
+        <div className={`relative transition-all duration-500 ease-in-out bg-[var(--color-bg)] p-8 md:p-12 flex flex-col h-screen overflow-y-auto items-center justify-center ${isExpanded ? 'w-full' : 'w-full md:w-2/3'}`}>
           {/* Header */}
-          <header className="relative flex items-center justify-between w-full mb-8 h-9">
+          <header className="relative flex items-center justify-between w-full mb-8 h-9 flex-shrink-0">
             {/* Back Button */}
-            {currentStage > 1 && (
+            {currentStage > 1 && currentStage < 8 && (
               <button 
                 onClick={handleBack} 
                 className="h-full border shadow-sm rounded-base flex items-center px-2 gap-4 text-neutral/70 z-20 bg-white" >
@@ -100,33 +280,46 @@ export default function RegistrationScreen() {
           </header>
 
           {/* Stage Controller */}
-          <main className="flex-grow flex items-center justify-center">
-            {/* The transition classes create a slide-in effect */}
-            <div key={currentStage} className="w-full max-w-md animate-in slide-in-from-right-16 duration-300">
-               <StageController stage={currentStage} formData={formData} setFormData={setFormData} />
+          <main className="flex-grow flex items-center justify-center w-full">
+            <div key={currentStage} className="w-full max-w-2xl animate-in slide-in-from-right-16 duration-300 justify-center flex flex-col items-center px-0 mx-0">
+               <StageController 
+                 stage={currentStage} 
+                 formData={formData} 
+                 updateFormData={updateFormData} 
+                 setStepValid={setStepValid}
+               />
             </div>
           </main>
 
 
           {/* Footer */}
-          <footer className="relative pt-8 mt-auto">
-            <div className="flex items-center justify-between">
+          <footer className="relative pt-8 mt-auto w-full ">
+            <div className="flex flex-col items-center justify-between">
               {/* Placeholder for alignment */}
               <div className="w-24"></div>
 
               {/* Progress Bar */}
-              <div className="w-full max-w-xs mx-auto">
-                <Progress value={progressPercentage} className="h-3 bg-white border border-x-primary-gray" />
-                <p className="text-center text-sm text-neutral/60 mt-2">
-                  {currentStage} {t('registration.stage_progress', `of`)}  {TOTAL_STAGES}
-                </p>
-              </div>
+              {currentStage < 8 && (
+                <div className="w-full max-w-xs mx-auto">
+                  <Progress value={progressPercentage} className="h-3 bg-white border border-x-primary-gray shadow-md" />
+                  <p className="text-center text-sm text-neutral/60 mt-2">
+                    {currentStage} {t('registration.stage_progress', `of`)} {TOTAL_STAGES}
+                  </p>
+                </div>
+              )}
 
-              {/* Next Button */}
-              <div className="w-24 flex justify-end">
+              {/* Next/Skip Button */}
+              <div className="w-24 flex justify-end absolute bottom-0 end-0">
                 {currentStage < TOTAL_STAGES && (
-                  <Button onClick={handleNext} disabled={!isOnline} className='text-white'>
-                    {t('registration.next', 'Next')}
+                  <Button 
+                    onClick={handleNext} 
+                    disabled={!stepValid} 
+                    variant={currentStage === 4 && !stepValid ? "secondary" : "default"} 
+                    className={currentStage === 4 && !areStage4FieldsFilled(formData.stage4) ? 'bg-gray-400 hover:bg-gray-500 text-white' : 'text-white'}
+                  >
+                    {currentStage === 4 && !areStage4FieldsFilled(formData.stage4) 
+                        ? t('registration.skip', 'Skip') 
+                        : t('registration.next', 'Next')}
                   </Button>
                 )}
               </div>
@@ -138,6 +331,10 @@ export default function RegistrationScreen() {
   );
 }
 
+// --- Helper for Stage 4 check ---
+const areStage4FieldsFilled = (data: RegistrationState['stage4']) => {
+  return data.businessName.trim() !== '' && data.locationState !== '' && data.locationCity !== '';
+};
 
 // --- Sub-components ---
 
@@ -146,13 +343,12 @@ const LeftPanel = ({ isVisible }: { isVisible: boolean }) => {
   const navigate = useNavigate();
 
   return (
-    <div className={`bg-primary text-white p-8 flex-col justify-between relative overflow-hidden transition-all duration-500 ease-in-out rounded-3xl mt-5 ms-5 mb-5 ${isVisible ? 'flex opacity-100' : 'opacity-0'}`}>
+    <div className={`bg-primary text-white flex-col justify-between relative overflow-hidden transition-all duration-500 ease-in-out rounded-3xl mt-5 mb-5 ${isVisible ? 'flex opacity-100 w-full md:w-1/3 ms-5 p-8' : 'opacity-0 w-0 ms-0 p-0'} hidden md:flex`}>
         {/* Top: Logo section */}
         <div className="flex items-center gap-4 relative z-10">
-          {/* Placeholder for local logo file */}
           <img 
             src="/ssc.svg" 
-            alt="SSC Logo" 
+            alt={t('registration.logo_alt', "SSC Logo")} 
             className="w-12 h-12 bg-white/30 p-2 rounded-base backdrop-blur-sm"/>
            <div className="hidden w-12 h-12 bg-white/20 rounded-base items-center justify-center font-bold">S</div>
           <span className="text-3xl font-extrabold tracking-wider">SSC</span>
@@ -186,63 +382,834 @@ const LeftPanel = ({ isVisible }: { isVisible: boolean }) => {
 };
 
 
-const StageController = ({ stage, formData, setFormData }: { stage: number, formData: any, setFormData: any }) => {
+const CommonHeader = ({ title, text }: { title: string, text: string }) => {
     const { t } = useTranslation();
+    return (
+      <div className="text-center md:text-start mb-8">
+        <h1 className="text-3xl font-bold text-neutral text-center">{t(title, text)}</h1>
+      </div>
+    );
+};
 
-    const commonHeader = (title: string, text: string) => <h1 className="text-3xl font-bold text-center text-neutral mb-8">{t(title, text)}</h1>;
+// --- STAGE 1: Basic Info ---
+const Stage1 = ({ data, update, setValid }: { data: RegistrationState['stage1'], update: (d: any) => void, setValid: (v: boolean) => void }) => {
+  const { t } = useTranslation();
+  const [checkingUser, setCheckingUser] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [userAvailable, setUserAvailable] = useState<boolean | null>(null);
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
 
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (data.username.length >= 3) {
+        setCheckingUser(true);
+        const avail = await dummyAsyncCheck('username', data.username);
+        setUserAvailable(avail);
+        setCheckingUser(false);
+      } else {
+        setUserAvailable(null);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [data.username]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (EMAIL_REGEX.test(data.email)) {
+        setCheckingEmail(true);
+        const avail = await dummyAsyncCheck('email', data.email);
+        setEmailAvailable(avail);
+        setCheckingEmail(false);
+      } else {
+        setEmailAvailable(null);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [data.email]);
+
+  useEffect(() => {
+    const isValid = 
+      data.username.length >= 3 && userAvailable === true &&
+      EMAIL_REGEX.test(data.email) && emailAvailable === true &&
+      data.password.length >= PASSWORD_MIN_LENGTH && /\d/.test(data.password) &&
+      data.password === data.confirmPassword;
+    setValid(isValid);
+  }, [data, userAvailable, emailAvailable, setValid]);
+
+  const handleChange = (field: string, val: string) => {
+    update({ ...data, [field]: val });
+  };
+
+  return (
+    <div className="space-y-4 w-full mx-auto md:mx-0">
+      <CommonHeader title='registration.stage1.title' text='Basic Info' />
+      
+      <div className="space-y-1.5">
+        <Label className="block text-sm font-bold text-neutral/80 ps-1">
+          {t('registration.username', 'Username')}
+        </Label>
+        <div className="relative">
+          <Input 
+            value={data.username} 
+            onChange={(e) => handleChange('username', e.target.value)} 
+            placeholder={t('registration.username_ph', 'Enter username')}
+            className={`w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40
+                          ${userAvailable === false ? 'ring-red-500 ring-2' : 'focus:shadow-md focus:ring-2 focus:ring-primary/20'}`}
+          />
+          {checkingUser && <Spinner className="absolute end-3 top-1/2 -translate-y-1/2 text-neutral/50" />}
+        </div>
+        {userAvailable === false && <p className="text-xs text-red-500 mt-1 ps-1">{t('registration.username_taken', 'Username taken')}</p>}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="block text-sm font-bold text-neutral/80 ps-1">
+          {t('registration.email', 'Email')}
+        </Label>
+        <div className="relative">
+          <Input 
+            type="email" 
+            value={data.email} 
+            onChange={(e) => handleChange('email', e.target.value)}
+            placeholder={t('registration.email_ph', 'Enter email')}
+            className={`w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40
+                          ${emailAvailable === false ? 'ring-red-500 ring-2' : 'focus:shadow-md focus:ring-2 focus:ring-primary/20'}`}
+          />
+          {checkingEmail && <Spinner className="absolute end-3 top-1/2 -translate-y-1/2 text-neutral/50" />}
+        </div>
+        {emailAvailable === false && <p className="text-xs text-red-500 mt-1 ps-1">{t('registration.email_taken', 'Email already registered')}</p>}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="block text-sm font-bold text-neutral/80 ps-1">
+          {t('registration.password', 'Password')}
+        </Label>
+        <Input 
+          type="password" 
+          value={data.password} 
+          onChange={(e) => handleChange('password', e.target.value)}
+          placeholder="••••••••"
+          className="w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
+        />
+        <p className="text-xs text-neutral/50 ps-1">{t('registration.password_hint', 'Min 6 chars, at least 1 number')}</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="block text-sm font-bold text-neutral/80 ps-1">
+          {t('registration.confirm_password', 'Confirm Password')}
+        </Label>
+        <Input 
+          type="password" 
+          value={data.confirmPassword} 
+          onChange={(e) => handleChange('confirmPassword', e.target.value)}
+          placeholder="••••••••"
+          className="w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
+        />
+        {data.password && data.confirmPassword && data.password !== data.confirmPassword && (
+          <p className="text-xs text-red-500 mt-1 ps-1">{t('registration.passwords_mismatch', 'Passwords do not match')}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- STAGE 2: Account Type ---
+const Stage2 = ({ data, update, setValid }: { data: RegistrationState['stage2'], update: (d: any) => void, setValid: (v: boolean) => void }) => {
+  const { t } = useTranslation();
+
+  const handleSelect = (type: 'Standard' | 'Enterprise') => {
+    update({ ...data, accountType: type });
+    setValid(true);
+  };
+
+  useEffect(() => {
+      setValid(!!data.accountType);
+  }, [data.accountType, setValid]);
+
+  return (
+    <div className="space-y-4 w-full mx-auto md:mx-0">
+      <CommonHeader title='registration.stage2.title' text='Choose Account Type' />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {['Standard', 'Enterprise'].map((type) => (
+          <Card 
+            key={type}
+            className={`cursor-pointer transition-all hover:shadow-lg border-2  relative overflow-hidden ${data.accountType === type ? 'border-primary shadow-md' : 'border-primary-gray/1 hover:border-primary/50'}`}
+            onClick={() => handleSelect(type as any)}
+          >
+             <div className="absolute top-0 end-0 p-2">
+                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${data.accountType === type ? 'bg-semantic-success border-semantic-success text-white' : 'border-neutral/30'}`}>
+                    {data.accountType === type && <img src="/eva-icons (2)/outline/checkmark-circle-2.png" className="w-4 h-4 rounded-full invert brightness-0 filter " alt={t('registration.check_alt', "check")}/>}
+                 </div>
+             </div>
+            <CardHeader className="text-center pb-2">
+              <div className="mx-auto bg-neutral/10 w-16 h-16 rounded-full flex items-center justify-center mb-1">
+                 {/* Placeholder Icon */}
+                 <img src={type === 'Standard' ? "/eva-icons (2)/fill/person.png" : "/eva-icons (2)/fill/briefcase.png"} className="w-8 h-8 opacity-60" alt={type} />
+              </div>
+              <CardTitle>{t(`registration.type.${type.toLowerCase()}`, type)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center text-sm text-neutral/70">
+                 {type === 'Standard' ? 
+                    t('registration.desc.standard', "For Engineers, Small/Single branch , Traders") : 
+                    t('registration.desc.enterprise', "For Multi-branch businesses, Multi-user, Centralized Management")
+                 }
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// --- STAGE 3: Plan Selection ---
+const Stage3 = ({ data, accountType, update, setValid }: { data: RegistrationState['stage3'], accountType: string, update: (d: any) => void, setValid: (v: boolean) => void }) => {
+  const { t } = useTranslation();
+
+  const handlePlanSelect = (plan: string) => {
+    update({ ...data, plan });
+    setValid(true);
+  };
+
+  useEffect(() => {
+      setValid(!!data.plan);
+  }, [data.plan, setValid]);
+
+  const cardBaseClasses = "cursor-pointer transition-all hover:shadow-lg border-2 relative overflow-hidden";
+  const selectedCardClasses = "border-primary shadow-md bg-white";
+  const unselectedCardClasses = "border-primary-gray/1 hover:border-primary/50";
+
+  if (accountType === 'Enterprise') {
+      return (
+          <div className="space-y-4 w-full mx-auto md:mx-0">
+              <CommonHeader title='registration.stage3.enterprise_title' text='Enterprise Plans' />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Tier 1 */}
+                  <Card 
+                    className={`${cardBaseClasses} ${data.plan === 'Tier1' ? selectedCardClasses : unselectedCardClasses} ${data.plan === 'Tier1' ? 'bg-primary/5' : ''}`}
+                    onClick={() => handlePlanSelect('Tier1')}
+                  >
+                      <CardHeader>
+                          <CardTitle>{t('registration.plans.tier1', 'Tier 1')}</CardTitle>
+                          <CardDescription>{t('registration.plans.tier1_desc', 'Flexible for small to medium teams')}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                          <div className="space-y-2">
+                              <Label className="font-bold">{t('registration.employees_count', 'Number of Employees')}: {data.employees}</Label>
+                              <Slider 
+                                defaultValue={[data.employees]} 
+                                max={20} 
+                                min={1} 
+                                step={1} 
+                                onValueChange={(vals) => update({...data, employees: vals[0]})}
+                                onClick={(e) => { e.stopPropagation(); handlePlanSelect('Tier1'); }}
+                              />
+                          </div>
+
+                           {/* Duration Dropdown for Tier 1 */}
+                           <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                                <Label className="text-sm font-semibold">{t('registration.duration', 'Duration')}</Label>
+                                <Select 
+                                    value={data.tier1Duration} 
+                                    onValueChange={(val: any) => update({...data, tier1Duration: val})}
+                                >
+                                    <SelectTrigger className="w-full bg-white">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white">
+                                        <SelectItem value="Monthly">{t('registration.plans.monthly', 'Monthly')}</SelectItem>
+                                        <SelectItem value="Annual">{t('registration.plans.annual', 'Annual')}</SelectItem>
+                                        <SelectItem value="Lifetime">{t('registration.plans.lifetime', 'Lifetime')}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                           </div>
+
+                          <div className="text-2xl font-bold text-center">
+                              {/* Dummy Price Calc */}
+                              ${100 + (data.employees * 10)} <span className="text-sm font-normal text-neutral/50">/mo</span>
+                          </div>
+                          <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === 'Tier1' ? 'bg-semantic-success border-semantbg-semantic-success text-white' : 'border-neutral/30'}`}>
+                             {data.plan === 'Tier1' && <img src="/eva-icons (2)/outline/checkmark-circle-2.png" className="w-4 h-4 brightness-0 invert" alt={t('registration.check_alt', "check")} />}
+                          </div>
+                      </CardContent>
+                  </Card>
+
+                   {/* Tier 2 */}
+                   <Card 
+                      className={`${cardBaseClasses} ${data.plan === 'Tier2' ? selectedCardClasses : unselectedCardClasses} ${data.plan === 'Tier2' ? 'bg-primary/5' : ''}`}
+                      onClick={() => handlePlanSelect('Tier2')}
+                   >
+                      <CardHeader>
+                          <CardTitle>{t('registration.plans.tier2', 'Tier 2')}</CardTitle>
+                          <CardDescription>{t('registration.plans.tier2_desc', 'Unlimited Employees & Branches')}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex flex-col items-center justify-between h-full gap-6">
+                           <div className="text-xl font-bold">{t('registration.custom_pricing', 'Custom Pricing')}</div>
+                           
+                           {/* Contact Sales Button - Visible only if selected */}
+                           <div className={`transition-opacity duration-300 ${data.plan === 'Tier2' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                                <Link to="/sales">
+                                    <Button variant="outline" className='rounded-base'>{t('registration.contact_sales', 'Contact Sales')}</Button>
+                                </Link>
+                           </div>
+
+                           <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === 'Tier2' ? 'bg-semantic-success border-semantbg-semantic-success text-white' : 'border-neutral/30'}`}>
+                             {data.plan === 'Tier2' && <img src="/eva-icons (2)/outline/checkmark-circle-2.png" className="w-4 h-4 brightness-0 invert" alt={t('registration.check_alt', "check")} />}
+                          </div>
+                      </CardContent>
+                  </Card>
+              </div>
+          </div>
+      )
+  }
+
+  // Standard Plans
+  const plans = ['Monthly', 'Annual', 'Lifetime'];
+  return (
+    <div className="max-w-3xl mx-auto">
+      <CommonHeader title='registration.stage3.standard_title' text='Select a Plan' />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {plans.map((plan) => (
+             <Card 
+                key={plan}
+                className={`${cardBaseClasses} ${data.plan === plan ? selectedCardClasses : unselectedCardClasses} ${data.plan === plan ? 'bg-primary/5 transform scale-105' : ''}`}
+                onClick={() => handlePlanSelect(plan)}
+              >
+                  <CardHeader className="text-center">
+                      <CardTitle className="text-lg">{t(`registration.plans.${plan.toLowerCase()}`, plan)}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-center space-y-4">
+                      <div className="text-2xl font-bold">
+                          {plan === 'Monthly' && '$10'}
+                          {plan === 'Annual' && '$100'}
+                          {plan === 'Lifetime' && '$500'}
+                      </div>
+                      <p className="text-xs text-transparent text-neutral/60">
+                          {t(`registration.plans.${plan.toLowerCase()}_desc`, 'Plan description here')}
+                      </p>
+                      <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === plan ? 'bg-semantic-success border-semantic-success  text-white' : 'border-neutral/30'}`}>
+                             {data.plan === plan && <img src="/eva-icons (2)/outline/checkmark-circle-2.png" className="w-4 h-4 brightness-0 rounded-full invert" alt={t('registration.check_alt', "check")} />}
+                      </div>
+                  </CardContent>
+              </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// --- STAGE 4: Business Info ---
+const Stage4 = ({ data, accountType, update, setValid }: { data: RegistrationState['stage4'], accountType: string, update: (d: any) => void, setValid: (v: boolean) => void }) => {
+  const { t, i18n } = useTranslation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // CSV Data State
+  const [geoData, setGeoData] = useState<any[]>([]);
+  const [states, setStates] = useState<any[]>([]);
+  const [cities, setCities] = useState<any[]>([]);
+
+  // Parse CSV on mount
+  useEffect(() => {
+      const parsed = parseCsv(geoDataCsv);
+      setGeoData(parsed);
+      
+      // Extract unique states
+      const uniqueStates = Array.from(new Set(parsed.map(item => item.state))).map(stateName => {
+         const entry = parsed.find(item => item.state === stateName);
+         return {
+             value: entry.state,
+             label_en: toTitleCase(entry.state),
+             label_ar: entry.state_ar
+         };
+      });
+      setStates(uniqueStates);
+  }, []);
+
+  // Update cities when state changes
+  useEffect(() => {
+      if (data.locationState) {
+          const filteredCities = geoData.filter(item => item.state === data.locationState).map(item => ({
+              value: item.city,
+              label_en: toTitleCase(item.city),
+              label_ar: item.city_ar,
+              latitude: item.latitude,
+              longitude: item.longitude
+          }));
+          setCities(filteredCities);
+      } else {
+          setCities([]);
+      }
+  }, [data.locationState, geoData]);
+
+
+  // Check validity when data changes
+  useEffect(() => {
+    setValid(true); // Always valid because it's skippable, but main component changes button text
+  }, [data, setValid]);
+
+  const handleCityChange = (cityVal: string) => {
+      // Find the city object to get lat/long
+      const cityObj = cities.find(c => c.value === cityVal);
+      if (cityObj) {
+          update({
+              ...data,
+              locationCity: cityVal,
+              latitude: cityObj.latitude,
+              longitude: cityObj.longitude
+          });
+      } else {
+           update({
+              ...data,
+              locationCity: cityVal,
+              latitude: '',
+              longitude: ''
+          });
+      }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const preview = URL.createObjectURL(file);
+      update({ ...data, logo: file, logoPreview: preview });
+    }
+  };
+
+  const removeLogo = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      update({ ...data, logo: null, logoPreview: null });
+  };
+
+  const isEnterprise = accountType === 'Enterprise';
+  const isArabic = i18n.language === 'ar';
+
+  return (
+    <div className="space-y-4 w-full mx-auto md:mx-0">
+      <CommonHeader title='' text={accountType === 'Enterprise' ? 'Organization Info' : 'Business Info'} />
+      <p className="text-sm text-neutral/50 -mt-6 mb-6 ps-1">{t('registration.optional', '(Optional)')}</p>
+
+      <div className="space-y-1.5">
+        <Label className="block text-sm font-bold text-neutral/80 ps-1">
+          {isEnterprise ? t('registration.org_name', 'Organization Name') : t('registration.business_name', 'Business Name')}
+        </Label>
+        <Input 
+            value={data.businessName} 
+            onChange={(e) => update({...data, businessName: e.target.value})}
+            placeholder={t('registration.name_ph', 'Enter name')}
+            className="w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
+        />
+      </div>
+
+      {/* State Selection */}
+      <div className="space-y-1.5">
+         <Label className="block text-sm font-bold text-neutral/80 ps-1">
+           {t('registration.state', 'State')}
+         </Label>
+         <SearchableSelect 
+             items={states.map(s => ({ value: s.value, label: isArabic ? s.label_ar : s.label_en }))}
+             value={data.locationState}
+             onValueChange={(val) => update({...data, locationState: val, locationCity: '', latitude: '', longitude: ''})}
+             placeholder={t('registration.select_state', 'Select state')}
+         />
+      </div>
+
+       {/* City Selection */}
+       <div className="space-y-1.5">
+         <Label className="block text-sm font-bold text-neutral/80 ps-1">
+           {t('registration.city', 'City')}
+         </Label>
+         <SearchableSelect 
+             items={cities.map(c => ({ value: c.value, label: isArabic ? c.label_ar : c.label_en }))}
+             value={data.locationCity}
+             onValueChange={handleCityChange}
+             placeholder={t('registration.select_city', 'Select city')}
+             disabled={!data.locationState}
+         />
+      </div>
+
+
+      <div className="space-y-1.5">
+        <Label className="block text-sm font-bold text-neutral/80 ps-1">
+          {t('registration.logo', 'Upload Logo')}
+        </Label>
+        <div 
+            className="border-2 bg-white border-dashed border-neutral/30 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-neutral/5 transition-colors relative"
+            onClick={() => fileInputRef.current?.click()}
+        >
+            {data.logoPreview ? (
+                <>
+                    <button 
+                        onClick={removeLogo}
+                        className="absolute top-2 right-2 p-1 bg-neutral/10 rounded-full hover:bg-neutral/20"
+                    >
+                        <X className="w-4 h-4 text-neutral/70" />
+                    </button>
+                    <img src={data.logoPreview} alt={t('registration.logo_preview_alt', "Preview")} className="h-24 object-contain" />
+                </>
+            ) : (
+                <>
+                    <img src="/eva-icons (2)/fill/file-add.png" className="w-8 h-8 opacity-40 mb-2" alt={t('registration.upload_alt', "upload")} />
+                    <span className="text-sm text-neutral/50">{t('registration.click_upload', 'Click to upload')}</span>
+                </>
+            )}
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*"
+                onChange={handleFileChange}
+            />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- STAGE 5: Summary ---
+const Stage5 = ({ formData, update, setValid }: { formData: RegistrationState, update: (d: any) => void, setValid: (v: boolean) => void }) => {
+  const { t } = useTranslation();
+  const { stage2, stage3, stage5 } = formData;
+
+  useEffect(() => {
+     setValid(stage5.acceptedTerms && stage5.acceptedProcessing);
+  }, [stage5, setValid]);
+
+  const toggleTerms = (checked: boolean) => update({ ...stage5, acceptedTerms: checked });
+  const toggleProcessing = (checked: boolean) => update({ ...stage5, acceptedProcessing: checked });
+
+  return (
+    <div className="space-y-4 w-full mx-auto md:mx-0">
+        <CommonHeader title='registration.stage5.title' text='Summary & Review' />
+        
+        <Card>
+            <CardContent className="pt-6 space-y-4">
+                <div className="flex justify-between border-b pb-2">
+                    <span className="text-neutral/60">{t('registration.account_type', 'Account Type')}</span>
+                    <span className="font-semibold">{t(`registration.type.${stage2.accountType.toLowerCase()}`, stage2.accountType)}</span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
+                    <span className="text-neutral/60">{t('registration.plan', 'Plan')}</span>
+                    <span className="font-semibold">
+                        {t(`registration.plans.${stage3.plan.toLowerCase()}`, stage3.plan)} 
+                        {stage3.plan === 'Tier1' && ` (${stage3.employees} ${t('registration.emp_short', 'emp')})`}
+                    </span>
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                    <span className="text-lg font-bold">{t('registration.total', 'Total')}</span>
+                    <span className="text-xl font-bold text-primary">$150.00</span> {/* Mock Total */}
+                </div>
+            </CardContent>
+        </Card>
+
+        <div className="space-y-4 pt-4">
+             <div className="flex items-start space-x-2">
+                <Checkbox id="terms" checked={stage5.acceptedTerms} onCheckedChange={toggleTerms as any} />
+                <div className="grid gap-1.5 leading-none">
+                    <label htmlFor="terms" className="text-sm font-medium leading-none cursor-pointer">
+                        {t('registration.accept_terms', 'I accept the Terms & Conditions')}
+                    </label>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <span className="text-xs text-primary cursor-pointer hover:underline">{t('registration.read_terms', 'Read Terms')}</span>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl max-h-[80vh] bg-neutral-bg">
+                            <DialogHeader>
+                                <DialogTitle>{t('registration.terms_title', 'Terms and Conditions')}</DialogTitle>
+                            </DialogHeader>
+                            <ScrollArea className="h-full mt-4 border-2 p-4 rounded-base bg-neutral/5">
+                                <p className="text-sm text-neutral/70">
+                                    {/* Dummy Lorem Ipsum */}
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+                                    Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
+                                    Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+                                    Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
+                                    Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+                                    Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
+                                    Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+                                    Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. 
+                                    Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                                    <br />
+                                    <br />
+                                    (Repeated for length...)
+                                    Lorem ipsum dolor sit amet...
+                                </p>
+                            </ScrollArea>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            </div>
+
+            <div className="flex items-start space-x-2">
+                <Checkbox id="processing" checked={stage5.acceptedProcessing} onCheckedChange={toggleProcessing as any} />
+                 <label htmlFor="processing" className="text-sm font-medium leading-none cursor-pointer">
+                    {t('registration.accept_processing', 'I acknowledge the 24h processing time')}
+                </label>
+            </div>
+        </div>
+    </div>
+  );
+};
+
+// --- STAGE 6: Payment Options ---
+const Stage6 = ({ data, update, setValid }: { data: RegistrationState['stage6'], update: (d: any) => void, setValid: (v: boolean) => void }) => {
+  const { t } = useTranslation();
+  const [bankDetails, setBankDetails] = useState<any>(null);
+
+  useEffect(() => {
+     setValid(!!data.paymentMethod && !!data.confirmedTransfer);
+  }, [data.paymentMethod, data.confirmedTransfer, setValid]);
+
+  // Fetch mock bank details
+  useEffect(() => {
+      const fetchDetails = async () => {
+          // Dummy Async
+          await new Promise(r => setTimeout(r, 800));
+          setBankDetails({
+              accountName: "SSC Ltd",
+              accountNumber: "1234-5678-9012"
+          });
+      };
+      fetchDetails();
+  }, []);
+
+  const handleAccordionChange = (value: string) => {
+      // Reset confirmation when changing method
+      update({ ...data, paymentMethod: value, confirmedTransfer: false });
+  };
+
+  const handleConfirmTransfer = (checked: boolean) => {
+      update({ ...data, confirmedTransfer: checked });
+  };
+
+  return (
+    <div className="space-y-4 w-full mx-auto md:mx-0">
+        <CommonHeader title='registration.stage6.title' text='Payment Options' />
+
+        <div className="text-center mb-6">
+             <div className="text-sm text-neutral/60">{t('registration.amount_to_pay', 'Amount to Pay')}</div>
+             <div className="text-4xl font-bold text-primary">
+                 {data.discountApplied ? (
+                     <div className="flex items-center justify-center gap-2">
+                        <span className="line-through text-2xl text-neutral/40 rotate-[-10deg]">15,000</span>
+                        <span>12,000 SDG</span>
+                     </div>
+                 ) : (
+                     "15,000 SDG"
+                 )}
+             </div>
+        </div>
+
+        {/* Referral Code */}
+        <div className="flex gap-2">
+            <Input 
+                placeholder={t('registration.referral_code', 'Referral Code')} 
+                value={data.referralCode}
+                onChange={(e) => update({...data, referralCode: e.target.value})}
+                className="w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
+            />
+            <Button 
+                variant="outline"
+                className="h-auto px-6 border-neutral/20 hover:bg-neutral/5"
+                onClick={() => {
+                    if (data.referralCode.toLowerCase() === 'ssc2025') {
+                        update({...data, discountApplied: true});
+                    }
+                }}
+            >
+                {t('registration.apply', 'Apply')}
+            </Button>
+        </div>
+
+        <Accordion type="single" collapsible className="w-full" onValueChange={handleAccordionChange} value={data.paymentMethod}>
+            {['Bankak', 'Ocash', 'Fawry', 'MyCashi', 'BNMB'].map((method) => (
+                <AccordionItem key={method} value={method}>
+                    <AccordionTrigger className="hover:no-underline">
+                        <div className="flex items-center gap-4 w-full">
+                            <div className={`w-8 h-8 rounded flex items-center justify-center transition-colors ${data.paymentMethod === method ? 'bg-success text-white' : 'bg-neutral/10'}`}>
+                                {data.paymentMethod === method ? (
+                                     <img src="/eva-icons/fill/png/128/checkmark.png" className="w-5 h-5 invert brightness-0" alt={t('registration.selected_alt', "selected")}/>
+                                ) : (
+                                     <img src="/eva-icons/fill/png/128/credit-card.png" className="w-4 h-4 opacity-50" alt={t('registration.card_alt', "icon")}/>
+                                )}
+                            </div>
+                            <span className={data.paymentMethod === method ? 'font-bold text-primary' : ''}>{method}</span>
+                            {data.paymentMethod === method && (
+                                <div className="ms-auto me-4 bg-success/10 text-success text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-success"></div>
+                                    {t('registration.selected', 'Selected')}
+                                </div>
+                            )}
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="bg-neutral/5 p-4 rounded-b-lg">
+                        <div className="flex flex-col items-center gap-4">
+                            {bankDetails ? (
+                                <div className="text-center">
+                                    <div className="font-semibold">{t('registration.account_name', 'Account Name')}: {bankDetails.accountName}</div>
+                                    <div className="font-mono text-lg">{bankDetails.accountNumber}</div>
+                                </div>
+                            ) : (
+                                <Spinner />
+                            )}
+                            <img src="/eva-icons/outline/png/128/grid.png" className="w-24 h-24 opacity-20 border-2 border-dashed p-2" alt={t('registration.qr_alt', "QR Placeholder")} />
+                            
+                            {/* Confirmation Checkbox */}
+                            <div className="flex items-center space-x-2 pt-4 border-t border-neutral/10 w-full justify-center">
+                                <Checkbox 
+                                    id={`confirm-${method}`} 
+                                    checked={data.confirmedTransfer} 
+                                    onCheckedChange={handleConfirmTransfer as any} 
+                                />
+                                <label htmlFor={`confirm-${method}`} className="text-sm font-medium leading-none cursor-pointer">
+                                    {t('registration.transfer_confirm', 'Transfer to this account')}
+                                </label>
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            ))}
+        </Accordion>
+    </div>
+  );
+};
+
+// --- STAGE 7: Verification ---
+const Stage7 = ({ data, update, setValid }: { data: RegistrationState['stage7'], update: (d: any) => void, setValid: (v: boolean) => void }) => {
+    const { t } = useTranslation();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+  
+    useEffect(() => {
+       setValid(!!data.referenceNumber);
+    }, [data.referenceNumber, setValid]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          const preview = URL.createObjectURL(file);
+          update({ ...data, receipt: file, receiptPreview: preview });
+        }
+      };
+
+    const removeReceipt = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        update({ ...data, receipt: null, receiptPreview: null });
+    };
+  
+    return (
+      <div className="space-y-4 w-full mx-auto md:mx-0">
+          <CommonHeader title='registration.stage7.title' text='Payment Verification' />
+          
+          <div className="space-y-1.5">
+            <Label className="block text-sm font-bold text-neutral/80 ps-1">
+              {t('registration.ref_number', 'Reference Number')}
+            </Label>
+            <Input 
+                value={data.referenceNumber}
+                onChange={(e) => update({...data, referenceNumber: e.target.value})}
+                placeholder="e.g. REF-123456"
+                className="w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="block text-sm font-bold text-neutral/80 ps-1">
+              {t('registration.upload_receipt', 'Upload Receipt (Optional)')}
+            </Label>
+            <div 
+                className="border-2 border-dashed border-neutral/30 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-neutral/5 transition-colors relative"
+                onClick={() => fileInputRef.current?.click()}
+            >
+                {data.receiptPreview ? (
+                    <>
+                        <button 
+                            onClick={removeReceipt}
+                            className="absolute top-2 right-2 p-1 bg-neutral/10 rounded-full hover:bg-neutral/20"
+                        >
+                             <X className="w-4 h-4 text-neutral/70" />
+                        </button>
+                        <img src={data.receiptPreview} alt={t('registration.receipt_alt', "Receipt Preview")} className="h-40 object-contain" />
+                    </>
+                ) : (
+                    <>
+                         <img src="/eva-icons (2)/fill/file-add.png" className="w-8 h-8 opacity-40 mb-2" alt={t('registration.upload_alt', "upload")} />
+                         <span className="text-sm text-neutral/50">{t('registration.click_upload_receipt', 'Click to upload screenshot')}</span>
+                    </>
+                )}
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={handleFileChange}
+                />
+            </div>
+          </div>
+      </div>
+    );
+};
+
+// --- STAGE 8: Completion ---
+const Stage8 = () => {
+    const { t } = useTranslation();
+    return (
+        <div className="text-center max-w-md mx-auto">
+            <div className='flex flex-row items-center '>
+              <div className="w-20 h-20 bg-success/10 rounded-full flex items-center justify-center ">
+                <img src="/eva-icons (2)/outline/checkmark-circle-2.png" className="w-10 h-10 text-success filter invert-0 brightness-0 sepia saturate-100 hue-rotate-[90deg]" alt={t('registration.success_alt', "Success")}
+                     style={{ filter: "invert(46%) sepia(74%) saturate(452%) hue-rotate(86deg) brightness(101%) contrast(88%)" }} // success green approximation
+                />
+            </div>
+            <h1 className="text-3xl font-bold">{t('registration.success.title', 'Payment Submitted!')}</h1>
+            </div>
+            <p className="mb-8 leading-relaxed">
+                {t('registration.success.message', 'Payment under processing. You shall receive an email with license code once your payment is verified. Takes up to 24 business hours')}
+            </p>
+            
+            <div className="space-y-4">
+                 <Link to="/dashboard">
+                    <Button className='w-full text-white' size="lg">
+                        {t('registration.go_dashboard', 'Go to Dashboard')}
+                    </Button>
+                </Link>
+                <Link to="/help" className="block text-sm text-primary hover:underline">
+                    {t('registration.report_issue', 'Report an issue')}
+                </Link>
+            </div>
+        </div>
+    );
+};
+
+
+const UnknownStage = () => <div>{t('registration.unknown_stage', 'Unknown Stage')}</div>;
+
+// --- Controller ---
+const StageController = ({ stage, formData, updateFormData, setStepValid }: any) => {
     switch (stage) {
         case 1:
-            return <div>{commonHeader('registration.stage1.title', 'Basic Info')}
-                <p className='text-center text-neutral/60'>{t('registration.stage1.fields', 'Username, Email, Password, Confirm Password')}</p>
-            </div>;
+            return <Stage1 data={formData.stage1} update={(d: any) => updateFormData('stage1', d)} setValid={setStepValid} />;
         case 2:
-            return <div>{commonHeader('registration.stage2.title', 'Account Type')}
-                <p className='text-center text-neutral/60'>{t('registration.stage2.options', 'Standard, Enterprise')}</p>
-            </div>;
+            return <Stage2 data={formData.stage2} update={(d: any) => updateFormData('stage2', d)} setValid={setStepValid} />;
         case 3:
-            const isStandard = formData.accountType === 'Standard';
-            return <div>{commonHeader(isStandard ? 'registration.stage3.standard_title' : 'registration.stage3.enterprise_title', isStandard ? 'Choose Plan' : 'What suits you best?')}
-                 <p className='text-center text-neutral/60'>{isStandard ? t('registration.stage3.standard_options', 'Monthly, Annual, Lifetime') : t('registration.stage3.enterprise_options', 'Tier 1, Tier 2')}</p>
-            </div>;
+            return <Stage3 data={formData.stage3} accountType={formData.stage2.accountType} update={(d: any) => updateFormData('stage3', d)} setValid={setStepValid} />;
         case 4:
-            return (
-              <div className="text-center">
-                  {commonHeader('registration.stage4.title', 'Summary & Review')}
-                  <p className="text-neutral/70 mb-2">{t('registration.stage4.account_type', 'Account Type')}: {formData.accountType || t('registration.not_applicable', 'N/A')}</p>
-                  <p className="text-neutral/70 mb-6">{t('registration.stage4.plan', 'Plan / Tier')}: {formData.plan || t('registration.not_applicable', 'N/A')}</p>
-                  <div className="flex items-center justify-center space-x-2">
-                      <Checkbox id="terms" />
-                      <label htmlFor="terms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        {t('registration.stage4.terms', "I have read and agree to the terms and conditions")}
-                      </label>
-                  </div>
-              </div>
-            );
+            return <Stage4 data={formData.stage4} accountType={formData.stage2.accountType} update={(d: any) => updateFormData('stage4', d)} setValid={setStepValid} />;
         case 5:
-            return <div>{commonHeader('registration.stage5.title', 'Finalize Payment')}
-                <p className='text-center text-neutral/60'>{t('registration.stage5.description', 'List of payment methods')}</p>
-            </div>;
+            return <Stage5 formData={formData} update={(d: any) => updateFormData('stage5', d)} setValid={setStepValid} />;
         case 6:
-            return <div>{commonHeader('registration.stage6.title', 'Payment Verification')}
-                <p className='text-center text-neutral/60'>{t('registration.stage6.description', 'Reference number (mandatory), Receipt screenshot (optional)')}</p>
-            </div>;
+            return <Stage6 data={formData.stage6} update={(d: any) => updateFormData('stage6', d)} setValid={setStepValid} />;
         case 7:
-            return (
-              <div className="text-center">
-                  {commonHeader('registration.stage7.title', 'Success!')}
-                  <p className="text-neutral/70 mb-6">{t('registration.stage7.message', 'Your payment is under processing for 24 hours')}</p>
-                  <p className="text-sm text-primary hover:underline cursor-pointer mb-8">{t('registration.stage7.report_issue', 'Report an issue')}</p>
-                  <Link to="/dashboard">
-                    <Button
-                      className='text-white'
-                    >
-                      {t('registration.stage7.go_to_dashboard', 'Go to dashboard')}</Button>
-                  </Link>
-              </div>
-            );
+            return <Stage7 data={formData.stage7} update={(d: any) => updateFormData('stage7', d)} setValid={setStepValid} />;
+        case 8:
+            return <Stage8 />;
         default:
-            return <div>{t('registration.unknown_stage', 'Unknown Stage')}</div>;
+            return <UnknownStage />;
     }
 };
 
@@ -265,49 +1232,63 @@ const LanguageSelector = ({ selectedLang, onChangeLang }: { selectedLang: string
 )};
 
 
-const InternetAlert = ({ isOnline }: { isOnline: boolean }) => {
-  const { t } = useTranslation();
-  const [showAlert, setShowAlert] = useState(true);
+// --- Custom Searchable Select (Mimicking style of Language Selector) ---
+const SearchableSelect = ({ items, value, onValueChange, placeholder, disabled }: any) => {
+    const [open, setOpen] = useState(false)
+    const [inputValue, setInputValue] = useState("")
 
-if (!isOnline) {
-  if (showAlert) {
+    const selectedLabel = items.find((item: any) => item.value === value)?.label
+
     return (
-  <div className="fixed top-0 inset-x-0 z-50 p-4 w-fit max-w-md mx-auto animate-in slide-in-from-top-16 duration-300">
-    <Alert className="bg-yellow-100 border-yellow-500 text-yellow-900 shadow-sm rounded-base gap-2">
-      <div className="relative flex flex-col items-center">
-        {/* Close button */}
-        <button
-          className="absolute start-2 top-2 font-bold opacity-70 hover:opacity-100"
-          onClick={() => setShowAlert(false)}
-          aria-label="Close alert"
-        >
-          ✕
-        </button>
-
-        {/* Icon */}
-        <img
-          src="/eva-icons (2)/fill/alert-triangle.png"
-          className="h-5 w-5 opacity-70 mb-1"
-          alt={t('registration.warning_alt', 'Warning')}
-        />
-
-        <AlertTitle className="text-yellow-900 font-bold text-center">
-          {t('registration.warning_title', 'Warning')}
-        </AlertTitle>
-
-        <AlertDescription className="text-yellow-900 text-center">
-          {t(
-            'registration.internet_required',
-            'Internet is required to continue the registration process.'
-          )}
-        </AlertDescription>
-      </div>
-    </Alert>
-  </div>
-);
-  }
+        <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+            <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+                "w-full justify-between px-4 py-6 border-neutral/20 shadow-sm rounded-base focus:shadow-md hover:bg-white bg-white font-normal",
+                !value && "text-muted-foreground",
+                disabled && "opacity-50 cursor-not-allowed"
+            )}
+            disabled={disabled}
+            >
+            {value ? selectedLabel : placeholder}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-white">
+            <Command>
+            <CommandInput placeholder={placeholder} />
+            <CommandList>
+                <CommandEmpty>No results found.</CommandEmpty>
+                <CommandGroup>
+                {items.map((item: any) => (
+                    <CommandItem
+                    key={item.value}
+                    value={item.label} // Search by label
+                    onSelect={(currentValue) => {
+                        // We need the value, not the label
+                        // But cmdk uses label as value often if not specified
+                        // Here we map back
+                        const original = items.find((i: any) => i.label.toLowerCase() === currentValue.toLowerCase()) || items.find((i:any) => i.label === currentValue);
+                        onValueChange(original?.value || currentValue)
+                        setOpen(false)
+                    }}
+                    >
+                    <Check
+                        className={cn(
+                        "mr-2 h-4 w-4",
+                        value === item.value ? "opacity-100" : "opacity-0"
+                        )}
+                    />
+                    {item.label}
+                    </CommandItem>
+                ))}
+                </CommandGroup>
+            </CommandList>
+            </Command>
+        </PopoverContent>
+        </Popover>
+    )
 }
-
-
-
-};
