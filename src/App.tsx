@@ -22,7 +22,7 @@ const authRoutes: AppRoute[] = [
   { path: "/", element: <Login /> },
   { path: "/registration", element: <Registration /> },
   { path: "/forgotpassword", element: <ForgotPassword /> },
-  { path: "/chagne_password", element: <ChangePassword /> },
+  { path: "/change_password", element: <ChangePassword /> },
   { path: "/help", element: <Help /> },
   { path: "/sales", element: <Sales /> },
   // Redirect any other path to the login page

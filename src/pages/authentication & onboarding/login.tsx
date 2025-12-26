@@ -66,7 +66,8 @@ export default function LoginScreen() {
       setCurrentAuthentication(authentication);
       
       if (user?.role === "employee") {
-        navigate("/chagne_password")
+        navigate("/change_password")
+        return;
       }
       // Redirect to dashboard
       navigate("/dashboard");

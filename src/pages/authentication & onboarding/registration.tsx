@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -83,7 +83,7 @@ const toTitleCase = (str: string) => {
   );
 };
 
-const dummyAsyncCheck = async (field: string, value: string): Promise<boolean> => {
+const dummyAsyncCheck = async (_field: string, value: string): Promise<boolean> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       // Mock logic: fail if value contains "fail"
@@ -100,7 +100,7 @@ const areStage4FieldsFilled = (data: RegistrationState['stage4']) => {
 // --- Main Registration Component ---
 export default function RegistrationScreen() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
+  
   const { formData, updateFormData, fetchSubscriptionConfig, reset, getPlanDetails } = useRegistrationStore();
 
   const [currentStage, setCurrentStage] = useState(1);
