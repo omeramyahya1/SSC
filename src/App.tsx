@@ -7,6 +7,7 @@ import ForgotPassword from "./pages/authentication & onboarding/forgetPassword";
 import Dashboard from "./pages/dashboard";
 import ChangePassword from "./pages/authentication & onboarding/changePassword";
 import Help from "./pages/help";
+import Sales from "./pages/sales";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
@@ -21,8 +22,9 @@ const authRoutes: AppRoute[] = [
   { path: "/", element: <Login /> },
   { path: "/registration", element: <Registration /> },
   { path: "/forgotpassword", element: <ForgotPassword /> },
-  { path: "/chagne_password", element: <ChangePassword /> },
+  { path: "/change_password", element: <ChangePassword /> },
   { path: "/help", element: <Help /> },
+  { path: "/sales", element: <Sales /> },
   // Redirect any other path to the login page
   { path: "*", element: <Navigate to="/" replace /> },
 ];

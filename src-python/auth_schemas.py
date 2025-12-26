@@ -1,6 +1,43 @@
 from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime, date
+from typing import Optional, Literal
+from datetime import datetime
+
+# --- Pydantic Schemas for Registration Payload ---
+
+class Stage1Payload(BaseModel):
+    username: str
+    email: str
+    password: str
+    confirmPassword: str
+
+class Stage4Payload(BaseModel):
+    businessName: Optional[str] = None
+    locationState: Optional[str] = None
+    locationCity: Optional[str] = None
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+    logo: Optional[str] = None # Base64
+
+class Stage6Payload(BaseModel):
+    paymentMethod: Optional[str] = None
+    referralCode: Optional[str] = None
+    discountApplied: bool
+    confirmedTransfer: bool
+
+class Stage7Payload(BaseModel):
+    referenceNumber: str
+    receipt: Optional[str] = None # Base64
+
+class RegistrationPayload(BaseModel):
+    stage1: Stage1Payload
+    account_type: str
+    plan_type: str
+    amount: float
+    stage4: Stage4Payload
+    stage6: Stage6Payload
+    stage7: Stage7Payload
+
+# --- Pydantic Schemas for Login ---
 
 class LoginRequest(BaseModel):
     email: str
@@ -37,4 +74,3 @@ class LoginResponseUser(BaseModel):
 class LoginResponse(BaseModel):
     user: LoginResponseUser
     authentication: LoginResponseAuthentication
-

@@ -66,7 +66,8 @@ export default function LoginScreen() {
       setCurrentAuthentication(authentication);
       
       if (user?.role === "employee") {
-        navigate("/chagne_password")
+        navigate("/change_password")
+        return;
       }
       // Redirect to dashboard
       navigate("/dashboard");
@@ -86,7 +87,7 @@ export default function LoginScreen() {
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-[var(--color-bg)] overflow-hidden">
       
       {/* --- LEFT PANEL (1/3 width) --- */}
-      <div className="w-full md:w-1/3 bg-primary text-white p-8 flex flex-col justify-between relative overflow-hidden">
+      <div className="w-full md:w-1/3 bg-primary text-white p-8 flex flex-col justify-between relative overflow-hidden rounded-3xl mt-5 ms-5 mb-5">
         
         {/* Top: Logo section */}
         <div className="flex items-center gap-4 relative z-10">
@@ -104,14 +105,14 @@ export default function LoginScreen() {
           <h2 className="text-4xl font-bold mb-6 leading-tight text-white">
             {t('login.banner.title', "Let's get started")}
           </h2>
-          {/* Lorem Ipsum placeholder */}
+          {/* Parapraph */}
           <p className="text-white/60 text-base leading-relaxed max-w-sm">
             {t('login.welcome', "Welcome to our platform powered by Sudan’s resilience and inspired by its sun. Built to turn energy into impact and ideas into action.")}
           </p>
         </div>
 
         {/* Bottom: Footer links */}
-        <div className="flex items-center justify-between text-sm font-medium relative z-10 pt-6 border-t border-white/30">
+        <div className="flex items-center justify-between text-sm font-medium relative z-10 pt-6 border-t border-white/30 text-start">
           <button type="button" className="hover:text-primary-lighter transition-colors hover:underline"
             onClick={() => {
               navigate("/registration")
@@ -166,8 +167,8 @@ export default function LoginScreen() {
               <input 
                 type="email" 
                 placeholder="name@example.com"
-                className={`w-full px-4 py-3 border border-neutral/20 rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40
-                          ${!isEmailValid ? 'ring-red-500 ring-2' : 'focus:border-primary focus:ring-2 focus:ring-primary/20'}`}
+                className={`w-full px-4 py-3 border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40
+                          ${!isEmailValid ? 'ring-red-500 ring-2' : 'focus:shadow-md focus:ring-2 focus:ring-primary/20'}`}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -180,7 +181,7 @@ export default function LoginScreen() {
             </div>
 
             {/* Password Input */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 flex flex-col content-start">
               <label className="block text-sm font-bold text-neutral/80 ps-1">
                  {t('login.password_label', 'Password')}
               </label>
@@ -189,7 +190,7 @@ export default function LoginScreen() {
                   type={showPassword ? "text" : "password"} 
                   placeholder="••••••••"
                   // pe-12 adds padding to the end to make room for the button
-                  className="w-full ps-4 pe-12 py-3 border border-neutral/20 rounded-base focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
+                  className="w-full ps-4 pe-12 py-3 border border-neutral/20 rounded-base shadow-sm focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -209,7 +210,7 @@ export default function LoginScreen() {
               </div>
 
               {/* Forgot Password Link */}
-            <Link to='/forgotpassword' className="text-center mt-5 pl-2 ">
+            <Link to='/forgotpassword' className="text-center ps-2 mt-2">
               <button type="button" className="text-primary font-semibold hover:underline text-sm">
                 {t('login.forgot_password', 'Forgot password?')}
               </button>
