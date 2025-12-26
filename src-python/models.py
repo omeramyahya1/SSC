@@ -39,9 +39,8 @@ class User(Base):
     role = Column(String, nullable=True)
 
     __table_args__ = (
-        CheckConstraint(account_type.in_(["enterprise", "standard"]), name="check_account_type"),
+        CheckConstraint(account_type.in_(["standard", "enterprise_tier1", "enterprise_tier2"]), name="check_account_type"),
         CheckConstraint(status.in_(["active","expired","grace","trial"]), name="check_user_status"),
-        CheckConstraint(role.in_(["admin","employee"]), name="check_user_role"),
     )
 
     # relationships
@@ -203,8 +202,8 @@ class Subscription(Base):
     license_code = Column(String)
 
     __table_args__ = (
-        CheckConstraint(type.in_(["monthly","annual","lifetime"]), name="check_subscription_type"),
-        CheckConstraint(status.in_(["active","expired"]), name="check_subscription_status"),
+        CheckConstraint(type.in_(["trial","monthly","annual","lifetime"]), name="check_subscription_type"),
+        CheckConstraint(status.in_(["active","expired","trial","pending"]), name="check_subscription_status"),
     )
 
     user = relationship("User", back_populates="subscriptions")

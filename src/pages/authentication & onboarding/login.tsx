@@ -111,7 +111,7 @@ export default function LoginScreen() {
         </div>
 
         {/* Bottom: Footer links */}
-        <div className="flex items-center justify-between text-sm font-medium relative z-10 pt-6 border-t border-white/30">
+        <div className="flex items-center justify-between text-sm font-medium relative z-10 pt-6 border-t border-white/30 text-start">
           <button type="button" className="hover:text-primary-lighter transition-colors hover:underline"
             onClick={() => {
               navigate("/registration")
