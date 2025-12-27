@@ -7,15 +7,16 @@ import api from '@/api/client';
 export interface Customer {
   customer_id: number;
   full_name: string;
-  date_created: string;
+  created_at: string;
   updated_at: string;
+  is_dirty: boolean;
   phone_number?: string | null;
   email?: string | null;
   org_id?: number | null;
   user_id?: number | null;
 }
 
-export type NewCustomerData = Omit<Customer, 'customer_id' | 'date_created' | 'updated_at'>;
+export type NewCustomerData = Omit<Customer, 'customer_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/customers';
 

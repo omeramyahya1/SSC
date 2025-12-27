@@ -7,7 +7,9 @@ import api from '@/api/client';
 export interface User {
     user_id: number;
     username: string;
-    registration_date: string;
+    created_at: string;
+    updated_at: string;
+    is_dirty: boolean;
     email: string;
     business_name?: string;
     account_type: "enterprise" | "standard";
@@ -22,7 +24,7 @@ export interface User {
     role?: "admin" | "employee";
 }
 
-export type NewUserData = Omit<User, 'user_id' | 'registration_date'>;
+export type NewUserData = Omit<User, 'user_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/users';
 

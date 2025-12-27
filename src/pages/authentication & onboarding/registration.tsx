@@ -1019,7 +1019,7 @@ const Stage8 = ({ userId }: { userId: number | null }) => {
                     await api.post('/sync_logs', {
                         user_id: userId,
                         sync_type: 'full',
-                        data_type: 'registration',
+                        table_name: 'users',
                         status: 'success'
                     });
                     setLogStatus('success');

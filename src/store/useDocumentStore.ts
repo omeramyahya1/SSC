@@ -7,14 +7,15 @@ import api from '@/api/client';
 export interface Document {
   doc_id: number;
   project_id: number;
-  date_created: string;
-  last_edited_date: string;
+  created_at: string;
+  updated_at: string;
+  is_dirty: boolean;
   doc_type: "Invoice" | "Project Breakdown";
   file_name: string;
   file_blob: string; // Representing LargeBinary as a base64 string
 }
 
-export type NewDocumentData = Omit<Document, 'doc_id' | 'date_created' | 'last_edited_date'>;
+export type NewDocumentData = Omit<Document, 'doc_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/documents';
 

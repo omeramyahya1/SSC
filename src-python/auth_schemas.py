@@ -53,6 +53,7 @@ class LoginResponseAuthentication(BaseModel):
     last_active: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    is_dirty: bool
 
 class LoginResponseUser(BaseModel):
     user_id: int
@@ -68,7 +69,10 @@ class LoginResponseUser(BaseModel):
     branch_id: Optional[int] = None
     branch_location: Optional[str] = None
     role: Optional[str] = None
-    registration_date: datetime
+    created_at: datetime
+    updated_at: datetime
+    is_dirty: bool
+
 
 
 class LoginResponse(BaseModel):

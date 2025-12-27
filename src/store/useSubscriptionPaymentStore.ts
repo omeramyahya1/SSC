@@ -6,16 +6,17 @@ import api from '@/api/client';
 
 export interface SubscriptionPayment {
   payment_id: number;
+  subscription_id: number;
   amount: number;
   payment_method: string;
-  payment_date: string;
   transaction_reference: string; // Base64 for LargeBinary
   status: "under_processing" | "approved" | "declined";
   created_at: string;
   updated_at: string;
+  is_dirty: boolean;
 }
 
-export type NewSubscriptionPaymentData = Omit<SubscriptionPayment, 'payment_id' | 'payment_date' | 'created_at' | 'updated_at'>;
+export type NewSubscriptionPaymentData = Omit<SubscriptionPayment, 'payment_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/subscription_payments';
 

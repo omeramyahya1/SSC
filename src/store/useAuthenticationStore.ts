@@ -17,9 +17,10 @@ export interface Authentication {
   last_active: string;
   created_at: string;
   updated_at: string;
+  is_dirty: boolean;
 }
 
-export type NewAuthenticationData = Omit<Authentication, 'auth_id' | 'created_at' | 'updated_at'>;
+export type NewAuthenticationData = Omit<Authentication, 'auth_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/authentications';
 
@@ -34,6 +35,7 @@ export interface LoginResponseAuthentication {
     last_active: string | null;
     created_at: string;
     updated_at: string;
+    is_dirty: boolean;
 }
 
 // User type is already defined in useUserStore, so we can extend it or use it directly

@@ -13,9 +13,10 @@ export interface Invoice {
   issued_at: string;
   created_at: string;
   updated_at: string;
+  is_dirty: boolean;
 }
 
-export type NewInvoiceData = Omit<Invoice, 'invoice_id' | 'created_at' | 'updated_at'>;
+export type NewInvoiceData = Omit<Invoice, 'invoice_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/invoices';
 

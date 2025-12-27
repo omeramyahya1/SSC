@@ -6,8 +6,9 @@ import api from '@/api/client';
 
 export interface Project {
   project_id: number;
-  date_created: string;
-  last_edited_date: string;
+  created_at: string;
+  updated_at: string;
+  is_dirty: boolean;
   customer_id: number;
   status: "planning" | "execution" | "done" | "archived";
   system_config_id: number;
@@ -16,7 +17,7 @@ export interface Project {
   project_location?: string | null;
 }
 
-export type NewProjectData = Omit<Project, 'project_id' | 'date_created' | 'last_edited_date'>;
+export type NewProjectData = Omit<Project, 'project_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/projects';
 

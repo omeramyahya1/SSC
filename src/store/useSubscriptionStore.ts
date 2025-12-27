@@ -7,16 +7,18 @@ import api from '@/api/client';
 export interface Subscription {
   subscription_id: number;
   user_id: number;
-  payment_id: number;
-  date_created: string;
+  created_at: string;
+  updated_at: string;
+  is_dirty: boolean;
   expiration_date: string;
   grace_period_end: string;
-  type: "monthly" | "annual" | "lifetime";
-  status: "active" | "expired";
+  type: "trial" | "monthly" | "annual" | "lifetime";
+  status: "active" | "expired" | "trial" | "pending";
   license_code: string;
+  tampered: boolean;
 }
 
-export type NewSubscriptionData = Omit<Subscription, 'subscription_id' | 'date_created'>;
+export type NewSubscriptionData = Omit<Subscription, 'subscription_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/subscriptions';
 

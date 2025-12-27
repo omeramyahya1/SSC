@@ -7,13 +7,14 @@ import api from '@/api/client';
 export interface Payment {
   payment_id: number;
   invoice_id: number;
-  date_created: string;
-  last_edited_date: string;
+  created_at: string;
+  updated_at: string;
+  is_dirty: boolean;
   amount: number;
   method: string;
 }
 
-export type NewPaymentData = Omit<Payment, 'payment_id' | 'date_created' | 'last_edited_date'>;
+export type NewPaymentData = Omit<Payment, 'payment_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/payments';
 

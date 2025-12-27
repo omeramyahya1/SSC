@@ -6,14 +6,16 @@ import api from '@/api/client';
 
 export interface SyncLog {
   sync_id: number;
-  sync_date: string;
+  created_at: string;
+  updated_at: string;
+  is_dirty: boolean;
   sync_type: "full" | "incremental";
-  data_type: "projects" | "proposals" | "sales" | "settings";
+  table_name: string;
   status: "success" | "failed";
   user_id: number;
 }
 
-export type NewSyncLogData = Omit<SyncLog, 'sync_id' | 'sync_date'>;
+export type NewSyncLogData = Omit<SyncLog, 'sync_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/sync_logs';
 

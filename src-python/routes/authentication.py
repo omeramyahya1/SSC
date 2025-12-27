@@ -25,7 +25,7 @@ def login_user():
         # Find the authentication entry for this user
         # Note: In a real app, you'd likely retrieve the specific auth record by device_id or other means
         # For simplicity, we'll try to find any existing auth record for this user to get the salt
-        user_auth = db.query(Authentication).filter_by(user_id=user.user_id).first()
+        user_auth = db.query(Authentication).filter_by(user_id=user.user_id).order_by(Authentication.created_at.desc()).first()
 
         if not user_auth or not verify_password(login_data.password, user_auth.password_salt, user_auth.password_hash):
             return jsonify({"error": "Invalid credentials"}), 401
@@ -33,8 +33,8 @@ def login_user():
         # --- Authentication successful ---
 
         # 1. Mark all existing active sessions for this user as logged out
+        # The context manager will handle the commit.
         db.query(Authentication).filter_by(user_id=user.user_id, is_logged_in=True).update({"is_logged_in": False})
-        db.commit() # Commit this change before adding the new record
 
         # 2. Create a new authentication entry for this login
         new_auth_entry = Authentication(
@@ -47,7 +47,7 @@ def login_user():
             # device_id could be added from request headers if available
         )
         db.add(new_auth_entry)
-        db.commit()
+        db.flush() # Use flush to get the new ID before the transaction is over
         db.refresh(new_auth_entry)
 
         # Build response

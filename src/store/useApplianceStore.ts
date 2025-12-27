@@ -13,9 +13,12 @@ export interface Appliance {
   use_hours_night: number;
   wattage: number;
   energy_consumption: number;
+  created_at: string;
+  updated_at: string;
+  is_dirty: boolean;
 }
 
-export type NewApplianceData = Omit<Appliance, 'appliance_id'>;
+export type NewApplianceData = Omit<Appliance, 'appliance_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/appliances';
 

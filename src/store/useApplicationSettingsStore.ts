@@ -10,9 +10,12 @@ export interface ApplicationSettings {
   last_saved_path: string;
   other_settings: Record<string, any>; // For JSON fields
   user_id: number;
+  created_at: string;
+  updated_at: string;
+  is_dirty: boolean;
 }
 
-export type NewApplicationSettingsData = Omit<ApplicationSettings, 'id'>;
+export type NewApplicationSettingsData = Omit<ApplicationSettings, 'id' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/application_settingss';
 

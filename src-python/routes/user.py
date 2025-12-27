@@ -34,16 +34,13 @@ def register_user():
             except Exception as e:
                 print(f"Warning: Could not decode logo for user {stage1.email}. Error: {e}")
 
-        if payload.account_type == "standard" and payload.plan_type == "Free Trial":
-            status = 'trial'
-        else:
-            status = "active"
-             
+        # Determine user status based on plan
+        user_status = 'trial' if payload.plan_type == "Free Trial" else "active"
 
         new_user = User(
             username=stage1.username, email=stage1.email, business_name=stage4.businessName,
             account_type=payload.account_type, location=location, business_logo=logo_bytes,
-            status=status, role='admin' if 'enterprise' in payload.account_type else None
+            status=user_status, role='admin' if 'enterprise' in payload.account_type else None
         )
         db.add(new_user)
         db.flush()
@@ -56,6 +53,19 @@ def register_user():
         new_settings = ApplicationSettings(user_id=new_user.user_id, language='en', other_settings={})
         db.add(new_settings)
 
+        # Invert the logic: Create Subscription first to get its ID
+        subscription_status = 'active' if payload.plan_type != 'Free Trial' else 'trial'
+        
+        new_sub = Subscription(
+            user_id=new_user.user_id,
+            type=payload.plan_type, 
+            status=subscription_status,
+            license_code='PENDING', # License is pending until payment is verified
+            expiration_date=datetime.utcnow() + timedelta(days=30)
+        )
+        db.add(new_sub)
+        db.flush() # Flush to get the new_sub.subscription_id
+
         receipt_bytes = None
         if payload.stage7.receipt:
             try:
@@ -63,24 +73,16 @@ def register_user():
                 receipt_bytes = base64.b64decode(receipt_b64)
             except Exception as e:
                 print(f"Warning: Could not decode receipt for user {stage1.email}. Error: {e}")
-
+        
+        # Now create the payment linked to the subscription
         new_payment = SubscriptionPayment(
+            subscription_id=new_sub.subscription_id,
             amount=payload.amount, 
             payment_method=payload.stage6.paymentMethod,
             transaction_reference=receipt_bytes,
-            status='under_processing' if payload.plan_type != 'trial' else 'approved'
+            status='under_processing' if payload.plan_type != 'Free Trial' else 'approved'
         )
         db.add(new_payment)
-        db.flush()
-
-        new_sub = Subscription(
-            user_id=new_user.user_id, payment_id=new_payment.payment_id,
-            type=payload.plan_type, 
-            status='pending' if payload.plan_type != 'trial' else 'trial',
-            license_code='PENDING',
-            expiration_date=datetime.utcnow() + timedelta(days=30)
-        )
-        db.add(new_sub)
 
         db.commit()
         

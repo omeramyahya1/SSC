@@ -10,6 +10,7 @@ sync_log_bp = Blueprint('sync_log_bp', __name__, url_prefix='/sync_logs')
 @sync_log_bp.route('/', methods=['POST'])
 def create_sync_log():
     try:
+        # Pydantic will now expect 'table_name' instead of 'data_type'
         validated_data = SyncLogCreate(**request.json)
     except ValidationError as e:
         return jsonify({"errors": e.errors()}), 400
