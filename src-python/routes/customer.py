@@ -19,6 +19,7 @@ def create_customer():
     with get_db() as db:
         # Create the SQLAlchemy model from validated data
         new_item = Customer(**validated_data.dict())
+        new_item.is_dirty = True
         db.add(new_item)
         db.commit()
         db.refresh(new_item)
@@ -42,6 +43,7 @@ def update_customer(item_id):
         for key, value in update_data.items():
             setattr(item, key, value)
         
+        item.is_dirty = True
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))

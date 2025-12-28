@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import JSON, CheckConstraint, Column, Float, Integer, LargeBinary, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+import uuid
 import os
 
 # --- 1. Define Base and Mixins ---
@@ -14,9 +15,11 @@ class TimestampDirtyMixin:
     """
     Mixin to add created_at, updated_at, and is_dirty columns to a model.
     """
+    uuid = Column(String, default=lambda: str(uuid.uuid4()) , unique=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     is_dirty = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
 
 
 # --- 2. Configuration for Local SQLite ---
@@ -176,7 +179,8 @@ class SubscriptionPayment(Base, TimestampDirtyMixin):
     subscription_id = Column(Integer, ForeignKey("subscriptions.subscription_id"))
     amount = Column(Float)
     payment_method = Column(String)
-    transaction_reference = Column(LargeBinary)
+    trx_no = Column(String, nullable=True)
+    trx_screenshot = Column(LargeBinary, nullable=True)
     status = Column(String)
 
     __table_args__ = (

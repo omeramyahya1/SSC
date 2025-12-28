@@ -203,7 +203,8 @@ class SubscriptionPaymentCreate(BaseModel):
     subscription_id: Optional[int] = None
     amount: Optional[float] = None
     payment_method: Optional[str] = None
-    transaction_reference: Optional[Any] = None
+    trx_no: Optional[str] = None
+    trx_screenshot: Optional[Any] = None
     status: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -213,7 +214,8 @@ class SubscriptionPaymentUpdate(BaseModel):
     subscription_id: Optional[int] = None
     amount: Optional[float] = None
     payment_method: Optional[str] = None
-    transaction_reference: Optional[Any] = None
+    trx_no: Optional[str] = None
+    trx_screenshot: Optional[Any] = None
     status: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

@@ -6,6 +6,7 @@ from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
 from serializer import model_to_dict
 import base64
+import uuid
 from datetime import datetime, timedelta
 
 user_bp = Blueprint('user_bp', __name__, url_prefix='/users')
@@ -20,7 +21,7 @@ def register_user():
     stage1 = payload.stage1
     
     with get_db() as db:
-        if db.query(User).filter((User.email == stage1.email) | (User.username == stage1.username)).first():
+        if db.query(User).filter((User.email == stage1.email) | (User.username == stage1.username)).first(): 
             return jsonify({"error": "User with this email or username already exists"}), 409
 
         stage4 = payload.stage4
@@ -47,7 +48,9 @@ def register_user():
 
         salt = generate_salt()
         hashed_pw = hash_password(stage1.password, salt)
-        new_auth = Authentication(user_id=new_user.user_id, password_hash=hashed_pw, password_salt=salt, is_logged_in=False)
+        
+        # res = supabase.rpc(issue a new jwt)
+        new_auth = Authentication(user_id=new_user.uuid, password_hash=hashed_pw, password_salt=salt, is_logged_in=False, device_id=uuid.uuid4())
         db.add(new_auth)
 
         new_settings = ApplicationSettings(user_id=new_user.user_id, language='en', other_settings={})
@@ -60,7 +63,6 @@ def register_user():
             user_id=new_user.user_id,
             type=payload.plan_type, 
             status=subscription_status,
-            license_code='PENDING', # License is pending until payment is verified
             expiration_date=datetime.utcnow() + timedelta(days=30)
         )
         db.add(new_sub)
@@ -79,7 +81,8 @@ def register_user():
             subscription_id=new_sub.subscription_id,
             amount=payload.amount, 
             payment_method=payload.stage6.paymentMethod,
-            transaction_reference=receipt_bytes,
+            trx_no=payload.stage7.referenceNumber,
+            trx_screenshot=receipt_bytes,
             status='under_processing' if payload.plan_type != 'Free Trial' else 'approved'
         )
         db.add(new_payment)

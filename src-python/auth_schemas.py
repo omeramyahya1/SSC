@@ -25,7 +25,7 @@ class Stage6Payload(BaseModel):
     confirmedTransfer: bool
 
 class Stage7Payload(BaseModel):
-    referenceNumber: str
+    referenceNumber: Optional[str] = None
     receipt: Optional[str] = None # Base64
 
 class RegistrationPayload(BaseModel):
