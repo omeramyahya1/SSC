@@ -1,0 +1,9 @@
+{
+  "sub": "<user_id>",
+  "role": "authenticated",
+  "app_role": "user | admin | employee | distributor | superadmin",
+  "organization_id": "<uuid | null>",
+  "branch_id": "<uuid | null>",
+  "distributor_id": "<uuid | null>",
+  "device_id": "<uuid>"
+}

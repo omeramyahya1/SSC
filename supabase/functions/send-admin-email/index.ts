@@ -89,7 +89,7 @@ serve(async (_req) => {
 
     const reportContent = `
           <p>You have <strong>${jobs.length}</strong> new registration(s) pending review.</p>
-          
+
           <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
             <thead>
               <tr style="background-color: #f2f2f2; text-align: left;">
@@ -104,7 +104,7 @@ serve(async (_req) => {
               ${tableRows}
             </tbody>
           </table>
-          
+
           <p style="margin-top: 20px; color: #666;">
             Total records: ${jobs.length}
           </p>

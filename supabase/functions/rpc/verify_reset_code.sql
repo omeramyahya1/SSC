@@ -6,7 +6,7 @@ BEGIN
     WHERE user_id = (SELECT id FROM public.users WHERE email = p_email)
       AND verification_code = p_code
       AND expires_at > now();
-    
+
     RETURN FOUND;
 END;
 $$ LANGUAGE plpgsql;
