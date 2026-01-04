@@ -1,9 +1,10 @@
+# src-python/routes/sync_log.py
+import mimetypes
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify
-from pydantic import ValidationError
+from sqlalchemy.orm import Session
 from utils import get_db
-from models import SyncLog, Customer
-from schemas import SyncLogCreate, SyncLogUpdate
+import models
 from serializer import model_to_dict
 import os
 from supabase import create_client, Client
@@ -19,149 +20,273 @@ url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
-def sync_and_pull():
+# --- BLOB UPLOAD ---
+def upload_blob(blob_data: bytes, bucket_name: str, destination_path: str):
     """
-    Pushes dirty records from the local database to Supabase.
-    """
-    with get_db() as db:
-        dirty_customers = db.query(Customer).filter(Customer.is_dirty == True).all()
-
-        if not dirty_customers:
-            return # No records to sync
-
-        # Normalize payload for Supabase
-        payload = []
-        for customer in dirty_customers:
-            payload.append({
-                "id": customer.uuid,  # Use the UUID for existing records
-                "user_id": None, # Faking for now
-                "organization_id": None, # Faking for now
-                "full_name": customer.full_name,
-                "phone_number": customer.phone_number,
-                "email": customer.email,
-                "created_at": customer.created_at.isoformat() if customer.created_at else None,
-                "updated_at": customer.updated_at.isoformat() if customer.updated_at else None,
-                "deleted_at": customer.deleted_at.isoformat() if customer.deleted_at else None,
-                "is_dirty": False, # Will be set to false on the remote
-            })
-
-        try:
-            # Call the generic RPC function on Supabase
-            response = supabase.rpc('sync_apply_and_pull', {
-                'table_name': 'customers',
-                'records': payload
-            }).execute()
-
-            # Mark local rows as clean ONLY after a successful push
-            if response.data: 
-                for customer in dirty_customers:
-                    customer.is_dirty = False
-                db.commit()
-
-        except Exception as e:
-            # Handle exceptions from the RPC call
-            print(f"Error during Supabase RPC call: {e}")
-            db.rollback()
-            raise # Re-raise the exception to be caught by the main sync function
-
-def finalize_sync(status: str, table_name: str):
-    """
-    Logs the result of a sync operation in the sync_log table.
-    """
-    with get_db() as db:
-        # TODO: The user_id should be retrieved from the session/request context.
-        # For this example, we'll use a placeholder.
-        user_id = 1
-        sync_log_entry = SyncLog(
-            sync_type="incremental",  # Assuming incremental for this example
-            table_name=table_name,
-            status=status,
-            user_id=user_id
-        )
-        db.add(sync_log_entry)
-        db.commit()
-
-def heartbeat_check() -> bool:
-    """
-    Checks if the local UTC time is within 2 hours of the Supabase server's UTC time.
-    Returns True if the difference is less than 2 hours, False otherwise.
+    Uploads binary data to a specified Supabase bucket and returns the public URL.
+    Raises an exception on failure.
     """
     try:
-        # Get server UTC time from Supabase
-        res = supabase.rpc("get_server_utc").execute()
-        server_utc_str = res.data
+        content_type, _ = mimetypes.guess_type(destination_path)
+        content_type = content_type or 'application/octet-stream'
 
-        # Parse server UTC string to datetime object. fromisoformat handles 'Z' and '+HH:MM'
-        server_time = datetime.fromisoformat(server_utc_str)
-        
-        # Ensure server_time is UTC timezone-aware and then convert to naive for comparison
-        if server_time.tzinfo is None:
-            # Assume it's UTC if no tzinfo, and make it aware
-            server_time = server_time.replace(tzinfo=timezone.utc)
-        else:
-            # Convert to UTC
-            server_time = server_time.astimezone(timezone.utc)
-        
-        server_utc_naive = server_time.replace(tzinfo=None)
-
-        # Get local UTC time as naive datetime
-        local_utc_naive = datetime.utcnow().replace(tzinfo=None)
-
-        # Calculate the absolute time difference
-        time_difference = abs(local_utc_naive - server_utc_naive)
-
-        # Define the 2-hour threshold
-        two_hours = timedelta(hours=2)
-
-        if time_difference < two_hours:
-            return True
-        else:
-            return False
-
+        # supabase-py's upload expects bytes
+        supabase.storage.from_(bucket_name).upload(
+            file=blob_data,
+            path=destination_path,
+            file_options={"cache-control": "3600", "upsert": "true", "contentType": content_type}
+        )
+        public_url = supabase.storage.from_(bucket_name).get_public_url(destination_path)
+        return public_url
     except Exception as e:
-        print(f"Error during heartbeat_check: {e}")
-        return False
+        # Re-raise as a more specific exception to be handled by the sync loop
+        raise Exception(f"Upload to {bucket_name}/{destination_path} failed: {e}")
+
+
+# --- DATA MAPPERS (Local Model -> Supabase Payload) ---
+
+def _to_iso(dt):
+    return dt.isoformat() if dt else None
+
+def _map_common_fields(record):
+    return {
+        "id": record.uuid,
+        "created_at": _to_iso(record.created_at),
+        "updated_at": _to_iso(record.updated_at),
+        "deleted_at": _to_iso(record.deleted_at),
+        "is_dirty": False,
+    }
+
+def _map_user_to_payload(record: models.User):
+    payload = {
+        **_map_common_fields(record),
+        "username": record.username,
+        "email": record.email,
+        "business_name": record.business_name,
+        "account_type": record.account_type,
+        "location": record.location,
+        "business_email": record.business_email,
+        "status": record.status,
+        "role": record.role,
+    }
+    if record.business_logo:
+        path = f"user_logos/{record.uuid}.png"
+        payload["business_logo"] = upload_blob(record.business_logo, "SSC", path)
+    return payload
+
+def _map_customer_to_payload(record: models.Customer):
+    return {
+        **_map_common_fields(record),
+        "user_id": record.user_uuid,
+        "full_name": record.full_name,
+        "phone_number": record.phone_number,
+        "email": record.email,
+    }
+
+def _map_project_to_payload(record: models.Project):
+    return {
+        **_map_common_fields(record),
+        "user_id": record.user_uuid,
+        "customer_id": record.customer_uuid,
+        "system_config_id": record.system_config_uuid,
+        "status": record.status,
+        "project_location": record.project_location,
+    }
+
+def _map_document_to_payload(record: models.Document):
+    payload = {
+        **_map_common_fields(record),
+        "project_id": record.project_uuid,
+        "doc_type": record.doc_type,
+        "file_name": record.file_name,
+    }
+    if record.file_blob:
+        folder = "documents/invoices" if record.doc_type == "Invoice" else "documents/project_breakdowns"
+        path = f"{folder}/{record.uuid}_{record.file_name}"
+        payload["file_path"] = upload_blob(record.file_blob, "SSC", path)
+    return payload
+    
+def _map_subscription_payment_to_payload(record: models.SubscriptionPayment):
+    payload = {
+        **_map_common_fields(record),
+        "subscription_id": record.subscription_uuid,
+        "amount": record.amount,
+        "payment_method": record.payment_method,
+        "trx_no": record.trx_no,
+        "status": record.status,
+    }
+    if record.trx_screenshot:
+        path = f"payment_screenshots/{record.uuid}.png"
+        payload["trx_screenshot"] = upload_blob(record.trx_screenshot, "SSC", path)
+    return payload
+
+# Add other mappers here as needed, following the pattern.
+# For simplicity, some mappers can be generic if fields match 1:1.
+def _generic_mapper(record):
+    # This works for simple tables with no blobs or complex relations.
+    payload = model_to_dict(record)
+    # Ensure UUIDs for relations are correctly named if they don't match Supabase columns
+    # e.g., if local is user_uuid and remote is user_id
+    if hasattr(record, 'user_uuid'): payload['user_id'] = record.user_uuid
+    if hasattr(record, 'project_uuid'): payload['project_id'] = record.project_uuid
+    if hasattr(record, 'customer_uuid'): payload['customer_id'] = record.customer_uuid
+    if hasattr(record, 'invoice_uuid'): payload['invoice_id'] = record.invoice_uuid
+    if hasattr(record, 'subscription_uuid'): payload['subscription_id'] = record.subscription_uuid
+    if hasattr(record, 'system_config_uuid'): payload['system_config_id'] = record.system_config_uuid
+    
+    payload['id'] = record.uuid # Ensure remote PK is the UUID
+    return payload
+
+
+# --- SYNC CONFIGURATION ---
+
+SYNC_CONFIG = [
+    {"model": models.User, "table_name": "users", "mapper": _map_user_to_payload},
+    {"model": models.Customer, "table_name": "customers", "mapper": _map_customer_to_payload},
+    {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": _generic_mapper},
+    {"model": models.Project, "table_name": "projects", "mapper": _map_project_to_payload},
+    {"model": models.Appliance, "table_name": "appliances", "mapper": _generic_mapper},
+    {"model": models.Subscription, "table_name": "subscriptions", "mapper": _generic_mapper},
+    {"model": models.Invoice, "table_name": "invoices", "mapper": _generic_mapper},
+    {"model": models.Payment, "table_name": "payments", "mapper": _generic_mapper},
+    {"model": models.SubscriptionPayment, "table_name": "subscription_payments", "mapper": _map_subscription_payment_to_payload},
+    {"model": models.Document, "table_name": "documents", "mapper": _map_document_to_payload},
+    {"model": models.ApplicationSettings, "table_name": "application_settings", "mapper": _generic_mapper},
+]
+
+# --- CORE SYNC LOGIC ---
+
+def finalize_sync(db: Session, status: str, table_name: str, sync_type: str, details: str = None):
+    """Logs the result of a sync operation."""
+    # Using a placeholder user_uuid. In a real app, this would come from the session.
+    user = db.query(models.User).first()
+    user_uuid = user.uuid if user else None
+
+    sync_log_entry = models.SyncLog(
+        sync_type=sync_type,
+        table_name=table_name,
+        status=status,
+        user_uuid=user_uuid, # FK to user.uuid
+        details=details
+    )
+    db.add(sync_log_entry)
+    db.commit()
+
+def sync_table(db: Session, model, table_name: str, mapper):
+    """Generic worker to sync all dirty records for a given table."""
+    dirty_records = db.query(model).filter(model.is_dirty == True).all()
+    if not dirty_records:
+        return  # No records to sync for this table
+
+    payloads = [mapper(rec) for rec in dirty_records]
+
+    response = supabase.rpc('sync_apply_and_pull', {
+        'table_name': table_name,
+        'records': payloads
+    }).execute()
+
+    if response.data:
+        for record in dirty_records:
+            record.is_dirty = False
+        db.commit()
+    else:
+        # The RPC call itself didn't fail, but didn't return data, which is unexpected.
+        raise Exception("Supabase RPC call succeeded but returned no data.")
+
+def push_to_supabase(db: Session):
+    """Iterates through SYNC_CONFIG and pushes dirty data for each table."""
+    for config in SYNC_CONFIG:
+        table_name = config["table_name"]
+        try:
+            print(f"Pushing dirty records for table: {table_name}...")
+            sync_table(db, config["model"], table_name, config["mapper"])
+            finalize_sync(db, "success", table_name, "push")
+            print(f"Successfully pushed {table_name}.")
+        except Exception as e:
+            error_message = str(e)
+            print(f"Error pushing table {table_name}: {error_message}")
+            finalize_sync(db, "failed", table_name, "push", details=error_message)
+            # Approved: Continue with the next table on error
+
+def get_last_sync_timestamp(db: Session) -> str:
+    """Get the timestamp of the last successful sync."""
+    last_sync = db.query(models.SyncLog).filter(
+        models.SyncLog.status == "success"
+    ).order_by(models.SyncLog.created_at.desc()).first()
+
+    if last_sync:
+        return last_sync.created_at.isoformat()
+    # If no successful syncs, return a time in the distant past
+    return datetime(2000, 1, 1).isoformat()
+
+def pull_from_supabase(db: Session):
+    """
+    Dummy function to simulate pulling incremental changes from Supabase
+    and merging them into the local database.
+    """
+    last_sync_time = get_last_sync_timestamp(db)
+    print(f"\n--- Starting Dummy Pull Operation (since {last_sync_time}) ---")
+
+    for config in SYNC_CONFIG:
+        table_name = config["table_name"]
+        try:
+            print(f"Simulating pull for '{table_name}' where updated_at > {last_sync_time}")
+            
+            # In a real implementation, you would call Supabase here:
+            # response = supabase.table(table_name).select("*").gt("updated_at", last_sync_time).execute()
+            # records_from_supabase = response.data
+            
+            # DUMMY DATA: Simulate receiving one record
+            records_from_supabase = [] 
+            if not records_from_supabase:
+                print(f" -> No new records found for {table_name}.")
+                continue
+
+            print(f" -> Received {len(records_from_supabase)} records from {table_name}. Simulating merge...")
+            for record_data in records_from_supabase:
+                # In a real implementation, you'd have a reverse mapper and use db.merge()
+                # or a custom upsert function to update the local DB.
+                record_uuid = record_data.get("id")
+                print(f"    - Merging record with UUID: {record_uuid}")
+            
+            finalize_sync(db, "success", table_name, "pull")
+
+        except Exception as e:
+            error_message = str(e)
+            print(f"Error pulling table {table_name}: {error_message}")
+            finalize_sync(db, "failed", table_name, "pull", details=error_message)
 
 @sync_log_bp.route('/sync', methods=['POST'])
 def sync():
-    """
-    The main endpoint to trigger the synchronization process.
-    """
-    status = "success"
-    error_message = None
+    """The main endpoint to trigger the full two-way synchronization process."""
+    start_time = datetime.utcnow()
+    print(f"Synchronization process started at {start_time.isoformat()} UTC.")
+    
+    # Heartbeat check
     try:
-        if not heartbeat_check():
-            raise Exception("Heartbeat check failed: Local and server times are out of sync.")
-        sync_and_pull()
+        # A simple heartbeat check could be to get server time
+        res = supabase.rpc("get_server_utc").execute()
+        print(f"Supabase server time: {res.data}. Heartbeat check passed.")
     except Exception as e:
-        status = "failed"
-        error_message = str(e)
+        return jsonify({"status": "failed", "error": f"Heartbeat check failed: {e}"}), 500
 
-    finalize_sync(status=status, table_name="customers")  # Hardcoded for customer sync example
-
-    if status == 'success':
-        return jsonify({"status": "ok"}), 200
-    else:
-        return jsonify({"status": "failed", "error": error_message}), 500
-
-
-@sync_log_bp.route('/', methods=['POST'])
-def create_sync_log():
-    try:
-        # Pydantic will now expect 'table_name' instead of 'data_type'
-        validated_data = SyncLogCreate(**request.json)
-    except ValidationError as e:
-        return jsonify({"errors": e.errors()}), 400
-
+    # Main sync logic
     with get_db() as db:
-        new_item = SyncLog(**validated_data.dict())
-        db.add(new_item)
-        db.commit()
-        db.refresh(new_item)
-        return jsonify(model_to_dict(new_item)), 201
+        try:
+            # 1. Push local changes to the cloud
+            push_to_supabase(db)
 
-@sync_log_bp.route('/', methods=['GET'])
-def get_all_sync_logs():
-    with get_db() as db:
-        items = db.query(SyncLog).all()
-        return jsonify([model_to_dict(i) for i in items])
+            # 2. Pull remote changes to local
+            pull_from_supabase(db)
+
+            end_time = datetime.utcnow()
+            duration = (end_time - start_time).total_seconds()
+            print(f"Synchronization process finished successfully in {duration:.2f} seconds.")
+            return jsonify({"status": "ok", "duration_seconds": duration}), 200
+
+        except Exception as e:
+            # This will catch any unexpected errors during the sync process
+            end_time = datetime.utcnow()
+            duration = (end_time - start_time).total_seconds()
+            print(f"Synchronization process failed after {duration:.2f} seconds.")
+            return jsonify({"status": "failed", "error": str(e), "duration_seconds": duration}), 500

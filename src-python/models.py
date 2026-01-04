@@ -34,7 +34,7 @@ SQLITE_URL = f"sqlite:///{DB_FILE_PATH}"
 class User(Base, TimestampDirtyMixin):
     __tablename__ = 'user'
 
-    user_id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, primary_key=True) # Local-only primary key
     username = Column(String, nullable=False)
     email = Column(String, nullable=False)
     business_name = Column(String)
@@ -71,13 +71,13 @@ class ApplicationSettings(Base, TimestampDirtyMixin):
     language = Column(String)
     last_saved_path = Column(String)
     other_settings = Column(JSON)
-    user_id = Column(Integer, ForeignKey("user.user_id"))
+    user_uuid = Column(String, ForeignKey("user.uuid"))
 
     __table_args__ = (
         CheckConstraint(language.in_(["ar","en"]), name="check_language"),
     )
 
-    user = relationship("User", back_populates="settings")
+    user = relationship("User", foreign_keys=[user_uuid], back_populates="settings")
 
 
 class Customer(Base, TimestampDirtyMixin):
@@ -88,9 +88,9 @@ class Customer(Base, TimestampDirtyMixin):
     phone_number = Column(String, nullable=True)
     email = Column(String, nullable=True)
     org_id = Column(Integer, nullable=True)
-    user_id = Column(Integer, ForeignKey("user.user_id"), nullable=True)
+    user_uuid = Column(String, ForeignKey("user.uuid"), nullable=True)
 
-    user = relationship("User", back_populates="customers")
+    user = relationship("User", foreign_keys=[user_uuid], back_populates="customers")
     projects = relationship("Project", back_populates="customer")
 
 
@@ -108,10 +108,10 @@ class Project(Base, TimestampDirtyMixin):
     __tablename__ = 'projects'
 
     project_id = Column(Integer, primary_key=True)
-    customer_id = Column(Integer, ForeignKey("customers.customer_id"))
+    customer_uuid = Column(String, ForeignKey("customers.uuid"))
     status = Column(String)
-    system_config_id = Column(Integer, ForeignKey("system_configurations.system_config_id"))
-    user_id = Column(Integer, ForeignKey("user.user_id"))
+    system_config_uuid = Column(String, ForeignKey("system_configurations.uuid"))
+    user_uuid = Column(String, ForeignKey("user.uuid"))
     org_id = Column(Integer, nullable=True)
     project_location = Column(String, nullable=True)
 
@@ -119,9 +119,9 @@ class Project(Base, TimestampDirtyMixin):
         CheckConstraint(status.in_(["planning","execution","done","archived"]), name="check_project_status"),
     )
 
-    customer = relationship("Customer", back_populates="projects")
-    system_config = relationship("SystemConfiguration", back_populates="projects")
-    user = relationship("User", back_populates="projects")
+    customer = relationship("Customer", foreign_keys=[customer_uuid], back_populates="projects")
+    system_config = relationship("SystemConfiguration", foreign_keys=[system_config_uuid], back_populates="projects")
+    user = relationship("User", foreign_keys=[user_uuid], back_populates="projects")
     appliances = relationship("Appliance", back_populates="project")
     invoices = relationship("Invoice", back_populates="project")
     documents = relationship("Document", back_populates="project")
@@ -131,7 +131,7 @@ class Appliance(Base, TimestampDirtyMixin):
     __tablename__ = 'appliances'
 
     appliance_id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey("projects.project_id"))
+    project_uuid = Column(String, ForeignKey("projects.uuid"))
     appliance_name = Column(String)
     type = Column(String)
     qty = Column(Integer)
@@ -139,15 +139,15 @@ class Appliance(Base, TimestampDirtyMixin):
     wattage = Column(Float)
     energy_consumption = Column(Float)
 
-    project = relationship("Project", back_populates="appliances")
+    project = relationship("Project", foreign_keys=[project_uuid], back_populates="appliances")
 
 
 class Invoice(Base, TimestampDirtyMixin):
     __tablename__ = 'invoices'
 
     invoice_id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey("projects.project_id"))
-    user_id = Column(Integer, ForeignKey("user.user_id"))
+    project_uuid = Column(String, ForeignKey("projects.uuid"))
+    user_uuid = Column(String, ForeignKey("user.uuid"))
     amount = Column(Float)
     status = Column(String)
     issued_at = Column(DateTime)
@@ -156,8 +156,8 @@ class Invoice(Base, TimestampDirtyMixin):
         CheckConstraint(status.in_(["paid","pending","partial"]), name="check_invoice_status"),
     )
 
-    project = relationship("Project", back_populates="invoices")
-    user = relationship("User", back_populates="invoices")
+    project = relationship("Project", foreign_keys=[project_uuid], back_populates="invoices")
+    user = relationship("User", foreign_keys=[user_uuid], back_populates="invoices")
     payments = relationship("Payment", back_populates="invoice")
 
 
@@ -165,18 +165,18 @@ class Payment(Base, TimestampDirtyMixin):
     __tablename__ = 'payments'
 
     payment_id = Column(Integer, primary_key=True)
-    invoice_id = Column(Integer, ForeignKey("invoices.invoice_id"))
+    invoice_uuid = Column(String, ForeignKey("invoices.uuid"))
     amount = Column(Float)
     method = Column(String)
 
-    invoice = relationship("Invoice", back_populates="payments")
+    invoice = relationship("Invoice", foreign_keys=[invoice_uuid], back_populates="payments")
 
 
 class SubscriptionPayment(Base, TimestampDirtyMixin):
     __tablename__ = 'subscription_payments'
 
     payment_id = Column(Integer, primary_key=True)
-    subscription_id = Column(Integer, ForeignKey("subscriptions.subscription_id"))
+    subscription_uuid = Column(String, ForeignKey("subscriptions.uuid"))
     amount = Column(Float)
     payment_method = Column(String)
     trx_no = Column(String, nullable=True)
@@ -187,14 +187,14 @@ class SubscriptionPayment(Base, TimestampDirtyMixin):
         CheckConstraint(status.in_(["under_processing","approved","declined"]), name="check_subscription_payment_status"),
     )
 
-    subscription = relationship("Subscription", back_populates="payments")
+    subscription = relationship("Subscription", foreign_keys=[subscription_uuid], back_populates="payments")
 
 
 class Subscription(Base, TimestampDirtyMixin):
     __tablename__ = 'subscriptions'
 
     subscription_id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("user.user_id"))
+    user_uuid = Column(String, ForeignKey("user.uuid"))
     expiration_date = Column(DateTime)
     grace_period_end = Column(DateTime)
     type = Column(String)
@@ -207,7 +207,7 @@ class Subscription(Base, TimestampDirtyMixin):
         CheckConstraint(status.in_(["active", "expired", "trial", "pending"]), name="check_subscription_status"),
     )
 
-    user = relationship("User", back_populates="subscriptions")
+    user = relationship("User", foreign_keys=[user_uuid], back_populates="subscriptions")
     payments = relationship("SubscriptionPayment", back_populates="subscription")
 
 
@@ -215,7 +215,7 @@ class Document(Base, TimestampDirtyMixin):
     __tablename__ = 'documents'
 
     doc_id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey("projects.project_id"))
+    project_uuid = Column(String, ForeignKey("projects.uuid"))
     doc_type = Column(String)
     file_name = Column(String)
     file_blob = Column(LargeBinary)
@@ -224,14 +224,14 @@ class Document(Base, TimestampDirtyMixin):
         CheckConstraint(doc_type.in_(["Invoice","Project Breakdown"]), name="check_document_type"),
     )
 
-    project = relationship("Project", back_populates="documents")
+    project = relationship("Project", foreign_keys=[project_uuid], back_populates="documents")
 
 
 class Authentication(Base, TimestampDirtyMixin):
     __tablename__ = 'authentication'
 
     auth_id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("user.user_id"))
+    user_uuid = Column(String, ForeignKey("user.uuid"))
     password_hash = Column(String)
     password_salt = Column(String)
     current_jwt = Column(String, nullable=True)
@@ -240,7 +240,7 @@ class Authentication(Base, TimestampDirtyMixin):
     is_logged_in = Column(Boolean)
     last_active = Column(DateTime)
 
-    user = relationship("User", back_populates="auth")
+    user = relationship("User", foreign_keys=[user_uuid], back_populates="auth")
 
 
 class SyncLog(Base, TimestampDirtyMixin):
@@ -250,11 +250,11 @@ class SyncLog(Base, TimestampDirtyMixin):
     sync_type = Column(String)
     table_name = Column(String)
     status = Column(String)
-    user_id = Column(Integer, ForeignKey("user.user_id"))
+    user_uuid = Column(String, ForeignKey("user.uuid"))
 
     __table_args__ = (
         CheckConstraint(sync_type.in_(["full","incremental"]), name="check_sync_type"),
         CheckConstraint(status.in_(["success","failed"]), name="check_sync_status"),
     )
 
-    user = relationship("User", back_populates="sync_logs")
+    user = relationship("User", foreign_keys=[user_uuid], back_populates="sync_logs")

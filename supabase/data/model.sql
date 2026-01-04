@@ -161,7 +161,7 @@ CREATE TABLE public.password_reset_requests (
   verification_code text,
   expires_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  is_verified boolean with DEFAULT false,
+  is_verified boolean DEFAULT false,
   role text,
   CONSTRAINT password_reset_requests_pkey PRIMARY KEY (id)
 );

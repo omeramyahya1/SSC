@@ -30,7 +30,7 @@ def update_invoice(item_id):
         item = db.query(Invoice).filter(Invoice.invoice_id == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
         try:
             # Validate request data
             validated_data = InvoiceUpdate(**request.json)
@@ -41,7 +41,7 @@ def update_invoice(item_id):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))
