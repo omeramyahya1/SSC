@@ -47,6 +47,18 @@ const TOTAL_STAGES = 8;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_MIN_LENGTH = 6;
 
+// This type must match the structure from the `detailed_pricing` view
+type PricingInfo = {
+  plan_id: string;
+  plan_type: 'Standard' | 'Enterprise';
+  billing_cycle: 'Monthly' | 'Annual' | 'Lifetime';
+  base_price: number;
+  price_per_extra_employee: number;
+  min_employees: number | null;
+  max_employees: number | null;
+  discount_rate: number | null;
+};
+
 // --- Helper Functions & Utilities ---
 
 const fileToBase64 = (file: File): Promise<string> => {
@@ -62,7 +74,7 @@ const parseCsv = (csv: string) => {
     const lines = csv.split('\n');
     const headers = lines[0].split(',');
     const data: any[] = [];
-    
+
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         const currentLine = lines[i].split(',');
@@ -100,8 +112,8 @@ const areStage4FieldsFilled = (data: RegistrationState['stage4']) => {
 // --- Main Registration Component ---
 export default function RegistrationScreen() {
   const { t, i18n } = useTranslation();
-  
-  const { formData, updateFormData, fetchSubscriptionConfig, reset, getPlanDetails } = useRegistrationStore();
+
+  const { formData, updateFormData, reset, getPlanDetails } = useRegistrationStore();
 
   const [currentStage, setCurrentStage] = useState(1);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -112,13 +124,29 @@ export default function RegistrationScreen() {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [newUserId, setNewUserId] = useState<number | null>(null);
 
-  // Fetch subscription config on mount
+  // Local state for fetched pricing data
+  const [fetchedPricingData, setFetchedPricingData] = useState<PricingInfo[]>([]);
+  const [pricingIsLoading, setPricingIsLoading] = useState(true);
+
+  // Fetch pricing data on mount
   useEffect(() => {
-    fetchSubscriptionConfig();
+    const fetchPricing = async () => {
+        setPricingIsLoading(true);
+        try {
+            const response = await api.get<PricingInfo[]>('/users/pricing');
+            setFetchedPricingData(response.data || []);
+        } catch (error) {
+            console.error("Failed to fetch pricing config:", error);
+            setFetchedPricingData([]);
+        } finally {
+            setPricingIsLoading(false);
+        }
+    };
+    fetchPricing();
     return () => {
-        reset(); // Clean up on unmount
+        reset(); // Clean up form data on unmount
     }
-  }, [fetchSubscriptionConfig, reset]);
+  }, [reset]);
 
   // Update layout based on stage
   useEffect(() => {
@@ -140,12 +168,90 @@ export default function RegistrationScreen() {
     };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Local price calculation logic
+  const calculatedPrice = useMemo(() => {
+    const { stage2, stage3 } = formData;
+
+    if (stage3.plan === 'Free Trial') {
+        return 0;
+    }
+
+    let total = 0;
+
+    if (stage2.accountType === 'Standard') {
+        const selectedPlan = fetchedPricingData.find(p => 
+            p.plan_type === 'Standard' && p.billing_cycle === stage3.plan
+        );
+        total = selectedPlan?.base_price || 0;
+
+    } else if (stage2.accountType === 'Enterprise' && stage3.plan === 'Tier1') {
+        const { employees, tier1Duration } = stage3;
+        
+        const planInfo = fetchedPricingData.find(p => 
+            p.plan_type === 'Enterprise' && p.billing_cycle === tier1Duration
+        );
+
+        if (planInfo) {
+            const basePrice = planInfo.base_price;
+            const extraEmployeeCost = (employees > 1) 
+                ? (employees - 1) * planInfo.price_per_extra_employee
+                : 0;
+
+            const totalBeforeDiscount = basePrice + extraEmployeeCost;
+
+            const discountInfo = fetchedPricingData.find(p => 
+                p.plan_type === 'Enterprise' &&
+                p.min_employees && p.max_employees &&
+                employees >= p.min_employees && employees <= p.max_employees
+            );
+            
+            const discountRate = discountInfo?.discount_rate || 0;
+            total = totalBeforeDiscount * (1 - discountRate);
+        }
+    }
+    
+    return Math.round(total);
+  }, [formData, fetchedPricingData]); // Recalculate if form data or pricing data changes
+
+  // Local function to get plan details for backend submission
+  const getPlanDetails = useMemo(() => {
+    const { stage2, stage3 } = formData;
+
+    return () => { // Return a function to match the original store's interface
+        let backendAccountType = 'standard';
+        let backendPlanType = 'trial'; // Default
+
+        if (stage2.accountType === 'Standard') {
+            backendAccountType = 'standard';
+            if (stage3.plan === 'Free Trial') {
+                backendPlanType = 'trial';
+            } else {
+                backendPlanType = stage3.plan.toLowerCase();
+            }
+        } else if (stage2.accountType === 'Enterprise') {
+            if (stage3.plan === 'Tier1') {
+                backendAccountType = 'enterprise_tier1';
+                backendPlanType = stage3.tier1Duration.toLowerCase();
+            } else if (stage3.plan === 'Tier2') {
+                backendAccountType = 'enterprise_tier2';
+                backendPlanType = 'custom'; // Placeholder for contact sales
+            }
+        }
+
+        return {
+            backendAccountType,
+            backendPlanType,
+            price: calculatedPrice, // Use the locally calculated price
+        }
+    }
+  }, [formData, calculatedPrice]); // Recalculate if form data or calculatedPrice changes
 
   const handleSubmit = async () => {
       setIsSubmitting(true);
@@ -216,7 +322,7 @@ export default function RegistrationScreen() {
   const toggleLanguage = (lang: string) => {
     i18n.changeLanguage(lang);
   };
-  
+
   const progressPercentage = (currentStage / TOTAL_STAGES) * 100;
   const [stepValid, setStepValid] = useState(false);
   useEffect(() => {
@@ -254,7 +360,7 @@ export default function RegistrationScreen() {
 
       <div className={`w-full min-h-screen flex transition-all duration-500 ease-in-out ${isExpanded ? 'flex-row' : 'flex-col md:flex-row'}`}>
         <LeftPanel isVisible={!isExpanded} />
-        
+
         <div className={`relative transition-all duration-500 ease-in-out bg-[var(--color-bg)] p-8 md:p-12 flex flex-col h-screen overflow-y-auto items-center justify-center ${isExpanded ? 'w-full' : 'w-full md:w-2/3'}`}>
           <header className="relative flex items-center justify-between w-full mb-8 h-9 flex-shrink-0">
             {currentStage > 1 && currentStage < 8 && (
@@ -270,10 +376,14 @@ export default function RegistrationScreen() {
 
           <main className="flex-grow flex items-center justify-center w-full">
             <div key={currentStage} className="w-full max-w-2xl animate-in slide-in-from-right-16 duration-300 justify-center flex flex-col items-center px-0 mx-0">
-               <StageController 
-                 stage={currentStage} 
+               <StageController
+                 stage={currentStage}
                  setStepValid={setStepValid}
                  userId={newUserId}
+                 fetchedPricingData={fetchedPricingData}
+                 pricingIsLoading={pricingIsLoading}
+                 calculatedPrice={calculatedPrice}
+                 getPlanDetails={getPlanDetails}
                />
             </div>
           </main>
@@ -290,7 +400,7 @@ export default function RegistrationScreen() {
                   </p>
                 </div>
               )}
-                
+
               {submissionError && currentStage === 7 && (
                   <div className="text-red-500 text-sm mt-2 text-center flex items-center gap-2">
                       <AlertCircle className="w-4 h-4" /> {submissionError}
@@ -299,20 +409,20 @@ export default function RegistrationScreen() {
 
               <div className="w-24 flex justify-end absolute bottom-0 end-0">
                 {currentStage < TOTAL_STAGES && formData.stage3.plan !== 'Tier2' && (
-                  <Button 
-                    onClick={handleNext} 
-                    disabled={!stepValid || !isOnline || isSubmitting} 
-                    variant={currentStage === 4 && !stepValid ? "secondary" : "default"} 
+                  <Button
+                    onClick={handleNext}
+                    disabled={!stepValid || !isOnline || isSubmitting}
+                    variant={currentStage === 4 && !stepValid ? "secondary" : "default"}
                     className={cn(
                         'text-white',
                         currentStage === 4 && !areStage4FieldsFilled(formData.stage4) && 'bg-gray-400 hover:bg-gray-500',
                         isSubmitting && 'cursor-not-allowed'
                     )}
                   >
-                    {isSubmitting ? <Spinner /> : 
+                    {isSubmitting ? <Spinner /> :
                         currentStage === 7 ? t('registration.finish', 'Finish') :
-                        currentStage === 4 && !areStage4FieldsFilled(formData.stage4) 
-                        ? t('registration.skip', 'Skip') 
+                        currentStage === 4 && !areStage4FieldsFilled(formData.stage4)
+                        ? t('registration.skip', 'Skip')
                         : t('registration.next', 'Next')}
                   </Button>
                 )}
@@ -364,7 +474,7 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
     const { t } = useTranslation();
     const { formData, updateFormData } = useRegistrationStore();
     const data = formData.stage1;
-    
+
     // ... (rest of the logic is the same, just consumes data from store)
     const [checkingUser, setCheckingUser] = useState(false);
     const [checkingEmail, setCheckingEmail] = useState(false);
@@ -401,7 +511,7 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
     }, [data.email]);
 
     useEffect(() => {
-        const isValid = 
+        const isValid =
         data.username.length >= 3 && userAvailable === true &&
         EMAIL_REGEX.test(data.email) && emailAvailable === true &&
         data.password.length >= PASSWORD_MIN_LENGTH && /\d/.test(data.password) &&
@@ -416,7 +526,7 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
     return (
         <div className="space-y-4 w-full mx-auto md:mx-0">
           <CommonHeader title='registration.stage1.title' text='Basic Info' />
-          
+
           <div className="space-y-1.5">
             <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.username', 'Username')}</Label>
             <div className="relative">
@@ -424,9 +534,8 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                 className={`w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40 ${userAvailable === false ? 'ring-red-500 ring-2' : 'focus:shadow-md focus:ring-2 focus:ring-primary/20'}`} />
               {checkingUser && <Spinner className="absolute end-3 top-1/2 -translate-y-1/2 text-neutral/50" />}
             </div>
-            {userAvailable === false && <p className="text-xs text-red-500 mt-1 ps-1">{t('registration.username_taken', 'Username taken')}</p>}
           </div>
-    
+
           <div className="space-y-1.5">
             <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.email', 'Email')}</Label>
             <div className="relative">
@@ -436,13 +545,13 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
             </div>
             {emailAvailable === false && <p className="text-xs text-red-500 mt-1 ps-1">{t('registration.email_taken', 'Email already registered')}</p>}
           </div>
-    
+
           <div className="space-y-1.5">
             <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.password', 'Password')}</Label>
             <div className='relative'>
                 <Input type={showPassword ? "text" : "password"} value={data.password} onChange={(e) => handleChange('password', e.target.value)}  placeholder="••••••••"
               className="w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40" />
-              <button 
+              <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
@@ -457,13 +566,13 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
             </div>
             <p className="text-xs text-neutral/50 ps-1">{t('registration.password_hint', 'Min 6 chars, at least 1 number')}</p>
           </div>
-    
+
           <div className="space-y-1.5">
             <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.confirm_password', 'Confirm Password')}</Label>
             <div className='relative'>
                 <Input type={showPassword ? "text" : "password"} value={data.confirmPassword} onChange={(e) => handleChange('confirmPassword', e.target.value)} placeholder="••••••••"
               className="w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40" />
-               <button 
+               <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
@@ -520,8 +629,8 @@ const Stage2 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-center text-sm text-neutral/70">
-                     {type === 'Standard' ? 
-                        t('registration.desc.standard', "For Engineers, Small/Single branch , Traders") : 
+                     {type === 'Standard' ?
+                        t('registration.desc.standard', "For Engineers, Small/Single branch , Traders") :
                         t('registration.desc.enterprise', "For Multi-branch businesses, Multi-user, Centralized Management")
                      }
                   </div>
@@ -534,9 +643,9 @@ const Stage2 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 };
 
 // --- STAGE 3: Plan Selection ---
-const Stage3 = ({ setValid }: { setValid: (v: boolean) => void }) => {
+const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading, calculatedPrice }: { setValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
     const { t } = useTranslation();
-    const { formData, updateFormData, calculatedPrice } = useRegistrationStore();
+    const { formData, updateFormData } = useRegistrationStore();
     const { accountType } = formData.stage2;
     const data = formData.stage3;
 
@@ -544,7 +653,7 @@ const Stage3 = ({ setValid }: { setValid: (v: boolean) => void }) => {
         updateFormData('stage3', { plan });
         setValid(true);
     };
-    
+
     useEffect(() => {
         setValid(!!data.plan);
     }, [data.plan, setValid]);
@@ -553,7 +662,7 @@ const Stage3 = ({ setValid }: { setValid: (v: boolean) => void }) => {
     const selectedCardClasses = "border-primary shadow-md bg-white";
     const unselectedCardClasses = "border-primary-gray/1 hover:border-primary/50";
 
-    const priceDisplay = calculatedPrice > 0 ? `${calculatedPrice.toLocaleString()} ${t('currency.sdg', 'SDG')}` : t('plans.free', '');
+    const priceDisplay = calculatedPrice > 0 ? `${calculatedPrice.toLocaleString()} ${t('currency.sdg', 'SDG')}` : t('plans.free', 'Free');
 
     // ... Refactored JSX to use calculatedPrice
     if (accountType === 'Enterprise') {
@@ -562,7 +671,7 @@ const Stage3 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                 <CommonHeader title='registration.stage3.enterprise_title' text='Enterprise Plans' />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Tier 1 */}
-                    <Card 
+                    <Card
                       className={`${cardBaseClasses} ${data.plan === 'Tier1' ? selectedCardClasses : unselectedCardClasses}`}
                       onClick={() => handlePlanSelect('Tier1')}>
                         <CardHeader>
@@ -572,13 +681,13 @@ const Stage3 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                         <CardContent className="space-y-6">
                             <div className="space-y-2">
                                 <Label className="font-bold">{t('registration.employees_count', 'Number of Employees')}: {data.employees}</Label>
-                                <Slider defaultValue={[data.employees]} max={20} min={1} step={1} onValueChange={(vals) => updateFormData('stage3', {employees: vals[0]})}
+                                <Slider disabled={data.plan !== 'Tier1'} defaultValue={[data.employees]} max={20} min={1} step={1} onValueChange={(vals) => updateFormData('stage3', {employees: vals[0]})}
                                   onClick={(e) => { e.stopPropagation(); handlePlanSelect('Tier1'); }} />
                             </div>
                             <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                                 <Label className="text-sm font-semibold">{t('registration.duration', 'Duration')}</Label>
-                                <Select 
-                                    value={data.tier1Duration} 
+                                <Select
+                                    value={data.tier1Duration}
                                     onValueChange={(val: any) => updateFormData('stage3', {tier1Duration: val})}
                                     disabled={data.plan !== 'Tier1'}
                                 >
@@ -590,15 +699,19 @@ const Stage3 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="text-2xl font-bold text-center">
-                                {priceDisplay} <span className="text-sm font-normal text-neutral/50">{(data.tier1Duration === "Free Trial") ? "" : (data.tier1Duration === "Annual") ? "/year" : (data.tier1Duration === "Monthly") ? "/month" : ""}</span>
+                            <div className="text-2xl font-bold text-center h-8 flex items-center justify-center">
+                                {pricingIsLoading ? <Spinner /> : (
+                                    <>
+                                        {priceDisplay} <span className="text-sm font-normal text-neutral/50">{(data.tier1Duration === "Annual") ? "/year" : (data.tier1Duration === "Monthly") ? "/month" : ""}</span>
+                                    </>
+                                )}
                             </div>
                             <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === 'Tier1' ? 'bg-semantic-success border-semantic-success text-white' : 'border-neutral/30'}`}>
-                               {data.plan === 'Tier1' && <Check className="w-4 h-4" />} 
+                               {data.plan === 'Tier1' && <Check className="w-4 h-4" />}
                             </div>
                         </CardContent>
                     </Card>
-  
+
                      {/* Tier 2 */}
                      <Card className={`${cardBaseClasses} ${data.plan === 'Tier2' ? selectedCardClasses : unselectedCardClasses}`}
                         onClick={() => handlePlanSelect('Tier2')}>
@@ -614,7 +727,7 @@ const Stage3 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                                   </Link>
                              </div>
                              <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === 'Tier2' ? 'bg-semantic-success border-semantic-success text-white' : 'border-neutral/30'}`}>
-                               {data.plan === 'Tier2' && <Check className="w-4 h-4" />} 
+                               {data.plan === 'Tier2' && <Check className="w-4 h-4" />}
                             </div>
                         </CardContent>
                     </Card>
@@ -622,7 +735,7 @@ const Stage3 = ({ setValid }: { setValid: (v: boolean) => void }) => {
             </div>
         )
     }
-  
+
     // Standard Plans
     const plans = ['Free Trial', 'Monthly', 'Annual', 'Lifetime'];
     return (
@@ -636,14 +749,14 @@ const Stage3 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                         <CardTitle className="text-lg">{t(`registration.plans.${plan.toLowerCase()}`, plan)}</CardTitle>
                     </CardHeader>
                     <CardContent className="text-center space-y-4">
-                        <div className="text-2xl font-bold">
-                            { (data.plan === plan) ? priceDisplay : ""}
+                        <div className="text-2xl font-bold h-8 flex items-center justify-center">
+                            {pricingIsLoading ? <Spinner /> : (data.plan === plan) ? priceDisplay : ""}
                         </div>
                         <p className="text-xs text-neutral/60 h-8">
                             {t(`registration.plans.${plan.toLowerCase()}_desc`, '')}
                         </p>
                         <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === plan ? 'bg-semantic-success border-semantic-success text-white' : 'border-neutral/30'}`}>
-                               {data.plan === plan && <Check className="w-4 h-4" />} 
+                               {data.plan === plan && <Check className="w-4 h-4" />}
                         </div>
                     </CardContent>
                 </Card>
@@ -716,12 +829,12 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
     // ... same JSX as before
     const isEnterprise = accountType === 'Enterprise';
     const isArabic = i18n.language === 'ar';
-  
+
     return (
       <div className="space-y-4 w-full mx-auto md:mx-0">
         <CommonHeader title='' text={accountType === 'Enterprise' ? t('registration.org_info', 'Organization Info') : t('registration.business_info', 'Business Info')} />
         <p className="text-sm text-neutral/50 -mt-6 mb-6 ps-1">{t('registration.optional', '(Optional)')}</p>
-  
+
         <div className="space-y-1.5">
           <Label className="block text-sm font-bold text-neutral/80 ps-1">
             {isEnterprise ? t('registration.org_name', 'Organization Name') : t('registration.business_name', 'Business Name')}
@@ -729,19 +842,19 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
           <Input value={data.businessName} onChange={(e) => updateFormData('stage4', {businessName: e.target.value})}
               placeholder={t('registration.name_ph', 'Enter name')} className="w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40" />
         </div>
-  
+
         <div className="space-y-1.5">
            <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.state', 'State')}</Label>
            <SearchableSelect items={uniqueStates.map(s => ({ value: s.value, label: isArabic ? s.label_ar : s.label_en }))} value={data.locationState}
                onValueChange={(val) => updateFormData('stage4', {locationState: val, locationCity: '', latitude: '', longitude: ''})} placeholder={t('registration.select_state', 'Select state')} />
         </div>
-  
+
          <div className="space-y-1.5">
            <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.city', 'City')}</Label>
            <SearchableSelect items={cities.map(c => ({ value: c.value, label: isArabic ? c.label_ar : c.label_en }))} value={data.locationCity}
                onValueChange={handleCityChange} placeholder={t('registration.select_city', 'Select city')} disabled={!data.locationState} />
         </div>
-  
+
         <div className="space-y-1.5">
           <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.logo', 'Upload Logo')}</Label>
           <div className="border-2 bg-white border-dashed border-neutral/30 rounded-lg shadow-sm p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-neutral/5 transition-colors relative"
@@ -767,20 +880,20 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 };
 
 // --- STAGE 5: Summary ---
-const Stage5 = ({ setValid }: { setValid: (v: boolean) => void }) => {
+const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void, calculatedPrice: number }) => {
     const { t } = useTranslation();
-    const { formData, updateFormData, calculatedPrice } = useRegistrationStore();
+    const { formData, updateFormData } = useRegistrationStore();
     const { stage2, stage3, stage5 } = formData;
-  
+
     useEffect(() => {
        setValid(stage5.acceptedTerms && stage5.acceptedProcessing);
     }, [stage5, setValid]);
-  
+
     const toggleTerms = (checked: boolean) => updateFormData('stage5', { acceptedTerms: checked });
     const toggleProcessing = (checked: boolean) => updateFormData('stage5', { acceptedProcessing: checked });
 
     const priceDisplay = calculatedPrice > 0 ? `${calculatedPrice.toLocaleString()} ${t('currency.sdg', 'SDG')}` : t('plans.free', 'Free');
-  
+
     // ... same as before but using calculatedPrice
     return (
         <div className="space-y-4 w-full mx-auto md:mx-0">
@@ -794,7 +907,7 @@ const Stage5 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                     <div className="flex justify-between border-b pb-2">
                         <span className="text-neutral/60">{t('registration.plan', 'Plan')}</span>
                         <span className="font-semibold">
-                            {t(`registration.plans.${stage3.plan.toLowerCase()}`, stage3.plan)} 
+                            {t(`registration.plans.${stage3.plan.toLowerCase()}`, stage3.plan)}
                             {stage3.plan === 'Tier1' && ` (${stage3.employees} ${t('registration.emp_short', 'emp')})`}
                         </span>
                     </div>
@@ -804,7 +917,7 @@ const Stage5 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                     </div>
                 </CardContent>
             </Card>
-    
+
             <div className="space-y-4 pt-4 ps-5">
                  <div className="flex items-start space-x-2">
                     <Checkbox id="terms" checked={stage5.acceptedTerms} onCheckedChange={toggleTerms as any} />
@@ -820,7 +933,7 @@ const Stage5 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                                 </DialogHeader>
                                 <ScrollArea className="h-full mt-4 border-2 p-4 rounded-base bg-neutral/5">
                                     <p className="text-sm text-neutral/70">
-                                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. 
+                                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
                                         {/* ... more dummy text ... */}
                                     </p>
                                 </ScrollArea>
@@ -838,13 +951,13 @@ const Stage5 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 };
 
 // ... STAGE 6, 7 are similar, just wiring to Zustand and using file-to-base64
-const Stage6 = ({ setValid }: { setValid: (v: boolean) => void }) => {
+const Stage6 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void, calculatedPrice: number }) => {
     const { t } = useTranslation();
-    const { formData, updateFormData, calculatedPrice } = useRegistrationStore();
+    const { formData, updateFormData } = useRegistrationStore();
     const data = formData.stage6;
 
     const [bankDetails, setBankDetails] = useState<any>(null);
-  
+
     useEffect(() => {
        setValid(!!data.paymentMethod && !!data.confirmedTransfer);
     }, [data, setValid]);
@@ -859,10 +972,10 @@ const Stage6 = ({ setValid }: { setValid: (v: boolean) => void }) => {
             bnmb: { accountNo: 123456, accountName: "SSC - Ltd" },
         }), 800);
     }, []);
-  
+
     const handleAccordionChange = (value: string) => updateFormData('stage6', { paymentMethod: value, confirmedTransfer: false });
     const handleConfirmTransfer = (checked: boolean) => updateFormData('stage6', { confirmedTransfer: checked });
-  
+
     const discountedPrice = calculatedPrice * (1 - 0.1); // Example 10%
     const priceDisplay = data.discountApplied ? (
         <div className="flex items-center justify-center gap-2">
@@ -915,12 +1028,12 @@ const Stage6 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                                 <Spinner />
                             )}
                             <img src={`/bank_icons/${method.toLowerCase()}_qr.png`} className="w-48 h-48 object-contain rounded-base border border-primary-gray shadow-sm" alt={t('registration.qr_alt', "QR Code")} />
-                            
+
                             <div className="flex items-center space-x-2 pt-4 border-t border-neutral/10 w-full justify-center">
-                                <Checkbox 
-                                    id={`confirm-${method}`} 
-                                    checked={data.confirmedTransfer} 
-                                    onCheckedChange={handleConfirmTransfer as any} 
+                                <Checkbox
+                                    id={`confirm-${method}`}
+                                    checked={data.confirmedTransfer}
+                                    onCheckedChange={handleConfirmTransfer as any}
                                 />
                                 <label htmlFor={`confirm-${method}`} className="text-sm font-medium leading-none cursor-pointer">
                                     {t('registration.transfer_confirm', 'Transfer to this account')}
@@ -940,7 +1053,7 @@ const Stage7 = ({ setValid }: { setValid: (v: boolean) => void }) => {
     const { formData, updateFormData } = useRegistrationStore();
     const data = formData.stage7;
     const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
     useEffect(() => {
        setValid(!!data.referenceNumber);
     }, [data.referenceNumber, setValid]);
@@ -999,7 +1112,7 @@ const Stage8 = ({ userId }: { userId: number | null }) => {
     const [localStatus, setLocalStatus] = useState<'pending' | 'success' | 'error'>('pending');
     const [cloudStatus, setCloudStatus] = useState<'pending' | 'success' | 'error'>('pending');
     const [logStatus, setLogStatus] = useState<'pending' | 'success' | 'error'>('pending');
-    
+
     // Simulate cloud sync and log creation
     useEffect(() => {
         const syncFlow = async () => {
@@ -1013,7 +1126,7 @@ const Stage8 = ({ userId }: { userId: number | null }) => {
                 setCloudStatus('error');
                 return; // Stop flow if cloud sync fails
             }
-            
+
             try {
                 if (userId) {
                     await api.post('/sync_logs', {
@@ -1044,14 +1157,14 @@ const Stage8 = ({ userId }: { userId: number | null }) => {
                 <div className='bg-semantic-success rounded-full'>
                     <img src="/eva-icons (2)/outline/checkmark-circle-2.png" className='invert' />
                 </div>
-                
+
                 <h1 className="text-3xl font-bold">{t('registration.success.title', 'Registration Submitted!')}</h1>
 
             </div>
             <p className="mb-8 leading-relaxed">
                 {t('registration.success.message', 'Your registration is being processed. Please wait for the final sync to complete.')}
             </p>
-            
+
             <div className="space-y-4">
                  <Button onClick={() => navigate('/dashboard')} className='w-full text-white' size="lg" disabled={!isComplete}>
                     {isComplete ? t('registration.go_dashboard', 'Go to Dashboard') : <Spinner />}
@@ -1060,7 +1173,7 @@ const Stage8 = ({ userId }: { userId: number | null }) => {
                     {t('registration.report_issue', 'Report an issue')}
                 </Link>
             </div>
-            
+
             <div className="mt-4 text-sm text-neutral/60 space-y-1 text-start p-4 bg-neutral/10 rounded-lg">
                 <p>Local Persistence: <span className={cn(localStatus ==='success' && 'text-green-500')}>{localStatus}</span></p>
                 <p>Cloud Sync: <span className={cn(cloudStatus ==='success' && 'text-green-500')}>{cloudStatus}</span></p>
@@ -1076,14 +1189,14 @@ const UnknownStage = () => {
 };
 
 // --- Controller ---
-const StageController = ({ stage, setStepValid, userId }: { stage: number, setStepValid: (v: boolean) => void, userId: number | null }) => {
+const StageController = ({ stage, setStepValid, userId, fetchedPricingData, pricingIsLoading, calculatedPrice, getPlanDetails }: { stage: number, setStepValid: (v: boolean) => void, userId: number | null, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number, getPlanDetails: () => { backendAccountType: string; backendPlanType: string; price: number } }) => {
     switch (stage) {
         case 1: return <Stage1 setValid={setStepValid} />;
         case 2: return <Stage2 setValid={setStepValid} />;
-        case 3: return <Stage3 setValid={setStepValid} />;
+        case 3: return <Stage3 setValid={setStepValid} fetchedPricingData={fetchedPricingData} pricingIsLoading={pricingIsLoading} calculatedPrice={calculatedPrice} />;
         case 4: return <Stage4 setValid={setStepValid} />;
-        case 5: return <Stage5 setValid={setStepValid} />;
-        case 6: return <Stage6 setValid={setStepValid} />;
+        case 5: return <Stage5 setValid={setStepValid} calculatedPrice={calculatedPrice} />;
+        case 6: return <Stage6 setValid={setStepValid} calculatedPrice={calculatedPrice} />;
         case 7: return <Stage7 setValid={setStepValid} />;
         case 8: return <Stage8 userId={userId} />;
         default: return <UnknownStage />;

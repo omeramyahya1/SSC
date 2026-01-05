@@ -105,7 +105,7 @@ def _map_document_to_payload(record: models.Document):
         path = f"{folder}/{record.uuid}_{record.file_name}"
         payload["file_path"] = upload_blob(record.file_blob, "SSC", path)
     return payload
-    
+
 def _map_subscription_payment_to_payload(record: models.SubscriptionPayment):
     payload = {
         **_map_common_fields(record),
@@ -133,7 +133,7 @@ def _generic_mapper(record):
     if hasattr(record, 'invoice_uuid'): payload['invoice_id'] = record.invoice_uuid
     if hasattr(record, 'subscription_uuid'): payload['subscription_id'] = record.subscription_uuid
     if hasattr(record, 'system_config_uuid'): payload['system_config_id'] = record.system_config_uuid
-    
+
     payload['id'] = record.uuid # Ensure remote PK is the UUID
     return payload
 
@@ -180,10 +180,8 @@ def sync_table(db: Session, model, table_name: str, mapper):
 
     payloads = [mapper(rec) for rec in dirty_records]
 
-    response = supabase.rpc('sync_apply_and_pull', {
-        'table_name': table_name,
-        'records': payloads
-    }).execute()
+    if response.data:
+        return response.data
 
     if response.data:
         for record in dirty_records:
@@ -200,12 +198,12 @@ def push_to_supabase(db: Session):
         try:
             print(f"Pushing dirty records for table: {table_name}...")
             sync_table(db, config["model"], table_name, config["mapper"])
-            finalize_sync(db, "success", table_name, "push")
+            # finalize_sync(db, "success", table_name, "push")
             print(f"Successfully pushed {table_name}.")
         except Exception as e:
             error_message = str(e)
             print(f"Error pushing table {table_name}: {error_message}")
-            finalize_sync(db, "failed", table_name, "push", details=error_message)
+            # finalize_sync(db, "failed", table_name, "push", details=error_message)
             # Approved: Continue with the next table on error
 
 def get_last_sync_timestamp(db: Session) -> str:
@@ -231,13 +229,13 @@ def pull_from_supabase(db: Session):
         table_name = config["table_name"]
         try:
             print(f"Simulating pull for '{table_name}' where updated_at > {last_sync_time}")
-            
+
             # In a real implementation, you would call Supabase here:
             # response = supabase.table(table_name).select("*").gt("updated_at", last_sync_time).execute()
             # records_from_supabase = response.data
-            
+
             # DUMMY DATA: Simulate receiving one record
-            records_from_supabase = [] 
+            records_from_supabase = []
             if not records_from_supabase:
                 print(f" -> No new records found for {table_name}.")
                 continue
@@ -248,7 +246,7 @@ def pull_from_supabase(db: Session):
                 # or a custom upsert function to update the local DB.
                 record_uuid = record_data.get("id")
                 print(f"    - Merging record with UUID: {record_uuid}")
-            
+
             finalize_sync(db, "success", table_name, "pull")
 
         except Exception as e:
@@ -261,7 +259,7 @@ def sync():
     """The main endpoint to trigger the full two-way synchronization process."""
     start_time = datetime.utcnow()
     print(f"Synchronization process started at {start_time.isoformat()} UTC.")
-    
+
     # Heartbeat check
     try:
         # A simple heartbeat check could be to get server time
@@ -277,7 +275,7 @@ def sync():
             push_to_supabase(db)
 
             # 2. Pull remote changes to local
-            pull_from_supabase(db)
+            # pull_from_supabase(db)
 
             end_time = datetime.utcnow()
             duration = (end_time - start_time).total_seconds()
@@ -290,3 +288,11 @@ def sync():
             duration = (end_time - start_time).total_seconds()
             print(f"Synchronization process failed after {duration:.2f} seconds.")
             return jsonify({"status": "failed", "error": str(e), "duration_seconds": duration}), 500
+
+@sync_log_bp.route('/', methods=['GET'])
+def get_all_logs():
+    with get_db() as db:
+            items = db.query(models.SyncLog).all()
+            return jsonify([model_to_dict(i) for i in items])
+
+

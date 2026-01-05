@@ -166,8 +166,6 @@ export const useRegistrationStore = create<RegistrationStore>((set, get) => ({
         backendAccountType = 'standard';
         if (stage3.plan === 'Free Trial') {
             backendPlanType = 'trial';
-        } else {
-            backendPlanType = stage3.plan.toLowerCase();
         }
     } else if (stage2.accountType === 'Enterprise') {
         if (stage3.plan === 'Tier1') {

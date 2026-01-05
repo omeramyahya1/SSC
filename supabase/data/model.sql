@@ -178,13 +178,20 @@ CREATE TABLE public.payments (
   CONSTRAINT payments_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id)
 );
 CREATE TABLE public.pricing (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  plan_type character varying,
-  account_type USER-DEFINED,
-  base_price double precision,
-  price_per_extra_employee double precision,
-  discount_rate double precision,
-  CONSTRAINT pricing_pkey PRIMARY KEY (id)
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    plan_type VARCHAR NOT NULL,
+    billing_cycle VARCHAR NOT NULL,
+    base_price DOUBLE PRECISION NOT NULL,
+    price_per_extra_employee DOUBLE PRECISION DEFAULT 0,
+    CONSTRAINT pricing_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.pricing_discounts (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    plan_id uuid REFERENCES public.pricing(id),
+    min_employees INTEGER,
+    max_employees INTEGER,
+    discount_rate DOUBLE PRECISION,
+    CONSTRAINT pricing_discounts_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.projects (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -213,6 +220,7 @@ CREATE TABLE public.subscription_payments (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  is_dirty boolean DEFAULT false,
   CONSTRAINT subscription_payments_pkey PRIMARY KEY (id),
   CONSTRAINT subscription_payments_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id)
 );
@@ -229,6 +237,7 @@ CREATE TABLE public.subscriptions (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  is_dirty boolean DEFAULT false,
   CONSTRAINT subscriptions_pkey PRIMARY KEY (id),
   CONSTRAINT subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
