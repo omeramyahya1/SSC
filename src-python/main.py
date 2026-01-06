@@ -12,7 +12,7 @@ import os
 # --- Flask App Setup ---
 def create_app():
     app = Flask(__name__)
-    
+
     # On startup, ensure the database and its tables are created.
     create_db_and_tables()
 
@@ -24,7 +24,7 @@ def create_app():
 
 app = create_app()
 
-# Apply CORS to allow your React frontend (running on a different port) 
+# Apply CORS to allow your React frontend (running on a different port)
 # to talk to the Flask server. In production, you'd restrict this to localhost:[Tauri Port].
 CORS(app)
 
@@ -60,5 +60,5 @@ def shutdown():
 
 # --- Run the Flask app ---
 if __name__ == "__main__":
-    app.run(port=5000, debug=True, use_reloader=False)
+    app.run(port=5000, debug=True, use_reloader=True)
 

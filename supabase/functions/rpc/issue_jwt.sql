@@ -31,7 +31,7 @@ BEGIN
     -- (Only if it's a different device, as per your Case 2a/2b logic)
     UPDATE public.authentication
     SET is_logged_in = false
-    WHERE user_id = p_user_id AND device_id <> p_device_id::text;
+    WHERE user_id = p_user_id AND device_id <> p_device_id;
 
     -- 3. Retrieve Secret from Vault
     SELECT decrypted_secret INTO v_secret
@@ -42,8 +42,8 @@ BEGIN
         RAISE EXCEPTION 'JWT Secret not found in Vault';
     END IF;
 
-    -- 4. Sign the Token with your exact payload structure
-    v_jwt := sign(
+    -- 4. Sign the Token using the extensions schema and HS256 algorithm
+    v_jwt := extensions.sign(
         json_build_object(
             'sub', p_user_id,
             'role', 'authenticated',
@@ -54,16 +54,16 @@ BEGIN
             'device_id', p_device_id,
             'iat', extract(epoch from v_issued_at)::integer,
             'exp', extract(epoch from (v_issued_at + interval '14 days'))::integer
-        ),
-        v_secret
+        )::json, -- Explicitly cast to json
+        v_secret,
+        'HS256'   -- You must specify the algorithm
     );
-
     -- 5. Upsert the authentication record
     INSERT INTO public.authentication (
         user_id, device_id, current_jwt, jwt_issued_at, is_logged_in, updated_at
     )
     VALUES (
-        p_user_id, p_device_id::text, v_jwt, v_issued_at, true, now()
+        p_user_id, p_device_id, v_jwt, v_issued_at, true, now()
     )
     ON CONFLICT (user_id, device_id) -- Assumes you have a unique constraint here
     DO UPDATE SET

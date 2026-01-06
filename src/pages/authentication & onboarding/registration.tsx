@@ -42,6 +42,9 @@ import { supabase } from '@/lib/supabaseClient';
 
 // Import CSV raw
 import geoDataCsv from '@/assets/dataset/geo_data.csv?raw';
+import { useAuthenticationStore } from '@/store/useAuthenticationStore';
+import { useUserStore } from '@/store/useUserStore';
+import { useApplicationSettingsStore } from '@/store/useApplicationSettingsStore';
 
 // --- Constants ---
 const TOTAL_STAGES = 8;
@@ -123,7 +126,7 @@ export default function RegistrationScreen() {
   const [showRestoredAlert, setShowRestoredAlert] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
-  const [newUserId, setNewUserId] = useState<number | null>(null);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   // Local state for fetched pricing data
   const [fetchedPricingData, setFetchedPricingData] = useState<PricingInfo[]>([]);
@@ -153,8 +156,13 @@ export default function RegistrationScreen() {
 
   // Update layout based on stage
   useEffect(() => {
+    // If registration was successful, jump to the last stage
+    if (registrationSuccess) {
+        setCurrentStage(TOTAL_STAGES);
+        return;
+    }
     setIsExpanded(currentStage >= 3);
-  }, [currentStage]);
+  }, [currentStage, registrationSuccess]);
 
   // Online status listener
   useEffect(() => {
@@ -284,8 +292,14 @@ export default function RegistrationScreen() {
           };
 
           const response = await api.post('/users/register', payload);
-          setNewUserId(response.data.user_id);
-          setCurrentStage(prev => prev + 1);
+
+          if (response.data && response.data.jwt) {
+            localStorage.setItem('access_token', response.data.jwt);
+            setRegistrationSuccess(true); // Trigger move to final stage
+          } else {
+            throw new Error("Registration response did not include a JWT.");
+          }
+
       } catch (error: any) {
           console.error("Registration failed:", error);
           const errorDetails = error.response?.data?.details;
@@ -382,7 +396,7 @@ export default function RegistrationScreen() {
                <StageController
                  stage={currentStage}
                  setStepValid={setStepValid}
-                 userId={newUserId}
+                //  userId={newUserId}
                  fetchedPricingData={fetchedPricingData}
                  pricingIsLoading={pricingIsLoading}
                  calculatedPrice={calculatedPrice}
@@ -478,48 +492,54 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
     const data = formData.stage1;
 
     // ... (rest of the logic is the same, just consumes data from store)
-    const [checkingUser, setCheckingUser] = useState(false);
     const [checkingEmail, setCheckingEmail] = useState(false);
-    const [userAvailable, setUserAvailable] = useState<boolean | null>(null);
     const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
     const [showPassword, setShowPassword] = useState(false);
 
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-        if (data.username.length >= 3) {
-            setCheckingUser(true);
-            const avail = await dummyAsyncCheck('username', data.username);
-            setUserAvailable(avail);
-            setCheckingUser(false);
-        } else {
-            setUserAvailable(null);
-        }
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [data.username]);
+
 
     useEffect(() => {
-        const timer = setTimeout(async () => {
+    // 1. Reset state immediately when user types to avoid showing old results
+    if (!data.email) {
+        setEmailAvailable(null);
+        return;
+    }
+
+    const timer = setTimeout(async () => {
+        // 2. Only check if the email format is actually valid
         if (EMAIL_REGEX.test(data.email)) {
             setCheckingEmail(true);
-            const avail = await dummyAsyncCheck('email', data.email);
-            setEmailAvailable(avail);
-            setCheckingEmail(false);
+            try {
+                // Calling your Python backend which then calls the Supabase RPC
+                const response = await api.post('/users/check-email-uniqueness', {
+                    email: data.email
+                });
+
+                // The backend returns true (unique) or false (taken)
+                setEmailAvailable(response.data);
+            } catch (error) {
+                console.error("Error checking email uniqueness:", error);
+                // On error, we default to 'false' (unavailable) to be safe
+                setEmailAvailable(false);
+            } finally {
+                setCheckingEmail(false);
+            }
         } else {
+            // Invalid regex format
             setEmailAvailable(null);
         }
-        }, 500);
-        return () => clearTimeout(timer);
-    }, [data.email]);
+    }, 500); // 500ms debounce is perfect for Ubuntu/Windows responsiveness
+
+    return () => clearTimeout(timer);
+}, [data.email]);
 
     useEffect(() => {
         const isValid =
-        data.username.length >= 3 && userAvailable === true &&
         EMAIL_REGEX.test(data.email) && emailAvailable === true &&
         data.password.length >= PASSWORD_MIN_LENGTH && /\d/.test(data.password) &&
         data.password === data.confirmPassword;
         setValid(isValid);
-    }, [data, userAvailable, emailAvailable, setValid]);
+    }, [data, emailAvailable, setValid]);
 
     const handleChange = (field: string, val: string) => {
         updateFormData('stage1', { [field]: val });
@@ -529,12 +549,11 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
         <div className="space-y-4 w-full mx-auto md:mx-0">
           <CommonHeader title='registration.stage1.title' text='Basic Info' />
 
-          <div className="space-y-1.5">
-            <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.username', 'Username')}</Label>
+            <div className="space-y-1.5">
+            <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.username', 'Email')}</Label>
             <div className="relative">
-              <Input value={data.username} onChange={(e) => handleChange('username', e.target.value)} placeholder={t('registration.username_ph', 'Enter username')}
-                className={`w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40 ${userAvailable === false ? 'ring-red-500 ring-2' : 'focus:shadow-md focus:ring-2 focus:ring-primary/20'}`} />
-              {checkingUser && <Spinner className="absolute end-3 top-1/2 -translate-y-1/2 text-neutral/50" />}
+              <Input type="username" value={data.username} onChange={(e) => handleChange('username', e.target.value)} placeholder={t('registration.username_ph', 'Enter username')}
+                className={`w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40 focus:shadow-md focus:ring-2 focus:ring-primary/20`}  />
             </div>
           </div>
 
@@ -1109,78 +1128,57 @@ const Stage7 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 };
 
 // --- STAGE 8: Completion ---
-const Stage8 = ({ userId }: { userId: number | null }) => {
+const Stage8 = () => {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const [localStatus, setLocalStatus] = useState<'pending' | 'success' | 'error'>('pending');
-    const [cloudStatus, setCloudStatus] = useState<'pending' | 'success' | 'error'>('pending');
-    const [logStatus, setLogStatus] = useState<'pending' | 'success' | 'error'>('pending');
 
-    // Simulate cloud sync and log creation
     useEffect(() => {
-        const syncFlow = async () => {
-            setLocalStatus('success');
+        const updateAuthAndFetchData = async () => {
+            const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
 
-            try {
-                const syncWithCloud = () => new Promise(resolve => setTimeout(resolve, 1500));
-                await syncWithCloud();
-                setCloudStatus('success');
-            } catch (e) {
-                setCloudStatus('error');
-                return; // Stop flow if cloud sync fails
-            }
+            if (latestAuth && latestAuth.user_id) {
+                const userId = latestAuth.user_id;
+                // Fetch user data and settings
+                await useUserStore.getState().fetchUser(userId);
+                // In a real scenario you would fetch settings related to the user
+                // For now we will fetch all settings as an example
+                await useApplicationSettingsStore.getState().fetchSettings();
 
-            try {
-                if (userId) {
-                    await api.post('/sync_logs', {
-                        user_id: userId,
-                        sync_type: 'full',
-                        table_name: 'users',
-                        status: 'success'
-                    });
-                    setLogStatus('success');
-                } else {
-                    throw new Error("User ID not available for sync log.");
+
+                // Persist the loaded data to localStorage for the main window
+                const { currentUser } = useUserStore.getState();
+                const { settings } = useApplicationSettingsStore.getState();
+
+                if (currentUser) {
+                    localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
                 }
-            } catch (err) {
-                console.error("Failed to create sync log", err);
-                setLogStatus('error');
+                if (settings && settings.length > 0) {
+                    // Assuming we store the settings for the logged in user, or the first one for this example
+                    localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
+                }
             }
         };
-
-        syncFlow();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userId]);
-
-    const isComplete = localStatus === 'success' && cloudStatus === 'success' && logStatus === 'success';
+        updateAuthAndFetchData();
+    }, []);
 
     return (
         <div className="text-center max-w-md mx-auto">
             <div className="flex flex-row gap-4 justify-center mb-4 items-center">
-                <div className='bg-semantic-success rounded-full'>
-                    <img src="/eva-icons (2)/outline/checkmark-circle-2.png" className='invert' />
+                <div className='bg-semantic-success rounded-full p-2'>
+                    <img src="/eva-icons (2)/outline/checkmark-circle-2.png" className='invert w-8 h-8' />
                 </div>
-
                 <h1 className="text-3xl font-bold">{t('registration.success.title', 'Registration Submitted!')}</h1>
-
             </div>
             <p className="mb-8 leading-relaxed">
-                {t('registration.success.message', 'Your registration is being processed. Please wait for the final sync to complete.')}
+                {t('registration.success.message_simple', 'Your account has been created successfully. You can now proceed to your dashboard.')}
             </p>
-
             <div className="space-y-4">
-                 <Button onClick={() => navigate('/dashboard')} className='w-full text-white' size="lg" disabled={!isComplete}>
-                    {isComplete ? t('registration.go_dashboard', 'Go to Dashboard') : <Spinner />}
+                 <Button onClick={() => navigate('/dashboard')} className='w-full text-white' size="lg">
+                    {t('registration.go_dashboard', 'Go to Dashboard')}
                 </Button>
                 <Link to="/help" className="block text-sm text-primary hover:underline">
                     {t('registration.report_issue', 'Report an issue')}
                 </Link>
-            </div>
-
-            <div className="mt-4 text-sm text-neutral/60 space-y-1 text-start p-4 bg-neutral/10 rounded-lg">
-                <p>Local Persistence: <span className={cn(localStatus ==='success' && 'text-green-500')}>{localStatus}</span></p>
-                <p>Cloud Sync: <span className={cn(cloudStatus ==='success' && 'text-green-500')}>{cloudStatus}</span></p>
-                <p>Audit Logging: <span className={cn(logStatus === 'success' && 'text-green-500')}>{logStatus}</span></p>
             </div>
         </div>
     );
@@ -1192,7 +1190,7 @@ const UnknownStage = () => {
 };
 
 // --- Controller ---
-const StageController = ({ stage, setStepValid, userId, fetchedPricingData, pricingIsLoading, calculatedPrice }: { stage: number, setStepValid: (v: boolean) => void, userId: number | null, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
+const StageController = ({ stage, setStepValid, fetchedPricingData, pricingIsLoading, calculatedPrice }: { stage: number, setStepValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
     switch (stage) {
         case 1: return <Stage1 setValid={setStepValid} />;
         case 2: return <Stage2 setValid={setStepValid} />;
@@ -1201,7 +1199,7 @@ const StageController = ({ stage, setStepValid, userId, fetchedPricingData, pric
         case 5: return <Stage5 setValid={setStepValid} calculatedPrice={calculatedPrice} />;
         case 6: return <Stage6 setValid={setStepValid} calculatedPrice={calculatedPrice} />;
         case 7: return <Stage7 setValid={setStepValid} />;
-        case 8: return <Stage8 userId={userId} />;
+        case 8: return <Stage8 />;
         default: return <UnknownStage />;
     }
 };

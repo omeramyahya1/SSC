@@ -123,18 +123,38 @@ def _map_subscription_payment_to_payload(record: models.SubscriptionPayment):
 # Add other mappers here as needed, following the pattern.
 # For simplicity, some mappers can be generic if fields match 1:1.
 def _generic_mapper(record):
-    # This works for simple tables with no blobs or complex relations.
+    """
+    A more robust generic mapper that cleans the payload for Supabase.
+    - Sets remote 'id' from local 'uuid'.
+    - Removes the local integer-based primary key.
+    - Renames local '*_uuid' foreign keys to remote '*_id' foreign keys.
+    """
     payload = model_to_dict(record)
-    # Ensure UUIDs for relations are correctly named if they don't match Supabase columns
-    # e.g., if local is user_uuid and remote is user_id
-    if hasattr(record, 'user_uuid'): payload['user_id'] = record.user_uuid
-    if hasattr(record, 'project_uuid'): payload['project_id'] = record.project_uuid
-    if hasattr(record, 'customer_uuid'): payload['customer_id'] = record.customer_uuid
-    if hasattr(record, 'invoice_uuid'): payload['invoice_id'] = record.invoice_uuid
-    if hasattr(record, 'subscription_uuid'): payload['subscription_id'] = record.subscription_uuid
-    if hasattr(record, 'system_config_uuid'): payload['system_config_id'] = record.system_config_uuid
 
-    payload['id'] = record.uuid # Ensure remote PK is the UUID
+    # Set remote PK `id` from local `uuid` and remove `uuid` from payload
+    if 'uuid' in payload:
+        payload['id'] = payload.pop('uuid')
+
+    # Get the actual primary key column name(s) for the given record's model
+    # and remove them from the payload, as they are local-only.
+    model_pk_cols = [c.name for c in record.__table__.primary_key.columns]
+    for pk_name in model_pk_cols:
+        if pk_name in payload:
+             payload.pop(pk_name)
+            
+    # Rename local *_uuid FKs to remote *_id FKs by popping the old key
+    fk_mappings = {
+        'user_uuid': 'user_id',
+        'customer_uuid': 'customer_id',
+        'project_uuid': 'project_id',
+        'system_config_uuid': 'system_config_id',
+        'invoice_uuid': 'invoice_id',
+        'subscription_uuid': 'subscription_id',
+    }
+    for local_fk, remote_fk in fk_mappings.items():
+        if local_fk in payload:
+            payload[remote_fk] = payload.pop(local_fk)
+            
     return payload
 
 
@@ -180,16 +200,27 @@ def sync_table(db: Session, model, table_name: str, mapper):
 
     payloads = [mapper(rec) for rec in dirty_records]
 
-    if response.data:
-        return response.data
+    try:
+        response = supabase.table(table_name).upsert(payloads).execute()
+        
+        # supabase-py v1 returns data in a Pydantic model
+        if hasattr(response, 'data') and response.data:
+            for record in dirty_records:
+                record.is_dirty = False
+            db.commit()
+            print(f"Successfully upserted {len(response.data)} records to {table_name}.")
+        elif hasattr(response, 'error') and response.error:
+            raise Exception(f"Supabase upsert error for {table_name}: {response.error.message}")
+        else:
+            # This case might happen if the upsert is successful but returns no data (e.g. on conflict with no update)
+            # We can assume success and mark as not dirty
+            for record in dirty_records:
+                record.is_dirty = False
+            db.commit()
+            print(f"Upsert for {table_name} completed with no data returned, assuming success.")
 
-    if response.data:
-        for record in dirty_records:
-            record.is_dirty = False
-        db.commit()
-    else:
-        # The RPC call itself didn't fail, but didn't return data, which is unexpected.
-        raise Exception("Supabase RPC call succeeded but returned no data.")
+    except Exception as e:
+        raise Exception(f"Failed to sync table {table_name}: {str(e)}")
 
 def push_to_supabase(db: Session):
     """Iterates through SYNC_CONFIG and pushes dirty data for each table."""
