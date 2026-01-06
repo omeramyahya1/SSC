@@ -38,6 +38,7 @@ import { Check, ChevronsUpDown, X, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useRegistrationStore, RegistrationState } from '@/store/useRegistrationStore';
 import api from '@/api/client';
+import { supabase } from '@/lib/supabaseClient';
 
 // Import CSV raw
 import geoDataCsv from '@/assets/dataset/geo_data.csv?raw';
@@ -113,7 +114,7 @@ const areStage4FieldsFilled = (data: RegistrationState['stage4']) => {
 export default function RegistrationScreen() {
   const { t, i18n } = useTranslation();
 
-  const { formData, updateFormData, reset, getPlanDetails } = useRegistrationStore();
+  const { formData, updateFormData, reset } = useRegistrationStore();
 
   const [currentStage, setCurrentStage] = useState(1);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -130,19 +131,21 @@ export default function RegistrationScreen() {
 
   // Fetch pricing data on mount
   useEffect(() => {
-    const fetchPricing = async () => {
-        setPricingIsLoading(true);
-        try {
-            const response = await api.get<PricingInfo[]>('/users/pricing');
-            setFetchedPricingData(response.data || []);
-        } catch (error) {
-            console.error("Failed to fetch pricing config:", error);
-            setFetchedPricingData([]);
-        } finally {
-            setPricingIsLoading(false);
-        }
-    };
-    fetchPricing();
+            const fetchPricing = async () => {
+                setPricingIsLoading(true);
+                try {
+                    const { data, error } = await supabase.from('detailed_pricing').select('*');
+                    if (error) {
+                        throw error;
+                    }
+                    setFetchedPricingData((data as PricingInfo[]) || []);
+                } catch (error) {
+                    console.error("Failed to fetch pricing config:", error);
+                    setFetchedPricingData([]);
+                } finally {
+                    setPricingIsLoading(false);
+                }
+            };    fetchPricing();
     return () => {
         reset(); // Clean up form data on unmount
     }
@@ -186,37 +189,37 @@ export default function RegistrationScreen() {
     let total = 0;
 
     if (stage2.accountType === 'Standard') {
-        const selectedPlan = fetchedPricingData.find(p => 
-            p.plan_type === 'Standard' && p.billing_cycle === stage3.plan
+        const selectedPlan = fetchedPricingData.find(p =>
+            p.plan_type.toLowerCase() === 'standard' && p.billing_cycle.toLowerCase() === stage3.plan.toLowerCase()
         );
         total = selectedPlan?.base_price || 0;
 
     } else if (stage2.accountType === 'Enterprise' && stage3.plan === 'Tier1') {
         const { employees, tier1Duration } = stage3;
-        
-        const planInfo = fetchedPricingData.find(p => 
-            p.plan_type === 'Enterprise' && p.billing_cycle === tier1Duration
+
+        const planInfo = fetchedPricingData.find(p =>
+            p.plan_type.toLowerCase() === 'enterprise' && p.billing_cycle.toLowerCase() === tier1Duration.toLowerCase()
         );
 
         if (planInfo) {
             const basePrice = planInfo.base_price;
-            const extraEmployeeCost = (employees > 1) 
+            const extraEmployeeCost = (employees > 1)
                 ? (employees - 1) * planInfo.price_per_extra_employee
                 : 0;
 
             const totalBeforeDiscount = basePrice + extraEmployeeCost;
 
-            const discountInfo = fetchedPricingData.find(p => 
-                p.plan_type === 'Enterprise' &&
+            const discountInfo = fetchedPricingData.find(p =>
+                p.plan_type.toLowerCase() === 'enterprise' &&
                 p.min_employees && p.max_employees &&
                 employees >= p.min_employees && employees <= p.max_employees
             );
-            
+
             const discountRate = discountInfo?.discount_rate || 0;
             total = totalBeforeDiscount * (1 - discountRate);
         }
     }
-    
+
     return Math.round(total);
   }, [formData, fetchedPricingData]); // Recalculate if form data or pricing data changes
 
@@ -369,7 +372,7 @@ export default function RegistrationScreen() {
                 <span>{t('registration.back', 'Back')}</span>
               </button>
             )}
-            <div className="absolute top-6 end-0 ">
+            <div className="absolute  end-0 ">
               <LanguageSelector selectedLang={i18n.language} onChangeLang={toggleLanguage} />
             </div>
           </header>
@@ -383,7 +386,6 @@ export default function RegistrationScreen() {
                  fetchedPricingData={fetchedPricingData}
                  pricingIsLoading={pricingIsLoading}
                  calculatedPrice={calculatedPrice}
-                 getPlanDetails={getPlanDetails}
                />
             </div>
           </main>
@@ -702,7 +704,8 @@ const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading, calculatedPric
                             <div className="text-2xl font-bold text-center h-8 flex items-center justify-center">
                                 {pricingIsLoading ? <Spinner /> : (
                                     <>
-                                        {priceDisplay} <span className="text-sm font-normal text-neutral/50">{(data.tier1Duration === "Annual") ? "/year" : (data.tier1Duration === "Monthly") ? "/month" : ""}</span>
+                                        { data.plan === 'Tier1'? priceDisplay : ""}
+                                        <span className="text-sm font-normal text-neutral/50">{(data.tier1Duration === "Annual" && data.plan === 'Tier1') ? "/year" : (data.tier1Duration === "Monthly" && data.plan === 'Tier1') ? "/month" : ""}</span>
                                     </>
                                 )}
                             </div>
@@ -1189,7 +1192,7 @@ const UnknownStage = () => {
 };
 
 // --- Controller ---
-const StageController = ({ stage, setStepValid, userId, fetchedPricingData, pricingIsLoading, calculatedPrice, getPlanDetails }: { stage: number, setStepValid: (v: boolean) => void, userId: number | null, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number, getPlanDetails: () => { backendAccountType: string; backendPlanType: string; price: number } }) => {
+const StageController = ({ stage, setStepValid, userId, fetchedPricingData, pricingIsLoading, calculatedPrice }: { stage: number, setStepValid: (v: boolean) => void, userId: number | null, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
     switch (stage) {
         case 1: return <Stage1 setValid={setStepValid} />;
         case 2: return <Stage2 setValid={setStepValid} />;
