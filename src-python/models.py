@@ -198,7 +198,7 @@ class Subscription(Base, TimestampDirtyMixin):
     expiration_date = Column(DateTime)
     grace_period_end = Column(DateTime)
     type = Column(String)
-    status = Column(String)
+    status = Column(String, default="pending")
     license_code = Column(String)
     tampered = Column(Boolean, default=False, nullable=False)
 

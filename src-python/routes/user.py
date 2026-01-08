@@ -68,6 +68,27 @@ def check_email_uniqueness():
         # to prevent accidental duplicates on the client side.
         return jsonify({"error": "Failed to verify email uniqueness", "isUnique": False}), 500
 
+@user_bp.route('/bank-accounts', methods=['GET'])
+def get_bank_accounts():
+    bank_accounts = dict()
+    try:
+        response = supabase.table('bank_accounts').select('*').execute()
+
+        if not hasattr(response, 'data'):
+             raise Exception("Invalid response structure from Supabase client.")
+
+        for d in response.data:
+            bank_accounts[d["bank_name"]] = {
+                "account_name": d["account_name"],
+                "account_number": d["account_number"],
+                "qr_code": d["qr_code"]
+            }
+
+        return jsonify(bank_accounts), 200
+    except Exception as e:
+        print(f"Error fetching bank accounts data from Supabase: {e}")
+        return jsonify({"error": "Could not retrieve bank accounts information"}), 500
+
 @user_bp.route('/register', methods=['POST'])
 def register_user():
     try:
@@ -219,3 +240,10 @@ def register_user():
             "user_uuid": new_user.uuid,
             "jwt": jwt_token
         }), 201
+
+@user_bp.route("/", methods=['GET'])
+def get_all_users():
+    with get_db() as db:
+        items = db.query(User).all()
+        return jsonify([model_to_dict(i) for i in items])
+

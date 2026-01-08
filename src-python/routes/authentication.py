@@ -25,20 +25,20 @@ def login_user():
         # Find the authentication entry for this user
         # Note: In a real app, you'd likely retrieve the specific auth record by device_id or other means
         # For simplicity, we'll try to find any existing auth record for this user to get the salt
-        user_auth = db.query(Authentication).filter_by(user_id=user.user_id).order_by(Authentication.created_at.desc()).first()
+        user_auth = db.query(Authentication).filter_by(user_uuid=user.uuid).order_by(Authentication.created_at.desc()).first()
 
         if not user_auth or not verify_password(login_data.password, user_auth.password_salt, user_auth.password_hash):
             return jsonify({"error": "Invalid credentials"}), 401
-        
+
         # --- Authentication successful ---
 
         # 1. Mark all existing active sessions for this user as logged out
         # The context manager will handle the commit.
-        db.query(Authentication).filter_by(user_id=user.user_id, is_logged_in=True).update({"is_logged_in": False})
+        db.query(Authentication).filter_by(user_uuid=user.uuid, is_logged_in=True).update({"is_logged_in": False})
 
         # 2. Create a new authentication entry for this login
         new_auth_entry = Authentication(
-            user_id=user.user_id,
+            user_uuid=user.uuid,
             password_hash=user_auth.password_hash, # Reusing the hash
             password_salt=user_auth.password_salt, # Reusing the salt
             is_logged_in=True,
@@ -53,11 +53,17 @@ def login_user():
         # Build response
         user_data = model_to_dict(user)
         auth_data = model_to_dict(new_auth_entry)
-        
-        response_user = LoginResponseUser(**user_data)
-        response_auth = LoginResponseAuthentication(**auth_data)
+        auth_data['user_id'] = user.user_id
 
-        return jsonify(LoginResponse(user=response_user, authentication=response_auth).dict()), 200
+        try:
+            response_user = LoginResponseUser(**user_data)
+            response_auth = LoginResponseAuthentication(**auth_data)
+
+            return jsonify(LoginResponse(user=response_user, authentication=response_auth).model_dump()), 200
+        except ValidationError as e:
+            # Adding more detailed error logging for debugging
+            print(f"Pydantic validation error: {e.errors()}")
+            return jsonify({"error": "An unexpected error occurred during response creation."}), 500
 
 @authentication_bp.route('/<int:item_id>', methods=['PUT'])
 def update_authentication(item_id):
@@ -65,7 +71,7 @@ def update_authentication(item_id):
         item = db.query(Authentication).filter(Authentication.auth_id == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
         try:
             # Validate request data
             validated_data = AuthenticationUpdate(**request.json)
@@ -76,7 +82,7 @@ def update_authentication(item_id):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))

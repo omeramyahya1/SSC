@@ -515,8 +515,13 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                     email: data.email
                 });
 
-                // The backend returns true (unique) or false (taken)
-                setEmailAvailable(response.data);
+                // The backend might return an object like {is_unique: boolean}
+                if (response.data) {
+                    setEmailAvailable(response.data.isUnique);
+                } else {
+                    // Fallback for unexpected responses: assume not available for safety
+                    setEmailAvailable(null);
+                }
             } catch (error) {
                 console.error("Error checking email uniqueness:", error);
                 // On error, we default to 'false' (unavailable) to be safe
@@ -550,21 +555,22 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
           <CommonHeader title='registration.stage1.title' text='Basic Info' />
 
             <div className="space-y-1.5">
-            <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.username', 'Email')}</Label>
-            <div className="relative">
-              <Input type="username" value={data.username} onChange={(e) => handleChange('username', e.target.value)} placeholder={t('registration.username_ph', 'Enter username')}
-                className={`w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40 focus:shadow-md focus:ring-2 focus:ring-primary/20`}  />
+                <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.username', 'Email')}</Label>
+                <div className="relative">
+                <Input type="username" value={data.username} onChange={(e) => handleChange('username', e.target.value)} placeholder={t('registration.username_ph', 'Enter username')}
+                    className={`w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40 focus:shadow-md focus:ring-2 focus:ring-primary/20`}  />
+                </div>
             </div>
-          </div>
 
           <div className="space-y-1.5">
             <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.email', 'Email')}</Label>
-            <div className="relative">
+            <div className="relative flex flex-row justify-center items-center">
               <Input type="email" value={data.email} onChange={(e) => handleChange('email', e.target.value)} placeholder={t('registration.email_ph', 'Enter email')}
                 className={`w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40 ${emailAvailable === false ? 'ring-red-500 ring-2' : 'focus:shadow-md focus:ring-2 focus:ring-primary/20'}`} />
-              {checkingEmail && <Spinner className="absolute end-3 top-1/2 -translate-y-1/2 text-neutral/50" />}
+              {checkingEmail && <Spinner className="absolute end-3 text-neutral/50" />}
             </div>
-            {emailAvailable === false && <p className="text-xs text-red-500 mt-1 ps-1">{t('registration.email_taken', 'Email already registered')}</p>}
+            {emailAvailable == false && <p className="text-xs text-red-500 mt-1 ps-1">{t('registration.email_taken', 'Email already registered')}</p>}
+            {data.email && EMAIL_REGEX.test(data.email) == false && <p className="text-xs text-red-500 mt-1 ps-1">{t('registration.invalid_email', 'Email is invalid')}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -585,7 +591,11 @@ const Stage1 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                   )}
                 </button>
             </div>
-            <p className="text-xs text-neutral/50 ps-1">{t('registration.password_hint', 'Min 6 chars, at least 1 number')}</p>
+            {data.password && (data.password.length < PASSWORD_MIN_LENGTH || !(/\d/).test(data.password)) && (
+                    <p className="text-xs text-red-500 mt-1 ps-1">
+                        {t('registration.password_hint', 'Min 6 chars, at least 1 number')}
+                    </p>
+                )}
           </div>
 
           <div className="space-y-1.5">
@@ -720,11 +730,11 @@ const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading, calculatedPric
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="text-2xl font-bold text-center h-8 flex items-center justify-center">
+                            <div className="text-2xl font-bold text-center h-8 flex flex-col items-center justify-center">
                                 {pricingIsLoading ? <Spinner /> : (
                                     <>
                                         { data.plan === 'Tier1'? priceDisplay : ""}
-                                        <span className="text-sm font-normal text-neutral/50">{(data.tier1Duration === "Annual" && data.plan === 'Tier1') ? "/year" : (data.tier1Duration === "Monthly" && data.plan === 'Tier1') ? "/month" : ""}</span>
+                                        <span className="text-xs font-normal text-neutral/50">{(data.tier1Duration === "Annual" && data.plan === 'Tier1') ? t('registration.plans.per_year', '/year') : (data.tier1Duration === "Monthly" && data.plan === 'Tier1') ?  t('registration.plans.per_month', '/month') : (data.tier1Duration === "Lifetime" && data.plan === 'Tier1') ? t('registration.plans.one_payment', 'single payment') : ""}</span>
                                     </>
                                 )}
                             </div>
@@ -985,15 +995,20 @@ const Stage6 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
     }, [data, setValid]);
 
     useEffect(() => {
-        // Dummy async fetch
-        setTimeout(() => setBankDetails({
-            bankak: { accountNo: 123456, accountName: "SSC - Ltd" },
-            ocash: { accountNo: 123456, accountName: "SSC - Ltd" },
-            fawry: { accountNo: 123456, accountName: "SSC - Ltd" },
-            mycashi: { accountNo: 123456, accountName: "SSC - Ltd" },
-            bnmb: { accountNo: 123456, accountName: "SSC - Ltd" },
-        }), 800);
-    }, []);
+    const fetchBankDetails = async () => {
+        try {
+            // 1. Fetch the data from your Python backend
+            const response = await api.get('/users/bank-accounts');
+            const data = response.data;
+            setBankDetails(data);
+
+        } catch (error) {
+            console.error("Failed to load bank details:", error);
+        }
+    };
+
+    fetchBankDetails();
+}, []);
 
     const handleAccordionChange = (value: string) => updateFormData('stage6', { paymentMethod: value, confirmedTransfer: false });
     const handleConfirmTransfer = (checked: boolean) => updateFormData('stage6', { confirmedTransfer: checked });
@@ -1042,25 +1057,47 @@ const Stage6 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
                     <AccordionContent className="bg-neutral/5 p-4 rounded-b-lg">
                         <div className="flex flex-col items-center gap-4">
                             {bankDetails ? (
-                                <div className="text-center">
-                                    <div className="font-semibold">{t('registration.account_name', 'Account Name')}: {bankDetails[method.toLowerCase()]?.accountName}</div>
-                                    <div className="font-mono text-lg">{bankDetails[method.toLowerCase()]?.accountNo}</div>
-                                </div>
-                            ) : (
-                                <Spinner />
-                            )}
-                            <img src={`/bank_icons/${method.toLowerCase()}_qr.png`} className="w-48 h-48 object-contain rounded-base border border-primary-gray shadow-sm" alt={t('registration.qr_alt', "QR Code")} />
+                                <>
+                                    {/* 1. Bank Information */}
+                                    <div className="text-center">
+                                        <div className="font-semibold">
+                                            {t('registration.account_name', 'Account Name')}: {bankDetails[method.toLowerCase()]?.account_name}
+                                        </div>
+                                        <div className="font-mono text-lg">
+                                            {bankDetails[method.toLowerCase()]?.account_number}
+                                        </div>
+                                    </div>
 
-                            <div className="flex items-center space-x-2 pt-4 border-t border-neutral/10 w-full justify-center">
-                                <Checkbox
-                                    id={`confirm-${method}`}
-                                    checked={data.confirmedTransfer}
-                                    onCheckedChange={handleConfirmTransfer as any}
-                                />
-                                <label htmlFor={`confirm-${method}`} className="text-sm font-medium leading-none cursor-pointer">
-                                    {t('registration.transfer_confirm', 'Transfer to this account')}
-                                </label>
-                            </div>
+                                    {/* 2. QR Code - Only shows if it exists in the data */}
+                                    {bankDetails[method.toLowerCase()]?.qr_code && (
+                                        <img
+                                            src={bankDetails[method.toLowerCase()].qr_code}
+                                            className="w-48 h-48 object-contain rounded-base border border-primary-gray shadow-sm"
+                                            alt={t('registration.qr_alt', "QR Code")}
+                                        />
+                                    )}
+
+                                    {/* 3. Confirmation Logic */}
+                                    <div className="flex items-center space-x-2 pt-4 border-t border-neutral/10 w-full justify-center">
+                                        <Checkbox
+                                            id={`confirm-${method}`}
+                                            checked={data.confirmedTransfer}
+                                            onCheckedChange={handleConfirmTransfer as any}
+                                        />
+                                        <label
+                                            htmlFor={`confirm-${method}`}
+                                            className="text-sm font-medium leading-none cursor-pointer"
+                                        >
+                                            {t('registration.transfer_confirm', 'Transfer to this account')}
+                                        </label>
+                                    </div>
+                                </>
+                            ) : (
+                                /* Show Spinner while data is null */
+                                <div className="py-10">
+                                    <Spinner />
+                                </div>
+                            )}
                         </div>
                     </AccordionContent>
                   </AccordionItem>
@@ -1130,7 +1167,11 @@ const Stage7 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 // --- STAGE 8: Completion ---
 const Stage8 = () => {
     const { t } = useTranslation();
-    const navigate = useNavigate();
+    const [toDashboard, setToDashboard] = useState(false);
+
+    const handleDashboard = () => {
+        setToDashboard(true)
+    }
 
     useEffect(() => {
         const updateAuthAndFetchData = async () => {
@@ -1145,16 +1186,18 @@ const Stage8 = () => {
                 await useApplicationSettingsStore.getState().fetchSettings();
 
 
-                // Persist the loaded data to localStorage for the main window
-                const { currentUser } = useUserStore.getState();
-                const { settings } = useApplicationSettingsStore.getState();
+                // Persist the loaded data to localStorage for the main windo
+                if (toDashboard) {
+                    const { currentUser } = useUserStore.getState();
+                        const { settings } = useApplicationSettingsStore.getState();
 
-                if (currentUser) {
-                    localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
-                }
-                if (settings && settings.length > 0) {
-                    // Assuming we store the settings for the logged in user, or the first one for this example
-                    localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
+                    if (currentUser) {
+                        localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
+                    }
+                    if (settings && settings.length > 0) {
+                        // Assuming we store the settings for the logged in user, or the first one for this example
+                        localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
+                    }
                 }
             }
         };
@@ -1173,7 +1216,7 @@ const Stage8 = () => {
                 {t('registration.success.message_simple', 'Your account has been created successfully. You can now proceed to your dashboard.')}
             </p>
             <div className="space-y-4">
-                 <Button onClick={() => navigate('/dashboard')} className='w-full text-white' size="lg">
+                 <Button onClick={() => handleDashboard()} className='w-full text-white' size="lg">
                     {t('registration.go_dashboard', 'Go to Dashboard')}
                 </Button>
                 <Link to="/help" className="block text-sm text-primary hover:underline">

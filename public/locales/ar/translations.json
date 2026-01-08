@@ -133,5 +133,11 @@
   "registration.org_info": "معلومات المؤسسة",
   "registration.business_info": "معلومات النشاط التجاري",
   "registration.type.standard": "قياسي",
-  "registration.type.enterprise": "مؤسسي"
+  "registration.type.enterprise": "مؤسسي",
+  "registration.invalid_email": "صيغة البريد غير صحيحة",
+  "registration.plans.per_month": "لكل شهر",
+  "registration.plans.per_year": "لكل سنة",
+  "registration.plans.one_payment": "تُدفع مرة واحة فقط",
+  "login.invalid_credentials": "البيانات غير صحيحة"
+
 }
