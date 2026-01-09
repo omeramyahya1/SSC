@@ -5,21 +5,11 @@ from models import User, Authentication, ApplicationSettings, Subscription, Subs
 from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
 from serializer import model_to_dict
-from routes.sync_log import push_to_supabase, upload_blob
+from routes.sync_log import sync, upload_blob
 import base64
 import uuid
 from datetime import datetime, timedelta
-import os
-from supabase import create_client, Client
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Supabase setup
-url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(url, key)
+from supabase_client import get_anon_client, get_service_role_client
 
 user_bp = Blueprint('user_bp', __name__, url_prefix='/users')
 
@@ -29,6 +19,7 @@ def get_pricing_data():
     Fetches detailed pricing data from the cloud's detailed_pricing view.
     """
     try:
+        supabase = get_anon_client()
         response = supabase.table('detailed_pricing').select('*').execute()
 
         # The supabase-py client v1 wraps the data in a Pydantic model, access via .data
@@ -52,6 +43,7 @@ def check_email_uniqueness():
     email_to_check = data['email']
 
     try:
+        supabase = get_service_role_client()
         # The RPC function `check_email_exists` returns:
         # - `true` if the email does NOT exist (it is unique/available).
         # - `false` if the email DOES exist (it is not unique).
@@ -72,6 +64,7 @@ def check_email_uniqueness():
 def get_bank_accounts():
     bank_accounts = dict()
     try:
+        supabase = get_anon_client()
         response = supabase.table('bank_accounts').select('*').execute()
 
         if not hasattr(response, 'data'):
@@ -99,10 +92,6 @@ def register_user():
     stage1 = payload.stage1
 
     with get_db() as db:
-        # 1. Local check
-        if db.query(User).filter((User.email == stage1.email) | (User.username == stage1.username)).first():
-            return jsonify({"error": "User with this email or username already exists"}), 409
-
         # Prepare authentication data
         salt = generate_salt()
         hashed_pw = hash_password(stage1.password, salt)
@@ -130,7 +119,7 @@ def register_user():
                 logo_b64 = stage4.logo.split("base64,")[1] if "base64," in stage4.logo else stage4.logo
                 logo_bytes = base64.b64decode(logo_b64)
                 path = f"user_logos/{new_user_uuid}.png"
-                logo_url = upload_blob(logo_bytes, "SSC", path) # Assuming "SSC" is the bucket name
+                logo_url = upload_blob(logo_bytes, "SSC", path, use_service_client=True) # Use service client for upload
             except Exception as e:
                 print(f"Warning: Could not decode or upload logo for user {stage1.email}. Error: {e}")
 
@@ -138,7 +127,8 @@ def register_user():
         # 2. Call register_user RPC to create User and Auth records in Supabase (Service Role Key context)
         try:
             print("--- Calling register_user RPC ---")
-            supabase.rpc('register_user', {
+            service_client = get_service_role_client()
+            service_client.rpc('register_user', {
                 'p_user_uuid': new_user_uuid,
                 'p_username': stage1.username,
                 'p_email': stage1.email,
@@ -202,9 +192,10 @@ def register_user():
         jwt_token = None
         try:
             print("--- Issuing JWT ---")
-            jwt_response = supabase.rpc('issue_jwt', {
+            service_client = get_service_role_client()
+            jwt_response = service_client.rpc('issue_jwt', {
                 'p_user_id': new_user.uuid,
-                'p_device_id': new_auth.uuid
+                'p_device_id': new_auth.device_id
             }).execute()
 
             if not hasattr(jwt_response, 'data') or not jwt_response.data:
@@ -228,7 +219,14 @@ def register_user():
         # 6. Full Sync (for Subscription, ApplicationSettings, SubscriptionPayment)
         try:
             print("--- Starting Full Sync for Registration (Remaining Dirty Records) ---")
-            push_to_supabase(db)
+            sync_response, status_code = sync()
+            if status_code >= 400:
+                error_details = "Unknown sync error"
+                try:
+                    error_details = sync_response.get_json().get("error", error_details)
+                except Exception:
+                    pass
+                raise Exception(f"Synchronization failed: {error_details}")
             print("--- Full Sync Completed ---")
         except Exception as e:
             print(f"Error during full sync: {str(e)}")

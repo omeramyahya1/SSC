@@ -45,9 +45,11 @@ BEGIN
     -- 4. Sign the Token using the extensions schema and HS256 algorithm
     v_jwt := extensions.sign(
         json_build_object(
-            'sub', p_user_id,
+            'sub', p_user_id::text,
             'role', 'authenticated',
+            'aud', 'authenticated',
             'app_role', u.role,
+            'iss', 'https://igmwwmtacuedbexsslco.supabase.co/auth/v1',
             'organization_id', u.organization_id,
             'branch_id', u.branch_id,
             'distributor_id', u.distributor_id,

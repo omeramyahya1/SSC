@@ -1167,6 +1167,7 @@ const Stage7 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 // --- STAGE 8: Completion ---
 const Stage8 = () => {
     const { t } = useTranslation();
+    const navigate = useNavigate(); // ADDED
     const [toDashboard, setToDashboard] = useState(false);
 
     const handleDashboard = () => {
@@ -1174,10 +1175,11 @@ const Stage8 = () => {
     }
 
     useEffect(() => {
+        if (toDashboard) {
         const updateAuthAndFetchData = async () => {
             const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
 
-            if (latestAuth && latestAuth.user_id) {
+            if (latestAuth && latestAuth.user_id && toDashboard) {
                 const userId = latestAuth.user_id;
                 // Fetch user data and settings
                 await useUserStore.getState().fetchUser(userId);
@@ -1186,7 +1188,7 @@ const Stage8 = () => {
                 await useApplicationSettingsStore.getState().fetchSettings();
 
 
-                // Persist the loaded data to localStorage for the main windo
+                // Persist the loaded data to localStorage for the main window
                 if (toDashboard) {
                     const { currentUser } = useUserStore.getState();
                         const { settings } = useApplicationSettingsStore.getState();
@@ -1199,10 +1201,13 @@ const Stage8 = () => {
                         localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
                     }
                 }
+                navigate('/dashboard'); // ADDED: Navigate to dashboard after data is loaded and persisted
             }
         };
         updateAuthAndFetchData();
-    }, []);
+    }
+    }, [navigate]); // MODIFIED: Added toDashboard and navigate to dependency array
+
 
     return (
         <div className="text-center max-w-md mx-auto">
@@ -1210,10 +1215,10 @@ const Stage8 = () => {
                 <div className='bg-semantic-success rounded-full p-2'>
                     <img src="/eva-icons (2)/outline/checkmark-circle-2.png" className='invert w-8 h-8' />
                 </div>
-                <h1 className="text-3xl font-bold">{t('registration.success.title', 'Registration Submitted!')}</h1>
+                <h1 className="text-3xl font-bold">{t('registration.success.title', 'Registration Successful!')}</h1>
             </div>
             <p className="mb-8 leading-relaxed">
-                {t('registration.success.message_simple', 'Your account has been created successfully. You can now proceed to your dashboard.')}
+                {t('registration.success.message_simple', 'Your account has been created successfully. If you made a payment, processing takes up to 24 hours, you will recive an email upon updates your payment status.')}
             </p>
             <div className="space-y-4">
                  <Button onClick={() => handleDashboard()} className='w-full text-white' size="lg">

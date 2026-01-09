@@ -6,26 +6,22 @@ from sqlalchemy.orm import Session
 from utils import get_db
 import models
 from serializer import model_to_dict
-import os
-from supabase import create_client, Client
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
+from supabase_client import get_user_client, get_service_role_client, get_anon_client
 
 sync_log_bp = Blueprint('sync_log_bp', __name__, url_prefix='/sync_logs')
 
-# Supabase setup
-url: str = os.environ.get("SUPABASE_URL")
-key: str = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(url, key)
-
 # --- BLOB UPLOAD ---
-def upload_blob(blob_data: bytes, bucket_name: str, destination_path: str):
+def upload_blob(blob_data: bytes, bucket_name: str, destination_path: str, use_service_client: bool = False):
     """
     Uploads binary data to a specified Supabase bucket and returns the public URL.
     Raises an exception on failure.
+    Can use service role client for initial registration uploads.
     """
+    if use_service_client:
+        supabase = get_service_role_client()
+    else:
+        supabase = get_user_client()
+
     try:
         content_type, _ = mimetypes.guess_type(destination_path)
         content_type = content_type or 'application/octet-stream'
@@ -141,7 +137,7 @@ def _generic_mapper(record):
     for pk_name in model_pk_cols:
         if pk_name in payload:
              payload.pop(pk_name)
-            
+
     # Rename local *_uuid FKs to remote *_id FKs by popping the old key
     fk_mappings = {
         'user_uuid': 'user_id',
@@ -154,7 +150,7 @@ def _generic_mapper(record):
     for local_fk, remote_fk in fk_mappings.items():
         if local_fk in payload:
             payload[remote_fk] = payload.pop(local_fk)
-            
+
     return payload
 
 
@@ -201,8 +197,13 @@ def sync_table(db: Session, model, table_name: str, mapper):
     payloads = [mapper(rec) for rec in dirty_records]
 
     try:
-        response = supabase.table(table_name).upsert(payloads).execute()
-        
+        supabase = get_user_client()
+        # response = supabase.table(table_name).upsert(payloads).execute()
+        response = supabase.rpc("sync_apply_and_pull", {
+            "table_name": table_name,
+            "records": payloads
+        } ).execute()
+
         # supabase-py v1 returns data in a Pydantic model
         if hasattr(response, 'data') and response.data:
             for record in dirty_records:
@@ -262,6 +263,7 @@ def pull_from_supabase(db: Session):
             print(f"Simulating pull for '{table_name}' where updated_at > {last_sync_time}")
 
             # In a real implementation, you would call Supabase here:
+            # supabase = get_user_client()
             # response = supabase.table(table_name).select("*").gt("updated_at", last_sync_time).execute()
             # records_from_supabase = response.data
 
@@ -293,6 +295,7 @@ def sync():
 
     # Heartbeat check
     try:
+        supabase = get_anon_client()
         # A simple heartbeat check could be to get server time
         res = supabase.rpc("get_server_utc").execute()
         print(f"Supabase server time: {res.data}. Heartbeat check passed.")
