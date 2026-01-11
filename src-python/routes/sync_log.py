@@ -201,12 +201,10 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
 
     try:
         supabase = get_user_client()
-        print(f"Pushing {payloads}")
         response = supabase.rpc("sync_apply_and_pull", {
             "p_table_name": table_name,
             "p_records": payloads
         } ).execute()
-        print(f"Here is the response: {response}")
 
         # Check for an explicit API error from Supabase/PostgREST
         if hasattr(response, 'error') and response.error:
@@ -236,7 +234,7 @@ def push_to_supabase(db: Session, dirty_only: bool=True):
             print(f"Pushing dirty records for table: {table_name}...")
             sync_table(db, config["model"], table_name, config["mapper"], dirty_only=dirty_only)
             # finalize_sync(db, "success", table_name, "push")
-            print(f"Successfully pushed {table_name}.\n")
+            print(f"Successfully pushed {table_name}.")
         except Exception as e:
             error_message = str(e)
             print(f"Error pushing table {table_name}: {error_message}")
