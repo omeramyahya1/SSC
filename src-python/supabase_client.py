@@ -44,3 +44,29 @@ def get_user_client() -> Client:
 
 def get_anon_client() -> Client:
     return create_client(url, anon_key)
+
+
+if __name__ == '__main__':
+    from serializer import model_to_dict
+    SYNC_CONFIG = [
+    {"model": models.User},
+    {"model": models.Customer},
+    {"model": models.SystemConfiguration},
+    {"model": models.Project},
+    {"model": models.Appliance},
+    {"model": models.Subscription},
+    {"model": models.Invoice},
+    {"model": models.Payment},
+    {"model": models.SubscriptionPayment},
+    {"model": models.Document},
+    {"model": models.ApplicationSettings}
+]
+    with get_db() as db:
+        for t in SYNC_CONFIG:
+            entry = (
+                db.query(t['model'])
+                .filter(t['model'].is_dirty == True)
+                .first()
+            )
+            print(t['model'].__table__.primary_key.columns)
+            print(model_to_dict(entry))

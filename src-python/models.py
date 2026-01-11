@@ -67,7 +67,7 @@ class User(Base, TimestampDirtyMixin):
 class ApplicationSettings(Base, TimestampDirtyMixin):
     __tablename__ = 'application_settings'
 
-    id = Column(Integer, primary_key=True)
+    application_settings_id = Column(Integer, primary_key=True)
     language = Column(String)
     last_saved_path = Column(String)
     other_settings = Column(JSON)

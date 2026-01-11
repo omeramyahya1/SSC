@@ -121,13 +121,20 @@ def _map_subscription_payment_to_payload(record: models.SubscriptionPayment):
 def _generic_mapper(record):
     """
     A more robust generic mapper that cleans the payload for Supabase.
-    - Sets remote 'id' from local 'uuid'.
     - Removes the local integer-based primary key.
+    - Sets remote 'id' from local 'uuid'.
     - Renames local '*_uuid' foreign keys to remote '*_id' foreign keys.
     """
     payload = model_to_dict(record)
 
-    # Set remote PK `id` from local `uuid` and remove `uuid` from payload
+    # First, remove the local-only integer primary key.
+    # This prevents it from being confused with the remote UUID 'id'.
+    model_pk_cols = [c.name for c in record.__table__.primary_key.columns]
+    for pk_name in model_pk_cols:
+        if pk_name in payload:
+             payload.pop(pk_name)
+
+    # Now, set the remote PK `id` from the local `uuid`.
     if 'uuid' in payload:
         payload['id'] = payload.pop('uuid')
 

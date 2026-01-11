@@ -43,6 +43,7 @@ BEGIN
     END IF;
 
     -- 4. Sign the Token using the extensions schema and HS256 algorithm
+    -- Updated JWT Issuing Structure
     v_jwt := extensions.sign(
         json_build_object(
             'sub', p_user_id::text,
@@ -56,9 +57,9 @@ BEGIN
             'device_id', p_device_id,
             'iat', extract(epoch from v_issued_at)::integer,
             'exp', extract(epoch from (v_issued_at + interval '14 days'))::integer
-        )::json, -- Explicitly cast to json
-        v_secret,
-        'HS256'   -- You must specify the algorithm
+        )::json,
+        v_secret::text, -- This MUST be the HS256 Shared Secret string
+        'HS256'
     );
     -- 5. Upsert the authentication record
     INSERT INTO public.authentication (
