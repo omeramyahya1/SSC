@@ -138,13 +138,6 @@ def _generic_mapper(record):
     if 'uuid' in payload:
         payload['id'] = payload.pop('uuid')
 
-    # Get the actual primary key column name(s) for the given record's model
-    # and remove them from the payload, as they are local-only.
-    model_pk_cols = [c.name for c in record.__table__.primary_key.columns]
-    for pk_name in model_pk_cols:
-        if pk_name in payload:
-             payload.pop(pk_name)
-
     # Rename local *_uuid FKs to remote *_id FKs by popping the old key
     fk_mappings = {
         'user_uuid': 'user_id',
@@ -195,50 +188,55 @@ def finalize_sync(db: Session, status: str, table_name: str, sync_type: str, det
     db.add(sync_log_entry)
     db.commit()
 
-def sync_table(db: Session, model, table_name: str, mapper):
+def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
     """Generic worker to sync all dirty records for a given table."""
-    dirty_records = db.query(model).filter(model.is_dirty == True).all()
-    if not dirty_records:
+    if dirty_only:
+        records = db.query(model).filter(model.is_dirty == True).all()
+    else:
+        records = db.query(model).all()
+    if not records:
         return  # No records to sync for this table
 
-    payloads = [mapper(rec) for rec in dirty_records]
+    payloads = [mapper(rec) for rec in records]
 
     try:
         supabase = get_user_client()
-        # response = supabase.table(table_name).upsert(payloads).execute()
+        print(f"Pushing {payloads}")
         response = supabase.rpc("sync_apply_and_pull", {
-            "table_name": table_name,
-            "records": payloads
+            "p_table_name": table_name,
+            "p_records": payloads
         } ).execute()
+        print(f"Here is the response: {response}")
 
-        # supabase-py v1 returns data in a Pydantic model
+        # Check for an explicit API error from Supabase/PostgREST
+        if hasattr(response, 'error') and response.error:
+            raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
+
+        # Check for positive confirmation: data must be a non-empty list.
         if hasattr(response, 'data') and response.data:
-            for record in dirty_records:
+            # Success: The RPC returned the records it processed.
+            for record in records:
                 record.is_dirty = False
             db.commit()
-            print(f"Successfully upserted {len(response.data)} records to {table_name}.")
-        elif hasattr(response, 'error') and response.error:
-            raise Exception(f"Supabase upsert error for {table_name}: {response.error.message}")
+            print(f"Successfully synced {len(response.data)} records to {table_name}.")
         else:
-            # This case might happen if the upsert is successful but returns no data (e.g. on conflict with no update)
-            # We can assume success and mark as not dirty
-            for record in dirty_records:
-                record.is_dirty = False
-            db.commit()
-            print(f"Upsert for {table_name} completed with no data returned, assuming success.")
+            # No-op/Silent Failure: The RPC ran without error but returned no data.
+            # This implies no records were actually inserted/updated.
+            # Do NOT mark records as clean. Log a warning and continue.
+            print(f"Warning: Sync for {table_name} completed, but the remote server did not return any processed records. Records will remain dirty.")
 
     except Exception as e:
         raise Exception(f"Failed to sync table {table_name}: {str(e)}")
 
-def push_to_supabase(db: Session):
+def push_to_supabase(db: Session, dirty_only: bool=True):
     """Iterates through SYNC_CONFIG and pushes dirty data for each table."""
     for config in SYNC_CONFIG:
         table_name = config["table_name"]
         try:
             print(f"Pushing dirty records for table: {table_name}...")
-            sync_table(db, config["model"], table_name, config["mapper"])
+            sync_table(db, config["model"], table_name, config["mapper"], dirty_only=dirty_only)
             # finalize_sync(db, "success", table_name, "push")
-            print(f"Successfully pushed {table_name}.")
+            print(f"Successfully pushed {table_name}.\n")
         except Exception as e:
             error_message = str(e)
             print(f"Error pushing table {table_name}: {error_message}")
@@ -336,4 +334,14 @@ def get_all_logs():
             items = db.query(models.SyncLog).all()
             return jsonify([model_to_dict(i) for i in items])
 
+@sync_log_bp.route('/push', methods=['POST'])
+def push():
+    with get_db() as db:
+        try:
+            push_to_supabase(db, False)
+            print(f"Synchronization process finished successfully in")
+            return jsonify({"status": "ok"}), 200
+
+        except Exception as e:
+            return jsonify({"status": "failed", "error": str(e)}), 500
 

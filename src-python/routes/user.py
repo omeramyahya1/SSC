@@ -147,13 +147,13 @@ def register_user():
             uuid=new_user_uuid, username=stage1.username, email=stage1.email, business_name=stage4.businessName,
             account_type=payload.account_type, location=location, business_logo=logo_bytes, # local storage still gets bytes
             status=user_status, role='admin' if 'enterprise' in payload.account_type else None,
-            is_dirty=False # Already created in cloud by RPC
+            is_dirty=True # Already created in cloud by RPC
         )
         db.add(new_user)
 
         new_auth = Authentication(
             uuid=new_auth_uuid, user_uuid=new_user_uuid, password_hash=hashed_pw, password_salt=salt,
-            is_logged_in=False, device_id=device_id, is_dirty=False # Already created in cloud by RPC
+            is_logged_in=False, device_id=device_id, is_dirty=True # Already created in cloud by RPC
         )
         db.add(new_auth)
 
