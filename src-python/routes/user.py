@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db, generate_salt, hash_password
-from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment
+from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch
 from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
 from serializer import model_to_dict
@@ -130,57 +130,79 @@ def register_user():
         hashed_pw = hash_password(stage1.password, salt)
         device_id = str(uuid.uuid4()) # This device_id is for the current session/device
 
-        # Generate UUIDs upfront for new records (important for RPC calls)
+        # Generate UUIDs upfront for new records
         new_user_uuid = str(uuid.uuid4())
-        new_auth_uuid = str(uuid.uuid4()) # UUID for the authentication record
+        new_auth_uuid = str(uuid.uuid4())
         new_sub_uuid = str(uuid.uuid4())
         new_settings_uuid = str(uuid.uuid4())
         new_payment_uuid = str(uuid.uuid4()) if payload.plan_type != 'Free Trial' else None
         new_device_uuid = str(uuid.UUID(device_id))
 
+        new_org_uuid = None
+        new_branch_uuid = None
 
         # Prepare user data
         stage4 = payload.stage4
         location = f"{stage4.locationCity}, {stage4.locationState}" if stage4.locationCity and stage4.locationState else None
         user_status = 'trial' if payload.plan_type == "Free Trial" else "active"
 
-        # Handle business logo upload if present (before RPC call)
-        logo_url = None
+        # Handle business logo upload if present
         logo_bytes = None
         if stage4.logo:
             try:
                 logo_b64 = stage4.logo.split("base64,")[1] if "base64," in stage4.logo else stage4.logo
                 logo_bytes = base64.b64decode(logo_b64)
                 path = f"user_logos/{new_user_uuid}.png"
-                logo_url = upload_blob(logo_bytes, "SSC", path, use_service_client=True) # Use service client for upload
+                upload_blob(logo_bytes, "SSC", path, use_service_client=True)
             except Exception as e:
                 print(f"Warning: Could not decode or upload logo for user {stage1.email}. Error: {e}")
 
+        # Handle Enterprise Account specific logic
+        if 'enterprise' in payload.account_type:
+            new_org_uuid = str(uuid.uuid4())
+            new_branch_uuid = str(uuid.uuid4())
 
-        # 2. Call register_user RPC to create User and Auth records in Supabase (Service Role Key context)
+            # Create Organization
+            new_org = Organization(
+                uuid=new_org_uuid,
+                name=stage4.businessName,
+                plan_type=payload.account_type,
+                is_dirty=True
+            )
+            db.add(new_org)
+
+            # Create Branch
+            branch_name = "HQ" if payload.language == 'en' else "الفرع الرئيسي"
+            new_branch = Branch(
+                uuid=new_branch_uuid,
+                name=branch_name,
+                organization_uuid=new_org_uuid,
+                is_dirty=True
+            )
+            db.add(new_branch)
+
+        # Call register_user RPC
         try:
             print("--- Calling register_user RPC ---")
             service_client = get_service_role_client()
             service_client.rpc('register_user', {
-                'p_user_uuid': new_user_uuid,
-                'p_username': stage1.username,
-                'p_email': stage1.email,
-                'p_auth_uuid': new_auth_uuid,
-                'p_password_hash': hashed_pw,
-                'p_password_salt': salt,
-                'p_device_id': new_device_uuid,
-                'p_distributor_id': payload.distributor_id # Pass distributor ID
+                'p_user_uuid': new_user_uuid, 'p_username': stage1.username, 'p_email': stage1.email,
+                'p_auth_uuid': new_auth_uuid, 'p_password_hash': hashed_pw, 'p_password_salt': salt,
+                'p_device_id': new_device_uuid, 'p_distributor_id': payload.distributor_id
             }).execute()
             print("--- register_user RPC Completed ---")
         except Exception as e:
             print(f"Error calling register_user RPC: {str(e)}")
             return jsonify({"error": "Failed to create user in the cloud using RPC."}), 500
 
-        # 3. Create all local records, marking User and Auth as NOT dirty (since they're now in cloud)
+        # Create local records
         new_user = User(
-            uuid=new_user_uuid, username=stage1.username, email=stage1.email, business_name=stage4.businessName,
-            account_type=payload.account_type, location=location, business_logo=logo_bytes, # local storage still gets bytes
-            status=user_status, role='admin' if 'enterprise' in payload.account_type else 'user',
+            uuid=new_user_uuid, username=stage1.username, email=stage1.email,
+            business_name=stage4.businessName, account_type=payload.account_type, location=location,
+            business_logo=logo_bytes, status=user_status,
+            role='admin' if 'enterprise' in payload.account_type else 'user',
+            organization_uuid=new_org_uuid, branch_uuid=new_branch_uuid,
+            distributor_id=payload.distributor_id,
             is_dirty=True
         )
         db.add(new_user)
@@ -192,15 +214,15 @@ def register_user():
         db.add(new_auth)
 
         new_settings = ApplicationSettings(
-            uuid=new_settings_uuid, user_uuid=new_user_uuid, language='en',
+            uuid=new_settings_uuid, user_uuid=new_user_uuid, language=payload.language,
             other_settings={}, is_dirty=True
         )
         db.add(new_settings)
 
-        subscription_status = 'active' if payload.plan_type != 'Free Trial' else 'trial'
         new_sub = Subscription(
-            uuid=new_sub_uuid, user_uuid=new_user_uuid, type=payload.plan_type, status=subscription_status,
-            expiration_date=datetime.utcnow() + timedelta(days=30), is_dirty=True # Will be synced in full sync
+            uuid=new_sub_uuid, user_uuid=new_user_uuid, type=payload.plan_type,
+            status='active' if payload.plan_type != 'Free Trial' else 'trial',
+            expiration_date=datetime.utcnow() + timedelta(days=30), is_dirty=True
         )
         db.add(new_sub)
 
@@ -216,20 +238,19 @@ def register_user():
             new_payment = SubscriptionPayment(
                 uuid=new_payment_uuid, subscription_uuid=new_sub_uuid, amount=payload.amount,
                 payment_method=payload.stage6.paymentMethod, trx_no=payload.stage7.referenceNumber,
-                trx_screenshot=receipt_bytes, status='under_processing', is_dirty=True # Will be synced in full sync
+                trx_screenshot=receipt_bytes, status='under_processing', is_dirty=True
             )
             db.add(new_payment)
 
-        db.commit() # Commit all local records after RPC creation
+        db.commit()
 
-        # 4. Issue JWT (now that user and auth records exist in cloud)
+        # Issue JWT
         jwt_token = None
         try:
             print("--- Issuing JWT ---")
             service_client = get_service_role_client()
             jwt_response = service_client.rpc('issue_jwt', {
-                'p_user_id': new_user.uuid,
-                'p_device_id': new_auth.device_id
+                'p_user_id': new_user.uuid, 'p_device_id': new_auth.device_id
             }).execute()
 
             if not hasattr(jwt_response, 'data') or not jwt_response.data:
@@ -243,30 +264,29 @@ def register_user():
             print(f"Error issuing JWT: {str(e)}")
             return jsonify({"error": "Failed to issue authentication token."}), 500
 
-        # 5. Store JWT locally (already updated remotely by issue_jwt RPC)
+        # Store JWT locally
         new_auth.current_jwt = jwt_token
         new_auth.jwt_issued_at = jwt_issued_at
-        new_auth.is_logged_in = True # User is now logged in on this device
+        new_auth.is_logged_in = True
         new_auth.is_dirty = True
-        db.commit() # Commit the JWT update locally
+        db.commit()
 
-        # 6. Full Sync (for Subscription, ApplicationSettings, SubscriptionPayment)
+        # Full Sync
         try:
-            print("--- Starting Full Sync for Registration (Remaining Dirty Records) ---")
+            print("--- Starting Full Sync for Registration ---")
             sync_response, status_code = sync()
             if status_code >= 400:
                 error_details = "Unknown sync error"
                 try:
                     error_details = sync_response.get_json().get("error", error_details)
-                except Exception:
-                    pass
+                except Exception: pass
                 raise Exception(f"Synchronization failed: {error_details}")
             print("--- Full Sync Completed ---")
         except Exception as e:
             print(f"Error during full sync: {str(e)}")
             return jsonify({"error": "Failed to synchronize remaining data with the cloud."}), 500
 
-        # 7. Final response
+        # Final response
         return jsonify({
             "message": "Registration and initial sync successful",
             "user_uuid": new_user.uuid,

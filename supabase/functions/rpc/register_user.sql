@@ -22,7 +22,7 @@ BEGIN
     );
 
     -- Insert into public.authentication
-    INSERT INTO public.authentication (
+    INSERT INTO public.authentications (
         id, user_id, password_hash, password_salt, device_id
     ) VALUES (
         p_auth_uuid, p_user_uuid, p_password_hash, p_password_salt, p_device_id

@@ -270,6 +270,7 @@ class UserCreate(BaseModel):
     branch_id: Optional[int] = None
     branch_location: Optional[str] = None
     role: Optional[str] = None
+    distributor_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -288,6 +289,7 @@ class UserUpdate(BaseModel):
     branch_id: Optional[int] = None
     branch_location: Optional[str] = None
     role: Optional[str] = None
+    distributor_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None

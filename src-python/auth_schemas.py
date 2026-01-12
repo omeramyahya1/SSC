@@ -33,6 +33,7 @@ class RegistrationPayload(BaseModel):
     account_type: str
     plan_type: str
     amount: float
+    language: str
     stage4: Stage4Payload
     stage6: Stage6Payload
     stage7: Stage7Payload

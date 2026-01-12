@@ -281,6 +281,7 @@ export default function RegistrationScreen() {
               account_type: backendAccountType,
               plan_type: backendPlanType,
               amount: price,
+              language: i18n.language,
               stage4: {
                   businessName: formData.stage4.businessName,
                   locationState: formData.stage4.locationState,

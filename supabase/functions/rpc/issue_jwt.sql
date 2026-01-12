@@ -29,7 +29,7 @@ BEGIN
 
     -- 2. Invalidate previous sessions for this specific user
     -- (Only if it's a different device, as per your Case 2a/2b logic)
-    UPDATE public.authentication
+    UPDATE public.authentications
     SET is_logged_in = false
     WHERE user_id = p_user_id AND device_id <> p_device_id;
 
@@ -62,7 +62,7 @@ BEGIN
         'HS256'
     );
     -- 5. Upsert the authentication record
-    INSERT INTO public.authentication (
+    INSERT INTO public.authentications (
         user_id, device_id, current_jwt, jwt_issued_at, is_logged_in, updated_at
     )
     VALUES (

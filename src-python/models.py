@@ -75,6 +75,7 @@ class User(Base, TimestampDirtyMixin):
     organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=True)
     branch_uuid = Column(String, ForeignKey("branches.uuid"), nullable=True)
     role = Column(String, nullable=True)
+    distributor_id = Column(String, nullable=True)
 
     __table_args__ = (
         CheckConstraint(account_type.in_(["standard", "enterprise_tier1", "enterprise_tier2"]), name="check_account_type"),
@@ -263,7 +264,7 @@ class Document(Base, TimestampDirtyMixin):
 
 
 class Authentication(Base, TimestampDirtyMixin):
-    __tablename__ = 'authentication'
+    __tablename__ = 'authentications'
 
     auth_id = Column(Integer, primary_key=True)
     user_uuid = Column(String, ForeignKey("user.uuid"))

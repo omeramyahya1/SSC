@@ -66,6 +66,7 @@ def _map_user_to_payload(record: models.User):
         "organization_id": record.organization_uuid,
         "branch_id": record.branch_uuid,
         "role": record.role,
+        "distributor_id": record.distributor_id,
     }
     if record.business_logo:
         path = f"user_logos/{record.uuid}.png"
@@ -128,21 +129,22 @@ def _generic_mapper(record):
     """
     A more robust generic mapper that cleans the payload for Supabase.
     - Removes the local integer-based primary key.
-    - Sets remote 'id' from local 'uuid'.
+    - Sets remote 'id' from local 'uuid' and other common fields.
     - Renames local '*_uuid' foreign keys to remote '*_id' foreign keys.
     """
-    payload = model_to_dict(record)
-
-    # First, remove the local-only integer primary key.
-    # This prevents it from being confused with the remote UUID 'id'.
+    # Start with common fields like id, created_at, is_dirty=False, etc.
+    payload = _map_common_fields(record)
+    
+    # Get all column names from the local model
+    local_columns = [c.name for c in record.__table__.columns]
+    
+    # Get the names of the local integer primary key columns
     model_pk_cols = [c.name for c in record.__table__.primary_key.columns]
-    for pk_name in model_pk_cols:
-        if pk_name in payload:
-             payload.pop(pk_name)
 
-    # Now, set the remote PK `id` from the local `uuid`.
-    if 'uuid' in payload:
-        payload['id'] = payload.pop('uuid')
+    # Map remaining local columns to the payload, excluding processed ones
+    for col in local_columns:
+        if col not in payload and col not in model_pk_cols and col != 'uuid':
+            payload[col] = getattr(record, col)
 
     # Rename local *_uuid FKs to remote *_id FKs by popping the old key
     fk_mappings = {
@@ -170,8 +172,8 @@ SYNC_CONFIG = [
     {"model": models.User, "table_name": "users", "mapper": _map_user_to_payload},
     {"model": models.Authentication, "table_name": "authentications", "mapper": _generic_mapper},
     {"model": models.Customer, "table_name": "customers", "mapper": _map_customer_to_payload},
-    {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": _generic_mapper},
     {"model": models.Project, "table_name": "projects", "mapper": _map_project_to_payload},
+    {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": _generic_mapper},
     {"model": models.Appliance, "table_name": "appliances", "mapper": _generic_mapper},
     {"model": models.Subscription, "table_name": "subscriptions", "mapper": _generic_mapper},
     {"model": models.Invoice, "table_name": "invoices", "mapper": _generic_mapper},
@@ -209,6 +211,7 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
         return  # No records to sync for this table
 
     payloads = [mapper(rec) for rec in records]
+    print(payloads,"\n")
 
     try:
         supabase = get_user_client()
@@ -216,6 +219,7 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
             "p_table_name": table_name,
             "p_records": payloads
         } ).execute()
+        print(f"Response: {response} \n")
 
         # Check for an explicit API error from Supabase/PostgREST
         if hasattr(response, 'error') and response.error:
