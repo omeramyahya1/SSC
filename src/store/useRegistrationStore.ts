@@ -34,6 +34,9 @@ export type RegistrationState = {
     paymentMethod: string;
     referralCode: string;
     discountApplied: boolean;
+    distributorId: string | null;
+    discountPercent: number | null;
+    referralStatus: 'idle' | 'checking' | 'valid' | 'invalid';
     confirmedTransfer: boolean; 
   };
   stage7: {
@@ -49,7 +52,7 @@ export const INITIAL_STATE: RegistrationState = {
   stage3: { plan: '', employees: 1, tier1Duration: 'Monthly' },
   stage4: { businessName: '', locationState: '', locationCity: '', latitude: '', longitude: '', logo: null, logoPreview: null, isSkipped: false },
   stage5: { acceptedTerms: false, acceptedProcessing: false },
-  stage6: { paymentMethod: '', referralCode: '', discountApplied: false, confirmedTransfer: false },
+  stage6: { paymentMethod: '', referralCode: '', discountApplied: false, distributorId: null, discountPercent: null, referralStatus: 'idle', confirmedTransfer: false },
   stage7: { referenceNumber: '', receipt: null, receiptPreview: null },
 };
 

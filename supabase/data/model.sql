@@ -30,7 +30,7 @@ CREATE TABLE public.application_settings (
   CONSTRAINT application_settings_pkey PRIMARY KEY (id),
   CONSTRAINT application_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-CREATE TABLE public.authentication (
+CREATE TABLE public.authentications (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid,
   password_hash character varying,
@@ -43,7 +43,7 @@ CREATE TABLE public.authentication (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
-  CONSTRAINT authentication_pkey PRIMARY KEY (id),
+  CONSTRAINT authentications_pkey PRIMARY KEY (id),
   CONSTRAINT authentication_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.bank_accounts (
@@ -51,6 +51,7 @@ CREATE TABLE public.bank_accounts (
   bank_name character varying,
   account_name character varying,
   account_number character varying,
+  qr_code character varying,
   CONSTRAINT bank_accounts_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.branches (

@@ -5,7 +5,8 @@ CREATE OR REPLACE FUNCTION public.register_user(
     p_auth_uuid uuid,
     p_password_hash text,
     p_password_salt text,
-    p_device_id uuid
+    p_device_id uuid,
+    p_distributor_id uuid DEFAULT NULL
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -15,9 +16,9 @@ AS $$
 BEGIN
     -- Insert into public.users
     INSERT INTO public.users (
-        id, username, email
+        id, username, email, distributor_id
     ) VALUES (
-        p_user_uuid, p_username, p_email
+        p_user_uuid, p_username, p_email, p_distributor_id
     );
 
     -- Insert into public.authentication

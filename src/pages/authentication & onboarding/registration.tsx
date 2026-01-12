@@ -188,7 +188,7 @@ export default function RegistrationScreen() {
 
   // Local price calculation logic
   const calculatedPrice = useMemo(() => {
-    const { stage2, stage3 } = formData;
+    const { stage2, stage3, stage6 } = formData;
 
     if (stage3.plan === 'Free Trial') {
         return 0;
@@ -226,6 +226,11 @@ export default function RegistrationScreen() {
             const discountRate = discountInfo?.discount_rate || 0;
             total = totalBeforeDiscount * (1 - discountRate);
         }
+    }
+    
+    // Apply referral discount if available
+    if (stage6.discountPercent && stage6.discountPercent > 0) {
+        total = total * (1 - stage6.discountPercent / 100);
     }
 
     return Math.round(total);
@@ -288,7 +293,8 @@ export default function RegistrationScreen() {
               stage7: {
                   referenceNumber: formData.stage7.referenceNumber,
                   receipt: formData.stage7.receipt,
-              }
+              },
+              distributor_id: formData.stage6.distributorId // Add distributor ID to payload
           };
 
           const response = await api.post('/users/register', payload);
@@ -983,15 +989,62 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
 };
 
 // ... STAGE 6, 7 are similar, just wiring to Zustand and using file-to-base64
-const Stage6 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void, calculatedPrice: number }) => {
+const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData, pricingIsLoading }: { setValid: (v: boolean) => void, calculatedPrice: number, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean }) => {
     const { t } = useTranslation();
     const { formData, updateFormData } = useRegistrationStore();
     const data = formData.stage6;
 
     const [bankDetails, setBankDetails] = useState<any>(null);
 
+    // Initial price before any referral discount
+    const initialPrice = useMemo(() => {
+        // Recalculate original price without referral discount
+        const { stage2, stage3 } = formData;
+
+        if (stage3.plan === 'Free Trial') {
+            return 0;
+        }
+
+        let total = 0;
+
+        if (stage2.accountType === 'Standard') {
+            const selectedPlan = fetchedPricingData.find(p =>
+                p.plan_type.toLowerCase() === 'standard' && p.billing_cycle.toLowerCase() === stage3.plan.toLowerCase()
+            );
+            total = selectedPlan?.base_price || 0;
+
+        } else if (stage2.accountType === 'Enterprise' && stage3.plan === 'Tier1') {
+            const { employees, tier1Duration } = stage3;
+
+            const planInfo = fetchedPricingData.find(p =>
+                p.plan_type.toLowerCase() === 'enterprise' && p.billing_cycle.toLowerCase() === tier1Duration.toLowerCase()
+            );
+
+            if (planInfo) {
+                const basePrice = planInfo.base_price;
+                const extraEmployeeCost = (employees > 1)
+                    ? (employees - 1) * planInfo.price_per_extra_employee
+                    : 0;
+
+                const totalBeforeDiscount = basePrice + extraEmployeeCost;
+
+                const discountInfo = fetchedPricingData.find(p =>
+                    p.plan_type.toLowerCase() === 'enterprise' &&
+                    p.min_employees && p.max_employees &&
+                    employees >= p.min_employees && employees <= p.max_employees
+                );
+
+                const discountRate = discountInfo?.discount_rate || 0;
+                total = totalBeforeDiscount * (1 - discountRate);
+            }
+        }
+        return Math.round(total);
+    }, [formData, fetchedPricingData]);
+
+
     useEffect(() => {
-       setValid(!!data.paymentMethod && !!data.confirmedTransfer);
+       const isValid = !!data.paymentMethod && !!data.confirmedTransfer && data.referralStatus !== 'checking';
+       setValid(isValid);
     }, [data, setValid]);
 
     useEffect(() => {
@@ -1013,13 +1066,54 @@ const Stage6 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
     const handleAccordionChange = (value: string) => updateFormData('stage6', { paymentMethod: value, confirmedTransfer: false });
     const handleConfirmTransfer = (checked: boolean) => updateFormData('stage6', { confirmedTransfer: checked });
 
-    const discountedPrice = calculatedPrice * (1 - 0.1); // Example 10%
-    const priceDisplay = data.discountApplied ? (
+    const handleApplyReferral = async () => {
+        if (!data.referralCode) return;
+
+        updateFormData('stage6', { referralStatus: 'checking' });
+        try {
+            const response = await api.post('/users/check-referral', { referral_code: data.referralCode });
+            if (response.data.isValid) {
+                updateFormData('stage6', {
+                    referralStatus: 'valid',
+                    discountApplied: true,
+                    distributorId: response.data.distributorId,
+                    discountPercent: response.data.discountPercent
+                });
+            } else {
+                updateFormData('stage6', {
+                    referralStatus: 'invalid',
+                    discountApplied: false,
+                    distributorId: null,
+                    discountPercent: null
+                });
+            }
+        } catch (error) {
+            console.error("Error checking referral code:", error);
+            updateFormData('stage6', {
+                referralStatus: 'invalid',
+                discountApplied: false,
+                distributorId: null,
+                discountPercent: null
+            });
+        }
+    };
+
+    const handleRemoveReferral = () => {
+        updateFormData('stage6', {
+            referralCode: '',
+            referralStatus: 'idle',
+            discountApplied: false,
+            distributorId: null,
+            discountPercent: null
+        });
+    };
+
+    const priceDisplay = data.discountApplied && data.discountPercent && data.discountPercent > 0 ? (
         <div className="flex items-center justify-center gap-2">
-           <span className="line-through text-2xl text-neutral/40 rotate-[-10deg]">{calculatedPrice.toLocaleString()}</span>
-           <span>{discountedPrice.toLocaleString()} SDG</span>
+           <span className="line-through text-2xl text-neutral/40 rotate-[-10deg]">{initialPrice.toLocaleString()} {t('currency.sdg', 'SDG')}</span>
+           <span>{calculatedPrice.toLocaleString()} {t('currency.sdg', 'SDG')}</span>
         </div>
-    ) : `${calculatedPrice.toLocaleString()} SDG`;
+    ) : `${calculatedPrice.toLocaleString()} ${t('currency.sdg', 'SDG')}`;
 
     return (
       <div className="space-y-4 w-full mx-auto md:mx-0">
@@ -1030,13 +1124,26 @@ const Stage6 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
           </div>
           <div className="flex gap-2">
               <Input placeholder={t('registration.referral_code', 'Referral Code')} value={data.referralCode}
-                  onChange={(e) => updateFormData('stage6', {referralCode: e.target.value})}
+                  onChange={(e) => updateFormData('stage6', {referralCode: e.target.value, referralStatus: 'idle'})}
                   className="w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40" />
-              <Button variant="outline" className="h-auto px-6 rounded-lg border-neutral/20 hover:bg-neutral/5 font-semibold"
-                  onClick={() => { if (data.referralCode.toLowerCase() === 'ssc2025') { updateFormData('stage6', {discountApplied: true}); } }} >
-                  {t('registration.apply', 'Apply')}
-              </Button>
+              {data.referralStatus === 'valid' ? (
+                   <Button variant="outline" className="h-auto px-6 rounded-lg border-neutral/20 hover:bg-neutral/5 font-semibold"
+                       onClick={handleRemoveReferral} >
+                       {t('registration.remove', 'Remove')}
+                   </Button>
+              ) : (
+                  <Button variant="outline" className="h-auto px-6 rounded-lg border-neutral/20 hover:bg-neutral/5 font-semibold"
+                      onClick={handleApplyReferral}
+                      disabled={!data.referralCode || data.referralStatus === 'checking'} >
+                      {data.referralStatus === 'checking' ? <Spinner /> : t('registration.apply', 'Apply')}
+                  </Button>
+              )}
           </div>
+          {data.referralStatus === 'invalid' && (
+              <p className="text-xs text-red-500 mt-1 ps-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> {t('registration.invalid_referral', 'Invalid referral code')}
+              </p>
+          )}
           <Accordion type="single" collapsible className="w-full" onValueChange={handleAccordionChange} value={data.paymentMethod}>
               {['Bankak', 'Ocash', 'Fawry', 'MyCashi', 'BNMB'].map((method) => (
                   <AccordionItem key={method} value={method}>
@@ -1245,7 +1352,7 @@ const StageController = ({ stage, setStepValid, fetchedPricingData, pricingIsLoa
         case 3: return <Stage3 setValid={setStepValid} fetchedPricingData={fetchedPricingData} pricingIsLoading={pricingIsLoading} calculatedPrice={calculatedPrice} />;
         case 4: return <Stage4 setValid={setStepValid} />;
         case 5: return <Stage5 setValid={setStepValid} calculatedPrice={calculatedPrice} />;
-        case 6: return <Stage6 setValid={setStepValid} calculatedPrice={calculatedPrice} />;
+        case 6: return <Stage6 setValid={setStepValid} calculatedPrice={calculatedPrice} fetchedPricingData={fetchedPricingData} pricingIsLoading={pricingIsLoading} />;
         case 7: return <Stage7 setValid={setStepValid} />;
         case 8: return <Stage8 />;
         default: return <UnknownStage />;

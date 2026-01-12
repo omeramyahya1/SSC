@@ -36,6 +36,7 @@ class RegistrationPayload(BaseModel):
     stage4: Stage4Payload
     stage6: Stage6Payload
     stage7: Stage7Payload
+    distributor_id: Optional[str] = None
 
 # --- Pydantic Schemas for Login ---
 
@@ -64,10 +65,8 @@ class LoginResponseUser(BaseModel):
     location: Optional[str] = None
     business_email: Optional[str] = None
     status: Optional[str] = None
-    org_id: Optional[int] = None
-    org_name: Optional[str] = None
-    branch_id: Optional[int] = None
-    branch_location: Optional[str] = None
+    organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
     role: Optional[str] = None
     created_at: datetime
     updated_at: datetime

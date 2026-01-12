@@ -293,3 +293,32 @@ class UserUpdate(BaseModel):
     is_dirty: Optional[bool] = None
 
 
+class OrganizationCreate(BaseModel):
+    name: str
+    plan_type: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    is_dirty: Optional[bool] = None
+
+class OrganizationUpdate(BaseModel):
+    name: Optional[str] = None
+    plan_type: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    is_dirty: Optional[bool] = None
+
+class BranchCreate(BaseModel):
+    name: str
+    location: Optional[str] = None
+    organization_uuid: str # Assuming this is required when creating a branch
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    is_dirty: Optional[bool] = None
+
+class BranchUpdate(BaseModel):
+    name: Optional[str] = None
+    location: Optional[str] = None
+    organization_uuid: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    is_dirty: Optional[bool] = None

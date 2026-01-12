@@ -31,6 +31,35 @@ SQLITE_URL = f"sqlite:///{DB_FILE_PATH}"
 
 # --- 3. Define Models ---
 
+class Organization(Base, TimestampDirtyMixin):
+    __tablename__ = 'organizations'
+
+    organization_id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    plan_type = Column(String)
+
+    # Relationships
+    branches = relationship("Branch", back_populates="organization")
+    users = relationship("User", back_populates="organization")
+    customers = relationship("Customer", back_populates="organization")
+    projects = relationship("Project", back_populates="organization")
+
+
+class Branch(Base, TimestampDirtyMixin):
+    __tablename__ = 'branches'
+
+    branch_id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    location = Column(String)
+    organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=False)
+
+    # Relationships
+    organization = relationship("Organization", back_populates="branches")
+    users = relationship("User", back_populates="branch")
+    customers = relationship("Customer", back_populates="branch")
+    projects = relationship("Project", back_populates="branch")
+
+
 class User(Base, TimestampDirtyMixin):
     __tablename__ = 'user'
 
@@ -43,10 +72,8 @@ class User(Base, TimestampDirtyMixin):
     business_logo = Column(LargeBinary)
     business_email = Column(String)
     status = Column(String)
-    org_id = Column(Integer, nullable=True)
-    org_name = Column(String, nullable=True)
-    branch_id = Column(Integer, nullable=True)
-    branch_location = Column(String, nullable=True)
+    organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=True)
+    branch_uuid = Column(String, ForeignKey("branches.uuid"), nullable=True)
     role = Column(String, nullable=True)
 
     __table_args__ = (
@@ -55,6 +82,8 @@ class User(Base, TimestampDirtyMixin):
     )
 
     # relationships
+    organization = relationship("Organization", back_populates="users")
+    branch = relationship("Branch", back_populates="users")
     settings = relationship("ApplicationSettings", back_populates="user", uselist=False)
     customers = relationship("Customer", back_populates="user")
     projects = relationship("Project", back_populates="user")
@@ -87,10 +116,13 @@ class Customer(Base, TimestampDirtyMixin):
     full_name = Column(String, nullable=False)
     phone_number = Column(String, nullable=True)
     email = Column(String, nullable=True)
-    org_id = Column(Integer, nullable=True)
+    organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=True)
+    branch_uuid = Column(String, ForeignKey("branches.uuid"), nullable=True)
     user_uuid = Column(String, ForeignKey("user.uuid"), nullable=True)
 
     user = relationship("User", foreign_keys=[user_uuid], back_populates="customers")
+    organization = relationship("Organization", foreign_keys=[organization_uuid], back_populates="customers")
+    branch = relationship("Branch", foreign_keys=[branch_uuid], back_populates="customers")
     projects = relationship("Project", back_populates="customer")
 
 
@@ -112,7 +144,8 @@ class Project(Base, TimestampDirtyMixin):
     status = Column(String)
     system_config_uuid = Column(String, ForeignKey("system_configurations.uuid"))
     user_uuid = Column(String, ForeignKey("user.uuid"))
-    org_id = Column(Integer, nullable=True)
+    organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=True)
+    branch_uuid = Column(String, ForeignKey("branches.uuid"), nullable=True)
     project_location = Column(String, nullable=True)
 
     __table_args__ = (
@@ -122,6 +155,8 @@ class Project(Base, TimestampDirtyMixin):
     customer = relationship("Customer", foreign_keys=[customer_uuid], back_populates="projects")
     system_config = relationship("SystemConfiguration", foreign_keys=[system_config_uuid], back_populates="projects")
     user = relationship("User", foreign_keys=[user_uuid], back_populates="projects")
+    organization = relationship("Organization", foreign_keys=[organization_uuid], back_populates="projects")
+    branch = relationship("Branch", foreign_keys=[branch_uuid], back_populates="projects")
     appliances = relationship("Appliance", back_populates="project")
     invoices = relationship("Invoice", back_populates="project")
     documents = relationship("Document", back_populates="project")

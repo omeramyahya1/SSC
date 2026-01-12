@@ -63,6 +63,8 @@ def _map_user_to_payload(record: models.User):
         "location": record.location,
         "business_email": record.business_email,
         "status": record.status,
+        "organization_id": record.organization_uuid,
+        "branch_id": record.branch_uuid,
         "role": record.role,
     }
     if record.business_logo:
@@ -77,6 +79,8 @@ def _map_customer_to_payload(record: models.Customer):
         "full_name": record.full_name,
         "phone_number": record.phone_number,
         "email": record.email,
+        "organization_id": record.organization_uuid,
+        "branch_id": record.branch_uuid,
     }
 
 def _map_project_to_payload(record: models.Project):
@@ -87,6 +91,8 @@ def _map_project_to_payload(record: models.Project):
         "system_config_id": record.system_config_uuid,
         "status": record.status,
         "project_location": record.project_location,
+        "organization_id": record.organization_uuid,
+        "branch_id": record.branch_uuid,
     }
 
 def _map_document_to_payload(record: models.Document):
@@ -146,6 +152,8 @@ def _generic_mapper(record):
         'system_config_uuid': 'system_config_id',
         'invoice_uuid': 'invoice_id',
         'subscription_uuid': 'subscription_id',
+        'organization_uuid': 'organization_id',
+        'branch_uuid': 'branch_id',
     }
     for local_fk, remote_fk in fk_mappings.items():
         if local_fk in payload:
@@ -157,7 +165,10 @@ def _generic_mapper(record):
 # --- SYNC CONFIGURATION ---
 
 SYNC_CONFIG = [
+    {"model": models.Organization, "table_name": "organizations", "mapper": _generic_mapper},
+    {"model": models.Branch, "table_name": "branches", "mapper": _generic_mapper},
     {"model": models.User, "table_name": "users", "mapper": _map_user_to_payload},
+    {"model": models.Authentication, "table_name": "authentications", "mapper": _generic_mapper},
     {"model": models.Customer, "table_name": "customers", "mapper": _map_customer_to_payload},
     {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": _generic_mapper},
     {"model": models.Project, "table_name": "projects", "mapper": _map_project_to_payload},
@@ -342,4 +353,3 @@ def push():
 
         except Exception as e:
             return jsonify({"status": "failed", "error": str(e)}), 500
-

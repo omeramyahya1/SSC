@@ -67,6 +67,7 @@ def get_bank_accounts():
         supabase = get_anon_client()
         response = supabase.table('bank_accounts').select('*').execute()
 
+        # The supabase-py client v1 wraps the data in a Pydantic model, access via .data
         if not hasattr(response, 'data'):
              raise Exception("Invalid response structure from Supabase client.")
 
@@ -81,6 +82,38 @@ def get_bank_accounts():
     except Exception as e:
         print(f"Error fetching bank accounts data from Supabase: {e}")
         return jsonify({"error": "Could not retrieve bank accounts information"}), 500
+
+@user_bp.route('/check-referral', methods=['POST'])
+def check_referral_code():
+    """
+    Checks a referral code by calling a Supabase RPC.
+    """
+    data = request.get_json()
+    if not data or 'referral_code' not in data:
+        return jsonify({"error": "Referral code is required"}), 400
+
+    referral_code_to_check = data['referral_code']
+
+    try:
+        supabase = get_service_role_client()
+        response = supabase.rpc('check_referral_code', {'p_referral_code': referral_code_to_check}).execute()
+
+        if not hasattr(response, 'data') or not response.data:
+            return jsonify({"isValid": False, "message": "Referral code not found or invalid."}), 200
+
+        # The RPC returns a list of objects, even if only one matches.
+        # We expect at most one match for a unique referral code.
+        referral_data = response.data[0]
+
+        return jsonify({
+            "isValid": True,
+            "distributorId": str(referral_data['distributor_id']),
+            "discountPercent": referral_data['discount_percent']
+        }), 200
+
+    except Exception as e:
+        print(f"Error calling Supabase RPC 'check_referral_code': {e}")
+        return jsonify({"error": "Failed to verify referral code uniqueness", "isValid": False}), 500
 
 @user_bp.route('/register', methods=['POST'])
 def register_user():
@@ -135,7 +168,8 @@ def register_user():
                 'p_auth_uuid': new_auth_uuid,
                 'p_password_hash': hashed_pw,
                 'p_password_salt': salt,
-                'p_device_id': new_device_uuid
+                'p_device_id': new_device_uuid,
+                'p_distributor_id': payload.distributor_id # Pass distributor ID
             }).execute()
             print("--- register_user RPC Completed ---")
         except Exception as e:
@@ -146,20 +180,20 @@ def register_user():
         new_user = User(
             uuid=new_user_uuid, username=stage1.username, email=stage1.email, business_name=stage4.businessName,
             account_type=payload.account_type, location=location, business_logo=logo_bytes, # local storage still gets bytes
-            status=user_status, role='admin' if 'enterprise' in payload.account_type else None,
-            is_dirty=True # Already created in cloud by RPC
+            status=user_status, role='admin' if 'enterprise' in payload.account_type else 'user',
+            is_dirty=True
         )
         db.add(new_user)
 
         new_auth = Authentication(
             uuid=new_auth_uuid, user_uuid=new_user_uuid, password_hash=hashed_pw, password_salt=salt,
-            is_logged_in=False, device_id=device_id, is_dirty=True # Already created in cloud by RPC
+            is_logged_in=False, device_id=device_id, is_dirty=True
         )
         db.add(new_auth)
 
         new_settings = ApplicationSettings(
             uuid=new_settings_uuid, user_uuid=new_user_uuid, language='en',
-            other_settings={}, is_dirty=True # Will be synced in full sync
+            other_settings={}, is_dirty=True
         )
         db.add(new_settings)
 
@@ -213,7 +247,7 @@ def register_user():
         new_auth.current_jwt = jwt_token
         new_auth.jwt_issued_at = jwt_issued_at
         new_auth.is_logged_in = True # User is now logged in on this device
-        new_auth.is_dirty = False # The RPC already updated the remote record
+        new_auth.is_dirty = True
         db.commit() # Commit the JWT update locally
 
         # 6. Full Sync (for Subscription, ApplicationSettings, SubscriptionPayment)
