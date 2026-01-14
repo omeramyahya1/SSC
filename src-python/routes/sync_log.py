@@ -134,17 +134,21 @@ def _generic_mapper(record):
     """
     # Start with common fields like id, created_at, is_dirty=False, etc.
     payload = _map_common_fields(record)
-    
+
     # Get all column names from the local model
     local_columns = [c.name for c in record.__table__.columns]
-    
+
     # Get the names of the local integer primary key columns
     model_pk_cols = [c.name for c in record.__table__.primary_key.columns]
 
     # Map remaining local columns to the payload, excluding processed ones
     for col in local_columns:
         if col not in payload and col not in model_pk_cols and col != 'uuid':
-            payload[col] = getattr(record, col)
+            value = getattr(record, col)
+            if isinstance(value, datetime):
+                payload[col] = _to_iso(value)
+            else:
+                payload[col] = value
 
     # Rename local *_uuid FKs to remote *_id FKs by popping the old key
     fk_mappings = {
@@ -211,7 +215,6 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
         return  # No records to sync for this table
 
     payloads = [mapper(rec) for rec in records]
-    print(payloads,"\n")
 
     try:
         supabase = get_user_client()
@@ -219,7 +222,6 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
             "p_table_name": table_name,
             "p_records": payloads
         } ).execute()
-        print(f"Response: {response} \n")
 
         # Check for an explicit API error from Supabase/PostgREST
         if hasattr(response, 'error') and response.error:

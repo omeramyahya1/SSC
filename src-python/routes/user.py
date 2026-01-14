@@ -159,25 +159,44 @@ def register_user():
 
         # Handle Enterprise Account specific logic
         if 'enterprise' in payload.account_type:
-            new_org_uuid = str(uuid.uuid4())
-            new_branch_uuid = str(uuid.uuid4())
+            branch_name = "HQ" if payload.language == 'en' else "الفرع الرئيسي"
+            try:
+                print("--- Calling register_organization RPC ---")
+                service_client = get_service_role_client()
+                response = service_client.rpc('register_organization', {
+                    'p_org_name': stage4.businessName,
+                    'p_plan_type': payload.account_type,
+                    'p_branch_name': branch_name
+                }).execute()
 
-            # Create Organization
+                if not hasattr(response, 'data') or not response.data:
+                    raise Exception("Failed to create organization: No data returned from RPC.")
+
+                org_data = response.data
+                new_org_uuid = org_data['organization_id']
+                new_branch_uuid = org_data['branch_id']
+                print("--- register_organization RPC Completed ---")
+
+            except Exception as e:
+                print(f"Error calling register_organization RPC: {str(e)}")
+                return jsonify({"error": "Failed to create organization in the cloud using RPC."}), 500
+
+            # Create Organization locally (already exists in remote)
             new_org = Organization(
                 uuid=new_org_uuid,
                 name=stage4.businessName,
                 plan_type=payload.account_type,
-                is_dirty=True
+                is_dirty=False # Not dirty, it's already in Supabase
             )
             db.add(new_org)
 
-            # Create Branch
-            branch_name = "HQ" if payload.language == 'en' else "الفرع الرئيسي"
+            # Create Branch locally (already exists in remote)
             new_branch = Branch(
                 uuid=new_branch_uuid,
                 name=branch_name,
                 organization_uuid=new_org_uuid,
-                is_dirty=True
+                location=location,
+                is_dirty=False # Not dirty
             )
             db.add(new_branch)
 
@@ -258,7 +277,10 @@ def register_user():
 
             jwt_data = jwt_response.data[0]
             jwt_token = jwt_data['jwt_info']['token']
-            jwt_issued_at = datetime.fromisoformat(jwt_data['issued_at'])
+            issued_at_str = jwt_data['issued_at']
+            if issued_at_str.endswith('Z'):
+                issued_at_str = issued_at_str[:-1] + '+00:00'
+            jwt_issued_at = datetime.fromisoformat(issued_at_str)
             print("--- JWT Issued Successfully ---")
         except Exception as e:
             print(f"Error issuing JWT: {str(e)}")
