@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from utils import get_db
 import models
 from supabase_client import get_user_client, get_service_role_client, get_anon_client
+from serializer import model_to_dict
 
 sync_log_bp = Blueprint('sync_log_bp', __name__, url_prefix='/sync_logs')
 
@@ -88,7 +89,11 @@ def _generic_mapper(record):
 
 # --- DATA MAPPERS (PULL: Supabase Payload -> Local Model) ---
 
-def _map_cloud_to_local(payload: dict, model_class):
+def _map_cloud_to_local(payload: dict, model_class) -> dict:
+    """
+    Generic reverse mapper to convert a JSON payload from Supabase to a dictionary
+    of attributes for a local SQLAlchemy model.
+    """
     fk_mappings = {'user_id': 'user_uuid', 'customer_id': 'customer_uuid', 'project_id': 'project_uuid', 'system_config_id': 'system_config_uuid', 'invoice_id': 'invoice_uuid', 'subscription_id': 'subscription_uuid', 'organization_id': 'organization_uuid', 'branch_id': 'branch_uuid'}
     mapped_payload = {}
     for key, value in payload.items():
@@ -112,12 +117,12 @@ def _map_cloud_to_local(payload: dict, model_class):
     local_columns = {c.name for c in model_class.__table__.columns}
     final_payload = {k: v for k, v in mapped_payload.items() if k in local_columns}
 
-    # Do not set blobs for now
-    blob_cols = {col for col, col_type in model_class.__dict__.items() if hasattr(col_type, 'type') and isinstance(col_type.type, models.LargeBinary)}
+    # Do not process blobs pulled from the cloud for now.
+    blob_cols = {col.name for col in model_class.__table__.columns if isinstance(col.type, models.LargeBinary)}
     for col in blob_cols:
         final_payload.pop(col, None)
 
-    return model_class(**final_payload)
+    return final_payload
 
 # --- SYNC CONFIGURATION ---
 
@@ -135,8 +140,7 @@ SYNC_CONFIG = [
     {"model": models.Payment, "table_name": "payments", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.SubscriptionPayment, "table_name": "subscription_payments", "mapper": _map_subscription_payment_to_payload, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Document, "table_name": "documents", "mapper": _map_document_to_payload, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.ApplicationSettings, "table_name": "application_settings", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.SyncLog, "table_name": "sync_logs", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.ApplicationSettings, "table_name": "application_settings", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local}
 ]
 
 # --- CORE SYNC LOGIC ---
@@ -150,6 +154,7 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
         return
 
     payloads = [mapper(rec) for rec in records]
+    print(payloads)
     try:
         supabase = get_user_client()
         # Note: The push RPC is currently named 'sync_apply_and_pull'
@@ -187,43 +192,73 @@ def pull_from_supabase(db: Session):
     last_sync_time = get_last_sync_timestamp(db)
     print(f"\n--- Starting Pull Operation (since {last_sync_time}) ---")
     supabase = get_user_client()
-    for config in reversed(SYNC_CONFIG):
-        table_name = config["table_name"]
-        model_class = config["model"]
-        reverse_mapper = config.get("reverse_mapper")
-        if not reverse_mapper:
-            print(f" -> No reverse mapper for {table_name}, skipping pull.")
-            continue
-        try:
-            print(f"Pulling changes for '{table_name}'...")
-            response = supabase.rpc("pull_changes", {"p_table_name": table_name, "p_last_sync_timestamp": last_sync_time}).execute()
-            if hasattr(response, 'error') and response.error:
-                raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
+    try:
+        # Set a flag on the session to indicate that a pull sync is active.
+        # The SQLAlchemy event listener will check this flag.
+        setattr(db, 'is_pull_sync_active', True)
 
-            records_from_supabase = [item for item in response.data] # RPC returns list of dicts
-            if not records_from_supabase:
-                print(f" -> No new records found for {table_name}.")
+        for config in reversed(SYNC_CONFIG):
+            table_name = config["table_name"]
+            model_class = config["model"]
+            reverse_mapper = config.get("reverse_mapper")
+            if not reverse_mapper:
+                print(f" -> No reverse mapper for {table_name}, skipping pull.")
                 continue
+            try:
+                print(f"Pulling changes for '{table_name}'...")
+                response = supabase.rpc("pull_changes", {"p_table_name": table_name, "p_last_sync_timestamp": last_sync_time}).execute()
+                if hasattr(response, 'error') and response.error:
+                    raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
 
-            print(f" -> Received {len(records_from_supabase)} records from {table_name}. Merging...")
-            for record_data in records_from_supabase:
-                local_instance = reverse_mapper(record_data, model_class)
-                merged_instance = db.merge(local_instance)
-                merged_instance.is_dirty = False
-            db.commit()
-            print(f"    - Successfully merged {len(records_from_supabase)} records for {table_name}.")
-        except Exception as e:
-            db.rollback()
-            print(f"Error pulling table {table_name}: {str(e)}")
-            raise
+                records_from_supabase = response.data
+                if not records_from_supabase:
+                    print(f" -> No new records found for {table_name}.")
+                    continue
+
+                print(f" -> Received {len(records_from_supabase)} records from {table_name}. Merging...")
+                for record_data in records_from_supabase:
+                    # 1. Convert cloud payload to a dictionary of local attributes
+                    payload_dict = reverse_mapper(record_data, model_class)
+                    record_uuid = payload_dict.get('uuid')
+                    if not record_uuid:
+                        continue
+
+                    # 2. Query for existing local record by UUID
+                    existing_record = db.query(model_class).filter_by(uuid=record_uuid).first()
+
+                    if existing_record:
+                        # 3a. UPDATE existing record
+                        for key, value in payload_dict.items():
+                            setattr(existing_record, key, value)
+                        existing_record.is_dirty = False
+                    else:
+                        # 3b. INSERT new record
+                        new_instance = model_class(**payload_dict)
+                        new_instance.is_dirty = False
+                        db.add(new_instance)
+
+                db.commit()
+                print(f"    - Successfully merged {len(records_from_supabase)} records for {table_name}.")
+            except Exception as e:
+                db.rollback()
+                print(f"Error pulling table {table_name}: {str(e)}")
+                raise
+    finally:
+        # Always ensure the flag is reset, even if an error occurs
+        setattr(db, 'is_pull_sync_active', False)
 
 def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
     print("\n--- Finalizing sync operation ---")
-    user = db.query(models.User).first()
-    user_uuid = user.uuid if user else None
+    # Explicitly query for the UUID as a scalar to avoid passing a Row/Tuple object.
+    user_uuid_row = db.query(models.User.uuid).first()
+    user_uuid = user_uuid_row[0] if user_uuid_row else None
+
+    # Determine if this is the first sync to correctly label it 'full' or 'incremental'.
+    exists = db.query(models.SyncLog.sync_id).first() is not None
+    sync_type = "incremental" if exists else "full"
 
     sync_log_entry = models.SyncLog(
-        sync_type="full_sync",
+        sync_type=sync_type,
         table_name="all",
         status="success",
         user_uuid=user_uuid,
@@ -240,7 +275,6 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
         print("Final sync log pushed successfully.")
     except Exception as e:
         print(f"Warning: Failed to push final sync log to remote: {str(e)}")
-
 @sync_log_bp.route('/sync', methods=['POST'])
 def sync():
     start_time = datetime.utcnow()

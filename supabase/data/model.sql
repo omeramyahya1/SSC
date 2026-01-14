@@ -43,6 +43,7 @@ CREATE TABLE public.authentications (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  is_dirty boolean DEFAULT true,
   CONSTRAINT authentications_pkey PRIMARY KEY (id),
   CONSTRAINT authentication_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
@@ -62,6 +63,7 @@ CREATE TABLE public.branches (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  is_dirty boolean DEFAULT true,
   CONSTRAINT branches_pkey PRIMARY KEY (id),
   CONSTRAINT branches_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
 );
@@ -154,6 +156,7 @@ CREATE TABLE public.organizations (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  is_dirty boolean DEFAULT true,
   CONSTRAINT organizations_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.password_reset_requests (
@@ -251,6 +254,8 @@ CREATE TABLE public.sync_logs (
   status USER-DEFINED,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  is_dirty boolean,
+  deleted_at timestamp with time zone,
   CONSTRAINT sync_logs_pkey PRIMARY KEY (id),
   CONSTRAINT sync_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
