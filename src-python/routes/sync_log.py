@@ -53,7 +53,7 @@ def heart_beat(db: Session, user_uuid: str):
 
                 db.commit()
                 return True # Tampering detected and flagged
-
+            return True
         return False # No issue
     except Exception as e:
         print(f"Error during heartbeat check: {e}")
@@ -234,8 +234,10 @@ def push_to_supabase(db: Session, dirty_only: bool = True):
 def get_last_sync_timestamp(db: Session) -> str:
     last_sync = db.query(models.SyncLog).filter(models.SyncLog.status == "success").order_by(models.SyncLog.created_at.desc()).first()
     if last_sync:
-        return last_sync.created_at.isoformat()
-    return datetime(2000, 1, 1).isoformat()
+        # Convert to UTC, then remove timezone info to produce a naive string
+        return last_sync.created_at.astimezone(timezone.utc).replace(tzinfo=None).isoformat()
+    # For initial sync, create UTC datetime, remove tzinfo
+    return datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc).replace(tzinfo=None).isoformat()
 
 def pull_from_supabase(db: Session):
     last_sync_time = get_last_sync_timestamp(db)
@@ -312,7 +314,7 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
         status="success",
         user_uuid=user_uuid,
         created_at=sync_start_time,
-        updated_at=datetime.utcnow(),
+        updated_at=datetime.now(timezone.utc),
         is_dirty=True
     )
     db.add(sync_log_entry)
@@ -326,7 +328,7 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
         print(f"Warning: Failed to push final sync log to remote: {str(e)}")
 @sync_log_bp.route('/sync', methods=['POST'])
 def sync():
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     print(f"Synchronization process started at {start_time.isoformat()} UTC.")
 
     with get_db() as db:
@@ -393,14 +395,11 @@ def push():
         except Exception as e:
             return jsonify({"status": "failed", "error": str(e)}), 500
 
-@sync_log_bp.route('/authentications', methods=['GET'])
+@sync_log_bp.route('/heart_beat', methods=['GET'])
 def push_auth():
     with get_db() as db:
-        try:
-            response = sync_table(db, model=models.Authentication, table_name="authentications",mapper=_generic_mapper)
-            print(response)
+        if not heart_beat(db=db):
             return jsonify({"status": "ok"}), 200
-        except Exception as e:
-            return jsonify({"status": "failed", "error": str(e)}), 500
+        return jsonify({"status": "failed"}), 500
 
 

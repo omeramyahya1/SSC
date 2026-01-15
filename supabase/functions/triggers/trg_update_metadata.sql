@@ -1,30 +1,33 @@
-CREATE OR REPLACE FUNCTION public.handle_update_metadata()
-RETURNS TRIGGER AS $$
+DO $$
 DECLARE
-    is_sync_mode text;
+    t_name TEXT;
 BEGIN
-    -- 1. Check if we are in "Sync Mode" (set by your sync function)
-    -- current_setting(name, missing_ok)
-    is_sync_mode := current_setting('app.is_sync', true);
+    -- Loop through all base tables in public schema
+    FOR t_name IN
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_type = 'BASE TABLE'
+    LOOP
+        -- Check if table has 'updated_at' column
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = t_name
+            AND table_schema = 'public'
+            AND column_name = 'updated_at'
+        ) THEN
+            -- 1. Drop old trigger if exists (to avoid errors when re-running)
+            EXECUTE format('DROP TRIGGER IF EXISTS trg_handle_updated_at ON public.%I;', t_name);
 
-    IF is_sync_mode = 'true' THEN
-        -- SYNC OPERATION:
-        -- Trust the incoming data completely.
-        -- Preserve the `updated_at` and `is_dirty` values sent by the Python backend.
-        RETURN NEW;
-    ELSE
-        -- DASHBOARD / MANUAL OPERATION:
-        -- Force the metadata updates.
+            -- 2. Create the new trigger
+            EXECUTE format('
+                CREATE TRIGGER trg_handle_updated_at
+                BEFORE UPDATE ON public.%I
+                FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+            ', t_name);
 
-        NEW.updated_at = now();
-        NEW.is_dirty = true; -- Always mark dirty on manual edits
-
-        -- Handle creation time for new manual inserts
-        IF (TG_OP = 'INSERT') THEN
-            NEW.created_at = now();
+            RAISE NOTICE 'Trigger applied to: %', t_name;
         END IF;
-
-        RETURN NEW;
-    END IF;
+    END LOOP;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;

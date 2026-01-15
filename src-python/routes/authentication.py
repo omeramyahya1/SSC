@@ -7,6 +7,7 @@ from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginRe
 from serializer import model_to_dict
 from datetime import datetime
 import uuid
+from routes.sync_log import sync
 
 authentication_bp = Blueprint('authentication_bp', __name__, url_prefix='/authentications')
 
@@ -33,6 +34,7 @@ def login_user():
         # Check for tampered subscription before verifying password
         subscription = db.query(Subscription).filter(Subscription.user_uuid == user.uuid).order_by(Subscription.created_at.desc()).first()
         if subscription and subscription.tampered:
+            sync()
             return jsonify({"error": "Account locked due to suspected tampering. Please contact support."}), 403
 
         # Find the latest authentication entry for this user to get salt and session data
