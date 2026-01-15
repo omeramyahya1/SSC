@@ -196,9 +196,9 @@ DROP POLICY IF EXISTS "Application Settings: Owner access only" ON public.applic
 CREATE POLICY "Application Settings: Owner access only"
 ON public.application_settings FOR ALL USING (is_superadmin() OR user_id = jwt_user_id());
 
-DROP POLICY IF EXISTS "Authentication: Owner access only" ON public.authentication;
-CREATE POLICY "Authentication: Owner access only"
-ON public.authentication FOR ALL USING (is_superadmin() OR user_id = jwt_user_id());
+DROP POLICY IF EXISTS "Authentications: Owner access only" ON public.authentications;
+CREATE POLICY "Authentications: Owner access only"
+ON public.authentications FOR ALL USING (is_superadmin() OR user_id = jwt_user_id());
 
 DROP POLICY IF EXISTS "Sync Logs: Owner access only" ON public.sync_logs;
 CREATE POLICY "Sync Logs: Owner access only"

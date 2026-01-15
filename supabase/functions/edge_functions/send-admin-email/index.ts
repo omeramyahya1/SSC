@@ -43,8 +43,8 @@ serve(async (_req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // 1. Fetch ALL pending jobs
-  const { data: jobs, error } = await supabase
+  // 1. Fetch all pending superadmin jobs
+  const { data: allJobs, error } = await supabase
     .from("notification_jobs")
     .select("*")
     .eq("status", "pending")
@@ -56,71 +56,97 @@ serve(async (_req) => {
     });
   }
 
-  // If no jobs, exit early
-  if (!jobs || jobs.length === 0) {
+  if (!allJobs || allJobs.length === 0) {
     return new Response(JSON.stringify({ message: "No pending jobs" }), {
       status: 200,
     });
   }
 
   try {
-    // 2. Build the HTML Table Rows
-    const tableRows = jobs.map((job) => {
-      const p = job.payload || {};
-      const date = new Date(job.created_at).toLocaleString("en-US");
-      return `
-        <tr>
-          <td style="padding: 8px; border: 1px solid #ddd;">${date}</td>
-          <td style="padding: 8px; border: 1px solid #ddd;">${
-        p.user_id || "N/A"
-      }</td>
-          <td style="padding: 8px; border: 1px solid #ddd;">${
-        p.amount || "N/A"
-      }</td>
-          <td style="padding: 8px; border: 1px solid #ddd;">${
-        p.payment_method || "N/A"
-      }</td>
-          <td style="padding: 8px; border: 1px solid #ddd;">${
-        p.subscription_payment_id || "N/A"
-      }</td>
-        </tr>
+    // 2. Group jobs by event type
+    const registrationJobs = allJobs.filter(j => j.event_type !== 'license_tamper_detected_admin');
+    const tamperJobs = allJobs.filter(j => j.event_type === 'license_tamper_detected_admin');
+    
+    let reportContent = "";
+    let totalJobs = allJobs.length;
+
+    // 3. Build content for Tamper Alerts
+    if (tamperJobs.length > 0) {
+      const tamperRows = tamperJobs.map((job) => {
+        const p = job.payload || {};
+        const date = new Date(job.created_at).toLocaleString("en-US");
+        return `
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd;">${date}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.user_id || "N/A"}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.user_email || "N/A"}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.username || "N/A"}</td>
+          </tr>
+        `;
+      }).join("");
+
+      reportContent += `
+        <h3 style="color: #c0392b;">Security Alerts: License Tampering</h3>
+        <p><strong>${tamperJobs.length}</strong> account(s) have been automatically locked due to suspected license tampering.</p>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px;">
+          <thead>
+            <tr style="background-color: #f2f2f2; text-align: left;">
+              <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">User ID</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">User Email</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">Username</th>
+            </tr>
+          </thead>
+          <tbody>${tamperRows}</tbody>
+        </table>
       `;
-    }).join("");
+    }
 
-    const reportContent = `
-          <p>You have <strong>${jobs.length}</strong> new registration(s) pending review.</p>
-
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-            <thead>
-              <tr style="background-color: #f2f2f2; text-align: left;">
-                <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
-                <th style="padding: 10px; border: 1px solid #ddd;">User ID</th>
-                <th style="padding: 10px; border: 1px solid #ddd;">Amount</th>
-                <th style="padding: 10px; border: 1px solid #ddd;">Method</th>
-                <th style="padding: 10px; border: 1px solid #ddd;">Payment Ref</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${tableRows}
-            </tbody>
-          </table>
-
-          <p style="margin-top: 20px; color: #666;">
-            Total records: ${jobs.length}
-          </p>
-    `;
-
+    // 4. Build content for Registration Alerts
+    if (registrationJobs.length > 0) {
+      const registrationRows = registrationJobs.map((job) => {
+        const p = job.payload || {};
+        const date = new Date(job.created_at).toLocaleString("en-US");
+        return `
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd;">${date}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.user_id || "N/A"}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.amount || "N/A"}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.payment_method || "N/A"}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">${p.subscription_payment_id || "N/A"}</td>
+          </tr>
+        `;
+      }).join("");
+      
+      reportContent += `
+        <h3>New Registrations Pending Review</h3>
+        <p>You have <strong>${registrationJobs.length}</strong> new registration(s) pending review.</p>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+          <thead>
+            <tr style="background-color: #f2f2f2; text-align: left;">
+              <th style="padding: 10px; border: 1px solid #ddd;">Date</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">User ID</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">Amount</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">Method</th>
+              <th style="padding: 10px; border: 1px solid #ddd;">Payment Ref</th>
+            </tr>
+          </thead>
+          <tbody>${registrationRows}</tbody>
+        </table>
+      `;
+    }
+    
     const emailHtml = emailWrapper(
-      "New Registrations Report",
+      "Daily Admin Summary Report",
       reportContent,
       new Date().toISOString(),
     );
 
-    // 3. Send ONE email with the summary
+    // 5. Send ONE summary email
     const emailData = {
       sender: { name: "SSC", email: SENDER_EMAIL },
       to: [{ email: ADMIN_EMAIL, name: "Super Admin" }],
-      subject: `New Registrations Summary (${jobs.length})`,
+      subject: `Admin Report: ${totalJobs} Pending Item(s)`,
       htmlContent: `<html><body>${emailHtml}</body></html>`,
     };
 
@@ -139,8 +165,8 @@ serve(async (_req) => {
       throw new Error(`Brevo API Error: ${errText}`);
     }
 
-    // 4. Batch Update: Mark all these jobs as "sent"
-    const jobIds = jobs.map((j) => j.id);
+    // 6. Batch Update: Mark all processed jobs as "sent"
+    const jobIds = allJobs.map((j) => j.id);
     const { error: updateError } = await supabase
       .from("notification_jobs")
       .update({
@@ -151,15 +177,13 @@ serve(async (_req) => {
 
     if (updateError) throw updateError;
 
-    return new Response(JSON.stringify({ success: true, count: jobs.length }), {
+    return new Response(JSON.stringify({ success: true, count: totalJobs }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (e: any) {
     console.error(`Batch send failed:`, e);
-
-    // Optional: Mark them as failed so they don't block future runs (or leave pending to retry)
-    const jobIds = jobs.map((j) => j.id);
+    const jobIds = allJobs.map((j) => j.id);
     await supabase.from("notification_jobs").update({
       status: "failed",
       error_message: e.message || String(e),

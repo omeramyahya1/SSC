@@ -1,13 +1,21 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db, generate_salt, hash_password, verify_password
-from models import Authentication, User # Import User model
+from models import Authentication, User, Subscription # Import User model
 from schemas import AuthenticationCreate, AuthenticationUpdate
 from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication # Import new schemas
 from serializer import model_to_dict
 from datetime import datetime
+import uuid
 
 authentication_bp = Blueprint('authentication_bp', __name__, url_prefix='/authentications')
+
+def is_valid_uuid(val):
+    try:
+        uuid.UUID(str(val))
+        return True
+    except (ValueError, TypeError):
+        return False
 
 @authentication_bp.route('/login', methods=['POST'])
 def login_user():
@@ -22,9 +30,12 @@ def login_user():
         if not user:
             return jsonify({"error": "Invalid credentials"}), 401
 
-        # Find the authentication entry for this user
-        # Note: In a real app, you'd likely retrieve the specific auth record by device_id or other means
-        # For simplicity, we'll try to find any existing auth record for this user to get the salt
+        # Check for tampered subscription before verifying password
+        subscription = db.query(Subscription).filter(Subscription.user_uuid == user.uuid).order_by(Subscription.created_at.desc()).first()
+        if subscription and subscription.tampered:
+            return jsonify({"error": "Account locked due to suspected tampering. Please contact support."}), 403
+
+        # Find the latest authentication entry for this user to get salt and session data
         user_auth = db.query(Authentication).filter_by(user_uuid=user.uuid).order_by(Authentication.created_at.desc()).first()
 
         if not user_auth or not verify_password(login_data.password, user_auth.password_salt, user_auth.password_hash):
@@ -33,21 +44,28 @@ def login_user():
         # --- Authentication successful ---
 
         # 1. Mark all existing active sessions for this user as logged out
-        # The context manager will handle the commit.
-        db.query(Authentication).filter_by(user_uuid=user.uuid, is_logged_in=True).update({"is_logged_in": False})
+        db.query(Authentication).filter_by(user_uuid=user.uuid, is_logged_in=True).update({"is_logged_in": False, "is_dirty": True})
 
-        # 2. Create a new authentication entry for this login
+        # 2. Validate device_id or generate a new one
+        device_id = user_auth.device_id
+        if not is_valid_uuid(device_id):
+            device_id = str(uuid.uuid4())
+
+        # 3. Create a new authentication entry for this login, inheriting previous session data
         new_auth_entry = Authentication(
             user_uuid=user.uuid,
-            password_hash=user_auth.password_hash, # Reusing the hash
-            password_salt=user_auth.password_salt, # Reusing the salt
+            password_hash=user_auth.password_hash,
+            password_salt=user_auth.password_salt,
             is_logged_in=True,
             last_active=datetime.utcnow(),
-            jwt_issued_at=datetime.utcnow() # Placeholder
-            # device_id could be added from request headers if available
+            # Inherit details from the previous session
+            jwt_issued_at=user_auth.jwt_issued_at,
+            current_jwt=user_auth.current_jwt,
+            device_id=device_id, # Use the validated or newly generated device_id
+            is_dirty=True # Mark the new session as dirty for initial sync
         )
         db.add(new_auth_entry)
-        db.flush() # Use flush to get the new ID before the transaction is over
+        db.flush()
         db.refresh(new_auth_entry)
 
         # Build response
@@ -61,9 +79,31 @@ def login_user():
 
             return jsonify(LoginResponse(user=response_user, authentication=response_auth).model_dump()), 200
         except ValidationError as e:
-            # Adding more detailed error logging for debugging
             print(f"Pydantic validation error: {e.errors()}")
             return jsonify({"error": "An unexpected error occurred during response creation."}), 500
+
+@authentication_bp.route('/logout', methods=['POST'])
+def logout_user():
+    auth_id = request.json.get('auth_id')
+    if not auth_id:
+        return jsonify({"error": "auth_id is required"}), 400
+
+    with get_db() as db:
+        auth_entry = db.query(Authentication).filter(Authentication.auth_id == auth_id).first()
+
+        if not auth_entry:
+            return jsonify({"error": "Authentication session not found"}), 404
+
+        # Idempotent: if already logged out, no action needed, return success
+        if not auth_entry.is_logged_in:
+            return jsonify({"message": "User was already logged out"}), 200
+
+        auth_entry.is_logged_in = False
+        auth_entry.last_active = datetime.utcnow()
+        auth_entry.is_dirty = True # Mark for syncing
+        db.commit()
+
+        return jsonify({"message": "Logout successful"}), 200
 
 @authentication_bp.route('/<int:item_id>', methods=['PUT'])
 def update_authentication(item_id):

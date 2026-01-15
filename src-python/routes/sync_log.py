@@ -1,6 +1,6 @@
 # src-python/routes/sync_log.py
 import mimetypes
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
 from utils import get_db
@@ -9,6 +9,55 @@ from supabase_client import get_user_client, get_service_role_client, get_anon_c
 from serializer import model_to_dict
 
 sync_log_bp = Blueprint('sync_log_bp', __name__, url_prefix='/sync_logs')
+
+# --- Heartbeat Check ---
+
+def heart_beat(db: Session, user_uuid: str):
+    """
+    Compares the local system time with the remote DB time to detect clock tampering.
+    Returns True if tampering is detected and flagged, False otherwise.
+    """
+    try:
+        # 1. Get remote DB time
+        supabase = get_anon_client()
+        res = supabase.rpc("get_server_utc").execute()
+
+        if not hasattr(res, 'data') or not res.data:
+            print("Warning: Could not retrieve server time for heartbeat check.")
+            return False # Fail safe, don't lock out user if server time is unavailable
+
+        server_time_str = res.data
+        server_dt = datetime.fromisoformat(server_time_str).replace(tzinfo=timezone.utc)
+
+        # 2. Get local system time as timezone-aware (UTC)
+        local_dt = datetime.now(timezone.utc)
+
+        # 3. Check difference
+        if abs((server_dt - local_dt).total_seconds()) > 2 * 3600:
+            # Check for an active subscription before flagging
+            active_subscription = db.query(models.Subscription).filter(
+                models.Subscription.user_uuid == user_uuid,
+                models.Subscription.status == 'active'
+            ).first()
+
+            if active_subscription:
+                print(f"Tampering detected for user {user_uuid}. Local time: {local_dt}, Server time: {server_dt}")
+                # 5. Flag as tampered
+                active_subscription.tampered = True
+                active_subscription.is_dirty = True
+
+                auth = db.query(models.Authentication).filter_by(user_uuid=user_uuid).first()
+                if auth:
+                    auth.is_logged_in = False
+                    auth.is_dirty = True
+
+                db.commit()
+                return True # Tampering detected and flagged
+
+        return False # No issue
+    except Exception as e:
+        print(f"Error during heartbeat check: {e}")
+        return False # Fail safe
 
 # --- BLOB UPLOAD ---
 def upload_blob(blob_data: bytes, bucket_name: str, destination_path: str, use_service_client: bool = False):
@@ -279,14 +328,41 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
 def sync():
     start_time = datetime.utcnow()
     print(f"Synchronization process started at {start_time.isoformat()} UTC.")
-    try:
-        supabase = get_anon_client()
-        res = supabase.rpc("get_server_utc").execute()
-        print(f"Supabase server time: {res.data}. Heartbeat check passed.")
-    except Exception as e:
-        return jsonify({"status": "failed", "error": f"Heartbeat check failed: {e}"}), 500
 
     with get_db() as db:
+        user_uuid_row = db.query(models.User.uuid).first()
+        if not user_uuid_row:
+             return jsonify({"status": "failed", "error": "No user found in local DB."}), 404
+        user_uuid = user_uuid_row[0]
+
+        # Check if already tampered
+        tampered_subscription = db.query(models.Subscription).filter(
+            models.Subscription.user_uuid == user_uuid,
+            models.Subscription.tampered == True
+        ).first()
+
+        if tampered_subscription:
+            try:
+                # User is already flagged, only allow pulling for updates.
+                print("Account is locked. Performing pull-only sync.")
+                pull_from_supabase(db)
+                return jsonify({"status": "tamper_lock", "message": "Account locked due to suspected tampering. Only pull sync is allowed."}), 403
+            except Exception as e:
+                return jsonify({"status": "failed", "error": str(e)}), 500
+
+        # If not tampered, proceed with heartbeat check
+        try:
+            is_tampered = heart_beat(db, user_uuid)
+            if is_tampered:
+                # heart_beat has now flagged the user.
+                # Push this change to the server immediately.
+                print("Tampering detected. Pushing lock status to server.")
+                push_to_supabase(db) # This will push the subscription.tampered=True change
+                return jsonify({"status": "tamper_detected", "message": "Time discrepancy detected. Account is being locked."}), 403
+        except Exception as e:
+            return jsonify({"status": "failed", "error": f"Heartbeat check failed: {e}"}), 500
+
+        # If all checks pass, proceed with normal sync
         try:
             push_to_supabase(db)
             pull_from_supabase(db)
@@ -316,3 +392,15 @@ def push():
             return jsonify({"status": "ok"}), 200
         except Exception as e:
             return jsonify({"status": "failed", "error": str(e)}), 500
+
+@sync_log_bp.route('/authentications', methods=['GET'])
+def push_auth():
+    with get_db() as db:
+        try:
+            response = sync_table(db, model=models.Authentication, table_name="authentications",mapper=_generic_mapper)
+            print(response)
+            return jsonify({"status": "ok"}), 200
+        except Exception as e:
+            return jsonify({"status": "failed", "error": str(e)}), 500
+
+

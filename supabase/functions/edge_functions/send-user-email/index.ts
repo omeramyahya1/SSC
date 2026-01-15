@@ -199,11 +199,51 @@ const templates: Templates = {
         ),
     },
   },
+  license_tamper_detected_user: {
+    en: {
+      subject: "Security Alert: Action Required on Your Account",
+      body: (p, lang, date) =>
+        emailWrapper(
+          "Account Access Temporarily Restricted",
+          `<p>Hello ${p.username || "User"},</p>
+          <p>We have detected unusual activity on your account that suggests potential license tampering. For your security, your account has been temporarily locked and you have been logged out.</p>
+          <p><strong>What this means for you:</strong></p>
+          <ul style="padding-left: 20px;">
+            <li>You will not be able to log in or use the application's online features.</li>
+            <li>Your local data remains safe on your device.</li>
+          </ul>
+          <p><strong>Next Steps:</strong></p>
+          <p>If you believe this is an error, please contact our support team immediately. Our security team will review this activity and we will notify you with an update on your account status.</p>
+          <p>We take account security very seriously and apologize for any inconvenience this may cause.</p>`,
+          date,
+          lang
+        ),
+    },
+    ar: {
+      subject: "تنبيه أمني: إجراء مطلوب على حسابك",
+      body: (p, lang, date) =>
+        emailWrapper(
+          "تم تقييد الوصول إلى الحساب مؤقتاً",
+          `<p>مرحباً ${p.username || "مستخدم"},</p>
+          <p>لقد اكتشفنا نشاطاً غير عادي في حسابك يشير إلى احتمالية التلاعب بالترخيص. كإجراء أمني، تم قفل حسابك مؤقتاً وتسجيل خروجك.</p>
+          <p><strong>ماذا يعني هذا بالنسبة لك:</strong></p>
+          <ul style="padding-right: 20px;">
+            <li>لن تتمكن من تسجيل الدخول أو استخدام الميزات التي تتطلب اتصالاً بالإنترنت.</li>
+            <li>بياناتك المحلية تظل آمنة على جهازك.</li>
+          </ul>
+          <p><strong>الخطوات التالية:</strong></p>
+          <p>إذا كنت تعتقد أن هذا الإجراء تم عن طريق الخطأ، يرجى الاتصال بفريق الدعم على الفور. سيقوم فريق الأمان بمراجعة هذا النشاط وسنبلغك بآخر المستجدات حول حالة حسابك.</p>
+          <p>نحن نأخذ أمن الحساب على محمل الجد ونعتذر عن أي إزعاج قد يسببه هذا الإجراء.</p>`,
+          date,
+          lang
+        ),
+    },
+  },
 };
 
 serve(async (req) => {
   const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
-  const SENDER_EMAIL = "omeramyahya001@gmail.com"; 
+  const SENDER_EMAIL = "omeramyahya001@gmail.com";
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -240,10 +280,10 @@ serve(async (req) => {
       }
 
       // Determine Language
-      const settings = Array.isArray(userData.application_settings) 
-        ? userData.application_settings[0] 
+      const settings = Array.isArray(userData.application_settings)
+        ? userData.application_settings[0]
         : userData.application_settings;
-        
+
       const lang = (settings?.language as "en" | "ar") || "en";
 
       // Select Template
@@ -251,7 +291,7 @@ serve(async (req) => {
       if (!templateGroup) {
         throw new Error(`Template not found for event type: ${job.event_type}`);
       }
-      
+
       const tpl = templateGroup[lang] || templateGroup['en'];
 
       // Prepare Brevo Payload
@@ -294,8 +334,8 @@ serve(async (req) => {
     }
   }
 
-  return new Response("OK", { 
+  return new Response("OK", {
     status: 200,
-    headers: { "Content-Type": "application/json" } 
+    headers: { "Content-Type": "application/json" }
   });
 });
