@@ -157,19 +157,28 @@ ON public.projects FOR ALL USING (
 DROP POLICY IF EXISTS "System Config: Access via parent Project" ON public.system_configurations;
 CREATE POLICY "System Config: Access via parent Project"
 ON public.system_configurations FOR ALL USING (
-    is_superadmin() OR (project_id IN (SELECT id FROM public.projects))
+    is_superadmin() OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = system_configurations.project_id
+    )
 );
 
 DROP POLICY IF EXISTS "Appliances: Access via parent Project" ON public.appliances;
 CREATE POLICY "Appliances: Access via parent Project"
 ON public.appliances FOR ALL USING (
-    is_superadmin() OR (project_id IN (SELECT id FROM public.projects))
+    is_superadmin() OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = appliances.project_id
+    )
 );
 
 DROP POLICY IF EXISTS "Documents: Access via parent Project" ON public.documents;
 CREATE POLICY "Documents: Access via parent Project"
 ON public.documents FOR ALL USING (
-    is_superadmin() OR (project_id IN (SELECT id FROM public.projects))
+    is_superadmin() OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = documents.project_id
+    )
 );
 
 
@@ -186,7 +195,10 @@ ON public.invoices FOR ALL USING (
 DROP POLICY IF EXISTS "Payments: Access via parent Invoice" ON public.payments;
 CREATE POLICY "Payments: Access via parent Invoice"
 ON public.payments FOR ALL USING (
-    is_superadmin() OR (invoice_id IN (SELECT id FROM public.invoices))
+    is_superadmin() OR EXISTS (
+        SELECT 1 FROM public.invoices i
+        WHERE i.id = payments.invoice_id
+    )
 );
 
 
@@ -211,7 +223,10 @@ ON public.subscriptions FOR ALL USING (is_superadmin() OR user_id = jwt_user_id(
 DROP POLICY IF EXISTS "Subscription Payments: Access via parent Subscription" ON public.subscription_payments;
 CREATE POLICY "Subscription Payments: Access via parent Subscription"
 ON public.subscription_payments FOR ALL USING (
-    is_superadmin() OR (subscription_id IN (SELECT id FROM public.subscriptions))
+    is_superadmin() OR EXISTS (
+        SELECT 1 FROM public.subscriptions s
+        WHERE s.id = subscription_payments.subscription_id
+    )
 );
 
 

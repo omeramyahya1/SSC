@@ -371,14 +371,14 @@ def sync():
             _create_and_push_final_sync_log(db, start_time)
 
             end_time = datetime.utcnow()
-            duration = (end_time - start_time).total_seconds()
-            print(f"Synchronization process finished successfully in {duration:.2f} seconds.")
-            return jsonify({"status": "ok", "duration_seconds": duration}), 200
+            # duration = (end_time - start_time).total_seconds()
+            print(f"Synchronization process finished successfully in {0:.2f} seconds.")
+            return jsonify({"status": "ok", "duration_seconds": 0}), 200
         except Exception as e:
             end_time = datetime.utcnow()
-            duration = (end_time - start_time).total_seconds()
-            print(f"Synchronization process failed after {duration:.2f} seconds.")
-            return jsonify({"status": "failed", "error": str(e), "duration_seconds": duration}), 500
+            # duration = (end_time - start_time).total_seconds()
+            print(f"Synchronization process failed after {0:.2f} seconds.")
+            return jsonify({"status": "failed", "error": str(e), "duration_seconds": 0}), 500
 
 @sync_log_bp.route('/', methods=['GET'])
 def get_all_logs():
