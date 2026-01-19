@@ -245,7 +245,7 @@ def register_user():
         )
         db.add(new_sub)
 
-        if payload.plan_type != 'Free Trial':
+        if payload.plan_type != 'trial':
             receipt_bytes = None
             if payload.stage7.receipt:
                 try:

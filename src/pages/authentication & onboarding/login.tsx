@@ -14,6 +14,7 @@ import { useUserStore } from "@/store/useUserStore";
 import api from '@/api/client';
 import { LoginResponse } from '@/store/useAuthenticationStore';
 import { Button } from '@/components/ui/button';
+import { Spinner } from "@/components/ui/spinner"; // Import Spinner component
 
 // Note: Ensure you place actual svg files in your /public/assets/ folder
 // placeholders used here: globe.svg, eye.svg, eye-slash.svg, logo-ssc.svg
@@ -28,6 +29,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isEmailValid, setIsEmailValid] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false); // New loading state
 
   const { setCurrentUser, currentUser } = useUserStore();
   const { setCurrentAuthentication, currentAuthentication } = useAuthenticationStore();
@@ -57,6 +59,7 @@ export default function LoginScreen() {
         return;
     }
 
+    setIsLoggingIn(true); // Set loading state to true
     try {
       const response = await api.post<LoginResponse>('authentications/login', { "email": email, "password": password });
 
@@ -80,6 +83,8 @@ export default function LoginScreen() {
       } else {
         setError("An unexpected error occurred during login.");
       }
+    } finally {
+      setIsLoggingIn(false); // Always reset loading state
     }
   };
 
@@ -226,8 +231,8 @@ export default function LoginScreen() {
             )}
 
             {/* Login Button */}
-            <Button type="submit" disabled={!email || !password}  className="w-full h-full bg-primary text-white py-3.5 rounded-base font-bold text-lg shadow-sm hover:bg-primary/90 hover:shadow-md transition-all active:scale-[0.99] mt-4">
-              {t('login.submit_button', 'Login')}
+            <Button type="submit" disabled={!email || !password || isLoggingIn}  className="w-full h-full bg-primary text-white py-3.5 rounded-base font-bold text-lg shadow-sm hover:bg-primary/90 hover:shadow-md transition-all active:scale-[0.99] mt-4">
+              {isLoggingIn ? <Spinner /> : t('login.submit_button', 'Login')}
             </Button>
           </form>
         </div>

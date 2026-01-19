@@ -322,7 +322,15 @@ export default function RegistrationScreen() {
   }
 
   const handleNext = () => {
-    if (currentStage === 7) { // Trigger submission from Stage 7
+    const isFreeTrial = formData.stage3.plan === 'Free Trial';
+
+    // If on Summary (Stage 5) and it's a Free Trial, submit now.
+    if (currentStage === 5 && isFreeTrial) {
+        handleSubmit();
+        return;
+    }
+
+    if (currentStage === 7) { // Trigger submission from Stage 7 for paid plans
         handleSubmit();
         return;
     }
@@ -443,7 +451,7 @@ export default function RegistrationScreen() {
                     )}
                   >
                     {isSubmitting ? <Spinner /> :
-                        currentStage === 7 ? t('registration.finish', 'Finish') :
+                        (currentStage === 7 || (currentStage === 5 && formData.stage3.plan === 'Free Trial')) ? t('registration.finish', 'Finish') :
                         currentStage === 4 && !areStage4FieldsFilled(formData.stage4)
                         ? t('registration.skip', 'Skip')
                         : t('registration.next', 'Next')}
@@ -1275,46 +1283,49 @@ const Stage7 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 // --- STAGE 8: Completion ---
 const Stage8 = () => {
     const { t } = useTranslation();
-    const navigate = useNavigate(); // ADDED
-    const [toDashboard, setToDashboard] = useState(false);
+    const navigate = useNavigate();
+    const { formData } = useRegistrationStore(); // Get access to form data
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleDashboard = () => {
-        setToDashboard(true)
-    }
+    const isFreeTrial = formData.stage3.plan === 'Free Trial'; // Check if it's a free trial
 
-    useEffect(() => {
-        if (toDashboard) {
-        const updateAuthAndFetchData = async () => {
+    const handleDashboard = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
             const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
 
-            if (latestAuth && latestAuth.user_id && toDashboard) {
+            if (latestAuth && latestAuth.user_id) {
                 const userId = latestAuth.user_id;
-                // Fetch user data and settings
                 await useUserStore.getState().fetchUser(userId);
-                // In a real scenario you would fetch settings related to the user
-                // For now we will fetch all settings as an example
                 await useApplicationSettingsStore.getState().fetchSettings();
 
+                const { currentUser } = useUserStore.getState();
+                const { settings } = useApplicationSettingsStore.getState();
 
-                // Persist the loaded data to localStorage for the main window
-                if (toDashboard) {
-                    const { currentUser } = useUserStore.getState();
-                        const { settings } = useApplicationSettingsStore.getState();
-
-                    if (currentUser) {
-                        localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
-                    }
-                    if (settings && settings.length > 0) {
-                        // Assuming we store the settings for the logged in user, or the first one for this example
-                        localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
-                    }
+                if (currentUser) {
+                    localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
                 }
-                navigate('/dashboard'); // ADDED: Navigate to dashboard after data is loaded and persisted
+                if (settings && settings.length > 0) {
+                    localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
+                }
+                navigate('/dashboard');
+            } else {
+                throw new Error("Could not retrieve latest authentication data.");
             }
-        };
-        updateAuthAndFetchData();
-    }
-    }, [navigate]); // MODIFIED: Added toDashboard and navigate to dependency array
+        } catch (err: any) {
+            console.error("Error fetching user data after registration:", err);
+            setError(t('registration.success.fetch_error', "Failed to load user data. Please try logging in again."));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Conditional success message
+    const successMessage = isFreeTrial
+        ? t('registration.success.message_free', 'Your free trial account has been created successfully.')
+        : t('registration.success.message_paid', 'Your account has been created. If you made a payment, it may take up to 24 hours to process.');
 
 
     return (
@@ -1326,11 +1337,14 @@ const Stage8 = () => {
                 <h1 className="text-3xl font-bold">{t('registration.success.title', 'Registration Successful!')}</h1>
             </div>
             <p className="mb-8 leading-relaxed">
-                {t('registration.success.message_simple', 'Your account has been created successfully. If you made a payment, processing takes up to 24 hours, you will recive an email upon updates your payment status.')}
+                {successMessage}
             </p>
+            {error && (
+                <p className="text-red-500 text-sm mb-4">{error}</p>
+            )}
             <div className="space-y-4">
-                 <Button onClick={() => handleDashboard()} className='w-full text-white' size="lg">
-                    {t('registration.go_dashboard', 'Go to Dashboard')}
+                 <Button onClick={handleDashboard} className='w-full text-white' size="lg" disabled={isLoading}>
+                    {isLoading ? <Spinner /> : t('registration.go_dashboard', 'Go to Dashboard')}
                 </Button>
                 <Link to="/help" className="block text-sm text-primary hover:underline">
                     {t('registration.report_issue', 'Report an issue')}
