@@ -30,6 +30,7 @@ __pycache__/
 *.pyc
 *.db
 *.env
+.fuse_*
 dist/
 build/
 src-python/ble/dataset/*.py
