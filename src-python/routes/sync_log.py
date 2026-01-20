@@ -5,6 +5,7 @@ from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
 from utils import get_db
 import models
+from sqlalchemy import LargeBinary
 from supabase_client import get_user_client, get_service_role_client, get_anon_client
 from serializer import model_to_dict
 
@@ -167,7 +168,7 @@ def _map_cloud_to_local(payload: dict, model_class) -> dict:
     final_payload = {k: v for k, v in mapped_payload.items() if k in local_columns}
 
     # Do not process blobs pulled from the cloud for now.
-    blob_cols = {col.name for col in model_class.__table__.columns if isinstance(col.type, models.LargeBinary)}
+    blob_cols = {col.name for col in model_class.__table__.columns if isinstance(col.type, LargeBinary)}
     for col in blob_cols:
         final_payload.pop(col, None)
 
@@ -397,12 +398,3 @@ def push():
             return jsonify({"status": "ok"}), 200
         except Exception as e:
             return jsonify({"status": "failed", "error": str(e)}), 500
-
-@sync_log_bp.route('/heart_beat', methods=['GET'])
-def push_auth():
-    with get_db() as db:
-        if not heart_beat(db=db):
-            return jsonify({"status": "ok"}), 200
-        return jsonify({"status": "failed"}), 500
-
-
