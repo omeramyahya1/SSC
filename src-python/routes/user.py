@@ -144,7 +144,7 @@ def register_user():
         # Prepare user data
         stage4 = payload.stage4
         location = f"{stage4.locationCity}, {stage4.locationState}" if stage4.locationCity and stage4.locationState else None
-        user_status = 'trial' if payload.plan_type == "Free Trial" else "active"
+        user_status = 'trial' if payload.plan_type == "trial" else "active"
 
         # Handle business logo upload if present
         logo_bytes = None
@@ -222,13 +222,13 @@ def register_user():
             role='admin' if 'enterprise' in payload.account_type else 'user',
             organization_uuid=new_org_uuid, branch_uuid=new_branch_uuid,
             distributor_id=payload.distributor_id,
-            is_dirty=True
+            is_dirty=False # Changed to False as record created via RPC
         )
         db.add(new_user)
 
         new_auth = Authentication(
             uuid=new_auth_uuid, user_uuid=new_user_uuid, password_hash=hashed_pw, password_salt=salt,
-            is_logged_in=False, device_id=device_id, is_dirty=True
+            is_dirty=False # Changed to False as record created via RPC
         )
         db.add(new_auth)
 
@@ -240,7 +240,7 @@ def register_user():
 
         new_sub = Subscription(
             uuid=new_sub_uuid, user_uuid=new_user_uuid, type=payload.plan_type,
-            status='active' if payload.plan_type != 'Free Trial' else 'trial',
+            status='trial' if payload.plan_type == 'trial' else 'active',
             expiration_date=datetime.utcnow() + timedelta(days=30), is_dirty=True
         )
         db.add(new_sub)
@@ -293,20 +293,8 @@ def register_user():
         new_auth.is_dirty = True
         db.commit()
 
-        # Full Sync
-        try:
-            print("--- Starting Full Sync for Registration ---")
-            sync_response, status_code = sync()
-            if status_code >= 400:
-                error_details = "Unknown sync error"
-                try:
-                    error_details = sync_response.get_json().get("error", error_details)
-                except Exception: pass
-                raise Exception(f"Synchronization failed: {error_details}")
-            print("--- Full Sync Completed ---")
-        except Exception as e:
-            print(f"Error during full sync: {str(e)}")
-            return jsonify({"error": "Failed to synchronize remaining data with the cloud."}), 500
+        # The full sync will be triggered by the client after registration.
+
 
         # Final response
         return jsonify({

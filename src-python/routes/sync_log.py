@@ -210,13 +210,19 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
         response = supabase.rpc("sync_apply_and_pull", {"p_table_name": table_name, "p_records": payloads}).execute()
         if hasattr(response, 'error') and response.error:
             raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
-        if hasattr(response, 'data') and response.data:
+        if hasattr(response, 'data'):
+            # If the RPC executed without error, we assume the push was successful,
+            # even if the remote didn't report any rows being changed (which can happen
+            # during an upsert if the data is identical). We mark the records as clean
+            # to prevent them from being stuck in a dirty state.
             for record in records:
                 record.is_dirty = False
             db.commit()
-            print(f"Successfully pushed {len(response.data)} records to {table_name}.")
-        else:
-            print(f"Warning: Push for {table_name} completed, but the remote did not confirm processed records. Records will remain dirty.")
+
+            if response.data:
+                print(f"Successfully pushed and confirmed {len(response.data)} records to {table_name}.")
+            else:
+                print(f"Push for {table_name} completed. Remote did not report changes, but records are now marked as clean.")
     except Exception as e:
         raise Exception(f"Failed to push table {table_name}: {str(e)}")
 
@@ -224,12 +230,9 @@ def push_to_supabase(db: Session, dirty_only: bool = True):
     print("\n--- Starting Push Operation ---")
     for config in SYNC_CONFIG:
         table_name = config["table_name"]
-        try:
-            print(f"Pushing dirty records for table: {table_name}...")
-            sync_table(db, config["model"], table_name, config["mapper"], dirty_only=dirty_only)
-        except Exception as e:
-            print(f"Error pushing table {table_name}: {str(e)}")
-            # Continue with the next table on error
+        print(f"Pushing dirty records for table: {table_name}...")
+        # Re-raise exceptions from sync_table to ensure atomicity of the overall sync
+        sync_table(db, config["model"], table_name, config["mapper"], dirty_only=dirty_only)
 
 def get_last_sync_timestamp(db: Session) -> str:
     last_sync = db.query(models.SyncLog).filter(models.SyncLog.status == "success").order_by(models.SyncLog.created_at.desc()).first()

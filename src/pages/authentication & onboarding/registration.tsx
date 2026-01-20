@@ -227,7 +227,7 @@ export default function RegistrationScreen() {
             total = totalBeforeDiscount * (1 - discountRate);
         }
     }
-    
+
     // Apply referral discount if available
     if (stage6.discountPercent && stage6.discountPercent > 0) {
         total = total * (1 - stage6.discountPercent / 100);
@@ -1284,11 +1284,32 @@ const Stage7 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 const Stage8 = () => {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const { formData } = useRegistrationStore(); // Get access to form data
+    const { formData } = useRegistrationStore();
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [syncStatus, setSyncStatus] = useState<'syncing' | 'success' | 'error'>('syncing');
 
-    const isFreeTrial = formData.stage3.plan === 'Free Trial'; // Check if it's a free trial
+    const isFreeTrial = formData.stage3.plan === 'Free Trial';
+
+    const handleSync = async () => {
+        setSyncStatus('syncing');
+        setError(null);
+        try {
+            // Use a longer timeout for the sync process
+            await api.post('/sync_logs/sync', {}, { timeout: 60000 }); // 60-second timeout
+            setSyncStatus('success');
+        } catch (err: any) {
+            console.error("Initial sync failed:", err);
+            setError(t('registration.errors.sync_failed', 'Data synchronization failed. Please try again.'));
+            setSyncStatus('error');
+        }
+    };
+
+    useEffect(() => {
+        // Automatically start the sync process when the component mounts
+        handleSync();
+    }, []);
+
 
     const handleDashboard = async () => {
         setIsLoading(true);
@@ -1298,17 +1319,25 @@ const Stage8 = () => {
 
             if (latestAuth && latestAuth.user_id) {
                 const userId = latestAuth.user_id;
-                await useUserStore.getState().fetchUser(userId);
-                await useApplicationSettingsStore.getState().fetchSettings();
+                // Fetch fresh data post-sync
+                await useUserStore.getState().fetchUser(userId); // force refresh
+                await useApplicationSettingsStore.getState().fetchSettings(); // force refresh
+
+                console.log("1")
 
                 const { currentUser } = useUserStore.getState();
                 const { settings } = useApplicationSettingsStore.getState();
 
+                console.log("2")
+
+
                 if (currentUser) {
                     localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
+                    console.log(3)
                 }
                 if (settings && settings.length > 0) {
                     localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
+                    console.log(4)
                 }
                 navigate('/dashboard');
             } else {
@@ -1327,6 +1356,51 @@ const Stage8 = () => {
         ? t('registration.success.message_free', 'Your free trial account has been created successfully.')
         : t('registration.success.message_paid', 'Your account has been created. If you made a payment, it may take up to 24 hours to process.');
 
+    const renderContent = () => {
+        switch (syncStatus) {
+            case 'syncing':
+                return (
+                    <>
+                        <p className="mb-8 leading-relaxed flex-col">
+                            {t('registration.success.syncing', 'Finalizing account setup, please wait...')}
+                        </p>
+
+                    </>
+                );
+            case 'error':
+                return (
+                    <>
+                         <p className="mb-4 leading-relaxed text-red-500">
+                            {error}
+                        </p>
+                        <div className="space-y-4">
+                            <Button onClick={handleSync} className='w-full text-white' size="lg" disabled={isLoading}>
+                                {isLoading ? <Spinner /> : t('registration.retry_sync', 'Retry Sync')}
+                            </Button>
+                        </div>
+                    </>
+                );
+            case 'success':
+                return (
+                     <>
+                        <p className="mb-8 leading-relaxed">
+                            {successMessage}
+                        </p>
+                        {error && (
+                            <p className="text-red-500 text-sm mb-4">{error}</p>
+                        )}
+                        <div className="space-y-4">
+                            <Button onClick={handleDashboard} className='w-full text-white' size="lg" disabled={isLoading}>
+                                {isLoading ? <Spinner /> : t('registration.go_dashboard', 'Go to Dashboard')}
+                            </Button>
+                            <Link to="/help" className="block text-sm text-primary hover:underline">
+                                {t('registration.report_issue', 'Report an issue')}
+                            </Link>
+                        </div>
+                    </>
+                );
+        }
+    }
 
     return (
         <div className="text-center max-w-md mx-auto">
@@ -1336,20 +1410,7 @@ const Stage8 = () => {
                 </div>
                 <h1 className="text-3xl font-bold">{t('registration.success.title', 'Registration Successful!')}</h1>
             </div>
-            <p className="mb-8 leading-relaxed">
-                {successMessage}
-            </p>
-            {error && (
-                <p className="text-red-500 text-sm mb-4">{error}</p>
-            )}
-            <div className="space-y-4">
-                 <Button onClick={handleDashboard} className='w-full text-white' size="lg" disabled={isLoading}>
-                    {isLoading ? <Spinner /> : t('registration.go_dashboard', 'Go to Dashboard')}
-                </Button>
-                <Link to="/help" className="block text-sm text-primary hover:underline">
-                    {t('registration.report_issue', 'Report an issue')}
-                </Link>
-            </div>
+            {renderContent()}
         </div>
     );
 };
