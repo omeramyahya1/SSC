@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from db_setup import SessionLocal
 import hashlib
 import os
+from datetime import datetime, timedelta, timezone
 
 # Context manager to get a database session
 
@@ -26,7 +27,7 @@ def get_db():
 # Dynamic session injection decorator
 def inject_db_session(func):
     """
-    Decorator that opens a database session and injects it as the first argument (db) 
+    Decorator that opens a database session and injects it as the first argument (db)
     to the decorated Flask route function.
     """
 
@@ -42,7 +43,7 @@ def inject_db_session(func):
             # Centralized error handling for database issues
             print(f"Database error during route execution: {e}")
             return jsonify({"error": "An internal database error occurred."}), 500
-        
+
     return decorated_function
 
 # Password Hashing Utilities
@@ -61,6 +62,48 @@ def hash_password(password, salt):
 def verify_password(password, salt, stored_hash):
     """Verifies a password against a stored hash and salt."""
     return hash_password(password, salt) == stored_hash
+
+# --- New Helper Functions for Offline/Online Login ---
+
+def get_server_time_or_none():
+    """
+    Attempts to fetch the current UTC time from the Supabase server.
+    Serves as a connectivity check.
+    Returns a datetime object on success, or None on failure (e.g., no internet).
+    """
+    from supabase_client import get_service_role_client # Moved import here to break circular dependency
+    try:
+        service_client = get_service_role_client()
+        # The execute method for rpc might not have a timeout parameter in all client versions.
+        # The underlying http client (httpx) should have a default timeout.
+        response = service_client.rpc('get_server_utc', {}).execute()
+
+        if response.data:
+            # The RPC returns a string like '2024-05-23T10:00:00.123456+00:00'
+            return datetime.fromisoformat(response.data)
+        return None
+    except Exception as e:
+        print(f"Connectivity check failed: Could not connect to Supabase. Error: {e}")
+        return None
+
+def is_jwt_expired_offline(jwt_issued_at):
+    """
+    Checks if a JWT is expired based on its issue date using client's local UTC time.
+    The expiration is hardcoded to 14 days as per the issue_jwt RPC.
+    """
+    if not jwt_issued_at:
+        return True # If there's no issue date, it's considered expired/invalid
+
+    # Ensure jwt_issued_at from DB is timezone-aware for correct comparison
+    # The database stores it as a naive datetime, so we assume it's UTC.
+    if jwt_issued_at.tzinfo is None:
+        jwt_issued_at = jwt_issued_at.replace(tzinfo=timezone.utc)
+
+    expiration_duration = timedelta(days=14)
+    expiration_time = jwt_issued_at + expiration_duration
+
+    # Use client's current UTC time for the check
+    return datetime.now(timezone.utc) > expiration_time
 
 if __name__ == "__main__":
     password = "Abcd1234"

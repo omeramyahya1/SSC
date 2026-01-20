@@ -30,7 +30,7 @@ CREATE TABLE public.application_settings (
   CONSTRAINT application_settings_pkey PRIMARY KEY (id),
   CONSTRAINT application_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-CREATE TABLE public.authentication (
+CREATE TABLE public.authentications (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid,
   password_hash character varying,
@@ -43,7 +43,8 @@ CREATE TABLE public.authentication (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
-  CONSTRAINT authentication_pkey PRIMARY KEY (id),
+  is_dirty boolean DEFAULT true,
+  CONSTRAINT authentications_pkey PRIMARY KEY (id),
   CONSTRAINT authentication_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.bank_accounts (
@@ -51,6 +52,7 @@ CREATE TABLE public.bank_accounts (
   bank_name character varying,
   account_name character varying,
   account_number character varying,
+  qr_code character varying,
   CONSTRAINT bank_accounts_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.branches (
@@ -61,6 +63,7 @@ CREATE TABLE public.branches (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  is_dirty boolean DEFAULT true,
   CONSTRAINT branches_pkey PRIMARY KEY (id),
   CONSTRAINT branches_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
 );
@@ -153,6 +156,7 @@ CREATE TABLE public.organizations (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  is_dirty boolean DEFAULT true,
   CONSTRAINT organizations_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.password_reset_requests (
@@ -161,7 +165,7 @@ CREATE TABLE public.password_reset_requests (
   verification_code text,
   expires_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
-  is_verified boolean with DEFAULT false,
+  is_verified boolean DEFAULT false,
   role text,
   CONSTRAINT password_reset_requests_pkey PRIMARY KEY (id)
 );
@@ -179,12 +183,20 @@ CREATE TABLE public.payments (
 );
 CREATE TABLE public.pricing (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  plan_type character varying,
-  account_type USER-DEFINED,
-  base_price double precision,
-  price_per_extra_employee double precision,
-  discount_rate double precision,
+  plan_type character varying NOT NULL,
+  billing_cycle character varying NOT NULL,
+  base_price double precision NOT NULL,
+  price_per_extra_employee double precision DEFAULT 0,
   CONSTRAINT pricing_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.pricing_discounts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  plan_id uuid,
+  min_employees integer,
+  max_employees integer,
+  discount_rate double precision,
+  CONSTRAINT pricing_discounts_pkey PRIMARY KEY (id),
+  CONSTRAINT pricing_discounts_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.pricing(id)
 );
 CREATE TABLE public.projects (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -213,6 +225,7 @@ CREATE TABLE public.subscription_payments (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  is_dirty boolean DEFAULT false,
   CONSTRAINT subscription_payments_pkey PRIMARY KEY (id),
   CONSTRAINT subscription_payments_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id)
 );
@@ -229,6 +242,7 @@ CREATE TABLE public.subscriptions (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
+  is_dirty boolean DEFAULT false,
   CONSTRAINT subscriptions_pkey PRIMARY KEY (id),
   CONSTRAINT subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
@@ -240,6 +254,8 @@ CREATE TABLE public.sync_logs (
   status USER-DEFINED,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  is_dirty boolean,
+  deleted_at timestamp with time zone,
   CONSTRAINT sync_logs_pkey PRIMARY KEY (id),
   CONSTRAINT sync_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );

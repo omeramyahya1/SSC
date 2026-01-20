@@ -109,8 +109,8 @@
   "registration.receipt_alt": "معاينة الإيصال",
   "registration.click_upload_receipt": "انقر لرفع صورة الشاشة",
   "registration.success_alt": "نجاح",
-  "registration.success.title": "تم إرسال الدفع!",
-  "registration.success.message": "جاري معالجة تسجيلك. يرجى الانتظار حتى اكتمال المزامنة النهائية.",
+  "registration.success.title": "تم التسجيل بنجاح",
+  "registration.success.message_simple": "تم إنشاء حسابك بنجاح. إذا قمت بالدفع، فستستغرق عملية المعالجة ما يصل إلى 24 ساعة، وستتلقى بريدًا إلكترونيًا عند تحديث حالة دفعتك.",
   "registration.go_dashboard": "الانتقال إلى لوحة التحكم",
   "registration.report_issue": "الإبلاغ عن مشكلة",
   "registration.search.no_results": "لا توجد نتائج.",
@@ -133,5 +133,11 @@
   "registration.org_info": "معلومات المؤسسة",
   "registration.business_info": "معلومات النشاط التجاري",
   "registration.type.standard": "قياسي",
-  "registration.type.enterprise": "مؤسسي"
+  "registration.type.enterprise": "مؤسسي",
+  "registration.invalid_email": "صيغة البريد غير صحيحة",
+  "registration.plans.per_month": "لكل شهر",
+  "registration.plans.per_year": "لكل سنة",
+  "registration.plans.one_payment": "تُدفع مرة واحة فقط",
+  "login.invalid_credentials": "البيانات غير صحيحة"
+
 }

@@ -30,10 +30,12 @@ __pycache__/
 *.pyc
 *.db
 *.env
+.fuse_*
 dist/
 build/
 src-python/ble/dataset/*.py
 src-python/ble/test.py
+src-python/seed_db.py
 
 .gemini/
 gha-creds-*.json

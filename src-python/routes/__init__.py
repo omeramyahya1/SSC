@@ -17,6 +17,8 @@ from .subscription import subscription_bp
 from .sync_log import sync_log_bp
 from .system_configuration import system_configuration_bp
 from .user import user_bp
+from .organization import organization_bp
+from .branch import branch_bp
 from ble.api import ble_bp
 
 all_blueprints = [
@@ -33,5 +35,7 @@ all_blueprints = [
     sync_log_bp,
     system_configuration_bp,
     user_bp,
+    organization_bp,
+    branch_bp,
     ble_bp,
 ]

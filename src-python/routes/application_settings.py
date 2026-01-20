@@ -5,7 +5,7 @@ from models import ApplicationSettings
 from schemas import ApplicationSettingsCreate, ApplicationSettingsUpdate
 from serializer import model_to_dict
 
-application_settings_bp = Blueprint('application_settings_bp', __name__, url_prefix='/application_settingss')
+application_settings_bp = Blueprint('application_settings_bp', __name__, url_prefix='/application_settings')
 
 @application_settings_bp.route('/', methods=['POST'])
 def create_application_settings():
@@ -30,7 +30,7 @@ def update_application_settings(item_id):
         item = db.query(ApplicationSettings).filter(ApplicationSettings.id == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
         try:
             # Validate request data
             validated_data = ApplicationSettingsUpdate(**request.json)
@@ -41,7 +41,7 @@ def update_application_settings(item_id):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))

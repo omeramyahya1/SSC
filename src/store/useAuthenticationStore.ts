@@ -63,14 +63,36 @@ export interface AuthenticationStore {
   updateAuthentication: (id: number, data: Partial<NewAuthenticationData>) => Promise<Authentication | undefined>;
   deleteAuthentication: (id: number) => Promise<void>;
   setCurrentAuthentication: (auth: Authentication | null) => void;
+  logout: () => Promise<void>;
 }
 
-export const useAuthenticationStore = create<AuthenticationStore>((set) => ({
+export const useAuthenticationStore = create<AuthenticationStore>((set, get) => ({
   authentications: [],
   currentAuthentication: null,
   isLoading: false,
   error: null,
 
+  logout: async () => {
+    const currentAuth = get().currentAuthentication;
+    if (!currentAuth) {
+      console.log("No current authentication session to log out.");
+      return;
+    }
+
+    set({ isLoading: true, error: null });
+    try {
+      await api.post(`${resource}/logout`, { auth_id: currentAuth.auth_id });
+      set({ currentAuthentication: null, isLoading: false });
+      // Also clear other user-related stores if necessary
+      // e.g., useUserStore.getState().setCurrentUser(null);
+      console.log("Logout successful.");
+    } catch (e: any) {
+      const errorMsg = e.message || "Logout failed";
+      set({ error: errorMsg, isLoading: false });
+      console.error(errorMsg, e);
+    }
+  },
+  
   setCurrentAuthentication: (auth) => {
     set({ currentAuthentication: auth });
   },
