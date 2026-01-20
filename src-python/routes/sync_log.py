@@ -46,15 +46,15 @@ def heart_beat(db: Session, user_uuid: str):
                 # 5. Flag as tampered
                 active_subscription.tampered = True
                 active_subscription.is_dirty = True
-
                 auth = db.query(models.Authentication).filter_by(user_uuid=user_uuid).first()
                 if auth:
                     auth.is_logged_in = False
                     auth.is_dirty = True
-
                 db.commit()
                 return True # Tampering detected and flagged
-            return True
+            # No active subscription to flag - treat as no tampering since there's nothing to lock
+            print(f"Clock drift detected for user {user_uuid}, but no active subscription to flag.")
+            return False
         return False # No issue
     except Exception as e:
         print(f"Error during heartbeat check: {e}")
@@ -204,7 +204,7 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
         return
 
     payloads = [mapper(rec) for rec in records]
-    print(payloads)
+
     try:
         supabase = get_user_client()
         # Note: The push RPC is currently named 'sync_apply_and_pull'
