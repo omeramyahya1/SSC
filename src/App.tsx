@@ -4,7 +4,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/authentication & onboarding/login";
 import Registration from "./pages/authentication & onboarding/registration";
 import ForgotPassword from "./pages/authentication & onboarding/forgetPassword";
-import Dashboard from "./pages/dashboard";
+import Dashboard from "./pages/dashboard/dashboard";
 import ChangePassword from "./pages/authentication & onboarding/changePassword";
 import Help from "./pages/help";
 import Sales from "./pages/sales";
@@ -89,7 +89,7 @@ function App() {
 
   if (isLoggedIn === null) {
     // Render a loading state or nothing while we determine auth status
-    return null; 
+    return null;
   }
 
   const routesToRender = isLoggedIn ? mainRoutes : authRoutes;
@@ -97,7 +97,7 @@ function App() {
   return (
     <Routes>
       {routesToRender.map((route, index) => (
-        <Route 
+        <Route
           key={index}
           path={route.path}
           element={route.element}
