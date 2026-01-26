@@ -1,6 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional, Any
 from datetime import datetime, date
+
+class ProjectWithCustomerCreate(BaseModel):
+    customer_name: str
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    project_location: str
 
 class ApplianceCreate(BaseModel):
     project_id: Optional[int] = None
