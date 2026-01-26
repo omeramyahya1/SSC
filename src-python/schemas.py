@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional, Any
-from datetime import datetime, date
+from pydantic import BaseModel
+from typing import Optional, Any, List
+from datetime import datetime
 
 class ProjectWithCustomerCreate(BaseModel):
     customer_name: str
@@ -9,7 +9,7 @@ class ProjectWithCustomerCreate(BaseModel):
     project_location: str
 
 class ApplianceCreate(BaseModel):
-    project_id: Optional[int] = None
+    project_uuid: Optional[str] = None
     appliance_name: Optional[str] = None
     type: Optional[str] = None
     qty: Optional[int] = None
@@ -19,6 +19,10 @@ class ApplianceCreate(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
+
+class ApplianceBatchCreate(BaseModel):
+    project_id: int
+    appliances: List[ApplianceCreate]
 
 class ApplianceUpdate(BaseModel):
     project_id: Optional[int] = None

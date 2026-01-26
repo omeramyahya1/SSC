@@ -4,117 +4,99 @@ import api from '@/api/client';
 
 // --- 1. Define Types ---
 
-export interface Appliance {
-  appliance_id: number;
-  project_id: number;
-  appliance_name: string;
-  type: string;
-  qty: number;
-  use_hours_night: number;
-  wattage: number;
-  energy_consumption: number;
-  created_at: string;
-  updated_at: string;
-  is_dirty: boolean;
+export interface LibraryAppliance {
+    name: string;
+    wattage: number;
+    surge_power: number;
+    type: 'light' | 'standard' | 'heavy';
 }
 
-export type NewApplianceData = Omit<Appliance, 'appliance_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
-
-const resource = '/appliances';
+export interface ProjectAppliance {
+    id: number; // A temporary client-side ID
+    appliance_name: string;
+    qty: number;
+    wattage: number;
+    use_hours_night: number;
+    type: 'light' | 'standard' | 'heavy';
+}
 
 // --- 2. Define Store ---
 
 export interface ApplianceStore {
-  appliances: Appliance[];
-  currentAppliance: Appliance | null;
-  isLoading: boolean;
-  error: string | null;
-  fetchAppliances: () => Promise<void>;
-  fetchAppliance: (id: number) => Promise<void>;
-  createAppliance: (data: NewApplianceData) => Promise<Appliance | undefined>;
-  updateAppliance: (id: number, data: Partial<NewApplianceData>) => Promise<Appliance | undefined>;
-  deleteAppliance: (id: number) => Promise<void>;
-  setCurrentAppliance: (appliance: Appliance | null) => void;
+    library: LibraryAppliance[];
+    projectAppliances: ProjectAppliance[];
+    isLoading: boolean;
+    error: string | null;
+
+    fetchApplianceLibrary: () => Promise<void>;
+    setProjectAppliances: (appliances: ProjectAppliance[]) => void;
+    addApplianceToProject: (appliance: LibraryAppliance) => void;
+    updateProjectAppliance: (id: number, updates: Partial<Omit<ProjectAppliance, 'id'>>) => void;
+    removeApplianceFromProject: (id: number) => void;
+    saveAppliancesForProject: (projectId: number) => Promise<void>;
 }
 
-export const useApplianceStore = create<ApplianceStore>((set) => ({
-  appliances: [],
-  currentAppliance: null,
-  isLoading: false,
-  error: null,
+export const useApplianceStore = create<ApplianceStore>((set, get) => ({
+    library: [],
+    projectAppliances: [],
+    isLoading: false,
+    error: null,
 
-  setCurrentAppliance: (appliance) => {
-    set({ currentAppliance: appliance });
-  },
+    fetchApplianceLibrary: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const { data } = await api.get<LibraryAppliance[]>('/application_settings/appliances');
+            set({ library: data, isLoading: false });
+        } catch (e: any) {
+            const errorMsg = e.message || "Failed to fetch appliance library";
+            set({ error: errorMsg, isLoading: false });
+            console.error(errorMsg, e);
+        }
+    },
 
-  fetchAppliances: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.get<Appliance[]>(resource);
-      set({ appliances: data, isLoading: false });
-    } catch (e: any) {
-      const errorMsg = e.message || "Failed to fetch appliances";
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
+    setProjectAppliances: (appliances) => {
+        set({ projectAppliances: appliances });
+    },
+
+    addApplianceToProject: (appliance) => {
+        const newAppliance: ProjectAppliance = {
+            ...appliance,
+            id: Date.now(), // simple unique temporary ID
+            qty: 1,
+            use_hours_night: 1,
+        };
+        set((state) => ({ projectAppliances: [...state.projectAppliances, newAppliance] }));
+    },
+
+    updateProjectAppliance: (id, updates) => {
+        set((state) => ({
+            projectAppliances: state.projectAppliances.map(a => 
+                a.id === id ? { ...a, ...updates } : a
+            ),
+        }));
+    },
+    
+    removeApplianceFromProject: (id) => {
+        set((state) => ({
+            projectAppliances: state.projectAppliances.filter(a => a.id !== id),
+        }));
+    },
+
+    saveAppliancesForProject: async (projectId) => {
+        set({ isLoading: true, error: null });
+        const appliancesToSave = get().projectAppliances.map(({ id, ...rest }) => rest);
+        
+        try {
+            await api.post('/appliances/batch', {
+                project_id: projectId,
+                appliances: appliancesToSave,
+            });
+            set({ isLoading: false });
+        } catch (e: any) {
+            const errorMsg = e.message || "Failed to save appliances";
+            set({ error: errorMsg, isLoading: false });
+            console.error(errorMsg, e);
+            throw e;
+        }
     }
-  },
-
-  fetchAppliance: async (id) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.get<Appliance>(`${resource}/${id}`);
-      set({ currentAppliance: data, isLoading: false });
-    } catch (e: any) {
-      const errorMsg = e.message || `Failed to fetch appliance ${id}`;
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-    }
-  },
-
-  createAppliance: async (newApplianceData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.post<Appliance>(resource, newApplianceData);
-      set((state) => ({ appliances: [...state.appliances, data], isLoading: false }));
-      return data;
-    } catch (e: any) {
-      const errorMsg = e.message || "Failed to create appliance";
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-      return undefined;
-    }
-  },
-
-  updateAppliance: async (id, updatedData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.put<Appliance>(`${resource}/${id}`, updatedData);
-      set((state) => ({
-        appliances: state.appliances.map((a) => (a.appliance_id === id ? data : a)),
-        currentAppliance: state.currentAppliance?.appliance_id === id ? data : state.currentAppliance,
-        isLoading: false,
-      }));
-      return data;
-    } catch (e: any) {
-      const errorMsg = e.message || `Failed to update appliance ${id}`;
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-      return undefined;
-    }
-  },
-
-  deleteAppliance: async (id) => {
-    set({ isLoading: true, error: null });
-    try {
-      await api.delete(`${resource}/${id}`);
-      set((state) => ({
-        appliances: state.appliances.filter((a) => a.appliance_id !== id),
-        isLoading: false,
-      }));
-    } catch (e: any) {
-      const errorMsg = e.message || `Failed to delete appliance ${id}`;
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-    }
-  },
 }));

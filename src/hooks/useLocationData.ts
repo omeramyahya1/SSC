@@ -1,5 +1,5 @@
 // src/hooks/useLocationData.ts
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import geoDataCsv from '@/assets/dataset/geo_data.csv?raw';
 
@@ -61,5 +61,13 @@ export const useLocationData = () => {
             .sort((a, b) => a.label.localeCompare(b.label)); // Sort alphabetically
     };
 
-    return { states: uniqueStates, getCitiesByState };
+    const getClimateDataForCity = useCallback((city: string | null, state: string | null) => {
+        if (!city || !state) return null;
+        return geoDataParsed.find((item: any) => 
+            item.city.toLowerCase() === city.toLowerCase() &&
+            item.state.toLowerCase() === state.toLowerCase()
+        ) || null;
+    }, []);
+
+    return { states: uniqueStates, getCitiesByState, getClimateDataForCity };
 };

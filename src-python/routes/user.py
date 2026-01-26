@@ -13,6 +13,22 @@ from supabase_client import get_anon_client, get_service_role_client
 
 user_bp = Blueprint('user_bp', __name__, url_prefix='/users')
 
+DEFAULT_APPLIANCE_LIBRARY = [
+    {"name": "LED Bulb", "wattage": 10, "surge_power": 10, "type": "light"},
+    {"name": "Incandescent Bulb", "wattage": 60, "surge_power": 60, "type": "light"},
+    {"name": "Fan", "wattage": 75, "surge_power": 150, "type": "standard"},
+    {"name": "Laptop", "wattage": 65, "surge_power": 65, "type": "standard"},
+    {"name": "Desktop Computer", "wattage": 300, "surge_power": 300, "type": "standard"},
+    {"name": "Refrigerator (Medium)", "wattage": 200, "surge_power": 800, "type": "heavy"},
+    {"name": "Freezer", "wattage": 100, "surge_power": 400, "type": "heavy"},
+    {"name": "TV (LED)", "wattage": 100, "surge_power": 100, "type": "standard"},
+    {"name": "Microwave", "wattage": 1200, "surge_power": 1200, "type": "heavy"},
+    {"name": "Washing Machine", "wattage": 500, "surge_power": 1500, "type": "heavy"},
+    {"name": "Air Conditioner (1 Ton)", "wattage": 1500, "surge_power": 4500, "type": "heavy"},
+    {"name": "Water Pump (1 HP)", "wattage": 750, "surge_power": 2250, "type": "heavy"},
+    {"name": "Phone Charger", "wattage": 10, "surge_power": 10, "type": "standard"},
+]
+
 @user_bp.route('/pricing', methods=['GET'])
 def get_pricing_data():
     """
@@ -234,7 +250,8 @@ def register_user():
 
         new_settings = ApplicationSettings(
             uuid=new_settings_uuid, user_uuid=new_user_uuid, language=payload.language,
-            other_settings={}, is_dirty=True
+            other_settings={"appliance_library": DEFAULT_APPLIANCE_LIBRARY}, 
+            is_dirty=True
         )
         db.add(new_settings)
 
