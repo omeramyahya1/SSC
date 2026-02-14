@@ -57,12 +57,16 @@ export interface BleCalculationResults {
 
 // --- 2. Define Store ---
 
+export type BleSettingsPayload = {
+    [key: string]: any;
+};
+
 export interface BleStore {
     results: BleCalculationResults | null;
     isLoading: boolean;
     error: string | null;
 
-    runCalculation: (projectId: number) => Promise<void>;
+    runCalculation: (projectId: number, settings?: BleSettingsPayload) => Promise<void>;
     clearResults: () => void;
 }
 
@@ -71,10 +75,12 @@ export const useBleStore = create<BleStore>((set) => ({
     isLoading: false,
     error: null,
 
-    runCalculation: async (projectId: number) => {
+    runCalculation: async (projectId: number, settings?: BleSettingsPayload) => {
         set({ isLoading: true, error: null, results: null });
         try {
-            const { data } = await api.get<BleCalculationResults>(`/ble/calculate/${projectId}`);
+            const payload = { settings };
+            const { data } = await api.post<BleCalculationResults>(`/ble/calculate/${projectId}`, payload);
+            
             if (data.status === 'error') {
                 throw new Error(data.message || 'BLE calculation failed.');
             }

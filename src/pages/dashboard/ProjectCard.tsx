@@ -30,9 +30,9 @@ export function ProjectCard({ project, onOpen }: ProjectCardProps) {
         <Card 
             className={cn(
                 "rounded-lg shadow-md hover:shadow-xl transition-all duration-300 bg-white flex flex-col overflow-hidden cursor-pointer",
-                project.is_pending && "opacity-60 cursor-not-allowed"
+                project.is_pending && "opacity-60"
             )}
-            onClick={() => !project.is_pending && onOpen()}
+            onClick={() => onOpen()}
         >
             <CardHeader className="flex flex-row items-start justify-between p-4">
                 <div className="flex-grow overflow-hidden">

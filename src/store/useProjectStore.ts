@@ -29,6 +29,14 @@ export interface Project {
     is_pending?: boolean;
 }
 
+export type ProjectUpdatePayload = Partial<{
+    project_location: string;
+    full_name: string;
+    email: string;
+    phone_number: string;
+}>;
+
+
 const resource = '/projects';
 
 // --- 2. Define Store ---
@@ -39,6 +47,7 @@ export interface ProjectStore {
   error: string | null;
   fetchProjects: () => Promise<void>;
   createProject: (data: NewProjectData) => Promise<void>;
+  updateProject: (projectUuid: string, data: ProjectUpdatePayload) => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -102,4 +111,42 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         throw e;
     }
   },
+
+  updateProject: async (projectUuid: string, data: ProjectUpdatePayload) => {
+    const originalProjects = get().projects;
+    const projectToUpdate = originalProjects.find(p => p.uuid === projectUuid);
+    if (!projectToUpdate) return;
+
+    // Optimistic update
+    const updatedProject = {
+        ...projectToUpdate,
+        project_location: data.project_location ?? projectToUpdate.project_location,
+        customer: {
+            ...projectToUpdate.customer,
+            full_name: data.full_name ?? projectToUpdate.customer.full_name,
+            email: data.email ?? projectToUpdate.customer.email,
+            phone_number: data.phone_number ?? projectToUpdate.customer.phone_number,
+        },
+        is_pending: true,
+    };
+
+    set({
+        projects: originalProjects.map(p => p.uuid === projectUuid ? updatedProject : p)
+    });
+
+    try {
+        const { data: finalProject } = await api.patch<Project>(`${resource}/${projectUuid}`, data);
+        // On success, finalize the update
+        set(state => ({
+            projects: state.projects.map(p => p.uuid === projectUuid ? { ...finalProject, is_pending: false } : p)
+        }));
+    } catch(e: any) {
+        const errorMsg = e.message || "Failed to update project";
+        // On failure, revert to original state
+        set({ projects: originalProjects, error: errorMsg });
+        console.error(errorMsg, e);
+        throw e;
+    }
+  },
 }));
+

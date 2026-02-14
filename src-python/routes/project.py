@@ -128,11 +128,137 @@ def get_project(item_id):
         return jsonify(model_to_dict(item))
 
 @project_bp.route('/<int:item_id>', methods=['DELETE'])
+
 def delete_project(item_id):
+
     with get_db() as db:
+
         item = db.query(Project).filter(Project.project_id == item_id).first()
+
         if not item:
+
             return jsonify({"error": "Not found"}), 404
+
         db.delete(item)
+
         db.commit()
+
         return jsonify({"message": "Deleted successfully"}), 200
+
+
+
+@project_bp.route('/<string:project_uuid>', methods=['PATCH'])
+
+def patch_project_details(project_uuid):
+
+    with get_db() as db:
+
+        # 1. Fetch the project with its customer
+
+        project = db.query(Project).options(joinedload(Project.customer)).filter(Project.uuid == project_uuid).first()
+
+        if not project:
+
+            return jsonify({"error": "Project not found"}), 404
+
+
+
+        data = request.json
+
+        project_updated = False
+
+        customer_updated = False
+
+
+
+        # 2. Update Project fields
+
+        if 'project_location' in data and data['project_location'] != project.project_location:
+
+            project.project_location = data['project_location']
+
+            project_updated = True
+
+
+
+        # 3. Update Customer fields
+
+        customer = project.customer
+
+        if not customer:
+
+            return jsonify({"error": "Associated customer not found"}), 404
+
+        
+
+        if 'full_name' in data and data['full_name'] != customer.full_name:
+
+            customer.full_name = data['full_name']
+
+            customer_updated = True
+
+        
+
+        if 'email' in data and data['email'] != customer.email:
+
+            customer.email = data['email']
+
+            customer_updated = True
+
+
+
+        if 'phone_number' in data and data['phone_number'] != customer.phone_number:
+
+            customer.phone_number = data['phone_number']
+
+            customer_updated = True
+
+
+
+        # 4. Commit changes if any were made
+
+        if project_updated or customer_updated:
+
+            try:
+
+                if project_updated:
+
+                    project.is_dirty = True
+
+                if customer_updated:
+
+                    customer.is_dirty = True
+
+                
+
+                db.commit()
+
+                db.refresh(project)
+
+                db.refresh(customer)
+
+
+
+                # 5. Construct and return response
+
+                project_dict = model_to_dict(project)
+
+                project_dict['customer'] = model_to_dict(customer)
+
+                return jsonify(project_dict), 200
+
+            except Exception as e:
+
+                db.rollback()
+
+                return jsonify({"error": f"An error occurred during update: {str(e)}"}), 500
+
+        else:
+
+            # Nothing to update, return original data
+
+            project_dict = model_to_dict(project)
+
+            project_dict['customer'] = model_to_dict(customer)
+
+            return jsonify(project_dict), 200

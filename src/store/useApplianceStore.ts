@@ -4,53 +4,45 @@ import api from '@/api/client';
 
 // --- 1. Define Types ---
 
-export interface LibraryAppliance {
-    name: string;
-    wattage: number;
-    surge_power: number;
-    type: 'light' | 'standard' | 'heavy';
-}
-
 export interface ProjectAppliance {
-    id: number; // A temporary client-side ID
+    appliance_id: number;
     appliance_name: string;
     qty: number;
     wattage: number;
     use_hours_night: number;
     type: 'light' | 'standard' | 'heavy';
+    project_uuid?: string; // Make sure this is present
 }
 
 // --- 2. Define Store ---
 
 export interface ApplianceStore {
-    library: LibraryAppliance[];
     projectAppliances: ProjectAppliance[];
     isLoading: boolean;
     error: string | null;
 
-    fetchApplianceLibrary: () => Promise<void>;
+    fetchAppliancesByProject: (project_uuid: string) => Promise<void>;
     setProjectAppliances: (appliances: ProjectAppliance[]) => void;
-    addApplianceToProject: (appliance: LibraryAppliance) => void;
-    updateProjectAppliance: (id: number, updates: Partial<Omit<ProjectAppliance, 'id'>>) => void;
-    removeApplianceFromProject: (id: number) => void;
-    saveAppliancesForProject: (projectId: number) => Promise<void>;
+    addApplianceToProject: (appliance: Omit<ProjectAppliance, 'appliance_id'>, project_uuid: string) => Promise<void>;
+    updateProjectAppliance: (appliance_id: number, updates: Partial<Omit<ProjectAppliance, 'appliance_id'>>) => Promise<void>;
+    removeApplianceFromProject: (appliance_id: number) => Promise<void>;
 }
 
 export const useApplianceStore = create<ApplianceStore>((set, get) => ({
-    library: [],
     projectAppliances: [],
     isLoading: false,
     error: null,
 
-    fetchApplianceLibrary: async () => {
+    fetchAppliancesByProject: async (project_uuid) => {
         set({ isLoading: true, error: null });
         try {
-            const { data } = await api.get<LibraryAppliance[]>('/application_settings/appliances');
-            set({ library: data, isLoading: false });
+            const { data: appliances } = await api.get<ProjectAppliance[]>(`/appliances/project/${project_uuid}`);
+            set({ projectAppliances: appliances, isLoading: false });
         } catch (e: any) {
-            const errorMsg = e.message || "Failed to fetch appliance library";
+            const errorMsg = e.message || "Failed to fetch appliances";
             set({ error: errorMsg, isLoading: false });
             console.error(errorMsg, e);
+            throw e;
         }
     },
 
@@ -58,45 +50,56 @@ export const useApplianceStore = create<ApplianceStore>((set, get) => ({
         set({ projectAppliances: appliances });
     },
 
-    addApplianceToProject: (appliance) => {
-        const newAppliance: ProjectAppliance = {
-            ...appliance,
-            id: Date.now(), // simple unique temporary ID
-            qty: 1,
-            use_hours_night: 1,
-        };
-        set((state) => ({ projectAppliances: [...state.projectAppliances, newAppliance] }));
-    },
-
-    updateProjectAppliance: (id, updates) => {
-        set((state) => ({
-            projectAppliances: state.projectAppliances.map(a => 
-                a.id === id ? { ...a, ...updates } : a
-            ),
-        }));
-    },
-    
-    removeApplianceFromProject: (id) => {
-        set((state) => ({
-            projectAppliances: state.projectAppliances.filter(a => a.id !== id),
-        }));
-    },
-
-    saveAppliancesForProject: async (projectId) => {
+    addApplianceToProject: async (appliance, project_uuid) => {
         set({ isLoading: true, error: null });
-        const appliancesToSave = get().projectAppliances.map(({ id, ...rest }) => rest);
-        
         try {
-            await api.post('/appliances/batch', {
-                project_id: projectId,
-                appliances: appliancesToSave,
-            });
-            set({ isLoading: false });
+            // The appliance object sent to the backend needs the project_uuid
+            const payload = { ...appliance, project_uuid };
+            const { data: newAppliance } = await api.post<ProjectAppliance>('/appliances', payload);
+            set((state) => ({ 
+                projectAppliances: [...state.projectAppliances, newAppliance],
+                isLoading: false 
+            }));
         } catch (e: any) {
-            const errorMsg = e.message || "Failed to save appliances";
+            const errorMsg = e.message || "Failed to add appliance";
             set({ error: errorMsg, isLoading: false });
             console.error(errorMsg, e);
             throw e;
         }
-    }
+    },
+
+    updateProjectAppliance: async (appliance_id, updates) => {
+        // Optimistic update
+        const originalAppliances = get().projectAppliances;
+        const updatedAppliances = originalAppliances.map(a => 
+            a.appliance_id === appliance_id ? { ...a, ...updates } : a
+        );
+        set({ projectAppliances: updatedAppliances });
+
+        try {
+            // API call to persist the change
+            await api.put(`/appliances/${appliance_id}`, updates);
+            // No need to set state again if API call is successful
+        } catch (e: any) {
+            const errorMsg = e.message || "Failed to update appliance";
+            set({ error: errorMsg, projectAppliances: originalAppliances }); // Revert on failure
+            console.error(errorMsg, e);
+            throw e;
+        }
+    },
+    
+    removeApplianceFromProject: async (appliance_id) => {
+        const originalAppliances = get().projectAppliances;
+        const filteredAppliances = originalAppliances.filter(a => a.appliance_id !== appliance_id);
+        set({ projectAppliances: filteredAppliances }); // Optimistic update
+
+        try {
+            await api.delete(`/appliances/${appliance_id}`);
+        } catch (e: any) {
+            const errorMsg = e.message || "Failed to remove appliance";
+            set({ error: errorMsg, projectAppliances: originalAppliances }); // Revert on failure
+            console.error(errorMsg, e);
+            throw e;
+        }
+    },
 }));

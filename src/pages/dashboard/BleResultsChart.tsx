@@ -2,6 +2,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { BleCalculationResults } from '@/store/useBleStore';
+import { cn } from "@/lib/utils";
 
 interface BleResultsChartProps {
   results: BleCalculationResults['data'];

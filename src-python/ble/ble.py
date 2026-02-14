@@ -20,7 +20,8 @@ def get_geo_data(location: str="Khartoum"):
         geo_df = pd.read_csv(csv_path)
         
         # Search for the location (case-insensitive)
-        location_data = geo_df[geo_df['city'].str.lower() == location.lower()]
+        city = location.split(',')[0]
+        location_data = geo_df[geo_df['city'].str.lower() == city.strip().lower()]
         if not location_data.empty:
             return location_data.iloc[0]
         return None
@@ -46,10 +47,11 @@ class BLE:
     """
     Business Logic Engine for solar system calculations.
     """
-    def __init__(self, project_data, geo_data, db_session):
+    def __init__(self, project_data, geo_data, db_session, override_settings=None):
         self.project_data = project_data
         self.geo_data = geo_data
         self.db_session = db_session
+        self.override_settings = override_settings or {}
         self.appliances = self.project_data.appliances
 
         
@@ -90,9 +92,9 @@ class BLE:
         self.settings = {}
 
     def _fetch_settings(self):
-        """Fetch settings from the database and set defaults."""
-        user_id = self.project_data.user_id
-        app_settings = self.db_session.query(ApplicationSettings).filter_by(user_id=user_id).first()
+        """Fetch settings from the database, set defaults, and apply overrides."""
+        user_uuid = self.project_data.user_uuid
+        app_settings = self.db_session.query(ApplicationSettings).filter_by(user_uuid=user_uuid).first()
         
         if app_settings and app_settings.other_settings:
             self.settings = app_settings.other_settings
@@ -120,6 +122,20 @@ class BLE:
         self.settings.setdefault('inverter_rated_power', 3000)
         self.settings.setdefault('inverter_mppt_min_v', 120)
         self.settings.setdefault('inverter_mppt_max_v', 450)
+
+        # Apply overrides from the request
+        if self.override_settings:
+            # Handle nested 'battery_dod' dictionary separately if needed
+            if 'battery_dod' in self.override_settings and isinstance(self.override_settings['battery_dod'], dict):
+                self.settings['battery_dod'].update(self.override_settings.pop('battery_dod'))
+            
+            # Since the frontend sends the battery_dod for the selected type, not the whole dict
+            elif 'battery_dod' in self.override_settings and 'battery_type' in self.settings:
+                battery_type = self.settings['battery_type']
+                self.settings['battery_dod'][battery_type] = self.override_settings['battery_dod']
+                del self.override_settings['battery_dod']
+
+            self.settings.update(self.override_settings)
 
     def _calculate_total_daily_energy_demand(self):
         if not self.appliances: self.total_daily_energy_demand = 0; return

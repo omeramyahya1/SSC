@@ -3,7 +3,7 @@
 
 import sys
 import os
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from sqlalchemy.orm import joinedload
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -19,10 +19,11 @@ ble_bp = Blueprint(
 )
 
 # --- API Endpoints ---
-@ble_bp.route('/calculate/<int:project_id>', methods=['GET'])
+@ble_bp.route('/calculate/<int:project_id>', methods=['POST'])
 def calculate_system(project_id: int):
     """
     Calculate the required solar system configuration based on project data.
+    Accepts an optional 'settings' object in the POST body to override defaults.
     """
     with SessionLocal() as session:
         # 1. Fetch project data with related appliances
@@ -41,8 +42,20 @@ def calculate_system(project_id: int):
         if geo_data is None:
             return jsonify({"status": "error", "message": f"Could not find geo data for location: {project.project_location}"}), 400
         
-        # 3. Instantiate BLE and run calculations
-        ble_instance = BLE(project_data=project, geo_data=geo_data, db_session=session)
+        # Add a check for invalid geo_data
+        if geo_data['gti'] <= 0 or geo_data['pvout'] <= 0:
+            return jsonify({"status": "error", "message": f"Insufficient geo data for location: {project.project_location}. Please select a different location."}), 400
+
+        # 3. Get override settings from request body
+        override_settings = request.json.get('settings', {})
+        
+        # 4. Instantiate BLE and run calculations
+        ble_instance = BLE(
+            project_data=project, 
+            geo_data=geo_data, 
+            db_session=session,
+            override_settings=override_settings
+        )
         response_data = ble_instance.run_calculations()
 
         return jsonify(response_data)
