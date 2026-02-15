@@ -50,7 +50,7 @@ export const useLocationData = () => {
         }).sort((a, b) => a.label.localeCompare(b.label)); // Sort alphabetically
     }, [i18n.language]);
 
-    const getCitiesByState = (state: string | null) => {
+    const getCitiesByState = useCallback((state: string | null) => {
         if (!state) return [];
         return geoDataParsed
             .filter(item => item.state === state)
@@ -59,7 +59,7 @@ export const useLocationData = () => {
                 label: i18n.language === 'ar' ? item.city_ar : toTitleCase(item.city),
             }))
             .sort((a, b) => a.label.localeCompare(b.label)); // Sort alphabetically
-    };
+    }, [geoDataParsed, i18n.language]);
 
     const getClimateDataForCity = useCallback((city: string | null, state: string | null) => {
         if (!city || !state) return null;

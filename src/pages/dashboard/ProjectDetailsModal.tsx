@@ -28,8 +28,8 @@ import { cn } from "@/lib/utils";
 import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle } from 'lucide-react';
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
-
-// ... (rest of the imports)
+import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
+import { Toaster, toast } from 'react-hot-toast';
 
 // --- Helper Components ---
 
@@ -61,13 +61,12 @@ function ProjectInfo({ project }: ProjectInfoProps) {
                 setCities(getCitiesByState(state));
             }
         }
-    }, [project, isEditing]);
+    }, [project, isEditing, getCitiesByState]);
 
     const handleStateChange = (state: string) => {
         setSelectedState(state);
         const citiesForState = getCitiesByState(state);
         setCities(citiesForState);
-        // Also update the city part of the location
         const currentCity = editData.project_location?.split(', ')[0] || '';
         if (!citiesForState.includes(currentCity)) {
              handleFieldChange('project_location', `, ${state}`);
@@ -75,7 +74,7 @@ function ProjectInfo({ project }: ProjectInfoProps) {
              handleFieldChange('project_location', `${currentCity}, ${state}`);
         }
     };
-    
+
     const handleCityChange = (city: string) => {
         handleFieldChange('project_location', `${city}, ${selectedState}`);
     };
@@ -89,15 +88,15 @@ function ProjectInfo({ project }: ProjectInfoProps) {
         try {
             await updateProject(project.uuid, editData);
             setIsEditing(false);
+            toast.success(t('project_modal.update_success', 'Project details updated successfully!'));
         } catch (error) {
             console.error("Failed to save project details", error);
-            // Optionally: show toast notification
+            toast.error(t('project_modal.update_error', 'Failed to update project details.'));
         }
     };
 
     const handleCancel = () => {
         setIsEditing(false);
-        // Reset editData to original project data
         if (project) {
              const [city, state] = project.project_location?.split(', ').map(p => p.trim()) || ['', ''];
             setEditData({
@@ -227,29 +226,128 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
         clearResults
     } = useBleStore();
 
+    // System Configuration Store
+    const {
+        systemConfiguration,
+        isLoading: isSystemConfigLoading,
+        error: systemConfigError,
+        saveSystemConfiguration,
+        fetchSystemConfiguration,
+        clearSystemConfiguration,
+    } = useSystemConfigurationStore();
+
     // State for custom appliance input
     const [customApplianceName, setCustomApplianceName] = useState('');
     const [customApplianceWattage, setCustomApplianceWattage] = useState<number | ''>('');
     const [customApplianceType, setCustomApplianceType] = useState<'light' | 'standard' | 'heavy'>('standard');
-    
+
     // State for BLE settings overrides
     const [bleSettings, setBleSettings] = useState({
+        // Inverter
         inverter_efficiency: 0.95,
         safety_factor: 1.25,
+        inverter_rated_power: 3000,
+        inverter_mppt_min_v: 120,
+        inverter_mppt_max_v: 450,
+        // Battery
         autonomy_days: 1,
+        battery_dod: 0.6, // This will be the value for the selected battery_type
+        battery_efficiency: 0.95,
         battery_type: 'liquid',
-        battery_dod: 0.6,
         battery_rated_capacity_ah: 200,
         battery_rated_voltage: 12,
+        battery_max_parallel: 8,
+        // Solar Panel
         panel_rated_power: 550,
+        panel_mpp_voltage: 42.5,
+        system_losses: 0.85,
+        temp_coefficient_power: -0.004,
+        noct: 45,
+        stc_temp: 25,
+        reference_irradiance: 800,
+        calculate_temp_derating: true,
     });
+
+    // Validation state for BLE settings
+    const [bleSettingsErrors, setBleSettingsErrors] = useState<{[key: string]: string | null}>({});
+
+    const validateBleSetting = (key: string, value: any): string | null => {
+        let error: string | null = null;
+        if (typeof value !== 'boolean' && (value === null || value === undefined || isNaN(value))) {
+            error = "Required";
+            return error;
+        }
+
+        switch(key) {
+            case 'inverter_efficiency':
+            case 'battery_efficiency':
+            case 'system_losses':
+                if (value < 0 || value > 1) error = "Must be between 0 and 1";
+                break;
+            case 'safety_factor':
+                if (value < 1) error = "Must be 1 or greater";
+                break;
+            case 'autonomy_days':
+            case 'battery_rated_capacity_ah':
+            case 'battery_rated_voltage':
+            case 'battery_max_parallel':
+            case 'panel_rated_power':
+            case 'inverter_rated_power':
+            case 'inverter_mppt_min_v':
+            case 'inverter_mppt_max_v':
+            case 'panel_mpp_voltage':
+            case 'noct':
+            case 'stc_temp':
+            case 'reference_irradiance':
+                if (value <= 0) error = "Must be a positive number";
+                break;
+            case 'battery_dod':
+                if (value < 0 || value > 1) error = "Must be between 0 and 1";
+                break;
+            case 'temp_coefficient_power':
+                if (value > 0 || value < -1) error = "Typically a small negative number (e.g., -0.004)";
+                break;
+        }
+        return error;
+    };
+
+    // Update bleSettings and validate
+    const handleBleSettingChange = (key: string, value: any) => {
+        let processedValue = value;
+        if (typeof value === 'string' && !isNaN(parseFloat(value))) {
+            processedValue = parseFloat(value);
+        }
+
+        setBleSettings(prev => ({ ...prev, [key]: processedValue }));
+        const error = validateBleSetting(key, processedValue);
+        setBleSettingsErrors(prev => ({ ...prev, [key]: error }));
+    };
+
+    // Check if any BLE settings have errors
+    const hasBleSettingsErrors = useMemo(() => {
+        return Object.values(bleSettingsErrors).some(error => error !== null);
+    }, [bleSettingsErrors]);
+
+    // Initial validation run for BLE settings
+    useEffect(() => {
+        const newErrors: {[key: string]: string | null} = {};
+        for (const key in bleSettings) {
+            newErrors[key] = validateBleSetting(key, (bleSettings as any)[key]);
+        }
+        setBleSettingsErrors(newErrors);
+    }, []); // Run only once on mount
 
     useEffect(() => {
         if (project?.uuid) {
             clearResults();
+            clearSystemConfiguration(); // Clear previous config when project changes
             fetchAppliancesByProject(project.uuid);
+            // Fetch saved system configuration if available
+            if (project.system_config_uuid) {
+                fetchSystemConfiguration(project.uuid);
+            }
         }
-    }, [project?.uuid, clearResults, fetchAppliancesByProject]);
+    }, [project?.uuid, clearResults, fetchAppliancesByProject, fetchSystemConfiguration, clearSystemConfiguration, project?.system_config_uuid]);
 
 
     const handleAddCustomAppliance = async () => {
@@ -258,7 +356,7 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                 appliance_name: customApplianceName,
                 wattage: customApplianceWattage,
                 type: customApplianceType,
-                qty: 1, 
+                qty: 1,
                 use_hours_night: 1
             }, project.uuid);
             // Reset fields
@@ -268,7 +366,51 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
         }
     };
 
+    // Validation state for appliance inputs
+    const [applianceInputErrors, setApplianceInputErrors] = useState<{[key: string]: {[field: string]: string | null}}>({});
+
+    const validateApplianceInput = (applianceId: number, field: 'qty' | 'use_hours_night', value: number): string | null => {
+        let error: string | null = null;
+        if (isNaN(value) || value < 0) {
+            error = "Must be 0 or greater";
+        } else if (field === 'qty' && !Number.isInteger(value)) {
+            error = "Must be a whole number";
+        } else if (field === 'use_hours_night' && (value > 24 || value < 0)) {
+            error = "Must be between 0 and 24";
+        }
+        return error;
+    };
+
+    const hasApplianceInputErrors = useMemo(() => {
+        return Object.values(applianceInputErrors).some(fieldErrors =>
+            Object.values(fieldErrors).some(error => error !== null)
+        );
+    }, [applianceInputErrors]);
+
     const handleUpdateAppliance = async (appliance_id: number, updates: Partial<Omit<ProjectAppliance, 'appliance_id'>>) => {
+        let hasError = false;
+        const newErrors = {...applianceInputErrors};
+
+        for (const key in updates) {
+            if (key === 'qty' || key === 'use_hours_night') {
+                const value = updates[key] as number;
+                const error = validateApplianceInput(appliance_id, key, value);
+                if (error) {
+                    if (!newErrors[appliance_id]) newErrors[appliance_id] = {};
+                    newErrors[appliance_id][key] = error;
+                    hasError = true;
+                } else {
+                    if (newErrors[appliance_id]) {
+                        newErrors[appliance_id][key] = null;
+                    }
+                }
+            }
+        }
+        setApplianceInputErrors(newErrors);
+
+        if (hasError) return;
+
+
         try {
             await updateProjectAppliance(appliance_id, updates);
         } catch (error) {
@@ -281,20 +423,50 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
     const totalPower = useMemo(() => projectAppliances.reduce((sum, app) => sum + calculateApplianceMetrics(app).power, 0), [projectAppliances]);
 
     const handleRunCalculation = useCallback(async () => {
+        // Run initial validation pass on all settings before calculation
+        const newErrors: {[key: string]: string | null} = {};
+        let formHasErrors = false;
+        for (const key in bleSettings) {
+            const error = validateBleSetting(key, (bleSettings as any)[key]);
+            if (error) {
+                newErrors[key] = error;
+                formHasErrors = true;
+            }
+        }
+        setBleSettingsErrors(newErrors);
+
         if (!project?.project_id) return;
+
         try {
             await runCalculation(project.project_id, bleSettings);
         } catch (e) {
             console.error("Calculation process failed:", e);
         }
-    }, [project?.project_id, runCalculation, bleSettings]);
+    }, [project?.project_id, runCalculation, bleSettings, hasBleSettingsErrors]);
+
+    const handleSaveConfiguration = async () => {
+        if (!project?.uuid || !bleResults?.data) return;
+        try {
+            await saveSystemConfiguration(project.uuid, bleResults.data);
+            toast.success(t('project_modal.config_save_success', 'System configuration saved successfully!'));
+        } catch (error) {
+            console.error("Failed to save system configuration:", error);
+            toast.error(t('project_modal.config_save_error', 'Failed to save system configuration.'));
+        }
+    };
 
     if (!project) {
         return null;
     }
 
+    // Determine which results to display (saved or freshly calculated)
+    const displayResults = systemConfiguration?.config_items || bleResults?.data;
+    const isResultsLoading = isBleLoading || isSystemConfigLoading;
+    const resultsError = bleError || systemConfigError;
+
     return (
         <DialogContent className="max-w-[90vw] h-[90vh] flex flex-col p-0 bg-white">
+            <Toaster />
             <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-2xl">{project.customer.full_name}'s Project</DialogTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -316,7 +488,7 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
 
                      {/* System Design Parameters */}
                     <div>
-                        <Accordion type="single" collapsible>
+                        <Accordion type="single" collapsible defaultValue="ble-settings">
                             <AccordionItem value="ble-settings">
                                 <AccordionTrigger className="text-xl font-bold">{t('project_modal.design_parameters', 'System Design Parameters')}</AccordionTrigger>
                                 <AccordionContent>
@@ -327,14 +499,37 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                                             <SettingsInput
                                                 label="Efficiency (%)"
                                                 value={bleSettings.inverter_efficiency * 100}
-                                                onChange={v => setBleSettings(s => ({...s, inverter_efficiency: v / 100}))}
-                                                step={1}
+                                                onChange={v => handleBleSettingChange('inverter_efficiency', v / 100)}
+                                                step={1} min={0} max={100}
+                                                error={bleSettingsErrors.inverter_efficiency}
                                             />
                                             <SettingsInput
                                                 label="Safety Factor (%)"
                                                 value={bleSettings.safety_factor * 100}
-                                                onChange={v => setBleSettings(s => ({...s, safety_factor: v / 100}))}
-                                                step={1}
+                                                onChange={v => handleBleSettingChange('safety_factor', v / 100)}
+                                                step={1} min={1}
+                                                error={bleSettingsErrors.safety_factor}
+                                            />
+                                            <SettingsInput
+                                                label="Rated Power (W)"
+                                                value={bleSettings.inverter_rated_power}
+                                                onChange={v => handleBleSettingChange('inverter_rated_power', v)}
+                                                step={100} min={1}
+                                                error={bleSettingsErrors.inverter_rated_power}
+                                            />
+                                            <SettingsInput
+                                                label="MPPT Min Voltage (V)"
+                                                value={bleSettings.inverter_mppt_min_v}
+                                                onChange={v => handleBleSettingChange('inverter_mppt_min_v', v)}
+                                                step={1} min={1}
+                                                error={bleSettingsErrors.inverter_mppt_min_v}
+                                            />
+                                            <SettingsInput
+                                                label="MPPT Max Voltage (V)"
+                                                value={bleSettings.inverter_mppt_max_v}
+                                                onChange={v => handleBleSettingChange('inverter_mppt_max_v', v)}
+                                                step={1} min={1}
+                                                error={bleSettingsErrors.inverter_mppt_max_v}
                                             />
                                         </div>
 
@@ -345,7 +540,11 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                                                 <Label className="text-xs font-medium text-gray-600">Battery Type</Label>
                                                 <Select
                                                     value={bleSettings.battery_type}
-                                                    onValueChange={(v: 'liquid' | 'lithium' | 'dry') => setBleSettings(s => ({...s, battery_type: v, battery_dod: v === 'lithium' ? 0.9 : 0.6}))}
+                                                    onValueChange={(v: 'liquid' | 'lithium' | 'dry') => {
+                                                        const newDod = v === 'lithium' ? 0.9 : 0.6;
+                                                        setBleSettings(s => ({...s, battery_type: v, battery_dod: newDod}));
+                                                        setBleSettingsErrors(prev => ({...prev, battery_type: null, battery_dod: null}));
+                                                    }}
                                                 >
                                                     <SelectTrigger><SelectValue/></SelectTrigger>
                                                     <SelectContent>
@@ -358,26 +557,44 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                                             <SettingsInput
                                                 label="Depth of Discharge (DoD %)"
                                                 value={bleSettings.battery_dod * 100}
-                                                onChange={v => setBleSettings(s => ({...s, battery_dod: v / 100}))}
-                                                step={1}
+                                                onChange={v => handleBleSettingChange('battery_dod', v / 100)}
+                                                step={1} min={0} max={100}
+                                                error={bleSettingsErrors.battery_dod}
+                                            />
+                                            <SettingsInput
+                                                label="Efficiency (%)"
+                                                value={bleSettings.battery_efficiency * 100}
+                                                onChange={v => handleBleSettingChange('battery_efficiency', v / 100)}
+                                                step={1} min={0} max={100}
+                                                error={bleSettingsErrors.battery_efficiency}
                                             />
                                             <SettingsInput
                                                 label="Capacity per Unit (Ah)"
                                                 value={bleSettings.battery_rated_capacity_ah}
-                                                onChange={v => setBleSettings(s => ({...s, battery_rated_capacity_ah: v}))}
-                                                step={10}
+                                                onChange={v => handleBleSettingChange('battery_rated_capacity_ah', v)}
+                                                step={10} min={1}
+                                                error={bleSettingsErrors.battery_rated_capacity_ah}
                                             />
                                             <SettingsInput
                                                 label="Voltage per Unit (V)"
                                                 value={bleSettings.battery_rated_voltage}
-                                                onChange={v => setBleSettings(s => ({...s, battery_rated_voltage: v}))}
-                                                step={12}
+                                                onChange={v => handleBleSettingChange('battery_rated_voltage', v)}
+                                                step={1} min={1}
+                                                error={bleSettingsErrors.battery_rated_voltage}
+                                            />
+                                             <SettingsInput
+                                                label="Max Parallel Units"
+                                                value={bleSettings.battery_max_parallel}
+                                                onChange={v => handleBleSettingChange('battery_max_parallel', v)}
+                                                step={1} min={1}
+                                                error={bleSettingsErrors.battery_max_parallel}
                                             />
                                              <SettingsInput
                                                 label="Days of Autonomy"
                                                 value={bleSettings.autonomy_days}
-                                                onChange={v => setBleSettings(s => ({...s, autonomy_days: v}))}
-                                                step={1}
+                                                onChange={v => handleBleSettingChange('autonomy_days', v)}
+                                                step={1} min={1}
+                                                error={bleSettingsErrors.autonomy_days}
                                             />
                                         </div>
 
@@ -387,9 +604,60 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                                              <SettingsInput
                                                 label="Panel Power (W)"
                                                 value={bleSettings.panel_rated_power}
-                                                onChange={v => setBleSettings(s => ({...s, panel_rated_power: v}))}
-                                                step={10}
+                                                onChange={v => handleBleSettingChange('panel_rated_power', v)}
+                                                step={10} min={1}
+                                                error={bleSettingsErrors.panel_rated_power}
                                             />
+                                            <SettingsInput
+                                                label="Panel MPP Voltage (V)"
+                                                value={bleSettings.panel_mpp_voltage}
+                                                onChange={v => handleBleSettingChange('panel_mpp_voltage', v)}
+                                                step={0.1} min={1}
+                                                error={bleSettingsErrors.panel_mpp_voltage}
+                                            />
+                                            <SettingsInput
+                                                label="System Losses (%)"
+                                                value={bleSettings.system_losses * 100}
+                                                onChange={v => handleBleSettingChange('system_losses', v / 100)}
+                                                step={1} min={0} max={100}
+                                                error={bleSettingsErrors.system_losses}
+                                            />
+                                            <SettingsInput
+                                                label="Temp Coefficient Power"
+                                                value={bleSettings.temp_coefficient_power}
+                                                onChange={v => handleBleSettingChange('temp_coefficient_power', v)}
+                                                step={0.001} min={-1} max={0}
+                                                error={bleSettingsErrors.temp_coefficient_power}
+                                            />
+                                            <SettingsInput
+                                                label="NOCT (°C)"
+                                                value={bleSettings.noct}
+                                                onChange={v => handleBleSettingChange('noct', v)}
+                                                step={1} min={0}
+                                                error={bleSettingsErrors.noct}
+                                            />
+                                            <SettingsInput
+                                                label="STC Temp (°C)"
+                                                value={bleSettings.stc_temp}
+                                                onChange={v => handleBleSettingChange('stc_temp', v)}
+                                                step={1} min={0}
+                                                error={bleSettingsErrors.stc_temp}
+                                            />
+                                            <SettingsInput
+                                                label="Reference Irradiance (W/m²)"
+                                                value={bleSettings.reference_irradiance}
+                                                onChange={v => handleBleSettingChange('reference_irradiance', v)}
+                                                step={1} min={1}
+                                                error={bleSettingsErrors.reference_irradiance}
+                                            />
+                                            <div className="flex items-center space-x-2">
+                                                <Switch
+                                                    id="calculate-temp-derating"
+                                                    checked={bleSettings.calculate_temp_derating}
+                                                    onCheckedChange={checked => handleBleSettingChange('calculate_temp_derating', checked)}
+                                                />
+                                                <Label htmlFor="calculate-temp-derating" className="text-xs font-medium text-gray-600">Calculate Temp Derating</Label>
+                                            </div>
                                         </div>
                                     </div>
                                 </AccordionContent>
@@ -399,7 +667,7 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
 
                     <div>
                         <h3 className="text-xl font-bold mb-4">{t('project_modal.appliance_calculator', 'Appliance Calculator')}</h3>
-                        
+
                         {/* Custom Appliance Input Form */}
                         <div className="grid grid-cols-12 gap-2 p-3 mb-4 border rounded-lg bg-gray-50">
                             <div className="col-span-5">
@@ -449,7 +717,7 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
 
                         {isApplianceLoading && projectAppliances.length === 0 && <Spinner className="w-8 h-8 mx-auto" />}
                         {applianceError && <Alert variant="destructive"><AlertTitle><AlertCircle className="h-4 w-4" /> Error</AlertTitle><AlertDescription>{applianceError}</AlertDescription></Alert>}
-                        
+
                         <ScrollArea className="flex-grow h-[300px] mb-4 rounded-md border">
                             <Table>
                                 <TableHeader>
@@ -468,20 +736,26 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                                         <TableRow key={app.appliance_id}>
                                             <TableCell className="font-medium">{app.appliance_name}</TableCell>
                                             <TableCell>
-                                                <Input
-                                                    type="number"
-                                                    value={app.qty}
-                                                    onChange={(e) => handleUpdateAppliance(app.appliance_id, { qty: parseInt(e.target.value) || 0 })}
-                                                    className="w-full text-center p-1 h-8"
-                                                />
+                                                <div className='flex flex-col'>
+                                                    <Input
+                                                        type="number"
+                                                        value={app.qty}
+                                                        onChange={(e) => handleUpdateAppliance(app.appliance_id, { qty: parseInt(e.target.value) || 0 })}
+                                                        className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.qty && "border-red-500")}
+                                                    />
+                                                    {applianceInputErrors[app.appliance_id]?.qty && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.qty}</p>}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
+                                                <div className='flex flex-col'>
                                                 <Input
                                                     type="number"
                                                     value={app.use_hours_night}
                                                     onChange={(e) => handleUpdateAppliance(app.appliance_id, { use_hours_night: parseInt(e.target.value) || 0 })}
-                                                    className="w-full text-center p-1 h-8"
+                                                    className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.use_hours_night && "border-red-500")}
                                                 />
+                                                {applianceInputErrors[app.appliance_id]?.use_hours_night && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.use_hours_night}</p>}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 <Switch
@@ -508,10 +782,9 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                             <span>{t('project_modal.total_energy', 'Energy')}: {totalEnergy} Wh/day</span>
                         </div>
                     </div>
-                    
+
                     <Button
                         onClick={handleRunCalculation}
-                        disabled={projectAppliances.length === 0 || isBleLoading}
                         className="w-full mt-auto text-white"
                     >
                         {isBleLoading ? <Spinner className="mr-2" /> : <Calculator className="h-4 w-4 mr-2" />}
@@ -524,21 +797,21 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                 <div className="flex flex-col p-6 overflow-y-auto">
                     <h3 className="text-xl font-bold mb-4">{t('project_modal.ble_results', 'System Analysis Results')}</h3>
 
-                    {isBleLoading && (
+                    {isResultsLoading && (
                         <div className="flex items-center justify-center h-full">
                             <Spinner className="w-12 h-12" />
                         </div>
                     )}
 
-                    {bleError && (
+                    {resultsError && (
                         <Alert variant="destructive">
                             <AlertCircle className="h-4 w-4" />
                             <AlertTitle>{t('common.error', 'Error')}</AlertTitle>
-                            <AlertDescription>{bleError}</AlertDescription>
+                            <AlertDescription>{resultsError}</AlertDescription>
                         </Alert>
                     )}
 
-                    {!isBleLoading && !bleError && !bleResults && (
+                    {!isResultsLoading && !resultsError && !displayResults && (
                         <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
                             <Calculator className="w-16 h-16 mb-4 text-gray-300" />
                             <p className="font-semibold">{t('project_modal.no_results_title', 'No Results Yet')}</p>
@@ -546,19 +819,19 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                         </div>
                     )}
 
-                    {bleResults && bleResults.data && (
+                    {displayResults && (
                         <ScrollArea className="flex-grow">
                             <Accordion type="multiple" defaultValue={['metadata', 'solar_panels', 'inverter', 'battery_bank']} className="w-full">
                                 <AccordionItem value="metadata">
                                     <AccordionTrigger>Metadata</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                            <DataRow label="Peak Sun Hours" value={bleResults.data.metadata.peak_sun_hours} />
-                                            <DataRow label="Total System Size" value={`${parseFloat(bleResults.data.metadata.total_system_size_kw).toFixed(2)} kW`} />
-                                            <DataRow label="Peak Surge Power" value={`${bleResults.data.metadata.peak_surge_power_w} W`} />
-                                            <DataRow label="Autonomy Days" value={bleResults.data.metadata.autonomy_days} />
-                                            <DataRow label="Total Daily Energy" value={`${bleResults.data.metadata.total_daily_energy_wh} Wh`} />
-                                            <DataRow label="Total Peak Power" value={`${bleResults.data.metadata.total_peak_power_w} W`} />
+                                            <DataRow label="Peak Sun Hours" value={displayResults.metadata.peak_sun_hours} />
+                                            <DataRow label="Total System Size" value={`${parseFloat(displayResults.metadata.total_system_size_kw).toFixed(2)} kW`} />
+                                            <DataRow label="Peak Surge Power" value={`${displayResults.metadata.peak_surge_power_w} W`} />
+                                            <DataRow label="Autonomy Days" value={displayResults.metadata.autonomy_days} />
+                                            <DataRow label="Total Daily Energy" value={`${displayResults.metadata.total_daily_energy_wh} Wh`} />
+                                            <DataRow label="Total Peak Power" value={`${displayResults.metadata.total_peak_power_w} W`} />
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
@@ -566,13 +839,13 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                                     <AccordionTrigger>Solar Panels</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                            <DataRow label="Power Rating" value={`${bleResults.data.solar_panels.power_rating_w} W`} />
-                                            <DataRow label="Quantity" value={bleResults.data.solar_panels.quantity} />
-                                            <DataRow label="Total PV Capacity" value={`${parseFloat(bleResults.data.solar_panels.total_pv_capacity_kw).toFixed(2)} kW`} />
-                                            <DataRow label="Panels per String" value={bleResults.data.solar_panels.panels_per_string} />
-                                            <DataRow label="Num. Parallel Strings" value={bleResults.data.solar_panels.num_parallel_strings} />
-                                            <DataRow label="Connection Type" value={bleResults.data.solar_panels.connection_type} />
-                                            <DataRow label="Tilt Angle" value={`${bleResults.data.solar_panels.tilt_angle}°`} />
+                                            <DataRow label="Power Rating" value={`${displayResults.solar_panels.power_rating_w} W`} />
+                                            <DataRow label="Quantity" value={displayResults.solar_panels.quantity} />
+                                            <DataRow label="Total PV Capacity" value={`${parseFloat(displayResults.solar_panels.total_pv_capacity_kw).toFixed(2)} kW`} />
+                                            <DataRow label="Panels per String" value={displayResults.solar_panels.panels_per_string} />
+                                            <DataRow label="Num. Parallel Strings" value={displayResults.solar_panels.num_parallel_strings} />
+                                            <DataRow label="Connection Type" value={displayResults.solar_panels.connection_type} />
+                                            <DataRow label="Tilt Angle" value={`${displayResults.solar_panels.tilt_angle}°`} />
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
@@ -580,12 +853,12 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                                     <AccordionTrigger>Inverter</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                            <DataRow label="Power Rating" value={`${bleResults.data.inverter.power_rating_w} W`} />
-                                            <DataRow label="Quantity" value={bleResults.data.inverter.quantity} />
-                                            <DataRow label="Surge Rating" value={`${bleResults.data.inverter.surge_rating_w} W`} />
-                                            <DataRow label="Efficiency" value={`${bleResults.data.inverter.efficiency_percent}%`} />
-                                            <DataRow label="Output Voltage" value={`${bleResults.data.inverter.output_voltage_v} V`} />
-                                            <DataRow label="Connection Type" value={bleResults.data.inverter.connection_type} />
+                                            <DataRow label="Power Rating" value={`${displayResults.inverter.power_rating_w} W`} />
+                                            <DataRow label="Quantity" value={displayResults.inverter.quantity} />
+                                            <DataRow label="Surge Rating" value={`${displayResults.inverter.surge_rating_w} W`} />
+                                            <DataRow label="Efficiency" value={`${displayResults.inverter.efficiency_percent}%`} />
+                                            <DataRow label="Output Voltage" value={`${displayResults.inverter.output_voltage_v} V`} />
+                                            <DataRow label="Connection Type" value={displayResults.inverter.connection_type} />
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
@@ -593,23 +866,31 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                                     <AccordionTrigger>Battery Bank</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                            <DataRow label="Battery Type" value={bleResults.data.battery_bank.battery_type} />
-                                            <DataRow label="Capacity per Unit" value={`${bleResults.data.battery_bank.capacity_per_unit_ah} Ah`} />
-                                            <DataRow label="Voltage per Unit" value={`${bleResults.data.battery_bank.voltage_per_unit_v} V`} />
-                                            <DataRow label="Quantity" value={bleResults.data.battery_bank.quantity} />
-                                            <DataRow label="Num in Series" value={bleResults.data.battery_bank.num_in_series} />
-                                            <DataRow label="Num in Parallel" value={bleResults.data.battery_bank.num_in_parallel} />
-                                            <DataRow label="Total Storage" value={`${parseFloat(bleResults.data.battery_bank.total_storage_kwh).toFixed(2)} kWh`} />
-                                            <DataRow label="Depth of Discharge" value={`${bleResults.data.battery_bank.depth_of_discharge_percent}%`} />
-                                            <DataRow label="System Voltage" value={`${bleResults.data.battery_bank.system_voltage_v} V`} />
-                                            <DataRow label="Connection Type" value={bleResults.data.battery_bank.connection_type} />
+                                            <DataRow label="Battery Type" value={displayResults.battery_bank.battery_type} />
+                                            <DataRow label="Capacity per Unit" value={`${displayResults.battery_bank.capacity_per_unit_ah} Ah`} />
+                                            <DataRow label="Voltage per Unit" value={`${displayResults.battery_bank.voltage_per_unit_v} V`} />
+                                            <DataRow label="Quantity" value={displayResults.battery_bank.quantity} />
+                                            <DataRow label="Num in Series" value={displayResults.battery_bank.num_in_series} />
+                                            <DataRow label="Num in Parallel" value={displayResults.battery_bank.num_in_parallel} />
+                                            <DataRow label="Total Storage" value={`${parseFloat(displayResults.battery_bank.total_storage_kwh).toFixed(2)} kWh`} />
+                                            <DataRow label="Depth of Discharge" value={`${displayResults.battery_bank.depth_of_discharge_percent}%`} />
+                                            <DataRow label="System Voltage" value={`${displayResults.battery_bank.system_voltage_v} V`} />
+                                            <DataRow label="Connection Type" value={displayResults.battery_bank.connection_type} />
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
                             </Accordion>
                             <div className="mt-6">
-                                <BleResultsChart results={bleResults.data} />
+                                <BleResultsChart results={displayResults} />
                             </div>
+                            <Button
+                                onClick={handleSaveConfiguration}
+                                disabled={!bleResults?.data}
+                                className="w-full mt-4 text-white"
+                            >
+                                <Save className="h-4 w-4 mr-2" />
+                                {t('project_modal.save_config', 'Save Configuration')}
+                            </Button>
                         </ScrollArea>
                     )}
                 </div>
@@ -618,18 +899,43 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
     );
 }
 
-const SettingsInput = ({ label, value, onChange, step = 1 }: { label: string, value: number, onChange: (value: number) => void, step?: number }) => (
-    <div>
-        <Label className="text-xs font-medium text-gray-600">{label}</Label>
-        <Input
-            type="number"
-            value={value}
-            onChange={e => onChange(parseFloat(e.target.value) || 0)}
-            className="h-9"
-            step={step}
-        />
-    </div>
-);
+const SettingsInput = ({ label, value, onChange, step = 1, min = -Infinity, max = Infinity, error }: {
+    label: string,
+    value: number | boolean,
+    onChange: (value: number | boolean) => void,
+    step?: number,
+    min?: number,
+    max?: number,
+    error?: string | null
+}) => {
+    const inputType = typeof value === 'boolean' ? 'checkbox' : 'number';
+
+    return (
+        <div className="flex flex-col">
+            <Label className="text-xs font-medium text-gray-600 mb-1">{label}</Label>
+            {inputType === 'number' ? (
+                <>
+                    <Input
+                        type="number"
+                        value={value as number}
+                        onChange={e => onChange(parseFloat(e.target.value) || 0)}
+                        className={cn("h-9", error && "border-red-500")}
+                        step={step}
+                        min={min}
+                        max={max}
+                    />
+                    {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+                </>
+            ) : (
+                <Switch
+                    checked={value as boolean}
+                    onCheckedChange={onChange}
+                    className="mt-2"
+                />
+            )}
+        </div>
+    );
+};
 
 const DataRow = ({ label, value, unit = '' }: { label: string; value: any; unit?: string }) => {
     if (value === null || value === undefined || value === "N/A") {
