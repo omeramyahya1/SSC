@@ -35,9 +35,10 @@ import { Toaster, toast } from 'react-hot-toast';
 
 interface ProjectInfoProps {
     project: Project;
+    onUpdate: (project: Project) => void;
 }
 
-function ProjectInfo({ project }: ProjectInfoProps) {
+function ProjectInfo({ project, onUpdate }: ProjectInfoProps) {
     const { t } = useTranslation();
     const { updateProject } = useProjectStore();
     const { states, getCitiesByState } = useLocationData();
@@ -86,7 +87,8 @@ function ProjectInfo({ project }: ProjectInfoProps) {
     const handleSave = async () => {
         if (!project) return;
         try {
-            await updateProject(project.uuid, editData);
+            const updatedProject = await updateProject(project.uuid, editData);
+            onUpdate(updatedProject); // Pass the updated project back to the parent
             setIsEditing(false);
             toast.success(t('project_modal.update_success', 'Project details updated successfully!'));
         } catch (error) {
@@ -202,10 +204,14 @@ const calculateApplianceMetrics = (appliance: ProjectAppliance) => {
 };
 
 // --- Main Component ---
-export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
+export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModalProps) {
     const { t } = useTranslation();
     const { getCitiesByState, getClimateDataForCity } = useLocationData();
+    const [project, setProject] = useState<Project | null>(projectProp);
 
+    useEffect(() => {
+        setProject(projectProp);
+    }, [projectProp]);
     // Appliance Store
     const {
         projectAppliances,
@@ -460,7 +466,7 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
     }
 
     // Determine which results to display (saved or freshly calculated)
-    const displayResults = systemConfiguration?.config_items || bleResults?.data;
+    const displayResults = bleResults?.data || systemConfiguration?.config_items;
     const isResultsLoading = isBleLoading || isSystemConfigLoading;
     const resultsError = bleError || systemConfigError;
 
@@ -483,7 +489,7 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                     {/* Customer Info & Location */}
                     <div>
                         <h3 className="text-xl font-bold mb-4">{t('project_modal.customer_info_location', 'Customer Info & Location')}</h3>
-                        <ProjectInfo project={project} />
+                        <ProjectInfo project={project} onUpdate={setProject} />
                     </div>
 
                      {/* System Design Parameters */}
@@ -724,7 +730,7 @@ export function ProjectDetailsModal({ project }: ProjectDetailsModalProps) {
                                     <TableRow>
                                         <TableHead className="w-[150px]">{t('project_modal.appliance', 'Appliance')}</TableHead>
                                         <TableHead className="w-[80px] text-center">{t('project_modal.qty', 'Qty')}</TableHead>
-                                        <TableHead className="w-[100px] text-center">{t('project_modal.hours', 'Hrs/Day')}</TableHead>
+                                        <TableHead className="w-[100px] text-center">{t('project_modal.use_hours_night', 'Night/Battery Hrs')}</TableHead>
                                         <TableHead className="w-[100px] text-center">{t('project_modal.surge', 'Surge')}</TableHead>
                                         <TableHead className="w-[100px] text-center">{t('project_modal.power', 'Power (W)')}</TableHead>
                                         <TableHead className="w-[120px] text-center">{t('project_modal.energy', 'Energy (Wh/day)')}</TableHead>

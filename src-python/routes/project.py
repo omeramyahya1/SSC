@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import joinedload
 from utils import get_db
 from models import Project, Customer, User, Authentication
-from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate
+from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate
 from serializer import model_to_dict
 
 project_bp = Blueprint('project_bp', __name__, url_prefix='/projects')
@@ -15,7 +15,7 @@ def create_project_with_customer():
         auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
         if not auth_record:
             return jsonify({"error": "No authenticated user found. Please log in."}), 401
-        
+
         current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
         if not current_user:
             return jsonify({"error": "Authenticated user not found in user table."}), 404
@@ -89,7 +89,7 @@ def update_project(item_id):
         item = db.query(Project).filter(Project.project_id == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
         try:
             # Validate request data
             validated_data = ProjectUpdate(**request.json)
@@ -100,7 +100,7 @@ def update_project(item_id):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))
@@ -128,7 +128,6 @@ def get_project(item_id):
         return jsonify(model_to_dict(item))
 
 @project_bp.route('/<int:item_id>', methods=['DELETE'])
-
 def delete_project(item_id):
 
     with get_db() as db:
@@ -145,120 +144,58 @@ def delete_project(item_id):
 
         return jsonify({"message": "Deleted successfully"}), 200
 
-
-
 @project_bp.route('/<string:project_uuid>', methods=['PATCH'])
-
 def patch_project_details(project_uuid):
-
     with get_db() as db:
-
         # 1. Fetch the project with its customer
-
         project = db.query(Project).options(joinedload(Project.customer)).filter(Project.uuid == project_uuid).first()
-
         if not project:
-
             return jsonify({"error": "Project not found"}), 404
-
-
-
-        data = request.json
-
+        # Validate incoming data with Pydantic schema
+        try:
+            validated_data = ProjectDetailsUpdate(**request.json)
+        except ValidationError as e:
+            return jsonify({"errors": e.errors()}), 400
+        update_data = validated_data.dict(exclude_unset=True) # Only get fields that were actually sent
         project_updated = False
-
         customer_updated = False
-
-
-
         # 2. Update Project fields
-
-        if 'project_location' in data and data['project_location'] != project.project_location:
-
-            project.project_location = data['project_location']
-
+        if 'project_location' in update_data and update_data['project_location'] != project.project_location:
+            project.project_location = update_data['project_location']
             project_updated = True
-
-
-
-        # 3. Update Customer fields
-
+       # 3. Update Customer fields
         customer = project.customer
-
         if not customer:
-
             return jsonify({"error": "Associated customer not found"}), 404
-
-        
-
-        if 'full_name' in data and data['full_name'] != customer.full_name:
-
-            customer.full_name = data['full_name']
-
+        if 'full_name' in update_data and update_data['full_name'] != customer.full_name:
+            customer.full_name = update_data['full_name']
             customer_updated = True
-
-        
-
-        if 'email' in data and data['email'] != customer.email:
-
-            customer.email = data['email']
-
+        if 'email' in update_data and update_data['email'] != customer.email:
+            customer.email = update_data['email']
             customer_updated = True
-
-
-
-        if 'phone_number' in data and data['phone_number'] != customer.phone_number:
-
-            customer.phone_number = data['phone_number']
-
+        if 'phone_number' in update_data and update_data['phone_number'] != customer.phone_number:
+            customer.phone_number = update_data['phone_number']
             customer_updated = True
-
-
-
         # 4. Commit changes if any were made
-
         if project_updated or customer_updated:
-
             try:
-
                 if project_updated:
-
                     project.is_dirty = True
-
                 if customer_updated:
-
                     customer.is_dirty = True
-
-                
-
                 db.commit()
-
                 db.refresh(project)
-
+                # Ensure customer is refreshed as well
                 db.refresh(customer)
-
-
-
                 # 5. Construct and return response
-
                 project_dict = model_to_dict(project)
-
                 project_dict['customer'] = model_to_dict(customer)
-
                 return jsonify(project_dict), 200
-
             except Exception as e:
-
                 db.rollback()
-
                 return jsonify({"error": f"An error occurred during update: {str(e)}"}), 500
-
         else:
-
             # Nothing to update, return original data
-
             project_dict = model_to_dict(project)
-
             project_dict['customer'] = model_to_dict(customer)
-
             return jsonify(project_dict), 200

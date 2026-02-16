@@ -1,7 +1,8 @@
 // src/store/useSystemConfigurationStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
-import { BleCalculationResults } from './useBleStore'; // Assuming BleCalculationResults is reusable
+import { BleCalculationResults } from './useBleStore'; 
+import { useProjectStore, Project } from './useProjectStore';
 
 export interface SystemConfiguration {
     system_config_id: number;
@@ -10,6 +11,7 @@ export interface SystemConfiguration {
     total_wattage: number;
     created_at: string;
     updated_at: string;
+    // Potentially add a project_uuid here if it's consistently linked
 }
 
 interface SystemConfigurationStore {
@@ -35,9 +37,17 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
             const payload = {
                 config_items: bleResultsData,
             };
-            const { data } = await api.post<SystemConfiguration>(`${resource}/project/${projectUuid}`, payload);
-            set({ systemConfiguration: data, isLoading: false });
-            // Optionally, return true/false or data for component feedback
+            // The backend now returns the full updated Project object
+            const { data: updatedProject } = await api.post<Project>(`${resource}/project/${projectUuid}`, payload);
+            
+            // Extract the system_config from the returned project
+            const systemConfigData: SystemConfiguration = updatedProject.system_config as SystemConfiguration;
+
+            set({ systemConfiguration: systemConfigData, isLoading: false });
+            
+            // Update the project in the ProjectStore
+            useProjectStore.getState().receiveProjectUpdate(updatedProject);
+
         } catch (e: any) {
             const errorMsg = e.response?.data?.message || e.message || "Failed to save system configuration";
             set({ error: errorMsg, isLoading: false });

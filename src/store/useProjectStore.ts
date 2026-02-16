@@ -47,7 +47,8 @@ export interface ProjectStore {
   error: string | null;
   fetchProjects: () => Promise<void>;
   createProject: (data: NewProjectData) => Promise<void>;
-  updateProject: (projectUuid: string, data: ProjectUpdatePayload) => Promise<void>;
+  updateProject: (projectUuid: string, data: ProjectUpdatePayload) => Promise<Project>;
+  receiveProjectUpdate: (updatedProject: Project) => void;
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -112,10 +113,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
 
-  updateProject: async (projectUuid: string, data: ProjectUpdatePayload) => {
+  updateProject: async (projectUuid: string, data: ProjectUpdatePayload): Promise<Project> => {
     const originalProjects = get().projects;
     const projectToUpdate = originalProjects.find(p => p.uuid === projectUuid);
-    if (!projectToUpdate) return;
+    if (!projectToUpdate) {
+        throw new Error("Project not found for optimistic update.");
+    };
 
     // Optimistic update
     const updatedProject = {
@@ -140,6 +143,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         set(state => ({
             projects: state.projects.map(p => p.uuid === projectUuid ? { ...finalProject, is_pending: false } : p)
         }));
+        return finalProject;
     } catch(e: any) {
         const errorMsg = e.message || "Failed to update project";
         // On failure, revert to original state
@@ -148,5 +152,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         throw e;
     }
   },
-}));
 
+  receiveProjectUpdate: (updatedProject: Project) => {
+    set(state => ({
+      projects: state.projects.map(p => p.uuid === updatedProject.uuid ? updatedProject : p),
+    }));
+  },
+}));

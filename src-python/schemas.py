@@ -161,6 +161,13 @@ class PaymentUpdate(BaseModel):
     is_dirty: Optional[bool] = None
 
 
+class ProjectDetailsUpdate(BaseModel):
+    project_location: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+
+
 class ProjectCreate(BaseModel):
     customer_id: Optional[int] = None
     status: Optional[str] = None
