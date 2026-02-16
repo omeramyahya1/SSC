@@ -15,12 +15,12 @@ export function SubscriptionBanner() {
         // For now, let's assume we can fetch it. If user has no subscription, this will fail gracefully.
         if (currentUser?.user_id) {
             // This is a placeholder, you might need a dedicated `fetchSubscriptionByUserId`
-            // fetchSubscription(currentUser.user_id); 
+            // fetchSubscription(currentUser.user_id);
         }
     }, [currentUser, fetchSubscription]);
-    
+
     // For demonstration, we'll just use the status from the user object.
-    
+
     if (subscriptionStatus === 'grace') {
         const graceDaysLeft = 7; // Dummy data
         return (

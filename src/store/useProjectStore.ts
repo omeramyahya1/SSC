@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import api from '@/api/client';
 import { NewProjectData } from '@/pages/dashboard/CreateProjectModal';
+import { SystemConfiguration } from './useSystemConfigurationStore';
 
 // --- 1. Define Types ---
 
@@ -21,6 +22,7 @@ export interface Project {
     project_location?: string | null;
     created_at: string;
     updated_at: string;
+    system_config?: SystemConfiguration;
     
     // Nested customer data from the API
     customer: Customer;
@@ -48,6 +50,7 @@ export interface ProjectStore {
   fetchProjects: () => Promise<void>;
   createProject: (data: NewProjectData) => Promise<void>;
   updateProject: (projectUuid: string, data: ProjectUpdatePayload) => Promise<Project>;
+  updateProjectStatus: (projectUuid: string, status: Project['status']) => Promise<void>;
   receiveProjectUpdate: (updatedProject: Project) => void;
 }
 
@@ -150,6 +153,37 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         set({ projects: originalProjects, error: errorMsg });
         console.error(errorMsg, e);
         throw e;
+    }
+  },
+
+  updateProjectStatus: async (projectUuid: string, status: Project['status']) => {
+    const originalProjects = get().projects;
+    const projectToUpdate = originalProjects.find(p => p.uuid === projectUuid);
+    if (!projectToUpdate) {
+        console.error("Project not found for status update.");
+        return;
+    }
+
+    // Optimistic update
+    set(state => ({
+        projects: state.projects.map(p =>
+            p.uuid === projectUuid ? { ...p, status, is_pending: true } : p
+        ),
+    }));
+
+    try {
+        const { data: finalProject } = await api.patch<Project>(`${resource}/${projectUuid}/status`, { status });
+        // On success, finalize the update
+         set(state => ({
+            projects: state.projects.map(p => p.uuid === projectUuid ? { ...finalProject, is_pending: false } : p)
+        }));
+         // Also update the project in the modal if it's open
+        get().receiveProjectUpdate(finalProject);
+    } catch (e: any) {
+        const errorMsg = e.message || "Failed to update project status";
+        console.error(errorMsg, e);
+        // On failure, revert to original state
+        set({ projects: originalProjects, error: errorMsg });
     }
   },
 

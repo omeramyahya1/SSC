@@ -199,3 +199,40 @@ def patch_project_details(project_uuid):
             project_dict = model_to_dict(project)
             project_dict['customer'] = model_to_dict(customer)
             return jsonify(project_dict), 200
+
+@project_bp.route('/<string:project_uuid>/status', methods=['PATCH'])
+def patch_project_status(project_uuid):
+    with get_db() as db:
+        # 1. Validate incoming data
+        try:
+            validated_data = ProjectStatusUpdate(**request.json)
+        except ValidationError as e:
+            return jsonify({"errors": e.errors()}), 400
+
+        # 2. Fetch the project
+        project = db.query(Project).options(joinedload(Project.customer)).filter(Project.uuid == project_uuid).first()
+        if not project:
+            return jsonify({"error": "Project not found"}), 404
+
+        # 3. Update status
+        if project.status != validated_data.status:
+            project.status = validated_data.status
+            project.is_dirty = True
+            try:
+                db.commit()
+                db.refresh(project)
+                # We need to refresh customer separately if it's loaded
+                if project.customer:
+                    db.refresh(project.customer)
+            except Exception as e:
+                db.rollback()
+                return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+        # 4. Return the full, updated project object
+        project_dict = model_to_dict(project)
+        if project.customer:
+            project_dict['customer'] = model_to_dict(project.customer)
+        else:
+            project_dict['customer'] = None
+        
+        return jsonify(project_dict), 200

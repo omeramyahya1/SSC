@@ -167,6 +167,8 @@ class ProjectDetailsUpdate(BaseModel):
     email: Optional[str] = None
     phone_number: Optional[str] = None
 
+class ProjectStatusUpdate(BaseModel):
+    status: str
 
 class ProjectCreate(BaseModel):
     customer_id: Optional[int] = None

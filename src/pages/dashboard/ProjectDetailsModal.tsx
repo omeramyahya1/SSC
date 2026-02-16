@@ -23,7 +23,6 @@ import { useLocationData } from '@/hooks/useLocationData';
 import { useApplianceStore, ProjectAppliance } from '@/store/useApplianceStore';
 import { useBleStore } from '@/store/useBleStore';
 import { Project } from "@/store/useProjectStore";
-import { BleResultsChart } from './BleResultsChart';
 import { cn } from "@/lib/utils";
 import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle } from 'lucide-react';
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
@@ -208,6 +207,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
     const { t } = useTranslation();
     const { getCitiesByState, getClimateDataForCity } = useLocationData();
     const [project, setProject] = useState<Project | null>(projectProp);
+    const { updateProjectStatus } = useProjectStore();
 
     useEffect(() => {
         setProject(projectProp);
@@ -242,10 +242,23 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         clearSystemConfiguration,
     } = useSystemConfigurationStore();
 
+    const handleStatusChange = async (newStatus: Project['status']) => {
+        if (!project) return;
+        try {
+            await updateProjectStatus(project.uuid, newStatus);
+            // The store will update the project, which will cause this component to re-render.
+            // We also need to update the local project state to ensure the modal reflects the change immediately.
+            setProject(prev => prev ? { ...prev, status: newStatus, is_pending: false } : null);
+            toast.success(t('project_modal.status_update_success', 'Project status updated!'));
+        } catch (error) {
+            toast.error(t('project_modal.status_update_error', 'Failed to update status.'));
+            console.error(error);
+        }
+    };
+
     // State for custom appliance input
     const [customApplianceName, setCustomApplianceName] = useState('');
     const [customApplianceWattage, setCustomApplianceWattage] = useState<number | ''>('');
-    const [customApplianceType, setCustomApplianceType] = useState<'light' | 'standard' | 'heavy'>('standard');
 
     // State for BLE settings overrides
     const [bleSettings, setBleSettings] = useState({
@@ -361,28 +374,39 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
             await addApplianceToProject({
                 appliance_name: customApplianceName,
                 wattage: customApplianceWattage,
-                type: customApplianceType,
+                type: 'heavy', // All appliances are now considered surge/heavy
                 qty: 1,
                 use_hours_night: 1
             }, project.uuid);
             // Reset fields
             setCustomApplianceName('');
             setCustomApplianceWattage('');
-            setCustomApplianceType('standard');
         }
     };
 
     // Validation state for appliance inputs
     const [applianceInputErrors, setApplianceInputErrors] = useState<{[key: string]: {[field: string]: string | null}}>({});
 
-    const validateApplianceInput = (applianceId: number, field: 'qty' | 'use_hours_night', value: number): string | null => {
+    const validateApplianceInput = (applianceId: number, field: 'qty' | 'use_hours_night' | 'wattage', value: number): string | null => {
         let error: string | null = null;
-        if (isNaN(value) || value < 0) {
-            error = "Must be 0 or greater";
-        } else if (field === 'qty' && !Number.isInteger(value)) {
-            error = "Must be a whole number";
-        } else if (field === 'use_hours_night' && (value > 24 || value < 0)) {
-            error = "Must be between 0 and 24";
+        if (isNaN(value)) {
+            return "Invalid number";
+        }
+
+        if (field === 'qty') {
+            if (value < 0) {
+                error = "Must be 0 or greater";
+            } else if (!Number.isInteger(value)) {
+                error = "Must be a whole number";
+            }
+        } else if (field === 'use_hours_night') {
+            if (value < 0 || value > 24) {
+                 error = "Must be between 0 and 24";
+            }
+        } else if (field === 'wattage') {
+            if (value <= 0) {
+                error = "Must be positive";
+            }
         }
         return error;
     };
@@ -398,9 +422,9 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         const newErrors = {...applianceInputErrors};
 
         for (const key in updates) {
-            if (key === 'qty' || key === 'use_hours_night') {
+            if (key === 'qty' || key === 'use_hours_night' || key === 'wattage') {
                 const value = updates[key] as number;
-                const error = validateApplianceInput(appliance_id, key, value);
+                const error = validateApplianceInput(appliance_id, key as 'qty' | 'use_hours_night' | 'wattage', value);
                 if (error) {
                     if (!newErrors[appliance_id]) newErrors[appliance_id] = {};
                     newErrors[appliance_id][key] = error;
@@ -427,6 +451,20 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
 
     const totalEnergy = useMemo(() => projectAppliances.reduce((sum, app) => sum + calculateApplianceMetrics(app).energy, 0), [projectAppliances]);
     const totalPower = useMemo(() => projectAppliances.reduce((sum, app) => sum + calculateApplianceMetrics(app).power, 0), [projectAppliances]);
+
+    const formatPowerValue = (value: number) => {
+        if (value >= 1000) {
+            return `${(value / 1000).toFixed(2)} kW`;
+        }
+        return `${value.toFixed(0)} W`;
+    };
+
+    const formatEnergyValue = (value: number) => {
+        if (value >= 1000) {
+            return `${(value / 1000).toFixed(2)} kWh`;
+        }
+        return `${value.toFixed(0)} Wh`;
+    };
 
     const handleRunCalculation = useCallback(async () => {
         // Run initial validation pass on all settings before calculation
@@ -476,10 +514,19 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
             <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-2xl">{project.customer.full_name}'s Project</DialogTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Badge variant="outline" className={cn(`font-semibold`, statusColors[project.status] || 'bg-gray-100', project.is_pending && "animate-pulse")}>
-                        {project.is_pending ? t('dashboard.pending', 'Saving...') : t(`dashboard.status.${project.status}`, project.status)}
-                    </Badge>
-                    <span>{project.project_location}</span>
+                    <Select value={project.status} onValueChange={(value: Project['status']) => handleStatusChange(value)}>
+                        <SelectTrigger className={cn(`w-[150px] border px-2 py-1 rounded-full text-xs font-semibold flex justify-center items-center gap-1`, statusColors[project.status] || 'bg-gray-100', project.is_pending && "animate-pulse")}>
+                            <SelectValue>
+                                {project.is_pending ? t('dashboard.pending', 'Saving...') : t(`dashboard.status.${project.status}`, project.status)}
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="planning">{t('dashboard.status.planning', 'Planning')}</SelectItem>
+                            <SelectItem value="execution">{t('dashboard.status.execution', 'Execution')}</SelectItem>
+                            <SelectItem value="done">{t('dashboard.status.done', 'Done')}</SelectItem>
+                            <SelectItem value="archived">{t('dashboard.status.archived', 'Archived')}</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
             </DialogHeader>
 
@@ -557,6 +604,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                                         <SelectItem value="liquid">Lead-Acid (Liquid)</SelectItem>
                                                         <SelectItem value="dry">Lead-Acid (AGM/Gel)</SelectItem>
                                                         <SelectItem value="lithium">Lithium-ion</SelectItem>
+                                                        <SelectItem value="other">Other</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -676,7 +724,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
 
                         {/* Custom Appliance Input Form */}
                         <div className="grid grid-cols-12 gap-2 p-3 mb-4 border rounded-lg bg-gray-50">
-                            <div className="col-span-5">
+                            <div className="col-span-7">
                                 <Label htmlFor='appliance-name' className='text-xs text-gray-500 font-semibold'>Appliance Name</Label>
                                 <Input
                                     id='appliance-name'
@@ -686,7 +734,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     className="bg-white"
                                 />
                             </div>
-                            <div className="col-span-2">
+                            <div className="col-span-3">
                                 <Label htmlFor='appliance-wattage' className='text-xs text-gray-500 font-semibold'>Wattage (W)</Label>
                                 <Input
                                     id='appliance-wattage'
@@ -697,24 +745,11 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     className="bg-white"
                                 />
                             </div>
-                            <div className="col-span-3">
-                                <Label htmlFor='appliance-type' className='text-xs text-gray-500 font-semibold'>Type</Label>
-                                <Select value={customApplianceType} onValueChange={(v: any) => setCustomApplianceType(v)}>
-                                    <SelectTrigger id='appliance-type' className="bg-white">
-                                        <SelectValue placeholder="Select type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="light">Light</SelectItem>
-                                        <SelectItem value="standard">Standard</SelectItem>
-                                        <SelectItem value="heavy">Heavy</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
                             <div className="col-span-2 flex items-end">
                                 <Button
                                     onClick={handleAddCustomAppliance}
                                     disabled={!customApplianceName || !customApplianceWattage || customApplianceWattage <= 0}
-                                    className="w-full"
+                                    className="w-full font-bold text-white"
                                 >
                                     <PlusIcon className="h-4 w-4 mr-2" /> {t('project_modal.add', 'Add')}
                                 </Button>
@@ -729,9 +764,9 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-[150px]">{t('project_modal.appliance', 'Appliance')}</TableHead>
+                                        <TableHead className="w-[100px] text-center">{t('project_modal.wattage', 'Wattage (W)')}</TableHead>
                                         <TableHead className="w-[80px] text-center">{t('project_modal.qty', 'Qty')}</TableHead>
                                         <TableHead className="w-[100px] text-center">{t('project_modal.use_hours_night', 'Night/Battery Hrs')}</TableHead>
-                                        <TableHead className="w-[100px] text-center">{t('project_modal.surge', 'Surge')}</TableHead>
                                         <TableHead className="w-[100px] text-center">{t('project_modal.power', 'Power (W)')}</TableHead>
                                         <TableHead className="w-[120px] text-center">{t('project_modal.energy', 'Energy (Wh/day)')}</TableHead>
                                         <TableHead className="w-[50px]"></TableHead>
@@ -741,6 +776,17 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     {projectAppliances.map((app) => (
                                         <TableRow key={app.appliance_id}>
                                             <TableCell className="font-medium">{app.appliance_name}</TableCell>
+                                            <TableCell>
+                                                <div className='flex flex-col'>
+                                                    <Input
+                                                        type="number"
+                                                        value={app.wattage}
+                                                        onChange={(e) => handleUpdateAppliance(app.appliance_id, { wattage: parseFloat(e.target.value) || 0 })}
+                                                        className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.wattage && "border-red-500")}
+                                                    />
+                                                    {applianceInputErrors[app.appliance_id]?.wattage && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.wattage}</p>}
+                                                </div>
+                                            </TableCell>
                                             <TableCell>
                                                 <div className='flex flex-col'>
                                                     <Input
@@ -757,18 +803,11 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                                 <Input
                                                     type="number"
                                                     value={app.use_hours_night}
-                                                    onChange={(e) => handleUpdateAppliance(app.appliance_id, { use_hours_night: parseInt(e.target.value) || 0 })}
+                                                    onChange={(e) => handleUpdateAppliance(app.appliance_id, { use_hours_night: parseFloat(e.target.value) || 0 })}
                                                     className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.use_hours_night && "border-red-500")}
                                                 />
                                                 {applianceInputErrors[app.appliance_id]?.use_hours_night && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.use_hours_night}</p>}
                                                 </div>
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                <Switch
-                                                    checked={app.type === 'heavy'}
-                                                    onCheckedChange={(checked) => handleUpdateAppliance(app.appliance_id, { type: checked ? 'heavy' : 'standard' })}
-                                                    className="scale-75"
-                                                />
                                             </TableCell>
                                             <TableCell className="text-center">{calculateApplianceMetrics(app).power}</TableCell>
                                             <TableCell className="text-center">{calculateApplianceMetrics(app).energy}</TableCell>
@@ -782,15 +821,16 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 </TableBody>
                             </Table>
                         </ScrollArea>
-                        <div className="flex justify-between items-center px-4 py-2 border-t font-bold">
-                            <span>{t('project_modal.total_load', 'Total Load:')}</span>
-                            <span>{t('project_modal.total_power', 'Power')}: {totalPower} W</span>
-                            <span>{t('project_modal.total_energy', 'Energy')}: {totalEnergy} Wh/day</span>
+                        <div className="flex flex-row justify-between items-center px-4 py-2 border-t font-bold text-end">
+                            <span className='text-transparent'>{t('project_modal.total_power', 'Power')}: {formatPowerValue(totalPower)}</span>
+                            <span>{t('project_modal.total_power', 'Power')}: {formatPowerValue(totalPower)}</span>
+                            <span>{t('project_modal.total_energy', 'Energy')}: {formatEnergyValue(totalEnergy)}/day</span>
                         </div>
                     </div>
 
                     <Button
                         onClick={handleRunCalculation}
+                        disabled={isBleLoading || hasBleSettingsErrors || hasApplianceInputErrors}
                         className="w-full mt-auto text-white"
                     >
                         {isBleLoading ? <Spinner className="mr-2" /> : <Calculator className="h-4 w-4 mr-2" />}
@@ -801,7 +841,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
 
                 {/* Right Column: BLE Results */}
                 <div className="flex flex-col p-6 overflow-y-auto">
-                    <h3 className="text-xl font-bold mb-4">{t('project_modal.ble_results', 'System Analysis Results')}</h3>
+                    <h3 className="text-xl font-bold mb-4">{t('project_modal.system_configuration', 'System Configuration')}</h3>
 
                     {isResultsLoading && (
                         <div className="flex items-center justify-center h-full">
@@ -829,25 +869,25 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                         <ScrollArea className="flex-grow">
                             <Accordion type="multiple" defaultValue={['metadata', 'solar_panels', 'inverter', 'battery_bank']} className="w-full">
                                 <AccordionItem value="metadata">
-                                    <AccordionTrigger>Metadata</AccordionTrigger>
+                                    <AccordionTrigger className='font-bold'>Metadata</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label="Peak Sun Hours" value={displayResults.metadata.peak_sun_hours} />
-                                            <DataRow label="Total System Size" value={`${parseFloat(displayResults.metadata.total_system_size_kw).toFixed(2)} kW`} />
-                                            <DataRow label="Peak Surge Power" value={`${displayResults.metadata.peak_surge_power_w} W`} />
+                                            <DataRow label="Total System Size" value={parseFloat(displayResults.metadata.total_system_size_kw)} unit="kW" formatter={(val: number) => val.toFixed(2)} />
+                                            <DataRow label="Peak Surge Power" value={displayResults.metadata.peak_surge_power_w} formatter={formatPowerValue} />
                                             <DataRow label="Autonomy Days" value={displayResults.metadata.autonomy_days} />
-                                            <DataRow label="Total Daily Energy" value={`${displayResults.metadata.total_daily_energy_wh} Wh`} />
-                                            <DataRow label="Total Peak Power" value={`${displayResults.metadata.total_peak_power_w} W`} />
+                                            <DataRow label="Total Daily Energy" value={displayResults.metadata.total_daily_energy_wh} formatter={formatEnergyValue} />
+                                            <DataRow label="Total Peak Power" value={displayResults.metadata.total_peak_power_w} formatter={formatPowerValue} />
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="solar_panels">
-                                    <AccordionTrigger>Solar Panels</AccordionTrigger>
+                                    <AccordionTrigger className='font-bold'>Solar Panels</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                            <DataRow label="Power Rating" value={`${displayResults.solar_panels.power_rating_w} W`} />
+                                            <DataRow label="Power Rating" value={displayResults.solar_panels.power_rating_w} formatter={formatPowerValue} />
                                             <DataRow label="Quantity" value={displayResults.solar_panels.quantity} />
-                                            <DataRow label="Total PV Capacity" value={`${parseFloat(displayResults.solar_panels.total_pv_capacity_kw).toFixed(2)} kW`} />
+                                            <DataRow label="Total PV Capacity" value={parseFloat(displayResults.solar_panels.total_pv_capacity_kw)} unit="kW" formatter={(val: number) => val.toFixed(2)} />
                                             <DataRow label="Panels per String" value={displayResults.solar_panels.panels_per_string} />
                                             <DataRow label="Num. Parallel Strings" value={displayResults.solar_panels.num_parallel_strings} />
                                             <DataRow label="Connection Type" value={displayResults.solar_panels.connection_type} />
@@ -856,12 +896,12 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="inverter">
-                                    <AccordionTrigger>Inverter</AccordionTrigger>
+                                    <AccordionTrigger className='font-bold'>Inverter</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                            <DataRow label="Power Rating" value={`${displayResults.inverter.power_rating_w} W`} />
+                                            <DataRow label="Power Rating" value={displayResults.inverter.power_rating_w} formatter={formatPowerValue} />
                                             <DataRow label="Quantity" value={displayResults.inverter.quantity} />
-                                            <DataRow label="Surge Rating" value={`${displayResults.inverter.surge_rating_w} W`} />
+                                            <DataRow label="Surge Rating" value={displayResults.inverter.surge_rating_w} formatter={formatPowerValue} />
                                             <DataRow label="Efficiency" value={`${displayResults.inverter.efficiency_percent}%`} />
                                             <DataRow label="Output Voltage" value={`${displayResults.inverter.output_voltage_v} V`} />
                                             <DataRow label="Connection Type" value={displayResults.inverter.connection_type} />
@@ -869,7 +909,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="battery_bank">
-                                    <AccordionTrigger>Battery Bank</AccordionTrigger>
+                                    <AccordionTrigger className='font-bold'>Battery Bank</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label="Battery Type" value={displayResults.battery_bank.battery_type} />
@@ -878,7 +918,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                             <DataRow label="Quantity" value={displayResults.battery_bank.quantity} />
                                             <DataRow label="Num in Series" value={displayResults.battery_bank.num_in_series} />
                                             <DataRow label="Num in Parallel" value={displayResults.battery_bank.num_in_parallel} />
-                                            <DataRow label="Total Storage" value={`${parseFloat(displayResults.battery_bank.total_storage_kwh).toFixed(2)} kWh`} />
+                                            <DataRow label="Total Storage" value={parseFloat(displayResults.battery_bank.total_storage_kwh)} unit="kWh" formatter={(val: number) => val.toFixed(2)} />
                                             <DataRow label="Depth of Discharge" value={`${displayResults.battery_bank.depth_of_discharge_percent}%`} />
                                             <DataRow label="System Voltage" value={`${displayResults.battery_bank.system_voltage_v} V`} />
                                             <DataRow label="Connection Type" value={displayResults.battery_bank.connection_type} />
@@ -886,9 +926,6 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     </AccordionContent>
                                 </AccordionItem>
                             </Accordion>
-                            <div className="mt-6">
-                                <BleResultsChart results={displayResults} />
-                            </div>
                             <Button
                                 onClick={handleSaveConfiguration}
                                 disabled={!bleResults?.data}
@@ -943,14 +980,15 @@ const SettingsInput = ({ label, value, onChange, step = 1, min = -Infinity, max 
     );
 };
 
-const DataRow = ({ label, value, unit = '' }: { label: string; value: any; unit?: string }) => {
+const DataRow = ({ label, value, unit = '', formatter }: { label: string; value: any; unit?: string; formatter?: (val: any) => string }) => {
     if (value === null || value === undefined || value === "N/A") {
         return null;
     }
+    const displayValue = formatter ? formatter(value) : String(value);
     return (
         <div className="flex justify-between py-1 border-b border-gray-100">
             <span className="text-sm text-gray-500">{label}</span>
-            <span className="text-sm font-semibold text-gray-800">{String(value)} {unit}</span>
+            <span className="text-sm font-semibold text-gray-800">{displayValue} {unit}</span>
         </div>
     );
 };

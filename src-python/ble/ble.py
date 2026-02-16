@@ -171,10 +171,10 @@ class BLE:
 
     def _calculate_max_surge_power(self):
         surge_values = (
-            app.surge_power * app.qty
+            app.wattage * app.qty
             for app in self.appliances
             if hasattr(app, 'type') and app.type == "heavy"
-            if hasattr(app, 'surge_power') and app.surge_power is not None
+            if hasattr(app, 'wattage') and app.wattage is not None
         )
 
         total_surge = sum(surge_values)
@@ -203,7 +203,7 @@ class BLE:
         elif e_daily <= 1500: self.system_voltage = 12
         else: self.system_voltage = 24
 
-        dod = self.settings['battery_dod'][self.settings['battery_type']]
+        dod = self.settings['battery_dod'].get(self.settings['battery_type'], 0.6)
         self.battery_capacity_ah = (e_daily * n_autonomy) / (self.system_voltage * dod * eta_batt * eta_inv)
 
         c_battery_rated = self.settings['battery_rated_capacity_ah']
@@ -293,7 +293,10 @@ class BLE:
         dod_percent = self.settings.get('battery_dod', {}).get(battery_type, 0) * 100
         tilt_angle = self.opta
         total_storage_kwh = "N/A"
-        total_pv_capacity_kw = convert_units(self.num_panels*panel_power, 'w_to_kw')
+        if isinstance(self.num_panels, (int, float)) and isinstance(panel_power, (int, float)):
+            total_pv_capacity_kw = convert_units(self.num_panels * panel_power, 'w_to_kw')
+        else:
+                total_pv_capacity_kw = "N/A"
         if isinstance(self.battery_capacity_ah, (int, float)) and isinstance(self.system_voltage, (int, float)):
             total_storage_kwh = convert_units(self.battery_capacity_ah * self.system_voltage, 'w_to_kw')
 

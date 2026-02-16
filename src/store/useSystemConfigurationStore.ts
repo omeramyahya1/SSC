@@ -40,8 +40,12 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
             // The backend now returns the full updated Project object
             const { data: updatedProject } = await api.post<Project>(`${resource}/project/${projectUuid}`, payload);
             
+            if (!updatedProject.system_config) {
+                throw new Error("API did not return system_config in project update response");
+            }
+            
             // Extract the system_config from the returned project
-            const systemConfigData: SystemConfiguration = updatedProject.system_config as SystemConfiguration;
+            const systemConfigData = updatedProject.system_config;
 
             set({ systemConfiguration: systemConfigData, isLoading: false });
             
