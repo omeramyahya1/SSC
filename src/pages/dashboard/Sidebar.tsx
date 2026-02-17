@@ -95,7 +95,7 @@ export function Sidebar() {
                         className="w-12 h-12 bg-white/90 p-2 rounded-base backdrop-blur-lg" />
                     {showSidebarContent &&
                         <Button variant="outline" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className="hover:bg-gray-700 group">
-                            <img src={`/eva-icons (2)/outline/${isCollapsed ? 'chevron-right.png' : 'chevron-left.png'}`} alt="collapse" className="w-full group-hover:invert" />
+                            <img src={`/eva-icons (2)/outline/${isCollapsed ? 'chevron-right.png' : 'chevron-left.png'}`} alt={t('common.collapse_alt', 'collapse')} className="w-full group-hover:invert" />
                         </Button>
                     }
                 </div>
@@ -117,7 +117,7 @@ export function Sidebar() {
                         <Popover>
                             <PopoverTrigger asChild>
                                 <div onClick={() => setSelectedItem('subscription')}>
-                                    <SidebarItem icon="/eva-icons (2)/outline/credit-card.png" text={t('dashboard.subscription', 'My Plan / Subscription')} isSelected={selectedItem === 'subscription'} />
+                                    <SidebarItem icon="/eva-icons (2)/outline/credit-card.png" text={t('dashboard.subscription', 'My Plan')} isSelected={selectedItem === 'subscription'} />
                                 </div>
                             </PopoverTrigger>
                             <SubscriptionDetails />
@@ -137,7 +137,7 @@ export function Sidebar() {
                 {/* Footer */}
                 <div className="p-4">
                     <Button variant="ghost" className="w-full justify-start gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm" onClick={handleSync}>
-                        {isSyncing ? <Spinner className="w-6 h-6" /> : <img src="/eva-icons (2)/outline/sync.png" alt="synced" className="w-6 h-6 opacity-40" />}
+                        {isSyncing ? <Spinner className="w-6 h-6" /> : <img src="/eva-icons (2)/outline/sync.png" alt={t('common.synced_alt', 'synced')} className="w-6 h-6 opacity-40" />}
                          {showSidebarContent && <span className="truncate">{isSyncing ? t('dashboard.syncing', 'Syncing...') : t('dashboard.synced', 'Synced')}</span>}
                     </Button>
                 </div>

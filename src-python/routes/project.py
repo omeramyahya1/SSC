@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import joinedload
 from utils import get_db
 from models import Project, Customer, User, Authentication
-from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate
+from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate, ProjectStatusUpdate
 from serializer import model_to_dict
 
 project_bp = Blueprint('project_bp', __name__, url_prefix='/projects')
@@ -210,7 +210,7 @@ def patch_project_status(project_uuid):
             return jsonify({"errors": e.errors()}), 400
 
         # 2. Fetch the project
-        project = db.query(Project).options(joinedload(Project.customer)).filter(Project.uuid == project_uuid).first()
+        project = db.query(Project).filter(Project.uuid == project_uuid).first()
         if not project:
             return jsonify({"error": "Project not found"}), 404
 
@@ -234,5 +234,5 @@ def patch_project_status(project_uuid):
             project_dict['customer'] = model_to_dict(project.customer)
         else:
             project_dict['customer'] = None
-        
+
         return jsonify(project_dict), 200

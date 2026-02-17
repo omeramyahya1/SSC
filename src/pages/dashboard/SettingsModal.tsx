@@ -41,11 +41,11 @@ export function SettingsModal() {
                     <Label htmlFor="language-select">{t('settings.language', 'Language')}</Label>
                     <Select onValueChange={handleLanguageChange} defaultValue={i18n.language}>
                         <SelectTrigger id="language-select" className="w-[240px]">
-                            <SelectValue placeholder="Select language" />
+                            <SelectValue placeholder={t('settings.select_language_placeholder', 'Select language')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="en">English</SelectItem>
-                            <SelectItem value="ar">العربية (Arabic)</SelectItem>
+                            <SelectItem value="en">{t('registration.language.en', 'English')}</SelectItem>
+                            <SelectItem value="ar">{t('registration.language.ar', 'العربية (Arabic)')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

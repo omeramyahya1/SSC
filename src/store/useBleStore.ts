@@ -35,9 +35,11 @@ export interface BleCalculationResults {
             power_rating_w: number;
             quantity: number;
             surge_rating_w: number;
+            recommended_rating: number;
             efficiency_percent: number;
             output_voltage_v: number;
             connection_type: string;
+
         };
         battery_bank: {
             brand: string;
@@ -80,7 +82,7 @@ export const useBleStore = create<BleStore>((set) => ({
         try {
             const payload = { settings };
             const { data } = await api.post<BleCalculationResults>(`/ble/calculate/${projectId}`, payload);
-            
+
             if (data.status === 'error') {
                 throw new Error(data.message || 'BLE calculation failed.');
             }

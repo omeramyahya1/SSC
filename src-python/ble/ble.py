@@ -323,9 +323,10 @@ class BLE:
                 },
                 "inverter": {
                     "brand": "N/A", "type": "Hybrid", "phase_type": "Single Phase",
-                    "power_rating_w": self.inverter_final_capacity,
+                    "power_rating_w": self.settings.get("inverter_rated_power"),
                     "quantity": self.num_inverters,
-                    "surge_rating_w": self.inverter_surge_capability,
+                    "surge_rating_w": self.max_surge_power,
+                    "recommended_rating": self.inverter_final_capacity,
                     "efficiency_percent": inverter_eff,
                     "output_voltage_v": self.system_voltage,
                     "connection_type": self.inverter_connection_type
