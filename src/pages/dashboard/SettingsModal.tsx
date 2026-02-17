@@ -32,7 +32,7 @@ export function SettingsModal() {
     };
 
     return (
-        <DialogContent className="w-[75vw] max-w-[75vw] h-[75vh] bg-white rounded-lg shadow-2xl backdrop-blur-sm flex flex-col">
+        <DialogContent className="w-[75vw] max-w-[75vw] h-[75vh] bg-white rounded-lg shadow-2xl backdrop-blur-sm flex flex-col" dir={i18n.dir()}>
             <DialogHeader>
                 <DialogTitle>{t('dashboard.settings', 'Settings')}</DialogTitle>
             </DialogHeader>
@@ -43,14 +43,14 @@ export function SettingsModal() {
                         <SelectTrigger id="language-select" className="w-[240px]">
                             <SelectValue placeholder={t('settings.select_language_placeholder', 'Select language')} />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent dir={i18n.dir()}>
                             <SelectItem value="en">{t('registration.language.en', 'English')}</SelectItem>
                             <SelectItem value="ar">{t('registration.language.ar', 'العربية (Arabic)')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
                 
-                <div className="absolute bottom-6 right-6">
+                <div className="absolute bottom-6 end-6">
                     <Button onClick={handleLogout} variant="destructive">
                         {t('dashboard.logout', 'Logout')}
                     </Button>

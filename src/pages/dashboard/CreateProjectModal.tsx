@@ -20,7 +20,7 @@ interface CreateProjectModalProps {
 }
 
 export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModalProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
@@ -43,7 +43,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModa
     const isFormValid = customerName.trim() !== '' && locationState.trim() !== '' && locationCity.trim() !== '';
 
     return (
-        <DialogContent className="sm:max-w-[525px] bg-white">
+        <DialogContent className="sm:max-w-[525px] bg-white" dir={i18n.dir()}>
             <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">{t('dashboard.create_project_title', 'Create a New Project')}</DialogTitle>
                 <DialogDescription>
@@ -77,7 +77,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModa
                             {t('dashboard.state_label', 'State')} <span className="text-red-500">*</span>
                         </Label>
                         <SearchableSelect 
-                            items={states}
+                            items={states.map(s => ({ value: s.value, label: s.label }))}
                             value={locationState}
                             onValueChange={(value) => {
                                 setLocationState(value);
@@ -91,7 +91,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModa
                             {t('dashboard.city_label', 'City')} <span className="text-red-500">*</span>
                         </Label>
                         <SearchableSelect 
-                            items={cities}
+                            items={cities.map(c => ({ value: c.value, label: c.label }))}
                             value={locationCity}
                             onValueChange={setLocationCity}
                             placeholder={t('dashboard.select_city_ph', 'Select a city...')}
@@ -100,7 +100,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModa
                     </div>
                 </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className='flex sm:justify-end'>
                 <Button onClick={() => onOpenChange(false)} variant="outline">{t('dashboard.cancel', 'Cancel')}</Button>
                 <Button onClick={handleCreate} disabled={!isFormValid} className="text-white">{t('dashboard.create_button', 'Create Project')}</Button>
             </DialogFooter>

@@ -12,16 +12,19 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-const SidebarItem = ({ icon, text, onClick, children, isSelected }: { icon: string, text: string, onClick?: () => void, children?: React.ReactNode, isSelected?: boolean }) => (
-    <Button variant="ghost" className={`w-full justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm ${isSelected ? 'bg-white shadow-sm' : ''}`} onClick={onClick}>
-        <img src={icon} alt="" className="w-6 h-6 opacity-40" />
-        <span className="truncate font-bold">{text}</span>
-        {children}
-    </Button>
-);
+const SidebarItem = ({ icon, text, onClick, children, isSelected }: { icon: string, text: string, onClick?: () => void, children?: React.ReactNode, isSelected?: boolean }) => {
+    const { i18n } = useTranslation();
+    return (
+        <Button variant="ghost" dir={i18n.dir()} className={`w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm ${isSelected ? 'bg-white shadow-sm' : ''} ${i18n.dir() === 'rtl' ? 'flex-row-reverse' : ''}`} onClick={onClick}>
+            <img src={icon} alt="" className="w-6 h-6 opacity-40 group-hover:opacity-100" />
+            <span className="truncate font-bold">{text}</span>
+            {children}
+        </Button>
+    )
+};
 
 const SubscriptionDetails = () => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
     const accountType = currentUser?.account_type;
     const userRole = currentUser?.role;
@@ -31,7 +34,7 @@ const SubscriptionDetails = () => {
     }
 
     return (
-        <PopoverContent className="w-80 bg-white">
+        <PopoverContent className="w-80 bg-white" dir={i18n.dir()}>
             <div className="grid gap-4">
                 <div className="space-y-2">
                     <h4 className="font-medium leading-none">{t('dashboard.subscription', 'My Plan')}</h4>
@@ -68,7 +71,7 @@ const SubscriptionDetails = () => {
 };
 
 export function Sidebar() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isHovering, setIsHovering] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -87,6 +90,7 @@ export function Sidebar() {
                 className={`flex flex-col bg-primary-gray transition-all duration-300 ease-in-out ${isCollapsed && !isHovering ? 'w-20' : 'w-64'}`}
                 onMouseEnter={() => { if(isCollapsed) setIsHovering(true) }}
                 onMouseLeave={() => { if(isCollapsed) setIsHovering(false) }}
+                dir={i18n.dir()}
             >
                 {/* Header */}
                 <div className={`flex items-center p-4 h-20 ${showSidebarContent ? 'justify-between' : 'justify-center'}`}>
@@ -95,7 +99,7 @@ export function Sidebar() {
                         className="w-12 h-12 bg-white/90 p-2 rounded-base backdrop-blur-lg" />
                     {showSidebarContent &&
                         <Button variant="outline" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className="hover:bg-gray-700 group">
-                            <img src={`/eva-icons (2)/outline/${isCollapsed ? 'chevron-right.png' : 'chevron-left.png'}`} alt={t('common.collapse_alt', 'collapse')} className="w-full group-hover:invert" />
+                            <img src={`/eva-icons (2)/outline/${i18n.dir() === 'rtl' ? 'arrow-ios-back.png' : 'arrow-ios-forward.png'}`} alt={t('common.collapse_alt', 'collapse')} className="w-full group-hover:invert" />
                         </Button>
                     }
                 </div>
@@ -136,8 +140,8 @@ export function Sidebar() {
 
                 {/* Footer */}
                 <div className="p-4">
-                    <Button variant="ghost" className="w-full justify-start gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm" onClick={handleSync}>
-                        {isSyncing ? <Spinner className="w-6 h-6" /> : <img src="/eva-icons (2)/outline/sync.png" alt={t('common.synced_alt', 'synced')} className="w-6 h-6 opacity-40" />}
+                    <Button variant="ghost" className="w-full justify-start gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group" onClick={handleSync}>
+                        {isSyncing ? <Spinner className="w-6 h-6" /> : <img src="/eva-icons (2)/outline/sync.png" alt={t('common.synced_alt', 'synced')} className="w-6 h-6 opacity-40 group-hover:opacity-100" />}
                          {showSidebarContent && <span className="truncate">{isSyncing ? t('dashboard.syncing', 'Syncing...') : t('dashboard.synced', 'Synced')}</span>}
                     </Button>
                 </div>

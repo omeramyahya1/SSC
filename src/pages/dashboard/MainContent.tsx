@@ -14,7 +14,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export function MainContent() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
     const isExpired = currentUser?.status === 'expired';
 
@@ -79,7 +79,8 @@ export function MainContent() {
                             disabled={isExpired}
                             className='text-white hover:shadow-lg rounded-md'
                             >
-                            {t('dashboard.create_project', 'Create New Project')}
+                            <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert ltr:mr-2 rtl:ml-2" />
+                            <span>{t('dashboard.create_project', 'Create New Project')}</span>
                         </Button>
                     </div>
                 </Empty>
@@ -95,21 +96,24 @@ export function MainContent() {
 
     return (
         <>
-            <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto">
+            <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
                 <SubscriptionBanner />
                 <div className="p-6">
                     {/* Toolbar */}
                     <div className="flex items-center justify-between mb-6">
                         <h1 className="text-2xl font-bold">{t('dashboard.projects', 'Projects')}</h1>
                         <div className="flex items-center gap-2">
-                            <Input placeholder={t('dashboard.search', 'Search...')} className="w-64 bg-white" />
+                             <div className="relative">
+                                <img src="/eva-icons (2)/outline/search.png" alt="search" className="w-5 h-5 absolute ltr:left-3 rtl:right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input placeholder={t('dashboard.search', 'Search...')} className="w-64 bg-white ltr:pl-10 rtl:pr-10" />
+                            </div>
                             <Button
                                 onClick={() => setIsCreateModalOpen(true)}
                                 disabled={isExpired}
                                 className="text-white hover:shadow-lg"
                                 >
-                                <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />
-                                {t('dashboard.create_project', 'Create New Project')}
+                                <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert ltr:mr-2 rtl:ml-2" />
+                                <span>{t('dashboard.create_project', 'Create New Project')}</span>
                             </Button>
                         </div>
                     </div>

@@ -23,11 +23,12 @@ import { useApplianceStore, ProjectAppliance } from '@/store/useApplianceStore';
 import { useBleStore } from '@/store/useBleStore';
 import { Project } from "@/store/useProjectStore";
 import { cn } from "@/lib/utils";
-import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle } from 'lucide-react';
+import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ChevronDown } from 'lucide-react';
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
 import { Toaster, toast } from 'react-hot-toast';
+import i18n from '@/i18';
 
 // --- Helper Components ---
 
@@ -37,14 +38,36 @@ interface ProjectInfoProps {
 }
 
 function ProjectInfo({ project, onUpdate }: ProjectInfoProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { updateProject } = useProjectStore();
-    const { states, getCitiesByState } = useLocationData();
+    const { states, getCitiesByState, getClimateDataForCity } = useLocationData();
 
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState<ProjectUpdatePayload>({});
-    const [cities, setCities] = useState<string[]>([]);
+    const [cities, setCities] = useState<{ value: string; label: string; }[]>([]);
     const [selectedState, setSelectedState] = useState('');
+
+    const formatProjectLocation = (location: string | null) => {
+        if (!location) return { city: 'N/A', state: 'N/A', full: 'N/A' };
+        const [city, state] = location.split(',').map(s => s.trim());
+        const locationData = getClimateDataForCity(city, state);
+
+        if (i18n.language === 'ar' && locationData) {
+            return {
+                city: locationData.city_ar,
+                state: locationData.state_ar,
+                full: `${locationData.city_ar}, ${locationData.state_ar}`
+            };
+        }
+
+        const capitalizedCity = city.charAt(0).toUpperCase() + city.slice(1);
+        const capitalizedState = state.charAt(0).toUpperCase() + state.slice(1);
+        return {
+            city: capitalizedCity,
+            state: capitalizedState,
+            full: `${capitalizedCity}, ${capitalizedState}`
+        };
+    };
 
     useEffect(() => {
         if (project) {
@@ -67,7 +90,7 @@ function ProjectInfo({ project, onUpdate }: ProjectInfoProps) {
         const citiesForState = getCitiesByState(state);
         setCities(citiesForState);
         const currentCity = editData.project_location?.split(', ')[0] || '';
-        if (!citiesForState.includes(currentCity)) {
+        if (!citiesForState.find(c => c.value === currentCity)) {
              handleFieldChange('project_location', `, ${state}`);
         } else {
              handleFieldChange('project_location', `${currentCity}, ${state}`);
@@ -109,9 +132,11 @@ function ProjectInfo({ project, onUpdate }: ProjectInfoProps) {
         }
     };
 
+    const displayLocation = formatProjectLocation(String(project.project_location));
+
     return (
         <div className="relative border rounded-lg p-4">
-            <div className="absolute top-2 right-2">
+            <div className="absolute top-2 end-2">
                 {isEditing ? (
                     <div className="flex gap-2">
                         <Button variant="ghost" size="icon" onClick={handleSave} className="h-7 w-7 text-green-600 hover:text-green-700">
@@ -143,9 +168,9 @@ function ProjectInfo({ project, onUpdate }: ProjectInfoProps) {
                  <div>
                     <Label className="text-xs text-gray-500">{t('dashboard.state_label', 'State')}</Label>
                     {isEditing ? (
-                        <SearchableSelect items={states} value={selectedState} onValueChange={handleStateChange} placeholder="Select state..."/>
+                        <SearchableSelect items={states.map(s => ({label: s.label, value: s.value}))} value={selectedState} onValueChange={handleStateChange} placeholder={t('dashboard.select_state_ph', 'Select a state...')}/>
                     ) : (
-                         <p className="text-base font-semibold">{project.project_location?.split(', ')[1] || 'N/A'}</p>
+                         <p className="text-base font-semibold">{displayLocation.state}</p>
                     )}
                 </div>
 
@@ -163,9 +188,9 @@ function ProjectInfo({ project, onUpdate }: ProjectInfoProps) {
                  <div>
                     <Label className="text-xs text-gray-500">{t('dashboard.city_label', 'City')}</Label>
                      {isEditing ? (
-                        <SearchableSelect items={cities}  value={editData.project_location?.split(', ')[0] || ''} onValueChange={handleCityChange} placeholder="Select city..." disabled={!selectedState} />
+                        <SearchableSelect items={cities.map(c => ({label: c.label, value: c.value}))}  value={editData.project_location?.split(', ')[0] || ''} onValueChange={handleCityChange} placeholder={t('dashboard.select_city_ph', 'Select a city...')} disabled={!selectedState} />
                     ) : (
-                        <p className="text-base font-semibold">{project.project_location?.split(', ')[0] || 'N/A'}</p>
+                        <p className="text-base font-semibold">{displayLocation.city}</p>
                     )}
                 </div>
 
@@ -203,7 +228,7 @@ const calculateApplianceMetrics = (appliance: ProjectAppliance) => {
 
 // --- Main Component ---
 export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModalProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [project, setProject] = useState<Project | null>(projectProp);
     const { updateProjectStatus } = useProjectStore();
 
@@ -355,16 +380,16 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
     }, []); // Run only once on mount
 
     useEffect(() => {
-        if (project?.uuid) {
-            clearResults();
-            clearSystemConfiguration(); // Clear previous config when project changes
-            fetchAppliancesByProject(project.uuid);
-            // Fetch saved system configuration if available
-            if (project.system_config) {
-                fetchSystemConfiguration(project.uuid);
+        if (projectProp?.uuid) {
+            fetchAppliancesByProject(projectProp.uuid);
+            if (projectProp.system_config) {
+                fetchSystemConfiguration(projectProp.uuid);
+            } else {
+                clearSystemConfiguration();
             }
+            clearResults();
         }
-    }, [project?.uuid, clearResults, fetchAppliancesByProject, fetchSystemConfiguration, clearSystemConfiguration, project?.system_config]);
+    }, [projectProp, fetchAppliancesByProject, fetchSystemConfiguration, clearSystemConfiguration, clearResults]);
 
 
     const handleAddCustomAppliance = async () => {
@@ -505,10 +530,10 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
     const resultsError = bleError || systemConfigError;
 
     return (
-        <DialogContent className="max-w-[90vw] h-[90vh] flex flex-col p-0 bg-white">
+        <DialogContent className="max-w-[90vw] h-[90vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
             <Toaster />
             <DialogHeader className="p-4 border-b">
-                <DialogTitle className="text-2xl">{project.customer.full_name}'s Project</DialogTitle>
+                <DialogTitle className="text-2xl">{project.customer.full_name}</DialogTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Select value={project.status} onValueChange={(value: Project['status']) => handleStatusChange(value)}>
                         <SelectTrigger className={cn(`w-[150px] border px-2 py-1 rounded-full text-xs font-semibold flex justify-center items-center gap-1`, statusColors[project.status] || 'bg-gray-100', project.is_pending && "animate-pulse")}>
@@ -528,7 +553,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
 
             <div className="flex-grow grid grid-cols-2 overflow-hidden">
                 {/* Left Column: Configuration */}
-                <div className="flex flex-col p-6 overflow-y-auto border-r gap-6">
+                <div className="flex flex-col p-6 overflow-y-auto border-e gap-6">
                     {/* Customer Info & Location */}
                     <div>
                         <h3 className="text-xl font-bold mb-4">{t('project_modal.customer_info_location', 'Customer Info & Location')}</h3>
@@ -539,7 +564,9 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                     <div>
                         <Accordion type="single" collapsible defaultValue="ble-settings">
                             <AccordionItem value="ble-settings">
-                                <AccordionTrigger className="text-xl font-bold">{t('project_modal.design_parameters', 'System Design Parameters')}</AccordionTrigger>
+                                <AccordionTrigger className="text-xl font-bold flex flex-row justify-between w-full">
+                                    {t('project_modal.design_parameters', 'System Design Parameters')}
+                                </AccordionTrigger>
                                 <AccordionContent>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 pt-4">
                                         {/* --- Inverter --- */}
@@ -588,6 +615,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                             <div>
                                                 <Label className="text-xs font-medium text-gray-600">{t('project_modal.battery_type_label', 'Battery Type')}</Label>
                                                 <Select
+                                                    dir={i18n.dir()}
                                                     value={bleSettings.battery_type}
                                                     onValueChange={(v: 'liquid' | 'lithium' | 'dry' | 'other') => {
                                                         const newDod = v === 'lithium' ? 0.9 : 0.6;
@@ -700,11 +728,12 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                                 step={1} min={1}
                                                 error={bleSettingsErrors.reference_irradiance}
                                             />
-                                            <div className="flex items-center space-x-2">
+                                            <div className={cn("flex items-center", i18n.dir() === 'rtl' ? 'space-x-reverse space-x-2' : 'space-x-2')}>
                                                 <Switch
                                                     id="calculate-temp-derating"
                                                     checked={bleSettings.calculate_temp_derating}
                                                     onCheckedChange={checked => handleBleSettingChange('calculate_temp_derating', checked)}
+                                                    dir={i18n.dir()}
                                                 />
                                                 <Label htmlFor="calculate-temp-derating" className="text-xs font-medium text-gray-600">{t('project_modal.calculate_temp_derating_label', 'Calculate Temp Derating')}</Label>
                                             </div>
@@ -716,7 +745,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                     </div>
 
                     <div>
-                        <h3 className="text-xl font-bold mb-4">{t('project_modal.appliance_calculator', 'Appliance Calculator')}</h3>
+                        <h3 className="text-xl font-bold mb-4">{t('project_modal.appliances_breakdown', 'Appliances Breakdown')}</h3>
 
                         {/* Custom Appliance Input Form */}
                         <div className="grid grid-cols-12 gap-2 p-3 mb-4 border rounded-lg bg-gray-50">
@@ -724,7 +753,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 <Label htmlFor='appliance-name' className='text-xs text-gray-500 font-semibold'>{t('project_modal.appliance_name_label', 'Appliance Name')}</Label>
                                 <Input
                                     id='appliance-name'
-                                    placeholder={t('project_modal.add_appliance_name', 'e.g., Refrigerator')}
+                                    placeholder={t('project_modal.add_appliance_name_ph', 'e.g., Refrigerator')}
                                     value={customApplianceName}
                                     onChange={(e) => setCustomApplianceName(e.target.value)}
                                     className="bg-white"
@@ -735,7 +764,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 <Input
                                     id='appliance-wattage'
                                     type="number"
-                                    placeholder={t('project_modal.add_appliance_wattage', 'e.g., 150')}
+                                    placeholder={t('project_modal.add_appliance_wattage_ph', 'e.g., 150')}
                                     value={customApplianceWattage}
                                     onChange={(e) => setCustomApplianceWattage(Number(e.target.value))}
                                     className="bg-white"
@@ -747,7 +776,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     disabled={!customApplianceName || !customApplianceWattage || customApplianceWattage <= 0}
                                     className="w-full font-bold text-white"
                                 >
-                                    <PlusIcon className="h-4 w-4 mr-2" /> {t('project_modal.add', 'Add')}
+                                    <PlusIcon className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} /> {t('project_modal.add', 'Add')}
                                 </Button>
                             </div>
                         </div>
@@ -759,12 +788,12 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[150px]">{t('project_modal.appliance', 'Appliance')}</TableHead>
-                                        <TableHead className="w-[100px] text-center">{t('project_modal.wattage', 'Wattage (W)')}</TableHead>
-                                        <TableHead className="w-[80px] text-center">{t('project_modal.qty', 'Qty')}</TableHead>
-                                        <TableHead className="w-[100px] text-center">{t('project_modal.use_hours_night', 'Night/Battery Hrs')}</TableHead>
-                                        <TableHead className="w-[100px] text-center">{t('project_modal.power', 'Power (W)')}</TableHead>
-                                        <TableHead className="w-[120px] text-center">{t('project_modal.energy', 'Energy (Wh/day)')}</TableHead>
+                                        <TableHead className="w-[150px] font-bold">{t('project_modal.appliance', 'Appliance')}</TableHead>
+                                        <TableHead className="w-[100px] text-center font-bold">{t('project_modal.wattage', 'Wattage (W)')}</TableHead>
+                                        <TableHead className="w-[80px] text-center font-bold">{t('project_modal.qty', 'Qty')}</TableHead>
+                                        <TableHead className="w-[100px] text-center font-bold">{t('project_modal.use_hours_night', 'Night/Battery Hrs')}</TableHead>
+                                        <TableHead className="w-[100px] text-center font-bold">{t('project_modal.power', 'Power (W)')}</TableHead>
+                                        <TableHead className="w-[120px] text-center font-bold">{t('project_modal.energy', 'Energy (Wh/day)')}</TableHead>
                                         <TableHead className="w-[50px]"></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -865,7 +894,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                         <ScrollArea className="flex-grow">
                             <Accordion type="multiple" defaultValue={['metadata', 'solar_panels', 'inverter', 'battery_bank']} className="w-full">
                                 <AccordionItem value="metadata">
-                                    <AccordionTrigger className='font-bold'>{t('project_modal.metadata_accordion_title', 'Metadata')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.metadata_accordion_title', 'Metadata')}</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.metadata.peak_sun_hours', 'Peak Sun Hours')} value={displayResults.metadata.peak_sun_hours} />
@@ -878,7 +907,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="solar_panels">
-                                    <AccordionTrigger className='font-bold'>{t('project_modal.solar_panels', 'Solar Panels')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.solar_panels', 'Solar Panels')}</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.solar_panels.power_rating', 'Power Rating')} value={displayResults.solar_panels.power_rating_w} formatter={formatPowerValue} />
@@ -892,7 +921,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="inverter">
-                                    <AccordionTrigger className='font-bold'>{t('project_modal.inverter', 'Inverter')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.inverter', 'Inverter')}</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.inverter.power_rating', 'Power Rating')} value={displayResults.inverter.power_rating_w} formatter={formatPowerValue} />
@@ -906,7 +935,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="battery_bank">
-                                    <AccordionTrigger className='font-bold'>{t('project_modal.battery_bank', 'Battery Bank')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.battery_bank', 'Battery Bank')}</AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.battery_bank.battery_type', 'Battery Type')} value={displayResults.battery_bank.battery_type} />
@@ -928,7 +957,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 disabled={!bleResults?.data}
                                 className="w-full mt-4 text-white"
                             >
-                                <Save className="h-4 w-4 mr-2" />
+                                <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} />
                                 {t('project_modal.save_config', 'Save Configuration')}
                             </Button>
                         </ScrollArea>
@@ -949,6 +978,7 @@ const SettingsInput = ({ label, value, onChange, step = 1, min = -Infinity, max 
     error?: string | null
 }) => {
     const inputType = typeof value === 'boolean' ? 'checkbox' : 'number';
+    const { i18n } = useTranslation();
 
     return (
         <div className="flex flex-col">
@@ -971,6 +1001,7 @@ const SettingsInput = ({ label, value, onChange, step = 1, min = -Infinity, max 
                     checked={value as boolean}
                     onCheckedChange={onChange}
                     className="mt-2"
+                    dir={i18n.dir()}
                 />
             )}
         </div>
@@ -983,9 +1014,20 @@ const DataRow = ({ label, value, unit = '', formatter }: { label: string; value:
     }
     const displayValue = formatter ? formatter(value) : String(value);
     return (
-        <div className="flex justify-between py-1 border-b border-gray-100">
-            <span className="text-sm text-gray-500">{label}</span>
-            <span className="text-sm font-semibold text-gray-800">{displayValue} {unit}</span>
+        <div className="py-1 border-b border-gray-100">
+            { i18n.dir() == 'ltr' ? (
+                <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">{label}</span>
+                    <span className="text-sm font-semibold text-gray-800">{displayValue} {unit}</span>
+                </div>
+            ) : (
+                <div className="flex justify-between">
+                    <span className="text-sm font-semibold text-gray-800">{displayValue} {unit}</span>
+                    <span className="text-sm text-gray-500">{label}</span>
+                </div>
+
+            ) }
+
         </div>
     );
 };

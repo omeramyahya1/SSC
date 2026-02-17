@@ -10,6 +10,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Project } from "@/store/useProjectStore";
 import { cn } from "@/lib/utils";
+import { useLocationData } from "@/hooks/useLocationData";
 
 interface ProjectCardProps {
     project: Project;
@@ -24,7 +25,22 @@ const statusColors: { [key: string]: string } = {
 };
 
 export function ProjectCard({ project, onOpen }: ProjectCardProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const { getClimateDataForCity } = useLocationData();
+
+    const formatProjectLocation = (location: string | null) => {
+        if (!location) return '';
+        const [city, state] = location.split(',').map(s => s.trim());
+        const locationData = getClimateDataForCity(city, state);
+
+        if (i18n.language === 'ar' && locationData) {
+            return `${locationData.city_ar}, ${locationData.state_ar}`;
+        }
+        
+        return [city, state].filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
+    };
+
+    const displayLocation = formatProjectLocation(project.project_location);
 
     return (
         <Card 
@@ -39,10 +55,10 @@ export function ProjectCard({ project, onOpen }: ProjectCardProps) {
                     <CardTitle className="text-lg font-bold truncate" title={project.customer.full_name}>{project.customer.full_name}</CardTitle>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground pt-1 truncate">
                         <img src="/eva-icons (2)/outline/pin.png" alt="location" className="w-4 h-4 opacity-70 flex-shrink-0"/>
-                        <p className="truncate" title={project.project_location || ''}>{project.project_location}</p>
+                        <p className="truncate" title={displayLocation}>{displayLocation}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0 ltr:right-0 rtl:left-0">
                     <Badge style={{ backgroundColor: '#E2E2E2', color: '#1F1F1F' }} className="h-6">
                         #{project.project_id > 0 ? project.project_id : '...'}
                     </Badge>
