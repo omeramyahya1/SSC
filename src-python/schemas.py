@@ -1,9 +1,15 @@
 from pydantic import BaseModel
-from typing import Optional, Any
-from datetime import datetime, date
+from typing import Optional, Any, List
+from datetime import datetime
+
+class ProjectWithCustomerCreate(BaseModel):
+    customer_name: str
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
+    project_location: str
 
 class ApplianceCreate(BaseModel):
-    project_id: Optional[int] = None
+    project_uuid: Optional[str] = None
     appliance_name: Optional[str] = None
     type: Optional[str] = None
     qty: Optional[int] = None
@@ -13,6 +19,10 @@ class ApplianceCreate(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
+
+class ApplianceBatchCreate(BaseModel):
+    project_id: int
+    appliances: List[ApplianceCreate]
 
 class ApplianceUpdate(BaseModel):
     project_id: Optional[int] = None
@@ -150,6 +160,15 @@ class PaymentUpdate(BaseModel):
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
 
+
+class ProjectDetailsUpdate(BaseModel):
+    project_location: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+
+class ProjectStatusUpdate(BaseModel):
+    status: str
 
 class ProjectCreate(BaseModel):
     customer_id: Optional[int] = None

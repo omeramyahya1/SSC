@@ -11,16 +11,19 @@ from models import ApplicationSettings
 
 # --- Helper Functions ---
 
-def get_geo_data(location: str="Khartoum"): 
+def get_geo_data(location: str="Khartoum"):
     """Load geo data from CSV and find the matching location."""
     try:
+        if not location or not location.strip():
+           location = "Khartoum"
         # Construct the absolute path for the CSV file
         base_dir = os.path.dirname(os.path.abspath(__file__))
         csv_path = os.path.join(base_dir, 'dataset', 'geo_data.csv')
         geo_df = pd.read_csv(csv_path)
-        
+
         # Search for the location (case-insensitive)
-        location_data = geo_df[geo_df['city'].str.lower() == location.lower()]
+        city = location.split(',')[0]
+        location_data = geo_df[geo_df['city'].str.lower() == city.strip().lower()]
         if not location_data.empty:
             return location_data.iloc[0]
         return None
@@ -46,13 +49,14 @@ class BLE:
     """
     Business Logic Engine for solar system calculations.
     """
-    def __init__(self, project_data, geo_data, db_session):
+    def __init__(self, project_data, geo_data, db_session, override_settings=None):
         self.project_data = project_data
         self.geo_data = geo_data
         self.db_session = db_session
+        self.override_settings = override_settings or {}
         self.appliances = self.project_data.appliances
 
-        
+
         # Input parameters from geo_data
         self.peak_sun_hours = self.geo_data['gti']
         self.pvout = self.geo_data['pvout']
@@ -85,18 +89,18 @@ class BLE:
         self.panels_per_string = "N/A"
         self.num_parallel_strings = "N/A"
         self.solar_panel_connection_type = "N/A"
-        
+
         # Settings with defaults
         self.settings = {}
 
     def _fetch_settings(self):
-        """Fetch settings from the database and set defaults."""
-        user_id = self.project_data.user_id
-        app_settings = self.db_session.query(ApplicationSettings).filter_by(user_id=user_id).first()
-        
+        """Fetch settings from the database, set defaults, and apply overrides."""
+        user_uuid = self.project_data.user_uuid
+        app_settings = self.db_session.query(ApplicationSettings).filter_by(user_uuid=user_uuid).first()
+
         if app_settings and app_settings.other_settings:
             self.settings = app_settings.other_settings
-            
+
         # Sizing defaults
         self.settings.setdefault('inverter_efficiency', 0.95)
         self.settings.setdefault('safety_factor', 1.25)
@@ -109,7 +113,7 @@ class BLE:
         self.settings.setdefault('stc_temp', 25)
         self.settings.setdefault('reference_irradiance', 800)
         self.settings.setdefault('calculate_temp_derating', True)
-        
+
         # Component defaults for sizing & optimization
         self.settings.setdefault('battery_type', 'liquid')
         self.settings.setdefault('battery_rated_capacity_ah', 200)
@@ -120,6 +124,42 @@ class BLE:
         self.settings.setdefault('inverter_rated_power', 3000)
         self.settings.setdefault('inverter_mppt_min_v', 120)
         self.settings.setdefault('inverter_mppt_max_v', 450)
+
+        # Apply overrides from the request
+        if self.override_settings:
+            # Handle nested 'battery_dod' dictionary separately if needed
+            if 'battery_dod' in self.override_settings and isinstance(self.override_settings['battery_dod'], dict):
+                self.settings['battery_dod'].update(self.override_settings.pop('battery_dod'))
+
+            # Since the frontend sends the battery_dod for the selected type, not the whole dict
+            elif 'battery_dod' in self.override_settings and 'battery_type' in self.settings:
+                battery_type = self.settings['battery_type']
+                try:
+                    self.settings['battery_dod'][battery_type] = float(self.override_settings['battery_dod'])
+                except (ValueError, TypeError):
+                    pass # Keep as is if conversion fails
+                del self.override_settings['battery_dod']
+
+            self.settings.update(self.override_settings)
+
+            # Ensure all numeric settings are floats/integers
+            numeric_keys = [
+                'inverter_efficiency', 'safety_factor', 'autonomy_days', 'battery_dod',
+                'battery_efficiency', 'system_losses', 'temp_coefficient_power',
+                'noct', 'stc_temp', 'reference_irradiance',
+                'battery_rated_capacity_ah', 'battery_rated_voltage', 'battery_max_parallel',
+                'panel_rated_power', 'panel_mpp_voltage', 'inverter_rated_power',
+                'inverter_mppt_min_v', 'inverter_mppt_max_v'
+            ]
+            for key in numeric_keys:
+                if key in self.settings and self.settings[key] is not None:
+                    # Skip 'battery_dod' if it's a dict, as it's handled separately
+                    if key == 'battery_dod' and isinstance(self.settings[key], dict):
+                        continue
+                    try:
+                        self.settings[key] = float(self.settings[key])
+                    except (ValueError, TypeError):
+                        pass # Or log an error for debugging
 
     def _calculate_total_daily_energy_demand(self):
         if not self.appliances: self.total_daily_energy_demand = 0; return
@@ -133,10 +173,10 @@ class BLE:
 
     def _calculate_max_surge_power(self):
         surge_values = (
-            app.surge_power * app.qty
+            app.wattage * app.qty
             for app in self.appliances
             if hasattr(app, 'type') and app.type == "heavy"
-            if hasattr(app, 'surge_power') and app.surge_power is not None
+            if hasattr(app, 'wattage') and app.wattage is not None
         )
 
         total_surge = sum(surge_values)
@@ -145,13 +185,13 @@ class BLE:
             self.max_surge_power = total_surge
         else:
             self.max_surge_power = "N/A"
-        
+
     def _calculate_inverter_requirements(self):
         if self.total_peak_power == "N/A" or self.total_peak_power == 0: return
         eta_inv = self.settings['inverter_efficiency']
         sf = self.settings['safety_factor']
         self.inverter_continuous_power = (self.total_peak_power / eta_inv) * sf
-        self.inverter_surge_capability = self.total_peak_power 
+        self.inverter_surge_capability = self.total_peak_power
         self.inverter_final_capacity = math.ceil(self.inverter_continuous_power)
 
     def _calculate_battery_bank_sizing(self):
@@ -160,21 +200,21 @@ class BLE:
         n_autonomy = self.settings['autonomy_days']
         eta_batt = self.settings['battery_efficiency']
         eta_inv = self.settings['inverter_efficiency']
-        
+
         if e_daily > 5000: self.system_voltage = 48
         elif e_daily <= 1500: self.system_voltage = 12
         else: self.system_voltage = 24
-        
-        dod = self.settings['battery_dod'][self.settings['battery_type']]
+
+        dod = self.settings['battery_dod'].get(self.settings['battery_type'], 0.6)
         self.battery_capacity_ah = (e_daily * n_autonomy) / (self.system_voltage * dod * eta_batt * eta_inv)
-        
+
         c_battery_rated = self.settings['battery_rated_capacity_ah']
         v_battery_rated = self.settings['battery_rated_voltage']
         if c_battery_rated > 0 and v_battery_rated > 0:
             self.num_batteries_parallel = math.ceil(self.battery_capacity_ah / c_battery_rated)
             self.num_batteries_series = math.ceil(self.system_voltage / v_battery_rated)
             self.total_num_batteries = self.num_batteries_parallel * self.num_batteries_series
-        
+
     def _calculate_temp_derating_factor(self):
         if not self.settings['calculate_temp_derating']: self.temp_derating_factor = 1.0; return
         t_cell = self.ambient_temp + ((self.settings['noct'] - 20) / 800) * self.settings['reference_irradiance']
@@ -194,7 +234,7 @@ class BLE:
             self.solar_array_stc = convert_units(p_array_watts, 'w_to_kw')
         else:
             self.solar_array_stc = "N/A"; return
-        
+
         p_panel_rated = self.settings['panel_rated_power']
         if self.solar_array_stc != "N/A" and p_panel_rated > 0:
             self.num_panels = math.ceil(convert_units(self.solar_array_stc, 'kw_to_w') / p_panel_rated)
@@ -225,7 +265,7 @@ class BLE:
                     pass
             else:
                 self.battery_connection_type = "Mismatch: System and battery voltage incompatible"
-        
+
         # Solar Panel Optimization
         v_mppt_min = self.settings['inverter_mppt_min_v']
         v_mppt_max = self.settings['inverter_mppt_max_v']
@@ -235,7 +275,7 @@ class BLE:
         if all(isinstance(v, (int, float)) and v > 0 for v in [v_mppt_min, v_mppt_max, v_mpp_panel, self.num_panels]):
             v_op = v_mpp_panel * f_temp
             max_panels_in_string = math.floor(v_mppt_max / v_op)
-            
+
             if max_panels_in_string > 0:
                 self.panels_per_string = max_panels_in_string
                 self.num_parallel_strings = math.ceil(self.num_panels / self.panels_per_string)
@@ -255,6 +295,10 @@ class BLE:
         dod_percent = self.settings.get('battery_dod', {}).get(battery_type, 0) * 100
         tilt_angle = self.opta
         total_storage_kwh = "N/A"
+        if isinstance(self.num_panels, (int, float)) and isinstance(panel_power, (int, float)):
+            total_pv_capacity_kw = convert_units(self.num_panels * panel_power, 'w_to_kw')
+        else:
+            total_pv_capacity_kw = "N/A"
         if isinstance(self.battery_capacity_ah, (int, float)) and isinstance(self.system_voltage, (int, float)):
             total_storage_kwh = convert_units(self.battery_capacity_ah * self.system_voltage, 'w_to_kw')
 
@@ -273,7 +317,7 @@ class BLE:
                     "brand": "N/A", "panel_type": "N/A", "mount_type": "N/A",
                     "power_rating_w": panel_power,
                     "quantity": self.num_panels,
-                    "total_pv_capacity_kw": self.solar_array_stc,
+                    "total_pv_capacity_kw": total_pv_capacity_kw,
                     "panels_per_string": self.panels_per_string,
                     "num_parallel_strings": self.num_parallel_strings,
                     "connection_type": self.solar_panel_connection_type,
@@ -281,9 +325,10 @@ class BLE:
                 },
                 "inverter": {
                     "brand": "N/A", "type": "Hybrid", "phase_type": "Single Phase",
-                    "power_rating_w": self.inverter_final_capacity,
+                    "power_rating_w": self.settings.get("inverter_rated_power"),
                     "quantity": self.num_inverters,
-                    "surge_rating_w": self.inverter_surge_capability,
+                    "surge_rating_w": self.max_surge_power,
+                    "recommended_rating": self.inverter_final_capacity,
                     "efficiency_percent": inverter_eff,
                     "output_voltage_v": self.system_voltage,
                     "connection_type": self.inverter_connection_type
@@ -316,10 +361,10 @@ class BLE:
             self._calculate_inverter_requirements()
             self._calculate_battery_bank_sizing()
             self._calculate_solar_array_sizing()
-            
+
             if optimize:
                 self._system_optimizer()
-            
+
             return self._construct_response()
         except Exception as e:
             return {"status": "error", "message": str(e)}

@@ -1,11 +1,26 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db
-from models import ApplicationSettings
+from models import ApplicationSettings, Authentication
 from schemas import ApplicationSettingsCreate, ApplicationSettingsUpdate
 from serializer import model_to_dict
 
 application_settings_bp = Blueprint('application_settings_bp', __name__, url_prefix='/application_settings')
+
+@application_settings_bp.route('/appliances', methods=['GET'])
+def get_appliance_library():
+    with get_db() as db:
+        # Get current user
+        auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+        if not auth_record:
+            return jsonify({"error": "Unauthorized"}), 401
+        
+        app_settings = db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == auth_record.user_uuid).first()
+
+        if app_settings and app_settings.other_settings and 'appliance_library' in app_settings.other_settings:
+            return jsonify(app_settings.other_settings['appliance_library'])
+        else:
+            return jsonify([]), 200
 
 @application_settings_bp.route('/', methods=['POST'])
 def create_application_settings():
