@@ -51,7 +51,7 @@ export function ProjectCard({ project, onOpen, viewMode = 'active' }: ProjectCar
         });
     };
 
-    const displayLocation = formatProjectLocation(String(project.project_location));
+    const displayLocation = formatProjectLocation(project.project_location ?? null);
 
     const handleArchive = async (e: React.MouseEvent) => {
         e.stopPropagation();

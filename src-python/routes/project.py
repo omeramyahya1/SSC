@@ -136,7 +136,7 @@ def delete_project(project_uuid):
         project = db.query(Project).filter(Project.uuid == project_uuid).first()
         if not project:
             return jsonify({"error": "Project not found"}), 404
-        
+
         project.deleted_at = datetime.utcnow()
         project.is_dirty = True
         try:
@@ -150,9 +150,9 @@ def delete_project(project_uuid):
 def recover_project(project_uuid):
     with get_db() as db:
         project = db.query(Project).filter(Project.uuid == project_uuid).first()
-        if not project:
-            return jsonify({"error": "Project not found"}), 404
-        
+        if not project.deleted_at:
+            return jsonify({"message": "Project is not deleted"}), 400
+
         project.deleted_at = None
         project.is_dirty = True
         try:
