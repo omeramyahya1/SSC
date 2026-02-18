@@ -66,11 +66,18 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
             const { data } = await api.get<SystemConfiguration>(`${resource}/project/${projectUuid}`);
             set({ systemConfiguration: data, isLoading: false });
         } catch (e: any) {
-            const errorMsg = e.response?.data?.message || e.message || "Failed to fetch system configuration";
-            set({ error: errorMsg, isLoading: false });
-            console.error(errorMsg, e);
-            set({ systemConfiguration: null, isLoading: false }); // Clear if not found
-            // Don't throw if not found, let the component handle the null
+            const is404 = e.response?.status === 404;
+            const errorMsg = is404 ? null : (e.response?.data?.message || e.message || "Failed to fetch system configuration");
+            
+            if (!is404) {
+                console.error("Failed to fetch system configuration:", e);
+            }
+            
+            set({ 
+                error: errorMsg, 
+                systemConfiguration: null, 
+                isLoading: false 
+            });
         }
     },
 

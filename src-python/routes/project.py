@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from sqlalchemy.orm import joinedload
+from datetime import datetime
 from utils import get_db
 from models import Project, Customer, User, Authentication
 from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate, ProjectStatusUpdate
@@ -129,22 +130,37 @@ def get_project(item_id):
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@project_bp.route('/<int:item_id>', methods=['DELETE'])
-def delete_project(item_id):
-
+@project_bp.route('/<string:project_uuid>', methods=['DELETE'])
+def delete_project(project_uuid):
     with get_db() as db:
+        project = db.query(Project).filter(Project.uuid == project_uuid).first()
+        if not project:
+            return jsonify({"error": "Project not found"}), 404
 
-        item = db.query(Project).filter(Project.project_id == item_id).first()
+        project.deleted_at = datetime.utcnow()
+        project.is_dirty = True
+        try:
+            db.commit()
+            return jsonify({"message": "Project moved to trash", "deleted_at": project.deleted_at.isoformat()}), 200
+        except Exception as e:
+            db.rollback()
+            return jsonify({"error": f"Database error: {str(e)}"}), 500
 
-        if not item:
+@project_bp.route('/<string:project_uuid>/recover', methods=['PATCH'])
+def recover_project(project_uuid):
+    with get_db() as db:
+        project = db.query(Project).filter(Project.uuid == project_uuid).first()
+        if not project.deleted_at:
+            return jsonify({"message": "Project is not deleted"}), 400
 
-            return jsonify({"error": "Not found"}), 404
-
-        db.delete(item)
-
-        db.commit()
-
-        return jsonify({"message": "Deleted successfully"}), 200
+        project.deleted_at = None
+        project.is_dirty = True
+        try:
+            db.commit()
+            return jsonify({"message": "Project recovered successfully"}), 200
+        except Exception as e:
+            db.rollback()
+            return jsonify({"error": f"Database error: {str(e)}"}), 500
 
 @project_bp.route('/<string:project_uuid>', methods=['PATCH'])
 def patch_project_details(project_uuid):

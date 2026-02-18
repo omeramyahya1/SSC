@@ -22,6 +22,7 @@ export interface Project {
     project_location?: string | null;
     created_at: string;
     updated_at: string;
+    deleted_at?: string | null;
     system_config?: SystemConfiguration;
     
     // Nested customer data from the API
@@ -51,6 +52,9 @@ export interface ProjectStore {
   createProject: (data: NewProjectData) => Promise<void>;
   updateProject: (projectUuid: string, data: ProjectUpdatePayload) => Promise<Project>;
   updateProjectStatus: (projectUuid: string, status: Project['status']) => Promise<void>;
+  softDeleteProject: (projectUuid: string) => Promise<void>;
+  recoverProject: (projectUuid: string) => Promise<void>;
+  archiveProject: (projectUuid: string) => Promise<void>;
   receiveProjectUpdate: (updatedProject: Project) => void;
 }
 
@@ -185,6 +189,52 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         // On failure, revert to original state
         set({ projects: originalProjects, error: errorMsg });
     }
+  },
+
+  softDeleteProject: async (projectUuid: string) => {
+    const originalProjects = get().projects;
+    set(state => ({
+        projects: state.projects.map(p =>
+            p.uuid === projectUuid ? { ...p, deleted_at: new Date().toISOString(), is_pending: true } : p
+        ),
+    }));
+
+    try {
+        const { data: result } = await api.delete(`${resource}/${projectUuid}`);
+        set(state => ({
+            projects: state.projects.map(p =>
+                p.uuid === projectUuid ? { ...p, deleted_at: result.deleted_at, is_pending: false } : p
+            )
+        }));
+    } catch (e: any) {
+        console.error("Failed to soft delete project:", e);
+        set({ projects: originalProjects });
+    }
+  },
+
+  recoverProject: async (projectUuid: string) => {
+    const originalProjects = get().projects;
+    set(state => ({
+        projects: state.projects.map(p =>
+            p.uuid === projectUuid ? { ...p, deleted_at: null, is_pending: true } : p
+        ),
+    }));
+
+    try {
+        await api.patch(`${resource}/${projectUuid}/recover`);
+        set(state => ({
+            projects: state.projects.map(p =>
+                p.uuid === projectUuid ? { ...p, is_pending: false } : p
+            )
+        }));
+    } catch (e: any) {
+        console.error("Failed to recover project:", e);
+        set({ projects: originalProjects });
+    }
+  },
+
+  archiveProject: async (projectUuid: string) => {
+    await get().updateProjectStatus(projectUuid, 'archived');
   },
 
   receiveProjectUpdate: (updatedProject: Project) => {
