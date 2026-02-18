@@ -63,7 +63,9 @@ def create_project_with_customer():
 
         except Exception as e:
             db.rollback()
-            return jsonify({"error": f"An error occurred during project creation: {str(e)}"}), 500
+            import logging
+            logging.exception("Error during project creation")
+            return jsonify({"error": "An internal error occurred during project creation."}), 500
 
 
 @project_bp.route('/', methods=['POST'])

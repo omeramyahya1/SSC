@@ -70,7 +70,7 @@ function ProjectInfo({ project, onUpdate }: ProjectInfoProps) {
     };
 
     useEffect(() => {
-        if (project) {
+        if (project && !isEditing) {
             const [city, state] = project.project_location?.split(', ').map(p => p.trim()) || ['', ''];
             setEditData({
                 full_name: project.customer.full_name,
@@ -944,7 +944,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                             <DataRow label={t('ble.battery_bank.quantity', 'Quantity')} value={displayResults.battery_bank.quantity} />
                                             <DataRow label={t('ble.battery_bank.num_in_series', 'Num in Series')} value={displayResults.battery_bank.num_in_series} />
                                             <DataRow label={t('ble.battery_bank.num_in_parallel', 'Num in Parallel')} value={displayResults.battery_bank.num_in_parallel} />
-                                            <DataRow label={t('ble.battery_bank.total_storage', 'Total Storage')} value={parseFloat(String(displayResults.metadata.total_system_size_kw))} unit="kWh" formatter={(val: number) => val.toFixed(2)} />
+                                            <DataRow label={t('ble.battery_bank.total_storage', 'Total Storage')} value={parseFloat(String(displayResults.battery_bank.total_storage_kwh))} unit="kWh" formatter={(val: number) => val.toFixed(2)} />
                                             <DataRow label={t('ble.battery_bank.depth_of_discharge', 'Depth of Discharge')} value={`${displayResults.battery_bank.depth_of_discharge_percent}%`} />
                                             <DataRow label={t('ble.battery_bank.system_voltage', 'System Voltage')} value={`${displayResults.battery_bank.system_voltage_v} V`} />
                                             <DataRow label={t('ble.battery_bank.connection', 'Connection Type')} value={displayResults.battery_bank.connection_type} />
@@ -1009,13 +1009,15 @@ const SettingsInput = ({ label, value, onChange, step = 1, min = -Infinity, max 
 };
 
 const DataRow = ({ label, value, unit = '', formatter }: { label: string; value: any; unit?: string; formatter?: (val: any) => string }) => {
+    const { i18n } = useTranslation();
+
     if (value === null || value === undefined || value === "N/A") {
         return null;
     }
     const displayValue = formatter ? formatter(value) : String(value);
     return (
         <div className="py-1 border-b border-gray-100">
-            { i18n.dir() == 'ltr' ? (
+            { i18n.dir() === 'ltr' ? (
                 <div className="flex justify-between">
                     <span className="text-sm text-gray-500">{label}</span>
                     <span className="text-sm font-semibold text-gray-800">{displayValue} {unit}</span>

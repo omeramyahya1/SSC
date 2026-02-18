@@ -14,6 +14,8 @@ from models import ApplicationSettings
 def get_geo_data(location: str="Khartoum"):
     """Load geo data from CSV and find the matching location."""
     try:
+        if not location or not location.strip():
+           location = "Khartoum"
         # Construct the absolute path for the CSV file
         base_dir = os.path.dirname(os.path.abspath(__file__))
         csv_path = os.path.join(base_dir, 'dataset', 'geo_data.csv')
@@ -296,7 +298,7 @@ class BLE:
         if isinstance(self.num_panels, (int, float)) and isinstance(panel_power, (int, float)):
             total_pv_capacity_kw = convert_units(self.num_panels * panel_power, 'w_to_kw')
         else:
-                total_pv_capacity_kw = "N/A"
+            total_pv_capacity_kw = "N/A"
         if isinstance(self.battery_capacity_ah, (int, float)) and isinstance(self.system_voltage, (int, float)):
             total_storage_kwh = convert_units(self.battery_capacity_ah * self.system_voltage, 'w_to_kw')
 

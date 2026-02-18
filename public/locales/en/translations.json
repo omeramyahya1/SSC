@@ -207,7 +207,7 @@
   "registration.status.local": "Local Persistence",
   "registration.status.pending": "pending",
   "registration.status.success": "success",
-  "registration.success.message_simple": "Your account has been created successfully. If you made a payment, processing takes up to 24 hours, you will receive an email upon updates your payment status.",
+  "registration.success.message_simple": "Your account has been created successfully. If you made a payment, processing takes up to 24 hours, you will receive an email when your payment status is updated.",
   "registration.success.title": "Registration Successful!",
   "registration.success_alt": "Success",
   "registration.terms_title": "Terms and Conditions",

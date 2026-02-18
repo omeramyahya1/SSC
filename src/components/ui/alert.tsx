@@ -33,12 +33,16 @@ const Alert = React.forwardRef<
 Alert.displayName = "Alert"
 
 const AlertTitle = React.forwardRef<
-  HTMLParagraphElement,
-  React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
+  HTMLParagraphElement, // 1. Use HTMLParagraphElement for <h5>
+  React.HTMLAttributes<HTMLHeadingElement> & VariantProps<typeof alertVariants>
+>(({ className, variant, ...props }, ref) => (
   <h5
     ref={ref}
-    className={cn("mb-1 leading-none tracking-tight font-bold text-red-800", className)}
+    className={cn(
+      "mb-1 font-bold leading-none tracking-tight]:", // Base styles
+      variant === "destructive" && "text-destructive", // 2. Use semantic tailwind classes
+      className
+    )}
     {...props}
   />
 ))
