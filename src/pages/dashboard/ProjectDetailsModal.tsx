@@ -23,12 +23,11 @@ import { useApplianceStore, ProjectAppliance } from '@/store/useApplianceStore';
 import { useBleStore } from '@/store/useBleStore';
 import { Project } from "@/store/useProjectStore";
 import { cn } from "@/lib/utils";
-import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ChevronDown } from 'lucide-react';
+import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle } from 'lucide-react';
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
 import { Toaster, toast } from 'react-hot-toast';
-import i18n from '@/i18';
 
 // --- Helper Components ---
 
@@ -268,7 +267,6 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         error: systemConfigError,
         saveSystemConfiguration,
         fetchSystemConfiguration,
-        clearSystemConfiguration,
     } = useSystemConfigurationStore();
 
     const handleStatusChange = async (newStatus: Project['status']) => {
@@ -924,7 +922,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
 
                     {isResultsLoading && (
                         <div className="flex items-center justify-center h-full">
-                            <Spinner className="w-12 h-12" />
+                            <Spinner className="w-6 h-6" />
                         </div>
                     )}
 
