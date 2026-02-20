@@ -15,7 +15,7 @@ import {
 const SidebarItem = ({ icon, text, onClick, children, isSelected }: { icon: string, text: string, onClick?: () => void, children?: React.ReactNode, isSelected?: boolean }) => {
     const { i18n } = useTranslation();
     return (
-        <Button variant="ghost" dir={i18n.dir()} className={`w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm ${isSelected ? 'bg-white shadow-sm' : ''} ${i18n.dir() === 'rtl' ? 'flex-row-reverse' : ''}`} onClick={onClick}>
+        <Button variant="ghost" dir={i18n.dir()} className={`w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm ${isSelected ? 'bg-white shadow-sm' : ''}`} onClick={onClick}>
             <img src={icon} alt="" className="w-6 h-6 opacity-40 group-hover:opacity-100" />
             <span className="truncate font-bold">{text}</span>
             {children}
@@ -105,7 +105,7 @@ export function Sidebar() {
                 </div>
 
                 {/* Nav Items */}
-                <nav className="flex-grow px-2 space-y-2 pt-4">
+                <nav className="flex-grow px-2 space-y-2 pt-4" >
                     <div className="space-y-1">
                         <SidebarItem icon="/eva-icons (2)/outline/grid.png" text={t('dashboard.dashboard', 'Dashboard')} isSelected={selectedItem === 'dashboard'} onClick={() => setSelectedItem('dashboard')} />
                         <SidebarItem icon="/eva-icons (2)/outline/people.png" text={t('dashboard.customers', 'Customers')} isSelected={selectedItem === 'customers'} />
