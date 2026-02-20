@@ -53,7 +53,6 @@ export const useApplianceStore = create<ApplianceStore>((set, get) => ({
     addApplianceToProject: async (appliance, project_uuid) => {
         set({ isLoading: true, error: null });
         try {
-            // The appliance object sent to the backend needs the project_uuid
             const payload = { ...appliance, project_uuid };
             const { data: newAppliance } = await api.post<ProjectAppliance>('/appliances', payload);
             set((state) => ({ 
@@ -69,17 +68,16 @@ export const useApplianceStore = create<ApplianceStore>((set, get) => ({
     },
 
     updateProjectAppliance: async (appliance_id, updates) => {
-        // Optimistic update
         const originalAppliances = get().projectAppliances;
+
+        // Optimistic update
         const updatedAppliances = originalAppliances.map(a => 
             a.appliance_id === appliance_id ? { ...a, ...updates } : a
         );
         set({ projectAppliances: updatedAppliances });
-
+        
         try {
-            // API call to persist the change
             await api.put(`/appliances/${appliance_id}`, updates);
-            // No need to set state again if API call is successful
         } catch (e: any) {
             const errorMsg = e.message || "Failed to update appliance";
             set({ error: errorMsg, projectAppliances: originalAppliances }); // Revert on failure
@@ -90,8 +88,10 @@ export const useApplianceStore = create<ApplianceStore>((set, get) => ({
     
     removeApplianceFromProject: async (appliance_id) => {
         const originalAppliances = get().projectAppliances;
+        
+        // Optimistic update
         const filteredAppliances = originalAppliances.filter(a => a.appliance_id !== appliance_id);
-        set({ projectAppliances: filteredAppliances }); // Optimistic update
+        set({ projectAppliances: filteredAppliances }); 
 
         try {
             await api.delete(`/appliances/${appliance_id}`);

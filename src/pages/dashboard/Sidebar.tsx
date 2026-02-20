@@ -98,8 +98,8 @@ export function Sidebar() {
                         alt="SSC Logo"
                         className="w-12 h-12 bg-white/90 p-2 rounded-base backdrop-blur-lg" />
                     {showSidebarContent &&
-                        <Button variant="outline" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className="hover:bg-gray-700 group">
-                            <img src={`/eva-icons (2)/outline/${i18n.dir() === 'rtl' ? 'arrow-ios-back.png' : 'arrow-ios-forward.png'}`} alt={t('common.collapse_alt', 'collapse')} className="w-full group-hover:invert" />
+                        <Button variant="outline" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className={`group ${isCollapsed ? 'hover:bg-gray-700' : 'bg-gray-700'}`}>
+                            <img src='/eva-icons (2)/outline/columns-vertical.png' alt={t('common.collapse_alt', 'collapse')} className={`w-full ${isCollapsed ? 'group-hover:invert' : 'invert'}`} />
                         </Button>
                     }
                 </div>
@@ -108,7 +108,7 @@ export function Sidebar() {
                 <nav className="flex-grow px-2 space-y-2 pt-4">
                     <div className="space-y-1">
                         <SidebarItem icon="/eva-icons (2)/outline/grid.png" text={t('dashboard.dashboard', 'Dashboard')} isSelected={selectedItem === 'dashboard'} onClick={() => setSelectedItem('dashboard')} />
-                        <SidebarItem icon="/eva-icons (2)/outline/flash.png" text={t('dashboard.quick_calc', 'Quick Calc')} isSelected={selectedItem === 'quick_calc'} onClick={() => setSelectedItem('quick_calc')} />
+                        <SidebarItem icon="/eva-icons (2)/outline/people.png" text={t('dashboard.customers', 'Customers')} isSelected={selectedItem === 'customers'} />
                     </div>
                     <Separator className="bg-gray-700 my-2" />
                     <div className="space-y-1">
@@ -117,7 +117,7 @@ export function Sidebar() {
                     </div>
                     <Separator className="bg-gray-700 my-2" />
                      <div className="space-y-1">
-                        <SidebarItem icon="/eva-icons (2)/outline/people.png" text={t('dashboard.team', 'Team / Organization')} isSelected={selectedItem === 'team'} onClick={() => setSelectedItem('team')}/>
+                        <SidebarItem icon="/eva-icons (2)/outline/building.png" text={t('dashboard.team', 'Team / Organization')} isSelected={selectedItem === 'team'} onClick={() => setSelectedItem('team')}/>
                         <Popover>
                             <PopoverTrigger asChild>
                                 <div onClick={() => setSelectedItem('subscription')}>

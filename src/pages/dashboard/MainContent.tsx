@@ -8,11 +8,14 @@ import { SubscriptionBanner } from "./SubscriptionBanner";
 import { useUserStore } from '@/store/useUserStore';
 import { Dialog } from '@/components/ui/dialog';
 import { ProjectDetailsModal } from './ProjectDetailsModal';
-import { CreateProjectModal, NewProjectData } from './CreateProjectModal';
+import { CreateProjectModal, NewProjectData, QuickCalcConvertedData } from './CreateProjectModal';
+import { QuickCalculateModal } from './QuickCalculateModal';
 import { useProjectStore, Project } from '@/store/useProjectStore';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ProjectAppliance } from '@/store/useApplianceStore';
+import { BleCalculationResults } from '@/store/useBleStore';
 
 type ViewMode = 'active' | 'trash' | 'archived';
 type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'location';
@@ -33,21 +36,34 @@ export function MainContent() {
     // State for modals
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isQuickCalcOpen, setIsQuickCalcOpen] = useState(false);
+    const [quickCalcData, setQuickCalcData] = useState<any>(null); // State to pass data from QuickCalc to CreateProject
 
     // Zustand store integration
-    const { projects, isLoading, error, fetchProjects, createProject } = useProjectStore();
+    const { projects, isLoading, error, fetchProjects, createProject, createProjectWithConfig } = useProjectStore();
 
     useEffect(() => {
         fetchProjects();
     }, [fetchProjects]);
 
-    const handleCreateProject = async (projectData: NewProjectData) => {
+    const handleCreateProject = async (projectData: NewProjectData, quickCalcConvertedData?: QuickCalcConvertedData) => {
         try {
-            await createProject(projectData);
+            if (quickCalcConvertedData && createProjectWithConfig) {
+                await createProjectWithConfig(projectData, quickCalcConvertedData);
+            } else {
+                await createProject(projectData);
+            }
             setIsCreateModalOpen(false);
+            setQuickCalcData(null); // Clear quickCalcData after project creation
         } catch (e) {
             console.error("Failed to create project from UI:", e);
         }
+    };
+
+    const handleConvertQuickCalcToProject = (data: QuickCalcConvertedData) => {
+        setQuickCalcData(data); // Save the quick calc data
+        setIsQuickCalcOpen(false); // Close quick calc modal
+        setIsCreateModalOpen(true); // Open create project modal
     };
 
     const openProjectModal = (project: Project) => {
@@ -205,9 +221,9 @@ export function MainContent() {
                 <div className="p-6">
                     {/* Toolbar */}
                     <div className="flex flex-col gap-4 mb-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center justify-between w-full me-6">
-                                <h1 className="text-2xl font-bold">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center justify-between w-full">
+                                <h1 className="text-3xl font-bold">
                                     {currentView === 'active' ? t('dashboard.projects', 'Projects') :
                                      currentView === 'trash' ? t('dashboard.trash', 'Trash') :
                                      t('dashboard.archive', 'Archive')}
@@ -241,6 +257,14 @@ export function MainContent() {
                                     </Button>
                                 </div>
                             </div>
+                            <Button
+                                onClick={() => setIsQuickCalcOpen(true)}
+                                disabled={isExpired}
+                                className="group hover:shadow-lg h bg-white hover:bg-primary border  shadow-sm "
+                                >
+                                <img src="/eva-icons (2)/outline/flash.png" alt="quick calc" className="w-5 h-5 group-hover:invert me-2" />
+                                <span className='me-2 group-hover:text-white'>{t('dashboard.quick_calc', 'Quick Calculate')}</span>
+                            </Button>
                             <Button
                                 onClick={() => setIsCreateModalOpen(true)}
                                 disabled={isExpired || currentView !== 'active'}
@@ -331,7 +355,10 @@ export function MainContent() {
                 <ProjectDetailsModal project={selectedProject} />
             </Dialog>
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                <CreateProjectModal onSubmit={handleCreateProject} onOpenChange={setIsCreateModalOpen} />
+                <CreateProjectModal onSubmit={handleCreateProject} onOpenChange={setIsCreateModalOpen} initialData={quickCalcData} />
+            </Dialog>
+            <Dialog open={isQuickCalcOpen} onOpenChange={setIsQuickCalcOpen} >
+                <QuickCalculateModal onConvert={handleConvertQuickCalcToProject} onOpenChange={setIsQuickCalcOpen}/>
             </Dialog>
         </>
     );

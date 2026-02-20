@@ -254,3 +254,121 @@ def patch_project_status(project_uuid):
             project_dict['customer'] = None
 
         return jsonify(project_dict), 200
+
+@project_bp.route('/quick-calc-id', methods=['POST'])
+def get_or_create_quick_calc_project_id():
+    with get_db() as db:
+        auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+        if not current_user:
+            return jsonify({"error": "Authenticated user not found in user table."}), 404
+
+        # Define a unique identifier for the quick calc customer and project
+        quick_calc_customer_name = "QuickCalcCustomer"
+
+        # Try to find the QuickCalcCustomer for the current user
+        quick_calc_customer = db.query(Customer).filter(
+            Customer.full_name == quick_calc_customer_name,
+            Customer.user_uuid == current_user.uuid
+        ).first()
+
+        # If not found, create it
+        if not quick_calc_customer:
+            quick_calc_customer = Customer(
+                full_name=quick_calc_customer_name,
+                user_uuid=current_user.uuid,
+                organization_uuid=current_user.organization_uuid,
+                branch_uuid=current_user.branch_uuid,
+                is_dirty=True
+            )
+            db.add(quick_calc_customer)
+            db.flush() # Flush to get the uuid for the new customer
+
+        # Try to find the QuickCalcProject for this customer and user
+        quick_calc_project = db.query(Project).filter(
+            Project.customer_uuid == quick_calc_customer.uuid,
+            Project.user_uuid == current_user.uuid,
+            Project.status == 'planning' # Assuming quick-calc projects start as planning
+        ).first()
+
+        # If not found, create it
+        if not quick_calc_project:
+            quick_calc_project = Project(
+                customer_uuid=quick_calc_customer.uuid,
+                status='planning',
+                project_location="Khartoum, Khartoum", # Default location
+                user_uuid=current_user.uuid,
+                organization_uuid=current_user.organization_uuid,
+                branch_uuid=current_user.branch_uuid,
+                is_dirty=True
+            )
+            db.add(quick_calc_project)
+            db.flush() # Flush to get the uuid for the new project
+        
+        db.commit() # Commit any changes (new customer or project)
+        db.refresh(quick_calc_project)
+
+        return jsonify({"quick_calc_project_uuid": quick_calc_project.uuid}), 200
+
+@project_bp.route('/quick-calc-init', methods=['POST'])
+def get_or_create_quick_calc_project():
+    with get_db() as db:
+        auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+        if not current_user:
+            return jsonify({"error": "Authenticated user not found in user table."}), 404
+
+        # Define a unique identifier for the quick calc customer and project
+        quick_calc_customer_name = "QuickCalcCustomer"
+        quick_calc_project_name = "QuickCalcProject" # This is a placeholder for frontend display, not a DB column
+
+        # Try to find the QuickCalcCustomer for the current user
+        quick_calc_customer = db.query(Customer).filter(
+            Customer.full_name == quick_calc_customer_name,
+            Customer.user_uuid == current_user.uuid
+        ).first()
+
+        # If not found, create it
+        if not quick_calc_customer:
+            quick_calc_customer = Customer(
+                full_name=quick_calc_customer_name,
+                user_uuid=current_user.uuid,
+                organization_uuid=current_user.organization_uuid,
+                branch_uuid=current_user.branch_uuid,
+                is_dirty=True
+            )
+            db.add(quick_calc_customer)
+            db.flush()
+
+        # Try to find the QuickCalcProject for this customer
+        quick_calc_project = db.query(Project).filter(
+            Project.customer_uuid == quick_calc_customer.uuid,
+            Project.user_uuid == current_user.uuid,
+            Project.status == 'planning' # Assuming quick-calc projects start as planning
+        ).first()
+
+        # If not found, create it
+        if not quick_calc_project:
+            quick_calc_project = Project(
+                customer_uuid=quick_calc_customer.uuid,
+                status='planning',
+                project_location="Khartoum, Khartoum", # Default location
+                user_uuid=current_user.uuid,
+                organization_uuid=current_user.organization_uuid,
+                branch_uuid=current_user.branch_uuid,
+                is_dirty=True
+            )
+            db.add(quick_calc_project)
+            db.flush()
+        
+        db.commit() # Commit any changes (new customer or project)
+        db.refresh(quick_calc_customer)
+        db.refresh(quick_calc_project)
+
+        return jsonify(model_to_dict(quick_calc_project)), 200

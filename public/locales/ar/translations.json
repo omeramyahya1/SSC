@@ -337,5 +337,16 @@
   "dashboard.recover": "استعادة",
   "dashboard.unarchive": "إلغاء الأرشفة",
   "dashboard.deleted": "محذوف",
-  "common.error": "خطأ"
+  "dashboard.customers": "العملاء",
+  "common.error": "خطأ",
+  "project_modal.location": "الموقع",
+  "project_modal.convert_to_project": "تحويل إلى مشروع",
+  "project_modal.copy_results": "نسخ النتائج",
+  "project_modal.calculation_error_hint": "يرجى التأكد من تحديد الموقع وإضافة جهاز واحد على الأقل.",
+  "project_modal.no_results_to_convert": "لا توجد نتائج حساب لتحويلها. يرجى تشغيل الحساب أولاً.",
+  "project_modal.location_required_for_conversion": "الموقع مطلوب للتحويل إلى مشروع.",
+  "project_modal.no_results_to_copy": "لا توجد نتائج حساب لنسخها. يرجى تشغيل الحساب أولاً.",
+  "project_modal.quick_calc_results_summary": "ملخص نتائج الحساب السريع",
+  "project_modal.copy_success": "تم نسخ النتائج إلى الحافظة!",
+  "project_modal.copy_error": "فشل نسخ النتائج."
 }

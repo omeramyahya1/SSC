@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocationData } from '@/hooks/useLocationData';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ProjectAppliance } from '@/store/useApplianceStore';
+import { BleCalculationResults } from '@/store/useBleStore';
 
 export interface NewProjectData {
     customer_name: string;
@@ -14,12 +16,20 @@ export interface NewProjectData {
     project_location: string;
 }
 
+export interface QuickCalcConvertedData {
+    appliances: ProjectAppliance[];
+    config: BleCalculationResults['data'];
+    bleSettings: any; // The input settings for BLE
+}
+
 interface CreateProjectModalProps {
     onOpenChange: (isOpen: boolean) => void;
     onSubmit: (projectData: NewProjectData) => void;
+    onSubmitWithConfig?: (projectData: NewProjectData, quickCalcData: QuickCalcConvertedData) => void;
+    initialData?: QuickCalcConvertedData | null;
 }
 
-export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModalProps) {
+export function CreateProjectModal({ onOpenChange, onSubmit, onSubmitWithConfig, initialData }: CreateProjectModalProps) {
     const { t, i18n } = useTranslation();
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
@@ -31,13 +41,27 @@ export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModa
     const { states, getCitiesByState } = useLocationData();
     const cities = useMemo(() => getCitiesByState(locationState), [locationState, getCitiesByState]);
 
+    useEffect(() => {
+        if (initialData?.config?.metadata?.location) {
+            const [city, state] = initialData.config.metadata.location.split(', ').map(s => s.trim());
+            setLocationState(state);
+            setLocationCity(city);
+        }
+    }, [initialData]);
+
     const handleCreate = () => {
-        onSubmit({
+        const projectData: NewProjectData = {
             customer_name: customerName,
             email: customerEmail || undefined,
             phone_number: customerPhone || undefined,
             project_location: `${locationCity}, ${locationState}`,
-        });
+        };
+
+        if (initialData && onSubmitWithConfig) {
+            onSubmitWithConfig(projectData, initialData);
+        } else {
+            onSubmit(projectData);
+        }
     };
 
     const isFormValid = customerName.trim() !== '' && locationState.trim() !== '' && locationCity.trim() !== '';

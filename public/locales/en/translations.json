@@ -329,5 +329,16 @@
   "dashboard.recover": "Recover",
   "dashboard.unarchive": "Unarchive",
   "dashboard.deleted": "Deleted",
-  "common.error": "Error"
+  "dashboard.customers": "Customers",
+  "common.error": "Error",
+  "project_modal.location": "Location",
+  "project_modal.convert_to_project": "Convert to Project",
+  "project_modal.copy_results": "Copy Results",
+  "project_modal.calculation_error_hint": "Please ensure location is selected and at least one appliance is added.",
+  "project_modal.no_results_to_convert": "No calculation results to convert. Please run calculation first.",
+  "project_modal.location_required_for_conversion": "Location is required to convert to project.",
+  "project_modal.no_results_to_copy": "No calculation results to copy. Please run calculation first.",
+  "project_modal.quick_calc_results_summary": "Quick Calculation Results Summary",
+  "project_modal.copy_success": "Results copied to clipboard!",
+  "project_modal.copy_error": "Failed to copy results."
 }

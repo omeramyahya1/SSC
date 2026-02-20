@@ -1,8 +1,11 @@
 // src/store/useProjectStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
-import { NewProjectData } from '@/pages/dashboard/CreateProjectModal';
+import { NewProjectData, QuickCalcConvertedData } from '@/pages/dashboard/CreateProjectModal';
 import { SystemConfiguration } from './useSystemConfigurationStore';
+import { useApplianceStore, ProjectAppliance } from './useApplianceStore';
+import { useSystemConfigurationStore } from './useSystemConfigurationStore';
+import { BleCalculationResults } from './useBleStore';
 
 // --- 1. Define Types ---
 
@@ -48,13 +51,16 @@ export interface ProjectStore {
   projects: Project[];
   isLoading: boolean;
   error: string | null;
+  _quickCalcProjectId: string | null; // Internal state to store the quick calc project ID
   fetchProjects: () => Promise<void>;
   createProject: (data: NewProjectData) => Promise<void>;
+  createProjectWithConfig: (data: NewProjectData, quickCalcData: QuickCalcConvertedData) => Promise<void>;
   updateProject: (projectUuid: string, data: ProjectUpdatePayload) => Promise<Project>;
   updateProjectStatus: (projectUuid: string, status: Project['status']) => Promise<void>;
   softDeleteProject: (projectUuid: string) => Promise<void>;
   recoverProject: (projectUuid: string) => Promise<void>;
   archiveProject: (projectUuid: string) => Promise<void>;
+  getQuickCalcProjectId: () => Promise<string>; // New action
   receiveProjectUpdate: (updatedProject: Project) => void;
 }
 
@@ -62,6 +68,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
   isLoading: false,
   error: null,
+  _quickCalcProjectId: null, // Initialize internal state
 
   fetchProjects: async () => {
     set({ isLoading: true, error: null });
@@ -72,6 +79,24 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const errorMsg = e.message || "Failed to fetch projects";
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
+    }
+  },
+
+  getQuickCalcProjectId: async () => {
+    const { _quickCalcProjectId } = get();
+    if (_quickCalcProjectId) {
+        return _quickCalcProjectId;
+    }
+    set({ isLoading: true, error: null });
+    try {
+        const { data: project } = await api.post<Project>(`${resource}/quick-calc-init`);
+        set({ _quickCalcProjectId: project.uuid, isLoading: false });
+        return project.uuid;
+    } catch (e: any) {
+        const errorMsg = e.message || "Failed to get or create Quick Calc project";
+        set({ error: errorMsg, isLoading: false });
+        console.error(errorMsg, e);
+        throw e;
     }
   },
 
@@ -116,6 +141,76 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         }));
         console.error(errorMsg, e);
         // Optionally: throw the error so the UI component can react (e.g., show a toast)
+        throw e;
+    }
+  },
+
+  createProjectWithConfig: async (newProjectData, quickCalcData) => {
+    set({ isLoading: true, error: null });
+    const tempId = -Date.now(); // Unique negative ID
+    const optimisticProject: Project = {
+        project_id: tempId,
+        uuid: String(tempId),
+        customer_uuid: String(tempId),
+        status: 'planning',
+        project_location: newProjectData.project_location,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        customer: {
+            customer_id: tempId,
+            uuid: String(tempId),
+            full_name: newProjectData.customer_name,
+            email: newProjectData.email,
+            phone_number: newProjectData.phone_number
+        },
+        is_pending: true,
+        system_config: { // Optimistically add system_config data if available
+            uuid: String(tempId), // Placeholder UUID
+            config_items: quickCalcData.config,
+            total_wattage: quickCalcData.config?.metadata?.total_peak_power_w || 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            system_config_id: tempId,
+        }
+    };
+    set((state) => ({ projects: [optimisticProject, ...state.projects] }));
+
+    try {
+        const { data: finalProject } = await api.post<Project>(`${resource}/create_with_customer`, newProjectData);
+
+        // Now save appliances and system config using the real project UUID
+        if (quickCalcData.appliances && quickCalcData.appliances.length > 0) {
+             // Use useApplianceStore to save appliances
+            const applianceStore = useApplianceStore.getState();
+            for (const app of quickCalcData.appliances) {
+                await applianceStore.addApplianceToProject({
+                    appliance_name: app.appliance_name,
+                    wattage: app.wattage,
+                    type: app.type,
+                    qty: app.qty,
+                    use_hours_night: app.use_hours_night,
+                }, finalProject.uuid);
+            }
+        }
+
+        if (quickCalcData.config) {
+            // Use useSystemConfigurationStore to save system config
+            const systemConfigStore = useSystemConfigurationStore.getState();
+            await systemConfigStore.saveSystemConfiguration(finalProject.uuid, quickCalcData.config);
+        }
+        
+        // Re-fetch projects to get the fully updated project with system_config and appliances loaded
+        await get().fetchProjects();
+        set({ isLoading: false });
+
+    } catch (e: any) {
+        const errorMsg = e.message || "Failed to create project with configuration";
+        set((state) => ({
+            error: errorMsg,
+            projects: state.projects.filter((p) => p.project_id !== tempId),
+            isLoading: false
+        }));
+        console.error(errorMsg, e);
         throw e;
     }
   },
