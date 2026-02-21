@@ -322,10 +322,12 @@ export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateM
         const data = bleResults.data;
         if (data) {
             resultsString += `${t('ble.metadata.total_system_size', 'Total System Size')}: ${formatPowerValue(data.metadata.total_system_size_kw * 1000)}\n`;
-            resultsString += `${t('ble.solar_panels.quantity', 'Solar Panels Quantity')}: ${data.solar_panels.quantity}\n`;
-            resultsString += `${t('ble.battery_bank.quantity', 'Battery Bank Quantity')}: ${data.battery_bank.quantity}\n`;
-            resultsString += `${t('ble.inverter.quantity', 'Inverter Quantity')}: ${data.inverter.quantity}\n`;
-            // Add more details from data as needed
+            // Solar Panels: Quantity & Power
+            resultsString += `${t('ble.solar_panels.quantity', 'Solar Panels Quantity')}: ${data.solar_panels.quantity}, ${t('ble.solar_panels.power_rating', 'Power Rating')}: ${formatPowerValue(data.solar_panels.power_rating_w)}\n`;
+            // Batteries: Quantity & AH & Energy Storage & type (Lithium, etc)
+            resultsString += `${t('ble.battery_bank.quantity', 'Battery Bank Quantity')}: ${data.battery_bank.quantity}, ${t('ble.battery_bank.capacity_per_unit', 'Capacity per Unit')}: ${data.battery_bank.capacity_per_unit_ah} Ah, ${t('ble.battery_bank.total_storage', 'Total Storage')}: ${parseFloat(String(data.battery_bank.total_storage_kwh)).toFixed(2)} kWh, ${t('ble.battery_bank.battery_type', 'Battery Type')}: ${data.battery_bank.battery_type}\n`;
+            // Inverter: Quantity & Rated Power
+            resultsString += `${t('ble.inverter.quantity', 'Inverter Quantity')}: ${data.inverter.quantity}, ${t('ble.inverter.power_rating', 'Rated Power')}: ${formatPowerValue(data.inverter.power_rating_w)}\n`;
         }
 
         try {
@@ -378,7 +380,7 @@ export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateM
         <DialogContent className="max-w-[90vw] h-[90vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
             <Toaster />
             <DialogHeader className="p-4 border-b">
-                <DialogTitle className="text-2xl flex items-center gap-2">
+                <DialogTitle className="text-2xl flex items-center justify-center gap-2">
                     <img src="/eva-icons (2)/outline/flash.png" alt="quick calc" className="w-6 h-6" />
                     {t('dashboard.quick_calc', 'Quick Calculate')}
                 </DialogTitle>
