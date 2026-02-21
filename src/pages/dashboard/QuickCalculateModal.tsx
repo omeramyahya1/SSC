@@ -397,8 +397,8 @@ export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateM
                                     items={states.map(s => ({ value: s.value, label: s.label }))}
                                     value={bleSettings.project_location_state}
                                     onValueChange={(value) => {
-                                        handleBleSettingChange('project_location_state', value);
-                                        handleBleSettingChange('project_location_city', ''); // Reset city when state changes
+                                        setBleSettings(prev => ({...prev, project_location_state: value, project_location_city: ''}));
+                                        setBleSettingsErrors(prev => ({...prev, project_location_state: validateBleSetting('project_location_state', value), project_location_city: null}));
                                     }}
                                     placeholder={t('dashboard.select_state_ph', 'Select a state...')}
                                     error={bleSettingsErrors.project_location_state}
