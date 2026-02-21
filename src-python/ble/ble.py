@@ -175,8 +175,6 @@ class BLE:
         surge_values = (
             app.wattage * app.qty
             for app in self.appliances
-            if hasattr(app, 'type') and app.type == "heavy"
-            if hasattr(app, 'wattage') and app.wattage is not None
         )
 
         total_surge = sum(surge_values)
@@ -307,7 +305,7 @@ class BLE:
             "data": {
                 "metadata": {
                     "peak_sun_hours": self.peak_sun_hours,
-                    "total_system_size_kw": self.solar_array_stc,
+                    "total_system_size_kw": total_pv_capacity_kw,
                     "peak_surge_power_w": self.max_surge_power,
                     "autonomy_days": autonomy_days,
                     "total_daily_energy_wh": self.total_daily_energy_demand,
