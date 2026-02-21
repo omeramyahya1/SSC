@@ -640,7 +640,6 @@ export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateM
                         </div>
 
                         {isBleLoading && appliances.length === 0 && <Spinner className="w-8 h-8 mx-auto" />}
-                        {bleError && <Alert variant="destructive"><AlertTitle>{t('common.error', 'Error')}</AlertTitle><AlertDescription>{bleError}</AlertDescription></Alert>}
 
                         <ScrollArea className="flex-grow h-[300px] mb-4 rounded-md border">
                             <Table>

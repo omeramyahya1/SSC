@@ -1,74 +1,20 @@
-// src/store/useBleStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { QuickCalcConvertedData } from '@/pages/dashboard/CreateProjectModal';
 
 // --- 1. Define Types ---
+type BleCalculationResults = QuickCalcConvertedData['config'];
+type BleSettingsPayload = QuickCalcConvertedData['bleSettings'];
 
-export interface BleCalculationResults {
-    status: string;
-    message?: string;
-    data?: {
-        metadata: {
-            peak_sun_hours: number;
-            total_system_size_kw: number;
-            peak_surge_power_w: number;
-            autonomy_days: number;
-            total_daily_energy_wh: number;
-            total_peak_power_w: number;
-        };
-        solar_panels: {
-            brand: string;
-            panel_type: string;
-            mount_type: string;
-            power_rating_w: number;
-            quantity: number;
-            total_pv_capacity_kw: number;
-            panels_per_string: number;
-            num_parallel_strings: number;
-            connection_type: string;
-            tilt_angle: number;
-        };
-        inverter: {
-            brand: string;
-            type: string;
-            phase_type: string;
-            power_rating_w: number;
-            quantity: number;
-            surge_rating_w: number;
-            recommended_rating: number;
-            efficiency_percent: number;
-            output_voltage_v: number;
-            connection_type: string;
-
-        };
-        battery_bank: {
-            brand: string;
-            battery_type: string;
-            capacity_per_unit_ah: number;
-            voltage_per_unit_v: number;
-            quantity: number;
-            num_in_series: number;
-            num_in_parallel: number;
-            total_storage_kwh: number;
-            depth_of_discharge_percent: number;
-            system_voltage_v: number;
-            connection_type: string;
-        };
-    };
-}
 
 // --- 2. Define Store ---
-
-export type BleSettingsPayload = {
-    [key: string]: any;
-};
 
 export interface BleStore {
     results: BleCalculationResults | null;
     isLoading: boolean;
     error: string | null;
 
-    runCalculation: (projectId: number, settings?: BleSettingsPayload) => Promise<void>;
+    runCalculation: (projectId: number, settings?: BleSettingsPayload, appliances?: any[], projectLocation?: string) => Promise<void>;
     clearResults: () => void;
 }
 
@@ -77,10 +23,14 @@ export const useBleStore = create<BleStore>((set) => ({
     isLoading: false,
     error: null,
 
-    runCalculation: async (projectId: number, settings?: BleSettingsPayload) => {
+    runCalculation: async (projectId: number, settings?: BleSettingsPayload, appliances?: any[], projectLocation?: string) => {
         set({ isLoading: true, error: null, results: null });
         try {
-            const payload = { settings };
+            // If it's a quick calculation (project ID is 0), include appliances and location in the payload.
+            const payload = projectId === 0
+                ? { settings, appliances, project_location: projectLocation }
+                : { settings };
+
             const { data } = await api.post<BleCalculationResults>(`/ble/calculate/${projectId}`, payload);
 
             if (data.status === 'error') {
