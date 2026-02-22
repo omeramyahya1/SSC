@@ -15,6 +15,17 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProjectAppliance } from '@/store/useApplianceStore';
+import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { BleCalculationResults } from '@/store/useBleStore';
 
 type ViewMode = 'active' | 'trash' | 'archived';
@@ -38,9 +49,11 @@ export function MainContent() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isQuickCalcOpen, setIsQuickCalcOpen] = useState(false);
     const [quickCalcData, setQuickCalcData] = useState<any>(null); // State to pass data from QuickCalc to CreateProject
+    const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+    const [isConfirmingEmptyTrash, setIsConfirmingEmptyTrash] = useState(false);
 
     // Zustand store integration
-    const { projects, isLoading, error, fetchProjects, createProject, createProjectWithConfig } = useProjectStore();
+    const { projects, isLoading, error, fetchProjects, createProject, createProjectWithConfig, deleteProjectPermanently, emptyTrash } = useProjectStore();
 
     useEffect(() => {
         fetchProjects();
@@ -73,6 +86,42 @@ export function MainContent() {
     const closeProjectModal = () => {
         setSelectedProject(null);
     }
+
+    const handlePermanentDeleteRequest = (project: Project) => {
+        setProjectToDelete(project);
+    };
+
+    const handleEmptyTrashRequest = () => {
+        setIsConfirmingEmptyTrash(true);
+    };
+
+    const handleCancelDelete = () => {
+        setProjectToDelete(null);
+        setIsConfirmingEmptyTrash(false);
+    };
+
+    const handleConfirmSingleDelete = async () => {
+        if (!projectToDelete) return;
+        try {
+            await deleteProjectPermanently(projectToDelete.uuid);
+            toast.success(t('dashboard.toast.project_deleted', 'Project has been permanently deleted.'));
+        } catch (error) {
+            toast.error(t('dashboard.toast.delete_failed', 'Failed to delete project. Please try again.'));
+        } finally {
+            handleCancelDelete();
+        }
+    };
+
+    const handleConfirmEmptyTrash = async () => {
+        try {
+            await emptyTrash();
+            toast.success(t('dashboard.toast.trash_emptied', 'Trash has been emptied.'));
+        } catch (error) {
+            toast.error(t('dashboard.toast.empty_trash_failed', 'Failed to empty trash. Please try again.'));
+        } finally {
+            handleCancelDelete();
+        }
+    };
 
     // --- Filtering & Sorting Logic ---
 
@@ -141,6 +190,7 @@ export function MainContent() {
                     key={p.project_id}
                     project={p}
                     onOpen={() => openProjectModal(p)}
+                    onPermanentDelete={handlePermanentDeleteRequest}
                     viewMode={currentView}
                 />
             ))}
@@ -256,23 +306,35 @@ export function MainContent() {
                                         {t('dashboard.view_trash', 'Trash')}
                                     </Button>
                                 </div>
+                                {currentView === 'trash' && filteredProjects.length > 0 && (
+                                    <Button
+                                        variant="destructive"
+                                        onClick={handleEmptyTrashRequest}
+                                        className="flex-shrink-0"
+                                    >
+                                        <img src="/eva-icons (2)/outline/trash.png" alt="empty trash" className="w-5 h-5 invert ltr:mr-2 rtl:ml-2" />
+                                        {t('dashboard.empty_trash', 'Empty Trash')}
+                                    </Button>
+                                )}
                             </div>
-                            <Button
-                                onClick={() => setIsQuickCalcOpen(true)}
-                                disabled={isExpired}
-                                className="group hover:shadow-lg h bg-white hover:bg-primary border  shadow-sm "
-                                >
-                                <img src="/eva-icons (2)/outline/flash.png" alt="quick calc" className="w-5 h-5 group-hover:invert me-2" />
-                                <span className='me-2 group-hover:text-white'>{t('dashboard.quick_calc', 'Quick Calculate')}</span>
-                            </Button>
-                            <Button
-                                onClick={() => setIsCreateModalOpen(true)}
-                                disabled={isExpired || currentView !== 'active'}
-                                className="text-white hover:shadow-lg "
-                                >
-                                <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
-                                <span className='me-2'>{t('dashboard.create_project', 'Create New Project')}</span>
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    onClick={() => setIsQuickCalcOpen(true)}
+                                    disabled={isExpired}
+                                    className="group hover:shadow-lg h bg-white hover:bg-primary border  shadow-sm "
+                                    >
+                                    <img src="/eva-icons (2)/outline/flash.png" alt="quick calc" className="w-5 h-5 group-hover:invert me-2" />
+                                    <span className='me-2 group-hover:text-white'>{t('dashboard.quick_calc', 'Quick Calculate')}</span>
+                                </Button>
+                                <Button
+                                    onClick={() => setIsCreateModalOpen(true)}
+                                    disabled={isExpired || currentView !== 'active'}
+                                    className="text-white hover:shadow-lg "
+                                    >
+                                    <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
+                                    <span className='me-2'>{t('dashboard.create_project', 'Create New Project')}</span>
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3">
@@ -360,6 +422,32 @@ export function MainContent() {
             <Dialog open={isQuickCalcOpen} onOpenChange={setIsQuickCalcOpen} >
                 <QuickCalculateModal onConvert={handleConvertQuickCalcToProject} onOpenChange={setIsQuickCalcOpen}/>
             </Dialog>
+
+            <AlertDialog open={!!projectToDelete || isConfirmingEmptyTrash} onOpenChange={handleCancelDelete}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {isConfirmingEmptyTrash
+                                ? t('dashboard.confirm_empty_trash.title', 'Are you sure you want to empty the trash?')
+                                : t('dashboard.confirm_delete.title', 'Are you sure you want to delete this project?')}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {isConfirmingEmptyTrash
+                                ? t('dashboard.confirm_empty_trash.description', 'All projects in the trash will be permanently deleted. This action cannot be undone.')
+                                : t('dashboard.confirm_delete.description', 'This project will be permanently deleted. This action cannot be undone.')}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={handleCancelDelete}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={isConfirmingEmptyTrash ? handleConfirmEmptyTrash : handleConfirmSingleDelete}
+                        >
+                            {t('common.delete', 'Delete')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

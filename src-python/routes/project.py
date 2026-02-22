@@ -12,7 +12,6 @@ project_bp = Blueprint('project_bp', __name__, url_prefix='/projects')
 @project_bp.route('/create_with_customer', methods=['POST'])
 def create_project_with_customer():
     with get_db() as db:
-        # 1. Get the current logged-in user
         auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
         if not auth_record:
             return jsonify({"error": "No authenticated user found. Please log in."}), 401
@@ -21,14 +20,13 @@ def create_project_with_customer():
         if not current_user:
             return jsonify({"error": "Authenticated user not found in user table."}), 404
 
-        # 2. Validate the incoming payload
         try:
             data = ProjectWithCustomerCreate(**request.json)
         except ValidationError as e:
             return jsonify({"errors": e.errors()}), 400
 
-        # 3. Create Customer and Project in a transaction
         try:
+            # 1. Create Customer
             new_customer = Customer(
                 full_name=data.customer_name,
                 phone_number=data.phone_number,
@@ -39,8 +37,9 @@ def create_project_with_customer():
                 is_dirty=True
             )
             db.add(new_customer)
-            db.flush()  # Use flush to get the generated UUID for the customer
+            db.flush()
 
+            # 2. Create Project and link to Customer
             new_project = Project(
                 customer_uuid=new_customer.uuid,
                 status='planning',
@@ -51,22 +50,49 @@ def create_project_with_customer():
                 is_dirty=True
             )
             db.add(new_project)
-            db.commit() # Commit both customer and project
+            db.flush()
 
-            # 4. Prepare and return the response
+            # 3. Create SystemConfiguration if provided
+            if data.system_config:
+                from models import SystemConfiguration
+                new_config = SystemConfiguration(
+                    config_items=data.system_config,
+                    total_wattage=data.system_config.get("metadata", {}).get("total_peak_power_w", 0),
+                    is_dirty=True
+                )
+                db.add(new_config)
+                db.flush()
+                new_project.system_config_uuid = new_config.uuid
+
+            # 4. Create Appliances if provided
+            if data.appliances:
+                from models import Appliance
+                for app_data in data.appliances:
+                    new_appliance = Appliance(
+                        project_uuid=new_project.uuid,
+                        appliance_name=app_data.get('appliance_name'),
+                        wattage=app_data.get('wattage'),
+                        qty=app_data.get('qty'),
+                        use_hours_night=app_data.get('use_hours_night'),
+                        type=app_data.get('type'),
+                        is_dirty=True
+                    )
+                    db.add(new_appliance)
+
+            db.commit()
+
+            # 5. Prepare and return the response
+            # Refresh to get all relationships populated, especially customer
             db.refresh(new_project)
-            db.refresh(new_customer)
-
-            project_dict = model_to_dict(new_project)
-            project_dict['customer'] = model_to_dict(new_customer)
+            project_dict = model_to_dict(new_project, joined_relations=['customer', 'system_config', 'appliances'])
 
             return jsonify(project_dict), 201
 
         except Exception as e:
             db.rollback()
             import logging
-            logging.exception("Error during project creation")
-            return jsonify({"error": "An internal error occurred during project creation."}), 500
+            logging.exception("Error during project creation with customer")
+            return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
 
 @project_bp.route('/', methods=['POST'])
