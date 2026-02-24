@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import api from '@/api/client';
 import { NewProjectData, QuickCalcConvertedData } from '@/pages/dashboard/CreateProjectModal';
 import { SystemConfiguration } from './useSystemConfigurationStore';
+import { ProjectAppliance } from './useApplianceStore';
 
 // --- 1. Define Types ---
 
@@ -24,6 +25,7 @@ export interface Project {
     updated_at: string;
     deleted_at?: string | null;
     system_config?: SystemConfiguration;
+    appliances?: ProjectAppliance[];
 
     // Nested customer data from the API
     customer: Customer;
@@ -50,7 +52,7 @@ export interface ProjectStore {
   error: string | null;
   _quickCalcProjectId: string | null; // Internal state to store the quick calc project ID
   fetchProjects: () => Promise<void>;
-  createProject: (data: NewProjectData, quickCalcData?: QuickCalcConvertedData) => Promise<void>;
+  createProject: (data: NewProjectData, quickCalcData?: QuickCalcConvertedData) => Promise<Project | undefined>;
   updateProject: (projectUuid: string, data: ProjectUpdatePayload) => Promise<Project>;
   updateProjectStatus: (projectUuid: string, status: Project['status']) => Promise<void>;
   softDeleteProject: (projectUuid: string) => Promise<void>;
@@ -126,6 +128,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             updated_at: new Date().toISOString(),
             system_config_id: tempId -1,
         } : undefined,
+        appliances: quickCalcData?.appliances,
     };
 
     set((state) => ({ projects: [optimisticProject, ...state.projects] }));
@@ -141,6 +144,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         set((state) => ({
             projects: state.projects.map((p) => (p.project_id === tempId ? finalProject : p)),
         }));
+        return finalProject;
     } catch (e: any) {
         const errorMsg = e.message || "Failed to create project";
         set((state) => ({

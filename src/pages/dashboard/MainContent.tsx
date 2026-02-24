@@ -52,7 +52,7 @@ export function MainContent() {
     const [isConfirmingEmptyTrash, setIsConfirmingEmptyTrash] = useState(false);
 
     // Zustand store integration
-    const { projects, isLoading, error, fetchProjects, createProject, createProjectWithConfig, deleteProjectPermanently, emptyTrash } = useProjectStore();
+    const { projects, isLoading, error, fetchProjects, createProject, deleteProjectPermanently, emptyTrash } = useProjectStore();
 
     useEffect(() => {
         fetchProjects();
@@ -60,15 +60,20 @@ export function MainContent() {
 
     const handleCreateProject = async (projectData: NewProjectData, quickCalcConvertedData?: QuickCalcConvertedData) => {
         try {
-            if (quickCalcConvertedData && createProjectWithConfig) {
-                await createProjectWithConfig(projectData, quickCalcConvertedData);
-            } else {
-                await createProject(projectData);
-            }
+            // Always call createProject, passing quickCalcData if it exists
+            const newProject = await createProject(projectData, quickCalcConvertedData);
+
             setIsCreateModalOpen(false);
             setQuickCalcData(null); // Clear quickCalcData after project creation
+
+            // Seamless navigation: if a new project is returned, open its details
+            if (newProject) {
+                openProjectModal(newProject);
+            }
         } catch (e) {
             console.error("Failed to create project from UI:", e);
+            // Optionally, show a toast notification for the error
+            toast.error(t('dashboard.toast.create_failed', 'Failed to create project. Please try again.'));
         }
     };
 

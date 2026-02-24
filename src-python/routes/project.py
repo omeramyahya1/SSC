@@ -81,10 +81,21 @@ def create_project_with_customer():
 
             db.commit()
 
-            # 5. Prepare and return the response
-            # Refresh to get all relationships populated, especially customer
-            db.refresh(new_project)
-            project_dict = model_to_dict(new_project)
+            # 5. Re-fetch the project with all relationships loaded for a complete response
+            final_project = db.query(Project).options(
+                joinedload(Project.customer),
+                joinedload(Project.system_config),
+                joinedload(Project.appliances)
+            ).filter(Project.uuid == new_project.uuid).one()
+
+            # 6. Serialize the complete project object to a dictionary
+            project_dict = model_to_dict(final_project)
+            if final_project.customer:
+                project_dict['customer'] = model_to_dict(final_project.customer)
+            if final_project.system_config:
+                project_dict['system_config'] = model_to_dict(final_project.system_config)
+            if final_project.appliances:
+                project_dict['appliances'] = [model_to_dict(app) for app in final_project.appliances]
 
             return jsonify(project_dict), 201
 

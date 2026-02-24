@@ -24,12 +24,11 @@ export interface QuickCalcConvertedData {
 
 interface CreateProjectModalProps {
     onOpenChange: (isOpen: boolean) => void;
-    onSubmit: (projectData: NewProjectData) => void;
-    onSubmitWithConfig?: (projectData: NewProjectData, quickCalcData: QuickCalcConvertedData) => void;
+    onSubmit: (projectData: NewProjectData, quickCalcData?: QuickCalcConvertedData) => void;
     initialData?: QuickCalcConvertedData | null;
 }
 
-export function CreateProjectModal({ onOpenChange, onSubmit, onSubmitWithConfig, initialData }: CreateProjectModalProps) {
+export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: CreateProjectModalProps) {
     const { t, i18n } = useTranslation();
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
@@ -42,7 +41,13 @@ export function CreateProjectModal({ onOpenChange, onSubmit, onSubmitWithConfig,
     const cities = useMemo(() => getCitiesByState(locationState), [locationState, getCitiesByState]);
 
     useEffect(() => {
-        if (initialData?.config?.metadata?.location) {
+        // Prioritize bleSettings for location as it's the direct source from QuickCalc
+        if (initialData?.bleSettings?.project_location_state && initialData?.bleSettings?.project_location_city) {
+            setLocationState(initialData.bleSettings.project_location_state);
+            setLocationCity(initialData.bleSettings.project_location_city);
+        } 
+        // Fallback to the metadata location
+        else if (initialData?.config?.metadata?.location) {
             const [city, state] = initialData.config.metadata.location.split(', ').map(s => s.trim());
             setLocationState(state);
             setLocationCity(city);
@@ -57,11 +62,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit, onSubmitWithConfig,
             project_location: `${locationCity}, ${locationState}`,
         };
 
-        if (initialData && onSubmitWithConfig) {
-            onSubmitWithConfig(projectData, initialData);
-        } else {
-            onSubmit(projectData);
-        }
+        onSubmit(projectData, initialData || undefined);
     };
 
     const isFormValid = customerName.trim() !== '' && locationState.trim() !== '' && locationCity.trim() !== '';
