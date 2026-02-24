@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 from utils import get_db
-from models import Project, Customer, User, Authentication
+from models import Project, Customer, User, Authentication, SystemConfiguration, Appliance, Invoice, Payment, Document
 from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate, ProjectStatusUpdate
 from serializer import model_to_dict
 
@@ -84,7 +84,7 @@ def create_project_with_customer():
             # 5. Prepare and return the response
             # Refresh to get all relationships populated, especially customer
             db.refresh(new_project)
-            project_dict = model_to_dict(new_project, joined_relations=['customer', 'system_config', 'appliances'])
+            project_dict = model_to_dict(new_project)
 
             return jsonify(project_dict), 201
 
@@ -187,6 +187,49 @@ def recover_project(project_uuid):
         except Exception as e:
             db.rollback()
             return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+@project_bp.route('/<string:project_uuid>/permanent', methods=['DELETE'])
+def delete_project_permanently(project_uuid):
+    with get_db() as db:
+        try:
+            # 1. Find the project and eager load its children
+            project = db.query(Project).options(
+                joinedload(Project.invoices).joinedload(Invoice.payments),
+                joinedload(Project.appliances),
+                joinedload(Project.documents),
+                joinedload(Project.system_config)
+            ).filter(Project.uuid == project_uuid).first()
+
+            if not project:
+                return jsonify({"error": "Project not found"}), 404
+
+            # 2. Delete related objects manually as cascades are not defined in the model
+            for invoice in project.invoices:
+                for payment in invoice.payments:
+                    db.delete(payment)
+                db.delete(invoice)
+
+            for appliance in project.appliances:
+                db.delete(appliance)
+
+            for document in project.documents:
+                db.delete(document)
+
+            if project.system_config:
+                db.delete(project.system_config)
+
+            # 3. Delete the project itself
+            db.delete(project)
+
+            db.commit()
+
+            return jsonify({"message": "Project and its related data have been permanently deleted."}), 200
+
+        except Exception as e:
+            db.rollback()
+            import logging
+            logging.exception(f"Error during permanent deletion of project {project_uuid}")
+            return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
 @project_bp.route('/<string:project_uuid>', methods=['PATCH'])
 def patch_project_details(project_uuid):
@@ -333,7 +376,7 @@ def get_or_create_quick_calc_project_id():
             )
             db.add(quick_calc_project)
             db.flush() # Flush to get the uuid for the new project
-        
+
         db.commit() # Commit any changes (new customer or project)
         db.refresh(quick_calc_project)
 
@@ -392,9 +435,54 @@ def get_or_create_quick_calc_project():
             )
             db.add(quick_calc_project)
             db.flush()
-        
+
         db.commit() # Commit any changes (new customer or project)
         db.refresh(quick_calc_customer)
         db.refresh(quick_calc_project)
 
         return jsonify(model_to_dict(quick_calc_project)), 200
+
+@project_bp.route('/trash/empty', methods=['DELETE'])
+def empty_trash():
+    with get_db() as db:
+        try:
+            # 1. Find all soft-deleted projects and eager load children
+            projects_to_delete = db.query(Project).options(
+                joinedload(Project.invoices).joinedload(Invoice.payments),
+                joinedload(Project.appliances),
+                joinedload(Project.documents),
+                joinedload(Project.system_config)
+            ).filter(Project.deleted_at != None).all()
+
+            if not projects_to_delete:
+                return jsonify({"message": "Trash is already empty."}), 200
+
+            num_deleted = len(projects_to_delete)
+
+            # 2. Iterate and delete related objects and the project itself
+            for project in projects_to_delete:
+                for invoice in project.invoices:
+                    for payment in invoice.payments:
+                        db.delete(payment)
+                    db.delete(invoice)
+
+                for appliance in project.appliances:
+                    db.delete(appliance)
+
+                for document in project.documents:
+                    db.delete(document)
+
+                if project.system_config:
+                    db.delete(project.system_config)
+
+                db.delete(project)
+
+            db.commit()
+
+            return jsonify({"message": f"{num_deleted} projects and their related data have been permanently deleted."}), 200
+
+        except Exception as e:
+            db.rollback()
+            import logging
+            logging.exception("Error during empty trash operation")
+            return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500

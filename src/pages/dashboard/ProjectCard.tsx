@@ -26,7 +26,7 @@ const statusColors: { [key: string]: string } = {
     'archived': 'bg-gray-100 text-gray-800 border-gray-300 hover:bg-gray-200',
 };
 
-export function ProjectCard({ project, onOpen, viewMode = 'active' }: ProjectCardProps) {
+export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentDelete }: ProjectCardProps) {
     const { t, i18n } = useTranslation();
     const { getClimateDataForCity } = useLocationData();
     const { archiveProject, softDeleteProject, recoverProject } = useProjectStore();
@@ -103,7 +103,7 @@ export function ProjectCard({ project, onOpen, viewMode = 'active' }: ProjectCar
                                 <img src="/eva-icons (2)/outline/undo.png" alt="recover" className="w-5 h-5" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); onPermanentDelete(project); }} title={t('dashboard.permanent_delete', 'Delete Permanently')}>
-                                <img src="/eva-icons (2)/outline/trash-2.png" alt="delete permanently" className="w-5 h-5" />
+                                <img src="/eva-icons (2)/outline/delete-bin-2.svg" alt="delete permanently" className="w-5 h-5" />
                             </Button>
                         </div>
                     ) : (

@@ -26,7 +26,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { BleCalculationResults } from '@/store/useBleStore';
 
 type ViewMode = 'active' | 'trash' | 'archived';
 type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'location';
@@ -306,16 +305,6 @@ export function MainContent() {
                                         {t('dashboard.view_trash', 'Trash')}
                                     </Button>
                                 </div>
-                                {currentView === 'trash' && filteredProjects.length > 0 && (
-                                    <Button
-                                        variant="destructive"
-                                        onClick={handleEmptyTrashRequest}
-                                        className="flex-shrink-0"
-                                    >
-                                        <img src="/eva-icons (2)/outline/trash.png" alt="empty trash" className="w-5 h-5 invert ltr:mr-2 rtl:ml-2" />
-                                        {t('dashboard.empty_trash', 'Empty Trash')}
-                                    </Button>
-                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button
@@ -404,6 +393,18 @@ export function MainContent() {
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {/* Empty Trash */}
+                                {currentView === 'trash' && filteredProjects.length > 0 && (
+                                    <Button
+                                        variant="destructive"
+                                        onClick={handleEmptyTrashRequest}
+                                        className="flex-shrink-0 border group bg-red-50 text-red-700 border-red-200 hover:text-white  hover:bg-red-500"
+                                    >
+                                        <img src="/eva-icons (2)/outline/trash.png" alt="empty trash" className="w-5 h-5 ltr:mr-2 rtl:ml-2 group-hover:invert" />
+                                        {t('dashboard.empty_trash', 'Empty Trash')}
+                                    </Button>
+                                )}
                         </div>
                     </div>
 
@@ -424,7 +425,7 @@ export function MainContent() {
             </Dialog>
 
             <AlertDialog open={!!projectToDelete || isConfirmingEmptyTrash} onOpenChange={handleCancelDelete}>
-                <AlertDialogContent>
+                <AlertDialogContent className='bg-white border-2 border-gray'>
                     <AlertDialogHeader>
                         <AlertDialogTitle>
                             {isConfirmingEmptyTrash
@@ -440,7 +441,7 @@ export function MainContent() {
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={handleCancelDelete}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
                         <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-red-50 text-red-700 border-red-200 hover:text-white  hover:bg-red-500"
                             onClick={isConfirmingEmptyTrash ? handleConfirmEmptyTrash : handleConfirmSingleDelete}
                         >
                             {t('common.delete', 'Delete')}
