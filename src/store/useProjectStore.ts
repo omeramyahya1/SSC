@@ -3,9 +3,6 @@ import { create } from 'zustand';
 import api from '@/api/client';
 import { NewProjectData, QuickCalcConvertedData } from '@/pages/dashboard/CreateProjectModal';
 import { SystemConfiguration } from './useSystemConfigurationStore';
-import { useApplianceStore, ProjectAppliance } from './useApplianceStore';
-import { useSystemConfigurationStore } from './useSystemConfigurationStore';
-import { BleCalculationResults } from './useBleStore';
 
 // --- 1. Define Types ---
 
@@ -27,7 +24,7 @@ export interface Project {
     updated_at: string;
     deleted_at?: string | null;
     system_config?: SystemConfiguration;
-    
+
     // Nested customer data from the API
     customer: Customer;
 

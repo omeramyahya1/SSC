@@ -80,7 +80,7 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
         >
             <CardHeader className="flex flex-row items-start justify-between p-4">
                 <div className="flex-grow overflow-hidden">
-                    <CardTitle className="text-lg font-bold truncate" title={project.customer.full_name}>{project.customer.full_name}</CardTitle>
+                    <CardTitle className="text-lg font-bold truncate" title={project.customer?.full_name ?? t('dashboard.no_customer', 'No Customer')}>{project.customer?.full_name ?? t('dashboard.no_customer', 'No Customer')}</CardTitle>
                     <div className="flex flex-col gap-1 pt-1">
                         <div className="flex items-center gap-1 text-sm text-muted-foreground truncate">
                             <img src="/eva-icons (2)/outline/pin.png" alt="location" className="w-4 h-4 opacity-70 flex-shrink-0"/>
@@ -99,11 +99,11 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
 
                     {viewMode === 'trash' ? (
                         <div className="flex items-center">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={handleRecover} title={t('dashboard.recover', 'Recover')}>
-                                <img src="/eva-icons (2)/outline/undo.png" alt="recover" className="w-5 h-5" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 group text-green-600 hover:text-green-700 hover:bg-green-500" onClick={handleRecover} title={t('dashboard.recover', 'Recover')}>
+                                <img src="/eva-icons (2)/outline/undo.png" alt="recover" className="w-5 h-5 group-hover:invert" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={(e) => { e.stopPropagation(); onPermanentDelete(project); }} title={t('dashboard.permanent_delete', 'Delete Permanently')}>
-                                <img src="/eva-icons (2)/outline/delete-bin-2.svg" alt="delete permanently" className="w-5 h-5" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 group text-red-600 hover:bg-red-500" onClick={(e) => { e.stopPropagation(); onPermanentDelete(project); }} title={t('dashboard.permanent_delete', 'Delete Permanently')}>
+                                <img src="/eva-icons (2)/outline/delete-bin-2.svg" alt="delete permanently" className="w-5 h-5 group-hover:invert" />
                             </Button>
                         </div>
                     ) : (
@@ -124,8 +124,8 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
                                         {t('dashboard.archive', 'Archive')}
                                     </DropdownMenuItem>
                                 )}
-                                <DropdownMenuItem className="text-red-600 cursor-pointer rounded-lg hover:bg-gray-100" onClick={handleDelete}>
-                                    <img src="/eva-icons (2)/outline/trash-2.png" alt="delete" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
+                                <DropdownMenuItem className="cursor-pointer rounded-lg group text-red-700 border-red-200 hover:text-white  hover:bg-red-500" onClick={handleDelete}>
+                                    <img src="/eva-icons (2)/outline/trash-2.png" alt="delete" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70 group-hover:invert" />
                                     {t('dashboard.delete', 'Delete')}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
