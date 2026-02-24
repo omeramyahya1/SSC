@@ -14,7 +14,6 @@ import { useProjectStore, Project } from '@/store/useProjectStore';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ProjectAppliance } from '@/store/useApplianceStore';
 import { toast } from "sonner";
 import {
     AlertDialog,
