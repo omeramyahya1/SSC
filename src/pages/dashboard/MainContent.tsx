@@ -46,7 +46,7 @@ export function MainContent() {
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isQuickCalcOpen, setIsQuickCalcOpen] = useState(false);
-    const [quickCalcData, setQuickCalcData] = useState<any>(null); // State to pass data from QuickCalc to CreateProject
+    const [quickCalcData, setQuickCalcData] = useState<QuickCalcConvertedData | null>(null)
     const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
     const [isConfirmingEmptyTrash, setIsConfirmingEmptyTrash] = useState(false);
 
@@ -240,7 +240,7 @@ export function MainContent() {
                             <Button
                                 onClick={() => setIsCreateModalOpen(true)}
                                 disabled={isExpired}
-                                className='text-white hover:shadow-lg rounded-md'
+                                className='text-white hover:shadow-lg rounded-base'
                                 >
                                 <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert ltr:mr-2 rtl:ml-2" />
                                 <span>{t('dashboard.create_project', 'Create New Project')}</span>
@@ -314,7 +314,7 @@ export function MainContent() {
                                 <Button
                                     onClick={() => setIsQuickCalcOpen(true)}
                                     disabled={isExpired}
-                                    className="group hover:shadow-lg h bg-white hover:bg-primary border  shadow-sm "
+                                    className="group hover:shadow-lg h bg-white hover:bg-primary border rounded-lg shadow-sm "
                                     >
                                     <img src="/eva-icons (2)/outline/flash.png" alt="quick calc" className="w-5 h-5 group-hover:invert me-2" />
                                     <span className='me-2 group-hover:text-white'>{t('dashboard.quick_calc', 'Quick Calculate')}</span>
@@ -322,7 +322,7 @@ export function MainContent() {
                                 <Button
                                     onClick={() => setIsCreateModalOpen(true)}
                                     disabled={isExpired || currentView !== 'active'}
-                                    className="text-white hover:shadow-lg "
+                                    className="text-white rounded-lg hover:shadow-lg "
                                     >
                                     <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
                                     <span className='me-2'>{t('dashboard.create_project', 'Create New Project')}</span>

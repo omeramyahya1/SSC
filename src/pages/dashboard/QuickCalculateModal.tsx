@@ -21,12 +21,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useLocationData } from '@/hooks/useLocationData';
 import { ProjectAppliance } from '@/store/useApplianceStore'; // Keep ProjectAppliance interface
-import { useBleStore, BleCalculationResults } from '@/store/useBleStore';
+import { useBleStore, BleCalculationResults, BleSettingsPayload } from '@/store/useBleStore';
 import { cn } from "@/lib/utils";
-import { Save, PlusIcon, MinusIcon, Calculator, AlertCircle } from 'lucide-react';
+import { PlusIcon, MinusIcon, Calculator, AlertCircle } from 'lucide-react';
 import { QuickCalcConvertedData } from './CreateProjectModal'; // Import for type
 import useLocalStorage from '@/hooks/useLocalStorage';
-import { Toaster, toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 
 // --- Helper Components ---
 // SettingsInput and DataRow are reused directly
@@ -106,7 +106,7 @@ interface QuickCalculateModalProps {
     onOpenChange: (isOpen: boolean) => void;
 }
 
-export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateModalProps) {
+export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
     const { t, i18n } = useTranslation();
     const { getCitiesByState, states } = useLocationData();
 
@@ -143,7 +143,6 @@ export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateM
         isLoading: isBleLoading,
         error: bleError,
         runCalculation,
-        clearResults
     } = useBleStore();
 
     // State for custom appliance input
@@ -340,30 +339,7 @@ export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateM
     };
 
     // Validation state for appliance inputs - same as ProjectDetailsModal
-    const [applianceInputErrors, setApplianceInputErrors] = useState<{[key: number]: {[field: string]: string | null}}>({});
-
-    const validateApplianceInput = (field: 'qty' | 'use_hours_night' | 'wattage', value: number): string | null => {
-        let error: string | null = null;
-        if (isNaN(value)) {
-            return t('common.invalid_number', 'Invalid number');
-        }
-        if (field === 'qty') {
-            if (value < 0) {
-                error = t('common.must_be_0_or_greater', 'Must be 0 or greater');
-            } else if (!Number.isInteger(value)) {
-                error = t('common.must_be_whole_number', 'Must be a whole number');
-            }
-        } else if (field === 'use_hours_night') {
-            if (value < 0 || value > 24) {
-                 error = t('common.must_be_between_0_24', 'Must be between 0 and 24');
-            }
-        } else if (field === 'wattage') {
-            if (value <= 0) {
-                error = t('common.must_be_positive', 'Must be positive');
-            }
-        }
-        return error;
-    };
+    const [applianceInputErrors] = useState<{[key: number]: {[field: string]: string | null}}>({});
 
     const hasApplianceInputErrors = useMemo(() => {
         return Object.values(applianceInputErrors).some(fieldErrors =>
@@ -378,7 +354,6 @@ export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateM
 
     return (
         <DialogContent className="max-w-[90vw] h-[90vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
-            <Toaster />
             <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-2xl flex items-center justify-center gap-2">
                     <img src="/eva-icons (2)/outline/flash.png" alt="quick calc" className="w-6 h-6" />
@@ -403,7 +378,6 @@ export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateM
                                         setBleSettingsErrors(prev => ({...prev, project_location_state: validateBleSetting('project_location_state', value), project_location_city: null}));
                                     }}
                                     placeholder={t('dashboard.select_state_ph', 'Select a state...')}
-                                    error={bleSettingsErrors.project_location_state}
                                 />
                             </div>
                             <div className="grid gap-2">
@@ -414,7 +388,6 @@ export function QuickCalculateModal({ onConvert, onOpenChange }: QuickCalculateM
                                     onValueChange={(value) => handleBleSettingChange('project_location_city', value)}
                                     placeholder={t('dashboard.select_city_ph', 'Select a city...')}
                                     disabled={!bleSettings.project_location_state}
-                                    error={bleSettingsErrors.project_location_city}
                                 />
                             </div>
                         </div>

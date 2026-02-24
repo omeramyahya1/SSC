@@ -108,7 +108,7 @@ export function Sidebar() {
                 <nav className="flex-grow px-2 space-y-2 pt-4" >
                     <div className="space-y-1">
                         <SidebarItem icon="/eva-icons (2)/outline/grid.png" text={t('dashboard.dashboard', 'Dashboard')} isSelected={selectedItem === 'dashboard'} onClick={() => setSelectedItem('dashboard')} />
-                        <SidebarItem icon="/eva-icons (2)/outline/people.png" text={t('dashboard.customers', 'Customers')} isSelected={selectedItem === 'customers'} />
+                        <SidebarItem icon="/eva-icons (2)/outline/people.png" text={t('dashboard.customers', 'Customers')} isSelected={selectedItem === 'customers'} onClick={() => setSelectedItem('customers')} />
                     </div>
                     <Separator className="bg-gray-700 my-2" />
                     <div className="space-y-1">

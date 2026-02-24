@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useLocationData } from '@/hooks/useLocationData';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { ProjectAppliance } from '@/store/useApplianceStore';
-import { BleCalculationResults } from '@/store/useBleStore';
+import { BleConfigData, BleSettingsPayload } from '@/store/useBleStore';
 
 export interface NewProjectData {
     customer_name: string;
@@ -18,8 +18,8 @@ export interface NewProjectData {
 
 export interface QuickCalcConvertedData {
     appliances: ProjectAppliance[];
-    config: BleCalculationResults['data'];
-    bleSettings: any; // The input settings for BLE
+    config: BleConfigData;
+    bleSettings: BleSettingsPayload;
 }
 
 interface CreateProjectModalProps {
@@ -33,7 +33,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
-    
+
     const [locationState, setLocationState] = useState('');
     const [locationCity, setLocationCity] = useState('');
 
@@ -45,7 +45,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
         if (initialData?.bleSettings?.project_location_state && initialData?.bleSettings?.project_location_city) {
             setLocationState(initialData.bleSettings.project_location_state);
             setLocationCity(initialData.bleSettings.project_location_city);
-        } 
+        }
         // Fallback to the metadata location
         else if (initialData?.config?.metadata?.location) {
             const [city, state] = initialData.config.metadata.location.split(', ').map(s => s.trim());
@@ -101,7 +101,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
                         <Label htmlFor="locationState" className="font-semibold">
                             {t('dashboard.state_label', 'State')} <span className="text-red-500">*</span>
                         </Label>
-                        <SearchableSelect 
+                        <SearchableSelect
                             items={states.map(s => ({ value: s.value, label: s.label }))}
                             value={locationState}
                             onValueChange={(value) => {
@@ -115,7 +115,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
                         <Label htmlFor="locationCity" className="font-semibold">
                             {t('dashboard.city_label', 'City')} <span className="text-red-500">*</span>
                         </Label>
-                        <SearchableSelect 
+                        <SearchableSelect
                             items={cities.map(c => ({ value: c.value, label: c.label }))}
                             value={locationCity}
                             onValueChange={setLocationCity}

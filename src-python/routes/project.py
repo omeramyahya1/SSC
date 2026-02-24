@@ -203,13 +203,17 @@ def recover_project(project_uuid):
 def delete_project_permanently(project_uuid):
     with get_db() as db:
         try:
+            auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+            if not auth_record:
+                return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
             # 1. Find the project and eager load its children
             project = db.query(Project).options(
                 joinedload(Project.invoices).joinedload(Invoice.payments),
                 joinedload(Project.appliances),
                 joinedload(Project.documents),
                 joinedload(Project.system_config)
-            ).filter(Project.uuid == project_uuid).first()
+            ).filter(Project.uuid == project_uuid, Project.user_uuid == auth_record.user_uuid).first()
 
             if not project:
                 return jsonify({"error": "Project not found"}), 404

@@ -10,7 +10,7 @@
   "ble.chart.summary": "ملخص النظام",
   "ble.inverter.efficiency": "الكفاءة",
   "ble.inverter.power_rating": "تقدير الطاقة",
-  "ble.inverter.quantity": "الكمية",
+  "ble.inverter.Qty": "الكمية",
   "ble.inverter.surge_rating": "تقدير التيار المفاجئ",
   "ble.solar_panels.power_rating_short": "الطاقة",
   "ble.battery_bank.capacity_ah_short": "السعة (أمبير-ساعة)",

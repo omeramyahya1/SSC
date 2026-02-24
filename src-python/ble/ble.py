@@ -173,7 +173,7 @@ class BLE:
 
     def _calculate_max_surge_power(self):
         surge_values = (
-            app.wattage * app.qty
+            (app.wattage or 0) * (app.qty or 0)
             for app in self.appliances
         )
 

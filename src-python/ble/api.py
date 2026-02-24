@@ -43,17 +43,17 @@ def calculate_system(project_id: int):
                 return jsonify({"status": "error", "message": "Project location is required for quick calculation."}), 400
 
             # Create temporary, in-memory objects that mimic the SQLAlchemy models
-            project = Project(project_id=0, project_location=project_location)
+            project = Project(project_id=0, project_location=project_location, user_uuid=None)
             # The BLE class expects 'project.appliances' to be a list of Appliance objects.
             # We will create a list of non-persistent Appliance model instances.
             temp_appliances = []
             for app_data in appliances_data:
                 app = Appliance(
-                    wattage=app_data.get('wattage', 0),
-                    qty=app_data.get('qty', 0),
-                    use_hours_night=app_data.get('use_hours_night', 0),
-                    appliance_name=app_data.get('appliance_name', 'N/A'),
-                    type=app_data.get('type', 'N/A')
+                wattage=float(app_data.get('wattage', 0) or 0),
+                qty=int(app_data.get('qty', 0) or 0),
+                use_hours_night=float(app_data.get('use_hours_night', 0) or 0),
+                appliance_name=app_data.get('appliance_name', 'N/A'),
+                type=app_data.get('type', 'N/A')
                 )
                 temp_appliances.append(app)
             project.appliances = temp_appliances
