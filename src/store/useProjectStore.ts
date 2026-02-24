@@ -1,8 +1,9 @@
 // src/store/useProjectStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
-import { NewProjectData } from '@/pages/dashboard/CreateProjectModal';
+import { NewProjectData, QuickCalcConvertedData } from '@/pages/dashboard/CreateProjectModal';
 import { SystemConfiguration } from './useSystemConfigurationStore';
+import { ProjectAppliance } from './useApplianceStore';
 
 // --- 1. Define Types ---
 
@@ -24,7 +25,8 @@ export interface Project {
     updated_at: string;
     deleted_at?: string | null;
     system_config?: SystemConfiguration;
-    
+    appliances?: ProjectAppliance[];
+
     // Nested customer data from the API
     customer: Customer;
 
@@ -48,13 +50,17 @@ export interface ProjectStore {
   projects: Project[];
   isLoading: boolean;
   error: string | null;
+  _quickCalcProjectId: string | null; // Internal state to store the quick calc project ID
   fetchProjects: () => Promise<void>;
-  createProject: (data: NewProjectData) => Promise<void>;
+  createProject: (data: NewProjectData, quickCalcData?: QuickCalcConvertedData) => Promise<Project | undefined>;
   updateProject: (projectUuid: string, data: ProjectUpdatePayload) => Promise<Project>;
   updateProjectStatus: (projectUuid: string, status: Project['status']) => Promise<void>;
   softDeleteProject: (projectUuid: string) => Promise<void>;
   recoverProject: (projectUuid: string) => Promise<void>;
   archiveProject: (projectUuid: string) => Promise<void>;
+  deleteProjectPermanently: (projectUuid: string) => Promise<void>;
+  emptyTrash: () => Promise<void>;
+  getQuickCalcProjectId: () => Promise<string>; // New action
   receiveProjectUpdate: (updatedProject: Project) => void;
 }
 
@@ -62,6 +68,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   projects: [],
   isLoading: false,
   error: null,
+  _quickCalcProjectId: null, // Initialize internal state
 
   fetchProjects: async () => {
     set({ isLoading: true, error: null });
@@ -75,7 +82,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
   },
 
-  createProject: async (newProjectData) => {
+  getQuickCalcProjectId: async () => {
+    const { _quickCalcProjectId } = get();
+    if (_quickCalcProjectId) {
+        return _quickCalcProjectId;
+    }
+    set({ isLoading: true, error: null });
+    try {
+        const { data: project } = await api.post<Project>(`${resource}/quick-calc-init`);
+        set({ _quickCalcProjectId: project.uuid, isLoading: false });
+        return project.uuid;
+    } catch (e: any) {
+        const errorMsg = e.message || "Failed to get or create Quick Calc project";
+        set({ error: errorMsg, isLoading: false });
+        console.error(errorMsg, e);
+        throw e;
+    }
+  },
+
+  createProject: async (newProjectData, quickCalcData) => {
     // Optimistic UI: Create a temporary project object
     const tempId = -Date.now(); // Unique negative ID
     const optimisticProject: Project = {
@@ -94,28 +119,39 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
             phone_number: newProjectData.phone_number
         },
         is_pending: true,
+        // Optimistically add system_config and appliances if available from quick calc
+        system_config: quickCalcData?.config ? {
+            uuid: String(tempId - 1),
+            config_items: quickCalcData.config,
+            total_wattage: quickCalcData.config.metadata.total_peak_power_w,
+             created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            system_config_id: tempId -1,
+        } : undefined,
+        appliances: quickCalcData?.appliances,
     };
 
-    // Immediately update the UI with the temporary project
     set((state) => ({ projects: [optimisticProject, ...state.projects] }));
 
     try {
-        // Make the actual API call
-        const { data: finalProject } = await api.post<Project>(`${resource}/create_with_customer`, newProjectData);
+        const payload = {
+            ...newProjectData,
+            appliances: quickCalcData?.appliances,
+            system_config: quickCalcData?.config,
+        };
+        const { data: finalProject } = await api.post<Project>(`${resource}/create_with_customer`, payload);
 
-        // On success, replace the temporary project with the real one from the server
         set((state) => ({
             projects: state.projects.map((p) => (p.project_id === tempId ? finalProject : p)),
         }));
+        return finalProject;
     } catch (e: any) {
         const errorMsg = e.message || "Failed to create project";
-        // On failure, remove the temporary project and set an error
         set((state) => ({
             error: errorMsg,
             projects: state.projects.filter((p) => p.project_id !== tempId),
         }));
         console.error(errorMsg, e);
-        // Optionally: throw the error so the UI component can react (e.g., show a toast)
         throw e;
     }
   },
@@ -235,6 +271,44 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   archiveProject: async (projectUuid: string) => {
     await get().updateProjectStatus(projectUuid, 'archived');
+  },
+
+  deleteProjectPermanently: async (projectUuid: string) => {
+    const originalProjects = get().projects;
+    // Optimistically remove the project from the UI
+    set(state => ({
+        projects: state.projects.filter(p => p.uuid !== projectUuid),
+    }));
+
+    try {
+        await api.delete(`${resource}/${projectUuid}/permanent`);
+        // If API succeeds, state is already updated.
+    } catch (e: any) {
+        const errorMsg = e.message || "Failed to permanently delete project";
+        console.error(errorMsg, e);
+        // On failure, revert to the original state
+        set({ projects: originalProjects, error: errorMsg });
+        throw e; // Re-throw to be caught by the UI layer for feedback
+    }
+  },
+
+  emptyTrash: async () => {
+    const originalProjects = get().projects;
+    const projectsToKeep = originalProjects.filter(p => !p.deleted_at);
+
+    // Optimistically remove all soft-deleted projects
+    set({ projects: projectsToKeep });
+
+    try {
+        await api.delete(`${resource}/trash/empty`);
+        // If API succeeds, state is already updated.
+    } catch (e: any) {
+        const errorMsg = e.message || "Failed to empty trash";
+        console.error(errorMsg, e);
+        // On failure, revert to the original state
+        set({ projects: originalProjects, error: errorMsg });
+        throw e; // Re-throw to be caught by the UI layer for feedback
+    }
   },
 
   receiveProjectUpdate: (updatedProject: Project) => {

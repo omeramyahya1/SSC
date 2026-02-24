@@ -1,13 +1,13 @@
 // src/store/useSystemConfigurationStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
-import { BleCalculationResults } from './useBleStore'; 
+import { BleConfigData } from './useBleStore'; 
 import { useProjectStore, Project } from './useProjectStore';
 
 export interface SystemConfiguration {
     system_config_id: number;
     uuid: string;
-    config_items: BleCalculationResults['data'];
+    config_items: BleConfigData;
     total_wattage: number;
     created_at: string;
     updated_at: string;
@@ -19,7 +19,7 @@ interface SystemConfigurationStore {
     isLoading: boolean;
     error: string | null;
 
-    saveSystemConfiguration: (projectUuid: string, bleResultsData: BleCalculationResults['data']) => Promise<void>;
+    saveSystemConfiguration: (projectUuid: string, bleResultsData: BleConfigData) => Promise<void>;
     fetchSystemConfiguration: (projectUuid: string) => Promise<void>;
     clearSystemConfiguration: () => void;
 }

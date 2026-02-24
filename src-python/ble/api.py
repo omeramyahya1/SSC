@@ -9,7 +9,7 @@ from sqlalchemy.orm import joinedload
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from db_setup import SessionLocal
-from models import Project
+from models import Project, Appliance
 from .ble import BLE, get_geo_data
 
 # --- Blueprint Setup ---
@@ -25,29 +25,61 @@ def calculate_system(project_id: int):
     Calculate the required solar system configuration based on project data.
     Accepts an optional 'settings' object in the POST body to override defaults.
     """
+    # 3. Get override settings from request body
+    override_settings = (request.json or {}).get('settings', {})
+
     with SessionLocal() as session:
-        # 1. Fetch project data with related appliances
-        project = session.query(Project).options(
-            joinedload(Project.appliances)
-        ).filter(Project.project_id == project_id).first()
+        project = None
+        project_location = None
 
-        if not project:
-            return jsonify({"status": "error", "message": f"Project with ID {project_id} not found."}), 404
+        # --- Handle Quick Calculation (project_id == 0) vs. Existing Project ---
+        if project_id == 0:
+            # For quick calculations, construct a temporary project object from the payload
+            request_data = request.json or {}
+            appliances_data = request_data.get('appliances', [])
+            project_location = request_data.get('project_location')
 
-        if not project.project_location:
+            if not project_location:
+                return jsonify({"status": "error", "message": "Project location is required for quick calculation."}), 400
+
+            # Create temporary, in-memory objects that mimic the SQLAlchemy models
+            project = Project(project_id=0, project_location=project_location, user_uuid=None)
+            # The BLE class expects 'project.appliances' to be a list of Appliance objects.
+            # We will create a list of non-persistent Appliance model instances.
+            temp_appliances = []
+            for app_data in appliances_data:
+                app = Appliance(
+                wattage=float(app_data.get('wattage', 0) or 0),
+                qty=int(app_data.get('qty', 0) or 0),
+                use_hours_night=float(app_data.get('use_hours_night', 0) or 0),
+                appliance_name=app_data.get('appliance_name', 'N/A'),
+                type=app_data.get('type', 'N/A')
+                )
+                temp_appliances.append(app)
+            project.appliances = temp_appliances
+
+        else:
+            # For existing projects, fetch data from the database
+            project = session.query(Project).options(
+                joinedload(Project.appliances)
+            ).filter(Project.project_id == project_id).first()
+
+            if not project:
+                return jsonify({"status": "error", "message": f"Project with ID {project_id} not found."}), 404
+
+            project_location = project.project_location
+
+        if not project_location:
             return jsonify({"status": "error", "message": "Project location is not set."}), 400
 
         # 2. Get Peak Sun Hours from geo data
-        geo_data = get_geo_data(project.project_location)
+        geo_data = get_geo_data(project_location)
         if geo_data is None:
-            return jsonify({"status": "error", "message": f"Could not find geo data for location: {project.project_location}"}), 400
+            return jsonify({"status": "error", "message": f"Could not find geo data for location: {project_location}"}), 400
 
         # Add a check for invalid geo_data
         if geo_data['gti'] <= 0 or geo_data['pvout'] <= 0:
-            return jsonify({"status": "error", "message": f"Insufficient geo data for location: {project.project_location}. Please select a different location."}), 400
-
-        # 3. Get override settings from request body
-        override_settings = (request.json or {}).get('settings', {})
+            return jsonify({"status": "error", "message": f"Insufficient geo data for location: {project_location}. Please select a different location."}), 400
 
         # 4. Instantiate BLE and run calculations
         ble_instance = BLE(

@@ -73,9 +73,9 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
         if (project && !isEditing) {
             const [city, state] = project.project_location?.split(', ').map(p => p.trim()) || ['', ''];
             setEditData({
-                full_name: project.customer.full_name,
-                email: project.customer.email || '',
-                phone_number: project.customer.phone_number || '',
+                full_name: project.customer?.full_name ?? '',
+                email: project.customer?.email ?? '',
+                phone_number: project.customer?.phone_number ?? '',
                 project_location: project.project_location || '',
             });
             if (state) {
@@ -123,9 +123,9 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
         if (project) {
              const [city, state] = project.project_location?.split(', ').map(p => p.trim()) || ['', ''];
             setEditData({
-                full_name: project.customer.full_name,
-                email: project.customer.email || '',
-                phone_number: project.customer.phone_number || '',
+                full_name: project.customer?.full_name ?? '',
+                email: project.customer?.email ?? '',
+                phone_number: project.customer?.phone_number ?? '',
                 project_location: project.project_location || '',
             });
             setSelectedState(state);
@@ -162,7 +162,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
                     {isEditing ? (
                         <Input value={editData.full_name} onChange={e => handleFieldChange('full_name', e.target.value)} className="text-base"/>
                     ) : (
-                        <p className="text-base font-semibold">{project.customer.full_name}</p>
+                        <p className="text-base font-semibold">{project.customer?.full_name ?? t('dashboard.no_customer', 'No Customer')}</p>
                     )}
                 </div>
 
@@ -182,7 +182,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
                     {isEditing ? (
                         <Input type="email" value={editData.email} onChange={e => handleFieldChange('email', e.target.value)} className="text-base" />
                     ) : (
-                        <p className="text-base font-semibold">{project.customer.email || 'N/A'}</p>
+                        <p className="text-base font-semibold">{project.customer?.email || 'N/A'}</p>
                     )}
                 </div>
 
@@ -202,7 +202,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
                     {isEditing ? (
                         <Input value={editData.phone_number} onChange={e => handleFieldChange('phone_number', e.target.value)} className="text-base"/>
                     ) : (
-                        <p className="text-base font-semibold">{project.customer.phone_number || 'N/A'}</p>
+                        <p className="text-base font-semibold">{project.customer?.phone_number || 'N/A'}</p>
                     )}
                 </div>
             </div>
@@ -555,7 +555,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         <DialogContent className="max-w-[90vw] h-[90vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
             <Toaster />
             <DialogHeader className="p-4 border-b">
-                <DialogTitle className="text-2xl">{project.customer.full_name}</DialogTitle>
+                <DialogTitle className="text-2xl">{project.customer?.full_name ?? t('dashboard.no_customer', 'No Customer')}</DialogTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Select value={project.status} onValueChange={(value: Project['status']) => handleStatusChange(value)}>
                         <SelectTrigger className={cn(`w-[150px] border px-2 py-1 rounded-full text-xs font-semibold flex justify-center items-center gap-1`, statusColors[project.status] || 'bg-gray-100', project.is_pending && "animate-pulse")}>

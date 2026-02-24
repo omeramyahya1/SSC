@@ -7,6 +7,8 @@ class ProjectWithCustomerCreate(BaseModel):
     phone_number: Optional[str] = None
     email: Optional[str] = None
     project_location: str
+    appliances: Optional[List[dict]] = None
+    system_config: Optional[dict] = None
 
 class ApplianceCreate(BaseModel):
     project_uuid: Optional[str] = None

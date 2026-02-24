@@ -8,11 +8,23 @@ import { SubscriptionBanner } from "./SubscriptionBanner";
 import { useUserStore } from '@/store/useUserStore';
 import { Dialog } from '@/components/ui/dialog';
 import { ProjectDetailsModal } from './ProjectDetailsModal';
-import { CreateProjectModal, NewProjectData } from './CreateProjectModal';
+import { CreateProjectModal, NewProjectData, QuickCalcConvertedData } from './CreateProjectModal';
+import { QuickCalculateModal } from './QuickCalculateModal';
 import { useProjectStore, Project } from '@/store/useProjectStore';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ViewMode = 'active' | 'trash' | 'archived';
 type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'location';
@@ -33,21 +45,41 @@ export function MainContent() {
     // State for modals
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isQuickCalcOpen, setIsQuickCalcOpen] = useState(false);
+    const [quickCalcData, setQuickCalcData] = useState<QuickCalcConvertedData | null>(null)
+    const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+    const [isConfirmingEmptyTrash, setIsConfirmingEmptyTrash] = useState(false);
 
     // Zustand store integration
-    const { projects, isLoading, error, fetchProjects, createProject } = useProjectStore();
+    const { projects, isLoading, error, fetchProjects, createProject, deleteProjectPermanently, emptyTrash } = useProjectStore();
 
     useEffect(() => {
         fetchProjects();
     }, [fetchProjects]);
 
-    const handleCreateProject = async (projectData: NewProjectData) => {
+    const handleCreateProject = async (projectData: NewProjectData, quickCalcConvertedData?: QuickCalcConvertedData) => {
         try {
-            await createProject(projectData);
+            // Always call createProject, passing quickCalcData if it exists
+            const newProject = await createProject(projectData, quickCalcConvertedData);
+
             setIsCreateModalOpen(false);
+            setQuickCalcData(null); // Clear quickCalcData after project creation
+
+            // Seamless navigation: if a new project is returned, open its details
+            if (newProject) {
+                openProjectModal(newProject);
+            }
         } catch (e) {
             console.error("Failed to create project from UI:", e);
+            // Optionally, show a toast notification for the error
+            toast.error(t('dashboard.toast.create_failed', 'Failed to create project. Please try again.'));
         }
+    };
+
+    const handleConvertQuickCalcToProject = (data: QuickCalcConvertedData) => {
+        setQuickCalcData(data); // Save the quick calc data
+        setIsQuickCalcOpen(false); // Close quick calc modal
+        setIsCreateModalOpen(true); // Open create project modal
     };
 
     const openProjectModal = (project: Project) => {
@@ -57,6 +89,42 @@ export function MainContent() {
     const closeProjectModal = () => {
         setSelectedProject(null);
     }
+
+    const handlePermanentDeleteRequest = (project: Project) => {
+        setProjectToDelete(project);
+    };
+
+    const handleEmptyTrashRequest = () => {
+        setIsConfirmingEmptyTrash(true);
+    };
+
+    const handleCancelDelete = () => {
+        setProjectToDelete(null);
+        setIsConfirmingEmptyTrash(false);
+    };
+
+    const handleConfirmSingleDelete = async () => {
+        if (!projectToDelete) return;
+        try {
+            await deleteProjectPermanently(projectToDelete.uuid);
+            toast.success(t('dashboard.toast.project_deleted', 'Project has been permanently deleted.'));
+        } catch (error) {
+            toast.error(t('dashboard.toast.delete_failed', 'Failed to delete project. Please try again.'));
+        } finally {
+            handleCancelDelete();
+        }
+    };
+
+    const handleConfirmEmptyTrash = async () => {
+        try {
+            await emptyTrash();
+            toast.success(t('dashboard.toast.trash_emptied', 'Trash has been emptied.'));
+        } catch (error) {
+            toast.error(t('dashboard.toast.empty_trash_failed', 'Failed to empty trash. Please try again.'));
+        } finally {
+            handleCancelDelete();
+        }
+    };
 
     // --- Filtering & Sorting Logic ---
 
@@ -125,6 +193,7 @@ export function MainContent() {
                     key={p.project_id}
                     project={p}
                     onOpen={() => openProjectModal(p)}
+                    onPermanentDelete={handlePermanentDeleteRequest}
                     viewMode={currentView}
                 />
             ))}
@@ -171,7 +240,7 @@ export function MainContent() {
                             <Button
                                 onClick={() => setIsCreateModalOpen(true)}
                                 disabled={isExpired}
-                                className='text-white hover:shadow-lg rounded-md'
+                                className='text-white hover:shadow-lg rounded-base'
                                 >
                                 <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert ltr:mr-2 rtl:ml-2" />
                                 <span>{t('dashboard.create_project', 'Create New Project')}</span>
@@ -205,9 +274,9 @@ export function MainContent() {
                 <div className="p-6">
                     {/* Toolbar */}
                     <div className="flex flex-col gap-4 mb-6">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center justify-between w-full me-6">
-                                <h1 className="text-2xl font-bold">
+                        <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center justify-between w-full">
+                                <h1 className="text-3xl font-bold">
                                     {currentView === 'active' ? t('dashboard.projects', 'Projects') :
                                      currentView === 'trash' ? t('dashboard.trash', 'Trash') :
                                      t('dashboard.archive', 'Archive')}
@@ -241,14 +310,24 @@ export function MainContent() {
                                     </Button>
                                 </div>
                             </div>
-                            <Button
-                                onClick={() => setIsCreateModalOpen(true)}
-                                disabled={isExpired || currentView !== 'active'}
-                                className="text-white hover:shadow-lg "
-                                >
-                                <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
-                                <span className='me-2'>{t('dashboard.create_project', 'Create New Project')}</span>
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    onClick={() => setIsQuickCalcOpen(true)}
+                                    disabled={isExpired}
+                                    className="group hover:shadow-lg h bg-white hover:bg-primary border rounded-lg shadow-sm "
+                                    >
+                                    <img src="/eva-icons (2)/outline/flash.png" alt="quick calc" className="w-5 h-5 group-hover:invert me-2" />
+                                    <span className='me-2 group-hover:text-white'>{t('dashboard.quick_calc', 'Quick Calculate')}</span>
+                                </Button>
+                                <Button
+                                    onClick={() => setIsCreateModalOpen(true)}
+                                    disabled={isExpired || currentView !== 'active'}
+                                    className="text-white rounded-lg hover:shadow-lg "
+                                    >
+                                    <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
+                                    <span className='me-2'>{t('dashboard.create_project', 'Create New Project')}</span>
+                                </Button>
+                            </div>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3">
@@ -318,6 +397,18 @@ export function MainContent() {
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {/* Empty Trash */}
+                                {currentView === 'trash' && filteredProjects.length > 0 && (
+                                    <Button
+                                        variant="destructive"
+                                        onClick={handleEmptyTrashRequest}
+                                        className="flex-shrink-0 border group bg-red-50 text-red-700 border-red-200 hover:text-white  hover:bg-red-500"
+                                    >
+                                        <img src="/eva-icons (2)/outline/trash.png" alt="empty trash" className="w-5 h-5 ltr:mr-2 rtl:ml-2 group-hover:invert" />
+                                        {t('dashboard.empty_trash', 'Empty Trash')}
+                                    </Button>
+                                )}
                         </div>
                     </div>
 
@@ -331,8 +422,37 @@ export function MainContent() {
                 <ProjectDetailsModal project={selectedProject} />
             </Dialog>
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                <CreateProjectModal onSubmit={handleCreateProject} onOpenChange={setIsCreateModalOpen} />
+                <CreateProjectModal onSubmit={handleCreateProject} onOpenChange={setIsCreateModalOpen} initialData={quickCalcData} />
             </Dialog>
+            <Dialog open={isQuickCalcOpen} onOpenChange={setIsQuickCalcOpen} >
+                <QuickCalculateModal onConvert={handleConvertQuickCalcToProject} onOpenChange={setIsQuickCalcOpen}/>
+            </Dialog>
+
+            <AlertDialog open={!!projectToDelete || isConfirmingEmptyTrash} onOpenChange={handleCancelDelete}>
+                <AlertDialogContent className='bg-white border-2 border-gray'>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {isConfirmingEmptyTrash
+                                ? t('dashboard.confirm_empty_trash.title', 'Are you sure you want to empty the trash?')
+                                : t('dashboard.confirm_delete.title', 'Are you sure you want to delete this project?')}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {isConfirmingEmptyTrash
+                                ? t('dashboard.confirm_empty_trash.description', 'All projects in the trash will be permanently deleted. This action cannot be undone.')
+                                : t('dashboard.confirm_delete.description', 'This project will be permanently deleted. This action cannot be undone.')}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={handleCancelDelete}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-50 text-red-700 border-red-200 hover:text-white  hover:bg-red-500"
+                            onClick={isConfirmingEmptyTrash ? handleConfirmEmptyTrash : handleConfirmSingleDelete}
+                        >
+                            {t('common.delete', 'Delete')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

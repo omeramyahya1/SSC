@@ -3,7 +3,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 from utils import get_db
-from models import Project, Customer, User, Authentication
+from models import Project, Customer, User, Authentication, SystemConfiguration, Appliance, Invoice, Payment, Document
 from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate, ProjectStatusUpdate
 from serializer import model_to_dict
 
@@ -12,7 +12,6 @@ project_bp = Blueprint('project_bp', __name__, url_prefix='/projects')
 @project_bp.route('/create_with_customer', methods=['POST'])
 def create_project_with_customer():
     with get_db() as db:
-        # 1. Get the current logged-in user
         auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
         if not auth_record:
             return jsonify({"error": "No authenticated user found. Please log in."}), 401
@@ -21,14 +20,13 @@ def create_project_with_customer():
         if not current_user:
             return jsonify({"error": "Authenticated user not found in user table."}), 404
 
-        # 2. Validate the incoming payload
         try:
             data = ProjectWithCustomerCreate(**request.json)
         except ValidationError as e:
             return jsonify({"errors": e.errors()}), 400
 
-        # 3. Create Customer and Project in a transaction
         try:
+            # 1. Create Customer
             new_customer = Customer(
                 full_name=data.customer_name,
                 phone_number=data.phone_number,
@@ -39,8 +37,9 @@ def create_project_with_customer():
                 is_dirty=True
             )
             db.add(new_customer)
-            db.flush()  # Use flush to get the generated UUID for the customer
+            db.flush()
 
+            # 2. Create Project and link to Customer
             new_project = Project(
                 customer_uuid=new_customer.uuid,
                 status='planning',
@@ -51,22 +50,60 @@ def create_project_with_customer():
                 is_dirty=True
             )
             db.add(new_project)
-            db.commit() # Commit both customer and project
+            db.flush()
 
-            # 4. Prepare and return the response
-            db.refresh(new_project)
-            db.refresh(new_customer)
+            # 3. Create SystemConfiguration if provided
+            if data.system_config:
+                from models import SystemConfiguration
+                new_config = SystemConfiguration(
+                    config_items=data.system_config,
+                    total_wattage=data.system_config.get("metadata", {}).get("total_peak_power_w", 0),
+                    is_dirty=True
+                )
+                db.add(new_config)
+                db.flush()
+                new_project.system_config_uuid = new_config.uuid
 
-            project_dict = model_to_dict(new_project)
-            project_dict['customer'] = model_to_dict(new_customer)
+            # 4. Create Appliances if provided
+            if data.appliances:
+                from models import Appliance
+                for app_data in data.appliances:
+                    new_appliance = Appliance(
+                        project_uuid=new_project.uuid,
+                        appliance_name=app_data.get('appliance_name'),
+                        wattage=app_data.get('wattage'),
+                        qty=app_data.get('qty'),
+                        use_hours_night=app_data.get('use_hours_night'),
+                        type=app_data.get('type'),
+                        is_dirty=True
+                    )
+                    db.add(new_appliance)
+
+            db.commit()
+
+            # 5. Re-fetch the project with all relationships loaded for a complete response
+            final_project = db.query(Project).options(
+                joinedload(Project.customer),
+                joinedload(Project.system_config),
+                joinedload(Project.appliances)
+            ).filter(Project.uuid == new_project.uuid).one()
+
+            # 6. Serialize the complete project object to a dictionary
+            project_dict = model_to_dict(final_project)
+            if final_project.customer:
+                project_dict['customer'] = model_to_dict(final_project.customer)
+            if final_project.system_config:
+                project_dict['system_config'] = model_to_dict(final_project.system_config)
+            if final_project.appliances:
+                project_dict['appliances'] = [model_to_dict(app) for app in final_project.appliances]
 
             return jsonify(project_dict), 201
 
         except Exception as e:
             db.rollback()
             import logging
-            logging.exception("Error during project creation")
-            return jsonify({"error": "An internal error occurred during project creation."}), 500
+            logging.exception("Error during project creation with customer")
+            return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
 
 @project_bp.route('/', methods=['POST'])
@@ -162,6 +199,53 @@ def recover_project(project_uuid):
             db.rollback()
             return jsonify({"error": f"Database error: {str(e)}"}), 500
 
+@project_bp.route('/<string:project_uuid>/permanent', methods=['DELETE'])
+def delete_project_permanently(project_uuid):
+    with get_db() as db:
+        try:
+            auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+            if not auth_record:
+                return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+            # 1. Find the project and eager load its children
+            project = db.query(Project).options(
+                joinedload(Project.invoices).joinedload(Invoice.payments),
+                joinedload(Project.appliances),
+                joinedload(Project.documents),
+                joinedload(Project.system_config)
+            ).filter(Project.uuid == project_uuid, Project.user_uuid == auth_record.user_uuid).first()
+
+            if not project:
+                return jsonify({"error": "Project not found"}), 404
+
+            # 2. Delete related objects manually as cascades are not defined in the model
+            for invoice in project.invoices:
+                for payment in invoice.payments:
+                    db.delete(payment)
+                db.delete(invoice)
+
+            for appliance in project.appliances:
+                db.delete(appliance)
+
+            for document in project.documents:
+                db.delete(document)
+
+            if project.system_config:
+                db.delete(project.system_config)
+
+            # 3. Delete the project itself
+            db.delete(project)
+
+            db.commit()
+
+            return jsonify({"message": "Project and its related data have been permanently deleted."}), 200
+
+        except Exception as e:
+            db.rollback()
+            import logging
+            logging.exception(f"Error during permanent deletion of project {project_uuid}")
+            return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
+
 @project_bp.route('/<string:project_uuid>', methods=['PATCH'])
 def patch_project_details(project_uuid):
     with get_db() as db:
@@ -254,3 +338,166 @@ def patch_project_status(project_uuid):
             project_dict['customer'] = None
 
         return jsonify(project_dict), 200
+
+@project_bp.route('/quick-calc-id', methods=['POST'])
+def get_or_create_quick_calc_project_id():
+    with get_db() as db:
+        auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+        if not current_user:
+            return jsonify({"error": "Authenticated user not found in user table."}), 404
+
+        # Define a unique identifier for the quick calc customer and project
+        quick_calc_customer_name = "QuickCalcCustomer"
+
+        # Try to find the QuickCalcCustomer for the current user
+        quick_calc_customer = db.query(Customer).filter(
+            Customer.full_name == quick_calc_customer_name,
+            Customer.user_uuid == current_user.uuid
+        ).first()
+
+        # If not found, create it
+        if not quick_calc_customer:
+            quick_calc_customer = Customer(
+                full_name=quick_calc_customer_name,
+                user_uuid=current_user.uuid,
+                organization_uuid=current_user.organization_uuid,
+                branch_uuid=current_user.branch_uuid,
+                is_dirty=True
+            )
+            db.add(quick_calc_customer)
+            db.flush() # Flush to get the uuid for the new customer
+
+        # Try to find the QuickCalcProject for this customer and user
+        quick_calc_project = db.query(Project).filter(
+            Project.customer_uuid == quick_calc_customer.uuid,
+            Project.user_uuid == current_user.uuid,
+            Project.status == 'planning' # Assuming quick-calc projects start as planning
+        ).first()
+
+        # If not found, create it
+        if not quick_calc_project:
+            quick_calc_project = Project(
+                customer_uuid=quick_calc_customer.uuid,
+                status='planning',
+                project_location="Khartoum, Khartoum", # Default location
+                user_uuid=current_user.uuid,
+                organization_uuid=current_user.organization_uuid,
+                branch_uuid=current_user.branch_uuid,
+                is_dirty=True
+            )
+            db.add(quick_calc_project)
+            db.flush() # Flush to get the uuid for the new project
+
+        db.commit() # Commit any changes (new customer or project)
+        db.refresh(quick_calc_project)
+
+        return jsonify({"quick_calc_project_uuid": quick_calc_project.uuid}), 200
+
+@project_bp.route('/quick-calc-init', methods=['POST'])
+def get_or_create_quick_calc_project():
+    with get_db() as db:
+        auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+        if not current_user:
+            return jsonify({"error": "Authenticated user not found in user table."}), 404
+
+        # Define a unique identifier for the quick calc customer and project
+        quick_calc_customer_name = "QuickCalcCustomer"
+        quick_calc_project_name = "QuickCalcProject" # This is a placeholder for frontend display, not a DB column
+
+        # Try to find the QuickCalcCustomer for the current user
+        quick_calc_customer = db.query(Customer).filter(
+            Customer.full_name == quick_calc_customer_name,
+            Customer.user_uuid == current_user.uuid
+        ).first()
+
+        # If not found, create it
+        if not quick_calc_customer:
+            quick_calc_customer = Customer(
+                full_name=quick_calc_customer_name,
+                user_uuid=current_user.uuid,
+                organization_uuid=current_user.organization_uuid,
+                branch_uuid=current_user.branch_uuid,
+                is_dirty=True
+            )
+            db.add(quick_calc_customer)
+            db.flush()
+
+        # Try to find the QuickCalcProject for this customer
+        quick_calc_project = db.query(Project).filter(
+            Project.customer_uuid == quick_calc_customer.uuid,
+            Project.user_uuid == current_user.uuid,
+            Project.status == 'planning' # Assuming quick-calc projects start as planning
+        ).first()
+
+        # If not found, create it
+        if not quick_calc_project:
+            quick_calc_project = Project(
+                customer_uuid=quick_calc_customer.uuid,
+                status='planning',
+                project_location="Khartoum, Khartoum", # Default location
+                user_uuid=current_user.uuid,
+                organization_uuid=current_user.organization_uuid,
+                branch_uuid=current_user.branch_uuid,
+                is_dirty=True
+            )
+            db.add(quick_calc_project)
+            db.flush()
+
+        db.commit() # Commit any changes (new customer or project)
+        db.refresh(quick_calc_customer)
+        db.refresh(quick_calc_project)
+
+        return jsonify(model_to_dict(quick_calc_project)), 200
+
+@project_bp.route('/trash/empty', methods=['DELETE'])
+def empty_trash():
+    with get_db() as db:
+        try:
+            # 1. Find all soft-deleted projects and eager load children
+            projects_to_delete = db.query(Project).options(
+                joinedload(Project.invoices).joinedload(Invoice.payments),
+                joinedload(Project.appliances),
+                joinedload(Project.documents),
+                joinedload(Project.system_config)
+            ).filter(Project.deleted_at != None).all()
+
+            if not projects_to_delete:
+                return jsonify({"message": "Trash is already empty."}), 200
+
+            num_deleted = len(projects_to_delete)
+
+            # 2. Iterate and delete related objects and the project itself
+            for project in projects_to_delete:
+                for invoice in project.invoices:
+                    for payment in invoice.payments:
+                        db.delete(payment)
+                    db.delete(invoice)
+
+                for appliance in project.appliances:
+                    db.delete(appliance)
+
+                for document in project.documents:
+                    db.delete(document)
+
+                if project.system_config:
+                    db.delete(project.system_config)
+
+                db.delete(project)
+
+            db.commit()
+
+            return jsonify({"message": f"{num_deleted} projects and their related data have been permanently deleted."}), 200
+
+        except Exception as e:
+            db.rollback()
+            import logging
+            logging.exception("Error during empty trash operation")
+            return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500

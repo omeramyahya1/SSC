@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLocationData } from '@/hooks/useLocationData';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { ProjectAppliance } from '@/store/useApplianceStore';
+import { BleConfigData, BleSettingsPayload } from '@/store/useBleStore';
 
 export interface NewProjectData {
     customer_name: string;
@@ -14,30 +16,53 @@ export interface NewProjectData {
     project_location: string;
 }
 
-interface CreateProjectModalProps {
-    onOpenChange: (isOpen: boolean) => void;
-    onSubmit: (projectData: NewProjectData) => void;
+export interface QuickCalcConvertedData {
+    appliances: ProjectAppliance[];
+    config: BleConfigData;
+    bleSettings: BleSettingsPayload;
 }
 
-export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModalProps) {
+interface CreateProjectModalProps {
+    onOpenChange: (isOpen: boolean) => void;
+    onSubmit: (projectData: NewProjectData, quickCalcData?: QuickCalcConvertedData) => void;
+    initialData?: QuickCalcConvertedData | null;
+}
+
+export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: CreateProjectModalProps) {
     const { t, i18n } = useTranslation();
     const [customerName, setCustomerName] = useState('');
     const [customerEmail, setCustomerEmail] = useState('');
     const [customerPhone, setCustomerPhone] = useState('');
-    
+
     const [locationState, setLocationState] = useState('');
     const [locationCity, setLocationCity] = useState('');
 
     const { states, getCitiesByState } = useLocationData();
     const cities = useMemo(() => getCitiesByState(locationState), [locationState, getCitiesByState]);
 
+    useEffect(() => {
+        // Prioritize bleSettings for location as it's the direct source from QuickCalc
+        if (initialData?.bleSettings?.project_location_state && initialData?.bleSettings?.project_location_city) {
+            setLocationState(initialData.bleSettings.project_location_state);
+            setLocationCity(initialData.bleSettings.project_location_city);
+        }
+        // Fallback to the metadata location
+        else if (initialData?.config?.metadata?.location) {
+            const [city, state] = initialData.config.metadata.location.split(', ').map(s => s.trim());
+            setLocationState(state);
+            setLocationCity(city);
+        }
+    }, [initialData]);
+
     const handleCreate = () => {
-        onSubmit({
+        const projectData: NewProjectData = {
             customer_name: customerName,
             email: customerEmail || undefined,
             phone_number: customerPhone || undefined,
             project_location: `${locationCity}, ${locationState}`,
-        });
+        };
+
+        onSubmit(projectData, initialData || undefined);
     };
 
     const isFormValid = customerName.trim() !== '' && locationState.trim() !== '' && locationCity.trim() !== '';
@@ -76,7 +101,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModa
                         <Label htmlFor="locationState" className="font-semibold">
                             {t('dashboard.state_label', 'State')} <span className="text-red-500">*</span>
                         </Label>
-                        <SearchableSelect 
+                        <SearchableSelect
                             items={states.map(s => ({ value: s.value, label: s.label }))}
                             value={locationState}
                             onValueChange={(value) => {
@@ -90,7 +115,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit }: CreateProjectModa
                         <Label htmlFor="locationCity" className="font-semibold">
                             {t('dashboard.city_label', 'City')} <span className="text-red-500">*</span>
                         </Label>
-                        <SearchableSelect 
+                        <SearchableSelect
                             items={cities.map(c => ({ value: c.value, label: c.label }))}
                             value={locationCity}
                             onValueChange={setLocationCity}
