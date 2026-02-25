@@ -30,7 +30,7 @@ type ViewMode = 'active' | 'trash' | 'archived';
 type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'location';
 type GroupOption = 'none' | 'status' | 'date' | 'location' | 'customer';
 
-export function MainContent() {
+export function Dashboard() {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
     const isExpired = currentUser?.status === 'expired';

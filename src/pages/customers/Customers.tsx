@@ -18,7 +18,7 @@ export default function CustomersPage() {
       phone_number: '123-456-7890',
       // org_id and user_id can be set according to your application's logic
     };
-    
+
     createCustomer(newCustomer)
       .then(() => {
         console.log('Customer created successfully!');
@@ -31,8 +31,8 @@ export default function CustomersPage() {
   return (
     <div style={{ padding: '2rem' }}>
       <h1>Customers</h1>
-      
-      <button 
+
+      <button
         onClick={handleCreateCustomer}
         disabled={isLoading}
         style={{ marginBottom: '1rem' }}
@@ -42,7 +42,7 @@ export default function CustomersPage() {
 
       {isLoading && customers.length === 0 && <p>Loading customers...</p>}
       {error && <p style={{ color: 'red' }}>Error: {error}</p>}
-      
+
       {!isLoading && !error && customers.length === 0 && (
         <p>No customers found. Create one to get started!</p>
       )}
@@ -53,7 +53,7 @@ export default function CustomersPage() {
             <strong>{customer.full_name}</strong>
             <p>Email: {customer.email}</p>
             <p>Phone: {customer.phone_number}</p>
-            <p>Joined: {new Date(customer.date_created).toLocaleDateString()}</p>
+            <p>Joined: {new Date(customer.created_at).toLocaleDateString()}</p>
           </li>
         ))}
       </ul>

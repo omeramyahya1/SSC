@@ -4,10 +4,10 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/authentication & onboarding/login";
 import Registration from "./pages/authentication & onboarding/registration";
 import ForgotPassword from "./pages/authentication & onboarding/forgetPassword";
-import Dashboard from "./pages/dashboard/dashboard";
+import MainContent from "./pages/MainContent";
 import ChangePassword from "./pages/authentication & onboarding/changePassword";
-import Help from "./pages/help";
-import Sales from "./pages/sales";
+import Help from "./pages/Help";
+import Sales from "./pages/Sales";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
@@ -31,11 +31,11 @@ const authRoutes: AppRoute[] = [
 
 // Routes for authenticated users
 const mainRoutes: AppRoute[] = [
-  { path: "/dashboard", element: <Dashboard /> },
+  { path: "/home", element: <MainContent /> },
   { path: "/help", element: <Help /> },
   // Redirect root and any other path to the dashboard
-  { path: "/", element: <Navigate to="/dashboard" replace /> },
-  { path: "*", element: <Navigate to="/dashboard" replace /> },
+  { path: "/", element: <Navigate to="/home" replace /> },
+  { path: "*", element: <Navigate to="/home" replace /> },
 ];
 
 function App() {
