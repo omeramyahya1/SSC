@@ -1,13 +1,8 @@
-import { Link } from "react-router-dom"
-const Help = () => {
+export default function InvoicesFinance() {
   return (
-        <div>
-            <h1>
-                Invoices & Finance
-            </h1>
-            <Link to={"/"}>Login</Link>
-        </div>
-    )
+    <div style={{ padding: '2rem' }}>
+      <h1>Invoices & Finance Page</h1>
+      <p>This is where invoices and financial information will be displayed.</p>
+    </div>
+  );
 }
-
-export default Help

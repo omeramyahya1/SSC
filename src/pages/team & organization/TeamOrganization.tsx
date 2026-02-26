@@ -1,13 +1,8 @@
-import { Link } from "react-router-dom"
-const Help = () => {
+export default function TeamOrganization() {
   return (
-        <div>
-            <h1>
-                Team & Organization
-            </h1>
-            <Link to={"/"}>Login</Link>
-        </div>
-    )
+    <div style={{ padding: '2rem' }}>
+      <h1>Team & Organization Page</h1>
+      <p>This is where team and organization management will be.</p>
+    </div>
+  );
 }
-
-export default Help

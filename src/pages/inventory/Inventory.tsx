@@ -1,13 +1,8 @@
-import { Link } from "react-router-dom"
-const Help = () => {
+export default function Inventory() {
   return (
-        <div>
-            <h1>
-                Inventory
-            </h1>
-            <Link to={"/"}>Login</Link>
-        </div>
-    )
+    <div style={{ padding: '2rem' }}>
+      <h1>Inventory Page</h1>
+      <p>This is where the inventory management will be.</p>
+    </div>
+  );
 }
-
-export default Help

@@ -1,13 +1,13 @@
 import { Sidebar } from "./dashboard/Sidebar";
-import { Dashboard } from "./dashboard/Dashboard";
 import { InternetAlert } from "./dashboard/InternetAlert";
+import { Outlet } from "react-router-dom";
 
 const MainContent = () => {
   return (
     <div className="flex h-screen w-full font-sans">
       <InternetAlert />
       <Sidebar />
-      <Dashboard />
+      <Outlet />
     </div>
   )
 }

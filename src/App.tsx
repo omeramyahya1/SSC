@@ -11,32 +11,11 @@ import Sales from "./pages/Sales";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
-
-interface AppRoute {
-  path: string;
-  element: React.ReactNode;
-}
-
-// Routes for unauthenticated users
-const authRoutes: AppRoute[] = [
-  { path: "/", element: <Login /> },
-  { path: "/registration", element: <Registration /> },
-  { path: "/forgotpassword", element: <ForgotPassword /> },
-  { path: "/change_password", element: <ChangePassword /> },
-  { path: "/help", element: <Help /> },
-  { path: "/sales", element: <Sales /> },
-  // Redirect any other path to the login page
-  { path: "*", element: <Navigate to="/" replace /> },
-];
-
-// Routes for authenticated users
-const mainRoutes: AppRoute[] = [
-  { path: "/home", element: <MainContent /> },
-  { path: "/help", element: <Help /> },
-  // Redirect root and any other path to the dashboard
-  { path: "/", element: <Navigate to="/home" replace /> },
-  { path: "*", element: <Navigate to="/home" replace /> },
-];
+import { Dashboard } from "./pages/dashboard/Dashboard";
+import CustomersPage from "./pages/customers/Customers";
+import Inventory from "./pages/inventory/Inventory";
+import InvoicesFinance from "./pages/invoices & finances/InvoicesFinance";
+import TeamOrganization from "./pages/team & organization/TeamOrganization";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
@@ -92,17 +71,33 @@ function App() {
     return null;
   }
 
-  const routesToRender = isLoggedIn ? mainRoutes : authRoutes;
-
   return (
     <Routes>
-      {routesToRender.map((route, index) => (
-        <Route
-          key={index}
-          path={route.path}
-          element={route.element}
-        />
-      ))}
+      {isLoggedIn ? (
+        <>
+          <Route path="/home" element={<MainContent />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="customers" element={<CustomersPage />} />
+            <Route path="inventory" element={<Inventory />} />
+            <Route path="invoices" element={<InvoicesFinance />} />
+            <Route path="team" element={<TeamOrganization />} />
+          </Route>
+          <Route path="/help" element={<Help />} />
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
+        </>
+      ) : (
+        <>
+          <Route path="/" element={<Login />} />
+          <Route path="/registration" element={<Registration />} />
+          <Route path="/forgotpassword" element={<ForgotPassword />} />
+          <Route path="/change_password" element={<ChangePassword />} />
+          <Route path="/help" element={<Help />} />
+          <Route path="/sales" element={<Sales />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </>
+      )}
     </Routes>
   );
 }
