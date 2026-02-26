@@ -1,13 +1,13 @@
 import { Link } from "react-router-dom"
-const Sales = () => {
+const Help = () => {
   return (
         <div>
             <h1>
-                Sales
+                Subscriptions
             </h1>
             <Link to={"/"}>Login</Link>
         </div>
     )
 }
 
-export default Sales
+export default Help
