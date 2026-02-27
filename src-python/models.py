@@ -294,3 +294,60 @@ class SyncLog(Base, TimestampDirtyMixin):
     )
 
     user = relationship("User", foreign_keys=[user_uuid], back_populates="sync_logs")
+
+
+class InventoryCategory(Base, TimestampDirtyMixin):
+    __tablename__ = 'inventory_categories'
+
+    inventory_category_id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    spec_schema = Column(JSON)  # e.g., {"wattage": "W", "voltage": "V"}
+
+    items = relationship("InventoryItem", back_populates="category")
+
+
+class InventoryItem(Base, TimestampDirtyMixin):
+    __tablename__ = 'inventory_items'
+
+    inventory_item_id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    sku = Column(String, unique=True)
+    brand = Column(String)
+    model = Column(String)
+    category_uuid = Column(String, ForeignKey("inventory_categories.uuid"))
+    technical_specs = Column(JSON)  # e.g., {"wattage": 550, "voltage": 49.8}
+    quantity_on_hand = Column(Integer, default=0)
+    low_stock_threshold = Column(Integer, default=10)
+    buy_price = Column(Float)
+    sell_price = Column(Float)
+
+    category = relationship("InventoryCategory", back_populates="items")
+    adjustments = relationship("StockAdjustment", back_populates="item")
+    project_components = relationship("ProjectComponent", back_populates="item")
+
+
+class StockAdjustment(Base, TimestampDirtyMixin):
+    __tablename__ = 'stock_adjustments'
+
+    stock_adjustment_id = Column(Integer, primary_key=True)
+    item_uuid = Column(String, ForeignKey("inventory_items.uuid"))
+    adjustment = Column(Integer, nullable=False)  # Positive or negative
+    reason = Column(String)
+    user_uuid = Column(String, ForeignKey("user.uuid"))
+
+    item = relationship("InventoryItem", back_populates="adjustments")
+    user = relationship("User")
+
+
+class ProjectComponent(Base, TimestampDirtyMixin):
+    __tablename__ = 'project_components'
+
+    project_component_id = Column(Integer, primary_key=True)
+    project_uuid = Column(String, ForeignKey("projects.uuid"))
+    item_uuid = Column(String, ForeignKey("inventory_items.uuid"))
+    quantity = Column(Integer, nullable=False)
+    price_at_sale = Column(Float)
+    is_recommended = Column(Boolean, default=False)
+
+    project = relationship("Project", back_populates="project_components")
+    item = relationship("InventoryItem", back_populates="project_components")

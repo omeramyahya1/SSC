@@ -345,3 +345,48 @@ class BranchUpdate(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
+
+class InventoryCategoryCreate(BaseModel):
+    name: str
+    spec_schema: Optional[Any] = None
+
+class InventoryCategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    spec_schema: Optional[Any] = None
+
+class InventoryItemCreate(BaseModel):
+    name: str
+    sku: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    category_uuid: Optional[str] = None
+    technical_specs: Optional[Any] = None
+    quantity_on_hand: Optional[int] = 0
+    low_stock_threshold: Optional[int] = 10
+    buy_price: Optional[float] = None
+    sell_price: Optional[float] = None
+
+class InventoryItemUpdate(BaseModel):
+    name: Optional[str] = None
+    sku: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    category_uuid: Optional[str] = None
+    technical_specs: Optional[Any] = None
+    quantity_on_hand: Optional[int] = None
+    low_stock_threshold: Optional[int] = None
+    buy_price: Optional[float] = None
+    sell_price: Optional[float] = None
+
+class StockAdjustmentCreate(BaseModel):
+    item_uuid: str
+    adjustment: int
+    reason: Optional[str] = None
+    user_uuid: str
+
+class ProjectComponentCreate(BaseModel):
+    project_uuid: str
+    item_uuid: str
+    quantity: int
+    price_at_sale: Optional[float] = None
+    is_recommended: Optional[bool] = False
