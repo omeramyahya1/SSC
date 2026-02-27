@@ -161,6 +161,8 @@ class Project(Base, TimestampDirtyMixin):
     appliances = relationship("Appliance", back_populates="project")
     invoices = relationship("Invoice", back_populates="project")
     documents = relationship("Document", back_populates="project")
+    project_components = relationship("ProjectComponent", back_populates="project") # Corrected back_populates
+
 
 
 class Appliance(Base, TimestampDirtyMixin):
