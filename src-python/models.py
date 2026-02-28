@@ -302,6 +302,7 @@ class InventoryCategory(Base, TimestampDirtyMixin):
     __tablename__ = 'inventory_categories'
 
     inventory_category_id = Column(Integer, primary_key=True)
+    organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=False)
     name = Column(String, nullable=False)
     spec_schema = Column(JSON)  # e.g., {"wattage": "W", "voltage": "V"}
 
@@ -312,6 +313,8 @@ class InventoryItem(Base, TimestampDirtyMixin):
     __tablename__ = 'inventory_items'
 
     inventory_item_id = Column(Integer, primary_key=True)
+    organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=False)
+    branch_uuid = Column(String, ForeignKey("branches.uuid"))
     name = Column(String, nullable=False)
     sku = Column(String, unique=True)
     brand = Column(String)
@@ -332,6 +335,8 @@ class StockAdjustment(Base, TimestampDirtyMixin):
     __tablename__ = 'stock_adjustments'
 
     stock_adjustment_id = Column(Integer, primary_key=True)
+    organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=False)
+    branch_uuid = Column(String, ForeignKey("branches.uuid"))
     item_uuid = Column(String, ForeignKey("inventory_items.uuid"))
     adjustment = Column(Integer, nullable=False)  # Positive or negative
     reason = Column(String)
