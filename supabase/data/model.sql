@@ -122,6 +122,41 @@ CREATE TABLE public.documents (
   CONSTRAINT documents_pkey PRIMARY KEY (id),
   CONSTRAINT documents_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id)
 );
+CREATE TABLE public.inventory_categories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL,
+  name text NOT NULL,
+  spec_schema jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  deleted_at timestamp with time zone,
+  is_dirty boolean NOT NULL DEFAULT false,
+  CONSTRAINT inventory_categories_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_categories_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+);
+CREATE TABLE public.inventory_items (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL,
+  branch_id uuid,
+  category_id uuid,
+  name text NOT NULL,
+  sku text,
+  brand text,
+  model text,
+  technical_specs jsonb,
+  quantity_on_hand integer NOT NULL DEFAULT 0,
+  low_stock_threshold integer NOT NULL DEFAULT 0,
+  buy_price numeric,
+  sell_price numeric,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  deleted_at timestamp with time zone,
+  is_dirty boolean NOT NULL DEFAULT false,
+  CONSTRAINT inventory_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_items_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
+  CONSTRAINT inventory_items_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id),
+  CONSTRAINT inventory_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.inventory_categories(id)
+);
 CREATE TABLE public.invoices (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   project_id uuid,
@@ -198,6 +233,21 @@ CREATE TABLE public.pricing_discounts (
   CONSTRAINT pricing_discounts_pkey PRIMARY KEY (id),
   CONSTRAINT pricing_discounts_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.pricing(id)
 );
+CREATE TABLE public.project_components (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL,
+  item_id uuid NOT NULL,
+  quantity integer NOT NULL,
+  price_at_sale numeric,
+  is_recommended boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  deleted_at timestamp with time zone,
+  is_dirty boolean NOT NULL DEFAULT false,
+  CONSTRAINT project_components_pkey PRIMARY KEY (id),
+  CONSTRAINT project_components_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
+  CONSTRAINT project_components_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.inventory_items(id)
+);
 CREATE TABLE public.projects (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid,
@@ -213,6 +263,24 @@ CREATE TABLE public.projects (
   CONSTRAINT projects_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
   CONSTRAINT projects_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
   CONSTRAINT projects_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+);
+CREATE TABLE public.stock_adjustments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL,
+  branch_id uuid,
+  item_id uuid NOT NULL,
+  user_id uuid,
+  adjustment integer NOT NULL,
+  reason text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  deleted_at timestamp with time zone,
+  is_dirty boolean NOT NULL DEFAULT false,
+  CONSTRAINT stock_adjustments_pkey PRIMARY KEY (id),
+  CONSTRAINT stock_adjustments_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
+  CONSTRAINT stock_adjustments_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id),
+  CONSTRAINT stock_adjustments_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.inventory_items(id),
+  CONSTRAINT stock_adjustments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.subscription_payments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
