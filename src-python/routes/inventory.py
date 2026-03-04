@@ -126,7 +126,7 @@ def update_item(uuid):
             return jsonify({"errors": e.errors()}), 400
 
         update_data = validated_data.dict(exclude_unset=True)
-        
+
         new_cat_uuid = update_data.get('category_uuid', item.category_uuid)
         new_specs = update_data.get('technical_specs', item.technical_specs)
         if new_cat_uuid and new_specs:
@@ -197,7 +197,7 @@ def add_project_component():
         item = db.query(InventoryItem).filter(InventoryItem.uuid == validated_data.item_uuid).first()
         if not item:
             return jsonify({"error": "Item not found"}), 404
-            
+
         new_comp = ProjectComponent(**validated_data.dict())
         new_comp.is_dirty = True
         db.add(new_comp)
