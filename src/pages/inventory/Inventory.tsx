@@ -17,13 +17,13 @@ export default function Inventory() {
     const { currentUser } = useUserStore();
     const isExpired = currentUser?.status === 'expired';
 
-    const { 
-        items, 
-        categories, 
-        isLoading, 
-        error, 
-        fetchItems, 
-        fetchCategories 
+    const {
+        items,
+        categories,
+        isLoading,
+        error,
+        fetchItems,
+        fetchCategories
     } = useInventoryStore();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -40,9 +40,9 @@ export default function Inventory() {
             const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                 item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                 item.brand?.toLowerCase().includes(searchQuery.toLowerCase());
-            
+
             if (activeTab === 'all') return matchesSearch;
-            
+
             const category = categories.find(c => c.uuid === item.category_uuid);
             return matchesSearch && category?.name.toLowerCase() === activeTab.toLowerCase();
         });
@@ -117,11 +117,11 @@ export default function Inventory() {
                 {/* Tabs */}
                 <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="bg-white border p-1 h-auto flex-wrap justify-start">
-                        <TabsTrigger value="all" className="font-bold px-6">{t('inventory.tabs.all', 'All Items')}</TabsTrigger>
-                        <TabsTrigger value="panels" className="font-bold px-6">{t('inventory.tabs.panels', 'Panels')}</TabsTrigger>
-                        <TabsTrigger value="inverters" className="font-bold px-6">{t('inventory.tabs.inverters', 'Inverters')}</TabsTrigger>
-                        <TabsTrigger value="batteries" className="font-bold px-6">{t('inventory.tabs.batteries', 'Batteries')}</TabsTrigger>
-                        <TabsTrigger value="accessories" className="font-bold px-6">{t('inventory.tabs.accessories', 'Accessories')}</TabsTrigger>
+                        <TabsTrigger value="all" className={`font-bold px-6 ${activeTab == "all"? "text-white bg-primary": ""}`}>{t('inventory.tabs.all', 'All Items')}</TabsTrigger>
+                        <TabsTrigger value="panels" className={`font-bold px-6 ${activeTab == "panels"? "text-white bg-primary": ""}`}>{t('inventory.tabs.panels', 'Panels')}</TabsTrigger>
+                        <TabsTrigger value="inverters" className={`font-bold px-6 ${activeTab == "inverters"? "text-white bg-primary": ""}`}>{t('inventory.tabs.inverters', 'Inverters')}</TabsTrigger>
+                        <TabsTrigger value="batteries" className={`font-bold px-6 ${activeTab == "batteries"? "text-white bg-primary": ""}`}>{t('inventory.tabs.batteries', 'Batteries')}</TabsTrigger>
+                        <TabsTrigger value="accessories" className={`font-bold px-6 ${activeTab == "accessories"? "text-white bg-primary": ""}`}>{t('inventory.tabs.accessories', 'Accessories')}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value={activeTab} className="mt-6">
