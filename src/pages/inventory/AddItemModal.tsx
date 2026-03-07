@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useInventoryStore } from '@/store/useInventoryStore';
 import { useUserStore } from '@/store/useUserStore';
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 interface AddItemModalProps {
     onOpenChange: (isOpen: boolean) => void;
@@ -32,7 +31,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
         technical_specs: {} as Record<string, any>
     });
 
-    const selectedCategory = useMemo(() => 
+    const selectedCategory = useMemo(() =>
         categories.find(c => c.uuid === formData.category_uuid),
     [categories, formData.category_uuid]);
 
@@ -44,10 +43,10 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                 initialSpecs[key] = '';
             });
         }
-        setFormData(prev => ({ 
-            ...prev, 
-            category_uuid: uuid, 
-            technical_specs: initialSpecs 
+        setFormData(prev => ({
+            ...prev,
+            category_uuid: uuid,
+            technical_specs: initialSpecs
         }));
     };
 
@@ -59,6 +58,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
     };
 
     const generateSKU = () => {
+        console.log("Generating SKU. Category:", formData.category_uuid, "Brand:", formData.brand);
         if (!formData.category_uuid || !formData.brand) {
             toast.error(t('inventory.sku_gen_error', 'Please select a category and enter a brand first'));
             return;
@@ -71,21 +71,25 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
     };
 
     const handleSubmit = async () => {
-        if (!currentUser?.org_id && !currentUser?.organization_uuid) {
-             // In real app, organization_uuid should be on user
-             // I'll assume organization_uuid is available on the user object based on models.py
+        console.log("Submit Add Item. User:", currentUser);
+        if (!currentUser?.organization_uuid) {
+            toast.error(t('inventory.org_missing_error', 'Organization context missing. Please try logging out and in again.'));
+            return;
         }
-        
+
         try {
             const payload = {
                 ...formData,
-                organization_uuid: (currentUser as any)?.organization_uuid || "temp-org-uuid"
+                organization_uuid: currentUser.organization_uuid,
+                branch_uuid: currentUser.branch_uuid
             };
+            console.log("Sending Payload:", payload);
             await addItem(payload);
             toast.success(t('inventory.add_success', 'Item added to inventory'));
             onOpenChange(false);
-        } catch (error) {
-            toast.error(t('inventory.add_error', 'Failed to add item'));
+        } catch (error: any) {
+            console.error("Add Item Failed:", error);
+            toast.error(error.message || t('inventory.add_error', 'Failed to add item'));
         }
     };
 
@@ -118,13 +122,13 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                     <div className="grid gap-2">
                         <Label htmlFor="sku" className="font-semibold">{t('inventory.col.sku', 'SKU')} *</Label>
                         <div className="flex gap-2">
-                            <Input 
-                                id="sku" 
-                                value={formData.sku} 
+                            <Input
+                                id="sku"
+                                value={formData.sku}
                                 onChange={e => setFormData(prev => ({ ...prev, sku: e.target.value }))}
                                 placeholder="e.g. PAN-JIN-001"
                             />
-                            <Button variant="outline" size="icon" onClick={generateSKU} title={t('inventory.generate_sku', 'Generate SKU')}>
+                            <Button type="button" variant="outline" size="icon" onClick={generateSKU} title={t('inventory.generate_sku', 'Generate SKU')}>
                                 <img src="/eva-icons (2)/outline/flash.png" alt="gen" className="w-4 h-4" />
                             </Button>
                         </div>
@@ -133,9 +137,9 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
 
                 <div className="grid gap-2">
                     <Label htmlFor="name" className="font-semibold">{t('inventory.col.name', 'Item Name')} *</Label>
-                    <Input 
-                        id="name" 
-                        value={formData.name} 
+                    <Input
+                        id="name"
+                        value={formData.name}
                         onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
                         placeholder="e.g. Jinko Solar 550W Panel"
                     />
@@ -160,7 +164,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                             {Object.entries(selectedCategory.spec_schema).map(([key, unit]) => (
                                 <div key={key} className="grid gap-1.5">
                                     <Label htmlFor={`spec-${key}`} className="text-xs">{key} ({unit})</Label>
-                                    <Input 
+                                    <Input
                                         id={`spec-${key}`}
                                         className="h-8 text-sm"
                                         value={formData.technical_specs[key] || ''}
@@ -175,20 +179,20 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="qty" className="font-semibold">{t('inventory.col.quantity', 'Initial Quantity')}</Label>
-                        <Input 
-                            id="qty" 
-                            type="number" 
-                            value={formData.quantity_on_hand} 
-                            onChange={e => setFormData(prev => ({ ...prev, quantity_on_hand: parseInt(e.target.value) || 0 }))} 
+                        <Input
+                            id="qty"
+                            type="number"
+                            value={formData.quantity_on_hand}
+                            onChange={e => setFormData(prev => ({ ...prev, quantity_on_hand: parseInt(e.target.value) || 0 }))}
                         />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="threshold" className="font-semibold">{t('inventory.col.low_stock_threshold', 'Low Stock Alert At')}</Label>
-                        <Input 
-                            id="threshold" 
-                            type="number" 
-                            value={formData.low_stock_threshold} 
-                            onChange={e => setFormData(prev => ({ ...prev, low_stock_threshold: parseInt(e.target.value) || 0 }))} 
+                        <Input
+                            id="threshold"
+                            type="number"
+                            value={formData.low_stock_threshold}
+                            onChange={e => setFormData(prev => ({ ...prev, low_stock_threshold: parseInt(e.target.value) || 0 }))}
                         />
                     </div>
                 </div>
@@ -196,28 +200,28 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="buy_price" className="font-semibold">{t('inventory.col.buy_price', 'Buy Price')} *</Label>
-                        <Input 
-                            id="buy_price" 
-                            type="number" 
-                            value={formData.buy_price} 
-                            onChange={e => setFormData(prev => ({ ...prev, buy_price: parseFloat(e.target.value) || 0 }))} 
+                        <Input
+                            id="buy_price"
+                            type="number"
+                            value={formData.buy_price}
+                            onChange={e => setFormData(prev => ({ ...prev, buy_price: parseFloat(e.target.value) || 0 }))}
                         />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="sell_price" className="font-semibold">{t('inventory.col.sell_price', 'Sell Price')} *</Label>
-                        <Input 
-                            id="sell_price" 
-                            type="number" 
-                            value={formData.sell_price} 
-                            onChange={e => setFormData(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))} 
+                        <Input
+                            id="sell_price"
+                            type="number"
+                            value={formData.sell_price}
+                            onChange={e => setFormData(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))}
                         />
                     </div>
                 </div>
             </div>
 
             <DialogFooter className="gap-2 sm:justify-end">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel', 'Cancel')}</Button>
-                <Button onClick={handleSubmit} disabled={!isFormValid} className="text-white">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel', 'Cancel')}</Button>
+                <Button type="button" onClick={handleSubmit} disabled={!isFormValid} className="text-white">
                     {t('inventory.create_item', 'Add Item')}
                 </Button>
             </DialogFooter>

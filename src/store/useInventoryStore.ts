@@ -46,7 +46,7 @@ interface InventoryState {
     addItem: (item: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     updateItem: (uuid: string, updates: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     deleteItem: (uuid: string) => Promise<void>;
-    adjustStock: (itemUuid: string, adjustment: number, reason: string) => Promise<void>;
+    adjustStock: (itemUuid: string, adjustment: number, reason: string, organization_uuid: string, user_uuid: string) => Promise<void>;
 }
 
 export const useInventoryStore = create<InventoryState>((set, get) => ({
@@ -82,8 +82,9 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
             set((state) => ({ items: [data, ...state.items], isLoading: false }));
             return data;
         } catch (e: any) {
-            set({ error: e.message || "Failed to add item", isLoading: false });
-            return undefined;
+            const msg = e.response?.data?.error || e.message || "Failed to add item";
+            set({ error: msg, isLoading: false });
+            throw new Error(msg);
         }
     },
 
@@ -97,8 +98,9 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
             }));
             return data;
         } catch (e: any) {
-            set({ error: e.message || "Failed to update item", isLoading: false });
-            return undefined;
+            const msg = e.response?.data?.error || e.message || "Failed to update item";
+            set({ error: msg, isLoading: false });
+            throw new Error(msg);
         }
     },
 
@@ -111,17 +113,21 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
                 isLoading: false,
             }));
         } catch (e: any) {
-            set({ error: e.message || "Failed to delete item", isLoading: false });
+            const msg = e.response?.data?.error || e.message || "Failed to delete item";
+            set({ error: msg, isLoading: false });
+            throw new Error(msg);
         }
     },
 
-    adjustStock: async (itemUuid, adjustment, reason) => {
+    adjustStock: async (itemUuid, adjustment, reason, organization_uuid, user_uuid) => {
         // We don't set global loading here to allow quick-adjustments without UI blocking
         try {
             await api.post('/inventory/adjustments', {
                 item_uuid: itemUuid,
                 adjustment,
                 reason,
+                organization_uuid,
+                user_uuid,
             });
             // Update local quantity
             set((state) => ({

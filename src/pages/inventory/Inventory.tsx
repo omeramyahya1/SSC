@@ -10,6 +10,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { InventoryTable } from './InventoryTable';
 import { AddItemModal } from './AddItemModal';
+import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
 export default function Inventory() {
@@ -77,12 +78,14 @@ export default function Inventory() {
 
     return (
         <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
+            <Toaster />
             <div className="p-6 space-y-6">
                 {/* Header & Toolbar */}
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                         <h1 className="text-3xl font-bold">{t('inventory.title', 'Inventory')}</h1>
                         <Button
+                            type="button"
                             onClick={() => setIsAddItemModalOpen(true)}
                             disabled={isExpired}
                             className="text-white rounded-lg hover:shadow-lg"
@@ -104,6 +107,7 @@ export default function Inventory() {
                             />
                             {searchQuery && (
                                 <button
+                                    type="button"
                                     className="absolute ltr:right-3 rtl:left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                                     onClick={() => setSearchQuery('')}
                                 >

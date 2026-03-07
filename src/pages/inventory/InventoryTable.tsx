@@ -18,9 +18,11 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { InventoryItem, useInventoryStore } from '@/store/useInventoryStore';
+import { useUserStore } from '@/store/useUserStore';
 import { cn } from "@/lib/utils";
 import { Dialog } from "@/components/ui/dialog";
 import { AdjustStockModal } from './AdjustStockModal';
+import { EditItemModal } from './EditItemModal';
 import { toast } from "sonner";
 
 interface InventoryTableProps {
@@ -30,16 +32,27 @@ interface InventoryTableProps {
 export function InventoryTable({ items }: InventoryTableProps) {
     const { t, i18n } = useTranslation();
     const { adjustStock, deleteItem } = useInventoryStore();
-    
+    const { currentUser } = useUserStore();
+
     const [showSKU, setShowSKU] = useState(true);
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
     const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const handleQuickAdjust = async (item: InventoryItem, amount: number) => {
+        console.log("Quick Adjust Clicked:", { item, amount, currentUser });
+        
+        if (!currentUser?.organization_uuid || !currentUser?.uuid) {
+            console.error("Auth Context Missing in Table:", currentUser);
+            toast.error(t('inventory.auth_context_missing', 'Authentication context missing. Please try logging out and in again.'));
+            return;
+        }
+        
         try {
-            await adjustStock(item.uuid, amount, "Quick adjustment from table");
+            await adjustStock(item.uuid, amount, "Quick adjustment from table", currentUser.organization_uuid, currentUser.uuid);
             toast.success(t('inventory.quick_adjust_success', 'Stock updated successfully'));
-        } catch (error) {
+        } catch (error: any) {
+            console.error("Quick Adjust Failed:", error);
             toast.error(t('inventory.quick_adjust_error', 'Failed to update stock'));
         }
     };
@@ -60,16 +73,17 @@ export function InventoryTable({ items }: InventoryTableProps) {
 
     const formatSpecs = (specs: Record<string, any>) => {
         return Object.entries(specs)
-            .map(([key, value]) => `${value}`)
+            .map(([key, value]) => `${key}: ${value}`)
             .join(' | ');
     };
 
     return (
         <>
             <div className="p-4 border-b flex justify-end">
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setShowSKU(!showSKU)}
                     className="text-xs text-muted-foreground"
                 >
@@ -98,7 +112,7 @@ export function InventoryTable({ items }: InventoryTableProps) {
                         </TableRow>
                     ) : (
                         items.map((item) => (
-                            <TableRow 
+                            <TableRow
                                 key={item.uuid}
                                 className={cn(
                                     item.quantity_on_hand <= item.low_stock_threshold ? "bg-yellow-50/50" : "",
@@ -115,11 +129,15 @@ export function InventoryTable({ items }: InventoryTableProps) {
                                 <TableCell className="text-xs">{formatSpecs(item.technical_specs)}</TableCell>
                                 <TableCell className="text-center">
                                     <div className="flex items-center justify-center gap-2">
-                                        <Button 
-                                            variant="outline" 
-                                            size="icon" 
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
                                             className="h-6 w-6 rounded-full"
-                                            onClick={() => handleQuickAdjust(item, -1)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleQuickAdjust(item, -1);
+                                            }}
                                             disabled={item.quantity_on_hand <= 0}
                                         >
                                             <img src="/eva-icons (2)/outline/minus.png" alt="minus" className="w-3 h-3 opacity-60" />
@@ -131,11 +149,15 @@ export function InventoryTable({ items }: InventoryTableProps) {
                                         )}>
                                             {item.quantity_on_hand}
                                         </span>
-                                        <Button 
-                                            variant="outline" 
-                                            size="icon" 
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
                                             className="h-6 w-6 rounded-full"
-                                            onClick={() => handleQuickAdjust(item, 1)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleQuickAdjust(item, 1);
+                                            }}
                                         >
                                             <img src="/eva-icons (2)/outline/plus.png" alt="plus" className="w-3 h-3 opacity-60" />
                                         </Button>
@@ -147,12 +169,12 @@ export function InventoryTable({ items }: InventoryTableProps) {
                                 <TableCell className="text-center">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
                                                 <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="bg-white">
-                                            <DropdownMenuItem 
+                                            <DropdownMenuItem
                                                 className="cursor-pointer"
                                                 onClick={() => {
                                                     setSelectedItem(item);
@@ -162,14 +184,29 @@ export function InventoryTable({ items }: InventoryTableProps) {
                                                 <img src="/eva-icons (2)/outline/swap.png" alt="adjust" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
                                                 {t('inventory.adjust_stock', 'Adjust Stock')}
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem className="cursor-pointer">
+                                            <DropdownMenuItem 
+                                                className="cursor-pointer"
+                                                onClick={() => {
+                                                    setSelectedItem(item);
+                                                    setIsEditModalOpen(true);
+                                                }}
+                                            >
                                                 <img src="/eva-icons (2)/outline/edit.png" alt="edit" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
                                                 {t('common.edit', 'Edit Details')}
                                             </DropdownMenuItem>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem 
+                                            <DropdownMenuItem
                                                 className="cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50"
-                                                onClick={() => deleteItem(item.uuid)}
+                                                onClick={async () => {
+                                                    if(confirm(t('common.confirm_delete', 'Are you sure you want to delete this item?'))) {
+                                                        try {
+                                                            await deleteItem(item.uuid);
+                                                            toast.success(t('inventory.delete_success', 'Item deleted successfully'));
+                                                        } catch (error: any) {
+                                                            toast.error(error.message || t('inventory.delete_error', 'Failed to delete item'));
+                                                        }
+                                                    }
+                                                }}
                                             >
                                                 <img src="/eva-icons (2)/outline/trash-2.png" alt="delete" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
                                                 {t('common.delete', 'Delete')}
@@ -185,9 +222,18 @@ export function InventoryTable({ items }: InventoryTableProps) {
 
             <Dialog open={isAdjustModalOpen} onOpenChange={setIsAdjustModalOpen}>
                 {selectedItem && (
-                    <AdjustStockModal 
-                        item={selectedItem} 
-                        onOpenChange={setIsAdjustModalOpen} 
+                    <AdjustStockModal
+                        item={selectedItem}
+                        onOpenChange={setIsAdjustModalOpen}
+                    />
+                )}
+            </Dialog>
+
+            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                {selectedItem && (
+                    <EditItemModal
+                        item={selectedItem}
+                        onOpenChange={setIsEditModalOpen}
                     />
                 )}
             </Dialog>
