@@ -46,7 +46,7 @@ interface InventoryState {
     addItem: (item: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     updateItem: (uuid: string, updates: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     deleteItem: (uuid: string) => Promise<void>;
-    adjustStock: (itemUuid: string, adjustment: number, reason: string, organization_uuid: string, user_uuid: string) => Promise<void>;
+    adjustStock: (itemUuid: string, adjustment: number, reason: string) => Promise<void>;
 }
 
 export const useInventoryStore = create<InventoryState>((set, get) => ({
@@ -119,15 +119,12 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         }
     },
 
-    adjustStock: async (itemUuid, adjustment, reason, organization_uuid, user_uuid) => {
-        // We don't set global loading here to allow quick-adjustments without UI blocking
+    adjustStock: async (itemUuid, adjustment, reason) => {
         try {
             await api.post('/inventory/adjustments', {
                 item_uuid: itemUuid,
                 adjustment,
                 reason,
-                organization_uuid,
-                user_uuid,
             });
             // Update local quantity
             set((state) => ({

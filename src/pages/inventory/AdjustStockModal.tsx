@@ -5,7 +5,6 @@ import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescripti
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InventoryItem, useInventoryStore } from '@/store/useInventoryStore';
-import { useUserStore } from '@/store/useUserStore';
 import { toast } from "sonner";
 
 interface AdjustStockModalProps {
@@ -16,15 +15,12 @@ interface AdjustStockModalProps {
 export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) {
     const { t, i18n } = useTranslation();
     const { adjustStock } = useInventoryStore();
-    const { currentUser } = useUserStore();
 
     const [adjustment, setAdjustment] = useState<number>(0);
     const [reason, setReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async () => {
-        console.log("Submit Adjust Stock. Item:", item.uuid, "Adjustment:", adjustment, "User:", currentUser);
-        
         if (adjustment === 0) {
             toast.error(t('inventory.adjustment_zero_error', 'Adjustment cannot be zero'));
             return;
@@ -33,15 +29,10 @@ export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) 
             toast.error(t('inventory.reason_required_error', 'Reason is required for manual adjustments'));
             return;
         }
-        if (!currentUser?.organization_uuid || !currentUser?.uuid) {
-            console.error("Auth Context Missing in Modal:", currentUser);
-            toast.error(t('inventory.auth_context_missing', 'Authentication context missing. Please try logging out and in again.'));
-            return;
-        }
 
         setIsSubmitting(true);
         try {
-            await adjustStock(item.uuid, adjustment, reason, currentUser.organization_uuid, currentUser.uuid);
+            await adjustStock(item.uuid, adjustment, reason);
             toast.success(t('inventory.adjust_success', 'Stock adjusted successfully'));
             onOpenChange(false);
         } catch (error: any) {

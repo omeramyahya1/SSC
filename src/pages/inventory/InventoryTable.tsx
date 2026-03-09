@@ -18,7 +18,6 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { InventoryItem, useInventoryStore } from '@/store/useInventoryStore';
-import { useUserStore } from '@/store/useUserStore';
 import { cn } from "@/lib/utils";
 import { Dialog } from "@/components/ui/dialog";
 import { AdjustStockModal } from './AdjustStockModal';
@@ -32,7 +31,6 @@ interface InventoryTableProps {
 export function InventoryTable({ items }: InventoryTableProps) {
     const { t, i18n } = useTranslation();
     const { adjustStock, deleteItem } = useInventoryStore();
-    const { currentUser } = useUserStore();
 
     const [showSKU, setShowSKU] = useState(true);
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
@@ -40,16 +38,8 @@ export function InventoryTable({ items }: InventoryTableProps) {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const handleQuickAdjust = async (item: InventoryItem, amount: number) => {
-        console.log("Quick Adjust Clicked:", { item, amount, currentUser });
-        
-        if (!currentUser?.organization_uuid || !currentUser?.uuid) {
-            console.error("Auth Context Missing in Table:", currentUser);
-            toast.error(t('inventory.auth_context_missing', 'Authentication context missing. Please try logging out and in again.'));
-            return;
-        }
-        
         try {
-            await adjustStock(item.uuid, amount, "Quick adjustment from table", currentUser.organization_uuid, currentUser.uuid);
+            await adjustStock(item.uuid, amount, "Quick adjustment from table");
             toast.success(t('inventory.quick_adjust_success', 'Stock updated successfully'));
         } catch (error: any) {
             console.error("Quick Adjust Failed:", error);

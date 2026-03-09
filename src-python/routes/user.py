@@ -326,10 +326,10 @@ def get_all_users():
         items = db.query(User).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@user_bp.route('/<int:item_id>', methods=['PUT'])
-def update_user(item_id):
+@user_bp.route('/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
     with get_db() as db:
-            item = db.query(User).filter(User.user_id == item_id).first()
+            item = db.query(User).filter(User.user_id == user_id).first()
             if not item:
                 return jsonify({"error": "Not found"}), 404
 

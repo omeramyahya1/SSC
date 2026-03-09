@@ -12,6 +12,7 @@ import os
 # --- Flask App Setup ---
 def create_app():
     app = Flask(__name__)
+    app.url_map.strict_slashes = False
 
     # On startup, ensure the database and its tables are created.
     create_db_and_tables()

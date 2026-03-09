@@ -286,6 +286,8 @@ class UserCreate(BaseModel):
     business_logo: Optional[Any] = None
     business_email: Optional[str] = None
     status: Optional[str] = None
+    organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
     org_id: Optional[int] = None
     org_name: Optional[str] = None
     branch_id: Optional[int] = None
@@ -305,6 +307,8 @@ class UserUpdate(BaseModel):
     business_logo: Optional[Any] = None
     business_email: Optional[str] = None
     status: Optional[str] = None
+    organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
     org_id: Optional[int] = None
     org_name: Optional[str] = None
     branch_id: Optional[int] = None
@@ -348,7 +352,7 @@ class BranchUpdate(BaseModel):
 
 class InventoryCategoryCreate(BaseModel):
     name: str
-    organization_uuid: str
+    organization_uuid: Optional[str] = None
     spec_schema: Optional[Any] = None
 
 class InventoryCategoryUpdate(BaseModel):
@@ -358,7 +362,7 @@ class InventoryCategoryUpdate(BaseModel):
 
 class InventoryItemCreate(BaseModel):
     name: str
-    organization_uuid: str
+    organization_uuid: Optional[str] = None
     sku: Optional[str] = None
     brand: Optional[str] = None
     model: Optional[str] = None
@@ -385,9 +389,9 @@ class InventoryItemUpdate(BaseModel):
 class StockAdjustmentCreate(BaseModel):
     item_uuid: str
     adjustment: int
-    organization_uuid: str
+    organization_uuid: Optional[str] = None
     reason: Optional[str] = None
-    user_uuid: str
+    user_uuid: Optional[str] = None
 
 class ProjectComponentCreate(BaseModel):
     project_uuid: str

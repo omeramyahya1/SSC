@@ -33,29 +33,29 @@ def populate_db():
 
         # --- PHASE 0: Organizations & Branches ---
         print("Seeding organizations and branches...")
-        orgs = []
-        for _ in range(2):
-            org = Organization(
-                name=fake.company(),
-                plan_type=random.choice(['standard', 'enterprise_tier1', 'enterprise_tier2']),
-                is_dirty=True
-            )
-            orgs.append(org)
-        session.add_all(orgs)
-        session.flush()
+        # orgs = []
+        # for _ in range(2):
+        #     org = Organization(
+        #         name=fake.company(),
+        #         plan_type=random.choice(['standard', 'enterprise_tier1', 'enterprise_tier2']),
+        #         is_dirty=True
+        #     )
+        #     orgs.append(org)
+        # session.add_all(orgs)
+        # session.flush()
 
-        branches = []
-        for org in orgs:
-            for _ in range(2):
-                branch = Branch(
-                    name=f"{org.name} - {fake.city()} Branch",
-                    location=fake.address(),
-                    organization_uuid=org.uuid,
-                    is_dirty=True
-                )
-                branches.append(branch)
-        session.add_all(branches)
-        session.flush()
+        # branches = []
+        # for org in orgs:
+        #     for _ in range(2):
+        #         branch = Branch(
+        #             name=f"{org.name} - {fake.city()} Branch",
+        #             location=fake.address(),
+        #             organization_uuid=org.uuid,
+        #             is_dirty=True
+        #         )
+        #         branches.append(branch)
+        # session.add_all(branches)
+        # session.flush()
 
         # --- PHASE 1: Create Core Objects (Users, Inventory) ---
         print("Seeding core objects...")
@@ -94,7 +94,7 @@ def populate_db():
         for i, name in enumerate(cat_names):
             cat = InventoryCategory(
                 name=name,
-                organization_uuid=orgs[0].uuid,
+                organization_uuid="9592695f-d305-4497-bfec-5977aa094577",
                 spec_schema=spec_schemas[i],
                 is_dirty=True
             )
@@ -107,8 +107,8 @@ def populate_db():
         for cat in categories:
             for _ in range(3):
                 item = InventoryItem(
-                    organization_uuid=orgs[0].uuid,
-                    branch_uuid=branches[0].uuid,
+                    organization_uuid="9592695f-d305-4497-bfec-5977aa094577",
+                    branch_uuid="a203af6b-e2e6-445a-8f06-43f595e50cbe",
                     name=f"{cat.name} {fake.word().upper()}-{random.randint(100, 999)}",
                     sku=fake.unique.ean8(),
                     brand=fake.company(),
@@ -157,20 +157,20 @@ def populate_db():
         #     customers.append(customer)
         # session.add_all(customers)
 
-        configs = []
-        for _ in range(NUM_ENTRIES):
-            config = SystemConfiguration(
-                config_items={'panels': random.randint(4, 12), 'inverter': f'{random.choice([3, 5, 8])}KW'},
-                total_wattage=random.uniform(1500.0, 5500.0),
-                is_dirty=True
-            )
-            configs.append(config)
-        session.add_all(configs)
-        session.flush()
+        # configs = []
+        # for _ in range(NUM_ENTRIES):
+        #     config = SystemConfiguration(
+        #         config_items={'panels': random.randint(4, 12), 'inverter': f'{random.choice([3, 5, 8])}KW'},
+        #         total_wattage=random.uniform(1500.0, 5500.0),
+        #         is_dirty=True
+        #     )
+        #     configs.append(config)
+        # session.add_all(configs)
+        # session.flush()
 
         # --- PHASE 2: Relational Objects (Projects, Invoices) ---
         print("Seeding relational objects...")
-        projects = []
+        # projects = []
 
         # Create the specific target project
         # target_user = users[0]
@@ -203,45 +203,45 @@ def populate_db():
         # session.add_all(projects)
         # session.flush()
 
-        for project in projects:
-            # Appliances
-            for _ in range(3):
-                watt = random.uniform(5.0, 1500.0)
-                qty = random.randint(1, 10)
-                hours = random.uniform(2, 24)
-                session.add(Appliance(
-                    project_uuid=project.uuid,
-                    appliance_name=random.choice(['Fridge', 'LED Light', 'Fan', 'AC']),
-                    type=random.choice(['Heavy', 'Light']),
-                    qty=qty, use_hours_night=hours, wattage=watt,
-                    energy_consumption=watt * qty * hours,
-                    is_dirty=True
-                ))
+        # for project in projects:
+        #     # Appliances
+        #     for _ in range(3):
+        #         watt = random.uniform(5.0, 1500.0)
+        #         qty = random.randint(1, 10)
+        #         hours = random.uniform(2, 24)
+        #         session.add(Appliance(
+        #             project_uuid=project.uuid,
+        #             appliance_name=random.choice(['Fridge', 'LED Light', 'Fan', 'AC']),
+        #             type=random.choice(['Heavy', 'Light']),
+        #             qty=qty, use_hours_night=hours, wattage=watt,
+        #             energy_consumption=watt * qty * hours,
+        #             is_dirty=True
+        #         ))
 
-            # Project Components
-            num_components = random.randint(2, 5)
-            selected_items = random.sample(items, num_components)
-            for item in selected_items:
-                session.add(ProjectComponent(
-                    project_uuid=project.uuid,
-                    item_uuid=item.uuid,
-                    quantity=random.randint(1, 10),
-                    price_at_sale=item.sell_price,
-                    is_recommended=random.choice([True, False]),
-                    is_dirty=True
-                ))
+        #     # Project Components
+        #     num_components = random.randint(2, 5)
+        #     selected_items = random.sample(items, num_components)
+        #     for item in selected_items:
+        #         session.add(ProjectComponent(
+        #             project_uuid=project.uuid,
+        #             item_uuid=item.uuid,
+        #             quantity=random.randint(1, 10),
+        #             price_at_sale=item.sell_price,
+        #             is_recommended=random.choice([True, False]),
+        #             is_dirty=True
+        #         ))
 
-        # Stock Adjustments
-        for _ in range(10):
-            item = random.choice(items)
-            session.add(StockAdjustment(
-                organization_uuid=item.organization_uuid,
-                branch_uuid=item.branch_uuid,
-                item_uuid=item.uuid,
-                adjustment=random.randint(-5, 20),
-                reason=random.choice(["Restock", "Sale", "Damage", "Return"]),
-                is_dirty=True
-            ))
+        # # Stock Adjustments
+        # for _ in range(10):
+        #     item = random.choice(items)
+        #     session.add(StockAdjustment(
+        #         organization_uuid=item.organization_uuid,
+        #         branch_uuid=item.branch_uuid,
+        #         item_uuid=item.uuid,
+        #         adjustment=random.randint(-5, 20),
+        #         reason=random.choice(["Restock", "Sale", "Damage", "Return"]),
+        #         is_dirty=True
+        #     ))
 
         # invoices = []
         # for _ in range(NUM_ENTRIES):
