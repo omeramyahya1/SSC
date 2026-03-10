@@ -14,6 +14,38 @@ inventory_bp = Blueprint('inventory_bp', __name__, url_prefix='/inventory')
 
 # --- Categories ---
 
+def _default_inventory_categories():
+    return [
+        {
+            "name": "Solar Panels",
+            "spec_schema": {
+                "panel_rated_power": "W",
+                "panel_mpp_voltage": "V"
+            }
+        },
+        {
+            "name": "Inverters",
+            "spec_schema": {
+                "inverter_rated_power": "W",
+                "inverter_mppt_min_v": "V",
+                "inverter_mppt_max_v": "V",
+                "system_voltage_v": "V"
+            }
+        },
+        {
+            "name": "Batteries",
+            "spec_schema": {
+                "battery_rated_capacity_ah": "Ah",
+                "battery_rated_voltage": "V",
+                "battery_max_parallel": "count"
+            }
+        },
+        {
+            "name": "Accessories",
+            "spec_schema": {}
+        }
+    ]
+
 @inventory_bp.route('/categories', methods=['POST'])
 def create_category():
     with get_db() as db:
@@ -38,7 +70,22 @@ def create_category():
 def get_categories():
     with get_db() as db:
         items = db.query(InventoryCategory).all()
-        return jsonify([model_to_dict(i) for i in items])
+        if items:
+            return jsonify([model_to_dict(i) for i in items])
+
+        defaults = []
+        for cat in _default_inventory_categories():
+            item = InventoryCategory(
+                name=cat["name"],
+                spec_schema=cat["spec_schema"],
+                is_dirty=True
+            )
+            defaults.append(item)
+        db.add_all(defaults)
+        db.commit()
+        for item in defaults:
+            db.refresh(item)
+        return jsonify([model_to_dict(i) for i in defaults])
 
 @inventory_bp.route('/categories/<string:uuid>', methods=['GET'])
 def get_category(uuid):

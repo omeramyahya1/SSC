@@ -28,23 +28,48 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
         sell_price: 0,
         technical_specs: {} as Record<string, any>
     });
+    const [accessorySpecs, setAccessorySpecs] = useState<Array<{ name: string; value: string }>>([
+        { name: '', value: '' }
+    ]);
 
-    const selectedCategory = useMemo(() => 
+    const selectedCategory = useMemo(() =>
         categories.find(c => c.uuid === formData.category_uuid),
     [categories, formData.category_uuid]);
+    const isAccessoryCategory = selectedCategory?.name?.toLowerCase() === 'accessories';
+
+    const buildAccessorySpecMap = (rows: Array<{ name: string; value: string }>) => {
+        const map: Record<string, any> = {};
+        rows.forEach(row => {
+            const key = row.name.trim();
+            if (key) {
+                map[key] = row.value;
+            }
+        });
+        return map;
+    };
 
     const handleCategoryChange = (uuid: string) => {
         const category = categories.find(c => c.uuid === uuid);
         const initialSpecs = {} as Record<string, any>;
+        if (category?.name?.toLowerCase() === 'accessories') {
+            const rows = [{ name: '', value: '' }];
+            setAccessorySpecs(rows);
+            setFormData(prev => ({
+                ...prev,
+                category_uuid: uuid,
+                technical_specs: buildAccessorySpecMap(rows)
+            }));
+            return;
+        }
         if (category?.spec_schema) {
             Object.keys(category.spec_schema).forEach(key => {
                 initialSpecs[key] = '';
             });
         }
-        setFormData(prev => ({ 
-            ...prev, 
-            category_uuid: uuid, 
-            technical_specs: initialSpecs 
+        setFormData(prev => ({
+            ...prev,
+            category_uuid: uuid,
+            technical_specs: initialSpecs
         }));
     };
 
@@ -53,6 +78,30 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
             ...prev,
             technical_specs: { ...prev.technical_specs, [key]: value }
         }));
+    };
+
+    const updateAccessorySpecs = (rows: Array<{ name: string; value: string }>) => {
+        setAccessorySpecs(rows);
+        setFormData(prev => ({
+            ...prev,
+            technical_specs: buildAccessorySpecMap(rows)
+        }));
+    };
+
+    const handleAccessorySpecChange = (index: number, field: 'name' | 'value', value: string) => {
+        const next = accessorySpecs.map((row, i) =>
+            i === index ? { ...row, [field]: value } : row
+        );
+        updateAccessorySpecs(next);
+    };
+
+    const addAccessorySpecRow = () => {
+        updateAccessorySpecs([...accessorySpecs, { name: '', value: '' }]);
+    };
+
+    const removeAccessorySpecRow = (index: number) => {
+        const next = accessorySpecs.filter((_, i) => i !== index);
+        updateAccessorySpecs(next.length ? next : [{ name: '', value: '' }]);
     };
 
     const generateSKU = () => {
@@ -106,9 +155,9 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                     <div className="grid gap-2">
                         <Label htmlFor="sku" className="font-semibold">{t('inventory.col.sku', 'SKU')} *</Label>
                         <div className="flex gap-2">
-                            <Input 
-                                id="sku" 
-                                value={formData.sku} 
+                            <Input
+                                id="sku"
+                                value={formData.sku}
                                 onChange={e => setFormData(prev => ({ ...prev, sku: e.target.value }))}
                                 placeholder="e.g. PAN-JIN-001"
                             />
@@ -121,9 +170,9 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
 
                 <div className="grid gap-2">
                     <Label htmlFor="name" className="font-semibold">{t('inventory.col.name', 'Item Name')} *</Label>
-                    <Input 
-                        id="name" 
-                        value={formData.name} 
+                    <Input
+                        id="name"
+                        value={formData.name}
                         onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
                         placeholder="e.g. Jinko Solar 550W Panel"
                     />
@@ -144,39 +193,88 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                 {selectedCategory && (
                     <div className="p-4 bg-gray-50 rounded-lg border space-y-4">
                         <h4 className="text-sm font-bold text-gray-700">{t('inventory.technical_specs', 'Technical Specifications')}</h4>
-                        <div className="grid grid-cols-2 gap-4">
-                            {Object.entries(selectedCategory.spec_schema).map(([key, unit]) => (
-                                <div key={key} className="grid gap-1.5">
-                                    <Label htmlFor={`spec-${key}`} className="text-xs">{key} ({unit})</Label>
-                                    <Input 
-                                        id={`spec-${key}`}
-                                        className="h-8 text-sm"
-                                        value={formData.technical_specs[key] || ''}
-                                        onChange={e => handleSpecChange(key, e.target.value)}
-                                    />
+                        {isAccessoryCategory ? (
+                            <div className="space-y-3">
+                                {accessorySpecs.map((row, index) => (
+                                    <div key={`acc-spec-${index}`} className="grid grid-cols-5 gap-2 items-end">
+                                        <div className="col-span-2 grid gap-1.5">
+                                            <Label htmlFor={`acc-spec-name-${index}`} className="text-xs">{t('inventory.spec_name', 'Spec Name')}</Label>
+                                            <Input
+                                                id={`acc-spec-name-${index}`}
+                                                className="h-8 text-sm bg-white"
+                                                value={row.name}
+                                                onChange={e => handleAccessorySpecChange(index, 'name', e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="col-span-2 grid gap-1.5">
+                                            <Label htmlFor={`acc-spec-value-${index}`} className="text-xs">{t('inventory.spec_value', 'Spec Value')}</Label>
+                                            <Input
+                                                id={`acc-spec-value-${index}`}
+                                                className="h-8 text-sm bg-white"
+                                                value={row.value}
+                                                onChange={e => handleAccessorySpecChange(index, 'value', e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="col-span-1 flex justify-end">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => removeAccessorySpecRow(index)}
+                                            >
+                                                {t('common.remove', 'Remove')}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div>
+                                    <Button type="button" variant="outline" size="sm" onClick={addAccessorySpecRow}>
+                                        {t('inventory.add_spec', 'Add Spec')}
+                                    </Button>
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-4">
+                                {Object.entries(selectedCategory.spec_schema || {}).map(([key, unit]) => (
+                                    <div key={key} className="grid gap-1.5">
+                                        <Label htmlFor={`spec-${key}`} className="text-xs">{key
+                                                                                            .replace(/_/g, ' ')
+                                                                                            .split(' ')
+                                                                                            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                                                                            .join(' ')}
+
+                                                                                            ({unit})
+                                        </Label>
+                                        <Input
+                                            id={`spec-${key}`}
+                                            className="h-8 text-sm bg-white"
+                                            value={formData.technical_specs[key] || ''}
+                                            onChange={e => handleSpecChange(key, e.target.value)}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="qty" className="font-semibold">{t('inventory.col.quantity', 'Initial Quantity')}</Label>
-                        <Input 
-                            id="qty" 
-                            type="number" 
-                            value={formData.quantity_on_hand} 
-                            onChange={e => setFormData(prev => ({ ...prev, quantity_on_hand: parseInt(e.target.value) || 0 }))} 
+                        <Input
+                            id="qty"
+                            type="number"
+                            value={formData.quantity_on_hand}
+                            onChange={e => setFormData(prev => ({ ...prev, quantity_on_hand: parseInt(e.target.value) || 0 }))}
                         />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="threshold" className="font-semibold">{t('inventory.col.low_stock_threshold', 'Low Stock Alert At')}</Label>
-                        <Input 
-                            id="threshold" 
-                            type="number" 
-                            value={formData.low_stock_threshold} 
-                            onChange={e => setFormData(prev => ({ ...prev, low_stock_threshold: parseInt(e.target.value) || 0 }))} 
+                        <Input
+                            id="threshold"
+                            type="number"
+                            value={formData.low_stock_threshold}
+                            onChange={e => setFormData(prev => ({ ...prev, low_stock_threshold: parseInt(e.target.value) || 0 }))}
                         />
                     </div>
                 </div>
@@ -184,20 +282,20 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="buy_price" className="font-semibold">{t('inventory.col.buy_price', 'Buy Price')} *</Label>
-                        <Input 
-                            id="buy_price" 
-                            type="number" 
-                            value={formData.buy_price} 
-                            onChange={e => setFormData(prev => ({ ...prev, buy_price: parseFloat(e.target.value) || 0 }))} 
+                        <Input
+                            id="buy_price"
+                            type="number"
+                            value={formData.buy_price}
+                            onChange={e => setFormData(prev => ({ ...prev, buy_price: parseFloat(e.target.value) || 0 }))}
                         />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="sell_price" className="font-semibold">{t('inventory.col.sell_price', 'Sell Price')} *</Label>
-                        <Input 
-                            id="sell_price" 
-                            type="number" 
-                            value={formData.sell_price} 
-                            onChange={e => setFormData(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))} 
+                        <Input
+                            id="sell_price"
+                            type="number"
+                            value={formData.sell_price}
+                            onChange={e => setFormData(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))}
                         />
                     </div>
                 </div>

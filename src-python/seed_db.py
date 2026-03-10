@@ -82,13 +82,12 @@ def populate_db():
 
         # Inventory Categories
         categories = []
-        cat_names = ["Solar Panels", "Inverters", "Batteries", "Mounting Structures", "Cables"]
+        cat_names = ["Solar Panels", "Inverters", "Batteries", "Accessories"]
         spec_schemas = [
-            {"wattage": "W", "voltage": "V"},
-            {"capacity": "kW", "efficiency": "%"},
-            {"capacity": "Ah", "voltage": "V"},
-            {"material": "str", "type": "str"},
-            {"length": "m", "gauge": "AWG"}
+            {"panel_rated_power": "W", "panel_mpp_voltage": "V"},
+            {"inverter_rated_power": "W", "inverter_mppt_min_v": "V", "inverter_mppt_max_v": "V", "system_voltage_v": "V"},
+            {"battery_rated_capacity_ah": "Ah", "battery_rated_voltage": "V", "battery_max_parallel": "count"},
+            {}
         ]
 
         for i, name in enumerate(cat_names):
