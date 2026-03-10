@@ -105,6 +105,7 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                                     <Label htmlFor={`edit-spec-${key}`} className="text-xs">{key} ({unit})</Label>
                                     <Input 
                                         id={`edit-spec-${key}`}
+                                        type="number"
                                         className="h-8 text-sm"
                                         value={formData.technical_specs[key] || ''}
                                         onChange={e => handleSpecChange(key, e.target.value)}
@@ -120,9 +121,10 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                         <Label htmlFor="edit-threshold" className="font-semibold">{t('inventory.col.low_stock_threshold', 'Low Stock Alert At')}</Label>
                         <Input 
                             id="edit-threshold" 
-                            type="number" 
+                            type="number"
+                            min="0"
                             value={formData.low_stock_threshold} 
-                            onChange={e => setFormData(prev => ({ ...prev, low_stock_threshold: parseInt(e.target.value) || 0 }))} 
+                            onChange={e => setFormData(prev => ({ ...prev, low_stock_threshold: Math.max(0, parseInt(e.target.value, 10)) || 0 }))} 
                         />
                     </div>
                 </div>
@@ -132,9 +134,10 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                         <Label htmlFor="edit-buy_price" className="font-semibold">{t('inventory.col.buy_price', 'Buy Price')} *</Label>
                         <Input 
                             id="edit-buy_price" 
-                            type="number" 
+                            type="number"
+                            min="0"
                             value={formData.buy_price} 
-                            onChange={e => setFormData(prev => ({ ...prev, buy_price: parseFloat(e.target.value) || 0 }))} 
+                            onChange={e => setFormData(prev => ({ ...prev, buy_price: Math.max(0, parseFloat(e.target.value)) || 0 }))} 
                         />
                     </div>
                     <div className="grid gap-2">
@@ -142,8 +145,9 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                         <Input 
                             id="edit-sell_price" 
                             type="number" 
+                            min="0"
                             value={formData.sell_price} 
-                            onChange={e => setFormData(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))} 
+                            onChange={e => setFormData(prev => ({ ...prev, sell_price: Math.max(0, parseFloat(e.target.value)) || 0 }))} 
                         />
                     </div>
                 </div>

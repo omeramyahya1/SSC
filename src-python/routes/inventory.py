@@ -245,6 +245,10 @@ def create_adjustment():
             if not item:
                 return jsonify({"error": "Item not found"}), 404
 
+            # Validate that the adjustment doesn't result in negative stock
+            if item.quantity_on_hand + validated_data.adjustment < 0:
+                return jsonify({"error": "Stock quantity cannot become negative."}), 400
+
             # Centralized Stock Logic: update quantity_on_hand
             item.quantity_on_hand += validated_data.adjustment
             item.is_dirty = True

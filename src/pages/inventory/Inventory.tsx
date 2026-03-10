@@ -4,14 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
 import { useUserStore } from '@/store/useUserStore';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InventoryTable } from './InventoryTable';
+import { InventoryTable, SortConfig } from './InventoryTable';
 import { AddItemModal } from './AddItemModal';
 import { Toaster } from "@/components/ui/sonner";
-import { toast } from "sonner";
+import { Key } from 'lucide-react';
+
+export type SortOption = 'name' | 'sku' | 'quantity_on_hand' | 'buy_price' | 'sell_price';
+export type SortDirection = 'asc' | 'desc';
 
 export default function Inventory() {
     const { t, i18n } = useTranslation();
@@ -30,14 +34,15 @@ export default function Inventory() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
 
     useEffect(() => {
         fetchItems();
         fetchCategories();
     }, [fetchItems, fetchCategories]);
 
-    const filteredItems = useMemo(() => {
-        return items.filter(item => {
+    const filteredAndSortedItems = useMemo(() => {
+        const filtered = items.filter(item => {
             const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                 item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                 item.brand?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -47,7 +52,34 @@ export default function Inventory() {
             const category = categories.find(c => c.uuid === item.category_uuid);
             return matchesSearch && category?.name.toLowerCase() === activeTab.toLowerCase();
         });
-    }, [items, categories, searchQuery, activeTab]);
+
+        const sorted = [...filtered].sort((a, b) => {
+            const aValue = a[sortConfig.key];
+            const bValue = b[sortConfig.key];
+
+            if (aValue === undefined || aValue === null) return 1;
+            if (bValue === undefined || bValue === null) return -1;
+
+            let comparison = 0;
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                comparison = aValue.localeCompare(bValue);
+            } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+                comparison = aValue - bValue;
+            }
+
+            return sortConfig.direction === 'asc' ? comparison : -comparison;
+        });
+
+        return sorted;
+    }, [items, categories, searchQuery, activeTab, sortConfig]);
+
+    const handleSortChange = (key: SortOption) => {
+        let direction: SortDirection = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const renderContent = () => {
         if (isLoading && items.length === 0) {
@@ -71,7 +103,11 @@ export default function Inventory() {
 
         return (
             <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                <InventoryTable items={filteredItems} />
+                <InventoryTable
+                    items={filteredAndSortedItems}
+                    sortConfig={sortConfig}
+                    onSort={handleSortChange}
+                />
             </div>
         );
     };
@@ -115,6 +151,29 @@ export default function Inventory() {
                                 </button>
                             )}
                         </div>
+                         {/* Sort */}
+                        <Select
+                            value={`${sortConfig.key}-${sortConfig.direction}`}
+                            onValueChange={(value) => {
+                                const [key, direction] = value.split('-') as [SortOption, SortDirection];
+                                setSortConfig({ key, direction });
+                            }}
+                        >
+                            <SelectTrigger className={`w-auto border-gray-200 flex gap-2 ${sortConfig.key !== "name" || sortConfig.direction !== "asc" ? "bg-primary text-white" : "bg-white"}`}>
+                                <img src="/eva-icons (2)/outline/swap.png" alt="sort" className={`w-4 h-4 rotate-90 ${sortConfig.key !== "name" || sortConfig.direction !== "asc" ? "invert" : "opacity-60"}`} />
+                                <SelectValue placeholder={t('dashboard.sort_by', 'Sort by')} />
+                            </SelectTrigger>
+                            <SelectContent className='bg-white'>
+                                <SelectItem value="name-asc">{t('inventory.sort.name_asc', 'Name A-Z')}</SelectItem>
+                                <SelectItem value="name-desc">{t('inventory.sort.name_desc', 'Name Z-A')}</SelectItem>
+                                <SelectItem value="quantity_on_hand-asc">{t('inventory.sort.quantity_asc', 'Quantity Low-High')}</SelectItem>
+                                <SelectItem value="quantity_on_hand-desc">{t('inventory.sort.quantity_desc', 'Quantity High-Low')}</SelectItem>
+                                <SelectItem value="buy_price-asc">{t('inventory.sort.buy_price_asc', 'Buy Price Low-High')}</SelectItem>
+                                <SelectItem value="buy_price-desc">{t('inventory.sort.buy_price_desc', 'Buy Price High-Low')}</SelectItem>
+                                <SelectItem value="sell_price-asc">{t('inventory.sort.sell_price_asc', 'Sell Price Low-High')}</SelectItem>
+                                <SelectItem value="sell_price-desc">{t('inventory.sort.sell_price_desc', 'Sell Price High-Low')}</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
 

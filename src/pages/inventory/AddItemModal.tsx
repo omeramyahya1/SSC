@@ -161,8 +161,14 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                                 onChange={e => setFormData(prev => ({ ...prev, sku: e.target.value }))}
                                 placeholder="e.g. PAN-JIN-001"
                             />
-                            <Button type="button" variant="outline" size="icon" onClick={generateSKU} title={t('inventory.generate_sku', 'Generate SKU')}>
-                                <img src="/eva-icons (2)/outline/flash.png" alt="gen" className="w-4 h-4" />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="group hover:bg-primary"
+                                size="icon"
+                                onClick={generateSKU}
+                                title={t('inventory.generate_sku', 'Generate SKU')}>
+                                <img src="/eva-icons (2)/outline/flash.png" alt="gen" className="w-4 h-4 group-hover:invert" />
                             </Button>
                         </div>
                     </div>
@@ -241,12 +247,13 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                                                                                             .replace(/_/g, ' ')
                                                                                             .split(' ')
                                                                                             .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                                                                                            .join(' ')}
+                                                                                            .join(' ') + " "}
 
                                                                                             ({unit})
                                         </Label>
                                         <Input
                                             id={`spec-${key}`}
+                                            type="number"
                                             className="h-8 text-sm bg-white"
                                             value={formData.technical_specs[key] || ''}
                                             onChange={e => handleSpecChange(key, e.target.value)}
@@ -264,8 +271,9 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                         <Input
                             id="qty"
                             type="number"
+                            min="0"
                             value={formData.quantity_on_hand}
-                            onChange={e => setFormData(prev => ({ ...prev, quantity_on_hand: parseInt(e.target.value) || 0 }))}
+                            onChange={e => setFormData(prev => ({ ...prev, quantity_on_hand: Math.max(0, parseInt(e.target.value, 10)) || 0 }))}
                         />
                     </div>
                     <div className="grid gap-2">
@@ -273,8 +281,9 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                         <Input
                             id="threshold"
                             type="number"
+                            min="0"
                             value={formData.low_stock_threshold}
-                            onChange={e => setFormData(prev => ({ ...prev, low_stock_threshold: parseInt(e.target.value) || 0 }))}
+                            onChange={e => setFormData(prev => ({ ...prev, low_stock_threshold: Math.max(0, parseInt(e.target.value, 10)) || 0 }))}
                         />
                     </div>
                 </div>
@@ -285,8 +294,9 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                         <Input
                             id="buy_price"
                             type="number"
+                            min="0"
                             value={formData.buy_price}
-                            onChange={e => setFormData(prev => ({ ...prev, buy_price: parseFloat(e.target.value) || 0 }))}
+                            onChange={e => setFormData(prev => ({ ...prev, buy_price: Math.max(0, parseFloat(e.target.value)) || 0 }))}
                         />
                     </div>
                     <div className="grid gap-2">
@@ -294,8 +304,9 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                         <Input
                             id="sell_price"
                             type="number"
+                            min="0"
                             value={formData.sell_price}
-                            onChange={e => setFormData(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))}
+                            onChange={e => setFormData(prev => ({ ...prev, sell_price: Math.max(0, parseFloat(e.target.value)) || 0 }))}
                         />
                     </div>
                 </div>
