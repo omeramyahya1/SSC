@@ -225,6 +225,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                                             <Button
                                                 type="button"
                                                 variant="outline"
+                                                className='hover:border-red-400 hover:bg-red-200 hover:text-red-800'
                                                 size="sm"
                                                 onClick={() => removeAccessorySpecRow(index)}
                                             >
@@ -234,8 +235,8 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                                     </div>
                                 ))}
                                 <div>
-                                    <Button type="button" variant="outline" size="sm" onClick={addAccessorySpecRow}>
-                                        {t('inventory.add_spec', 'Add Spec')}
+                                    <Button type="button" className='hover:border-primary' variant="outline" size="sm" onClick={addAccessorySpecRow}>
+                                        {t('inventory.add', 'Add')}
                                     </Button>
                                 </div>
                             </div>
