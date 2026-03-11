@@ -275,6 +275,7 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
             <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
                 {selectedItem && (
                     <EditItemModal
+                        key={selectedItem.uuid}
                         item={selectedItem}
                         onOpenChange={setIsEditModalOpen}
                     />
