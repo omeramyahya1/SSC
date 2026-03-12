@@ -5,14 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
+import { useInventoryStore } from '@/store/useInventoryStore';
 import { useUserStore } from '@/store/useUserStore';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { InventoryTable, SortConfig } from './InventoryTable';
 import { AddItemModal } from './AddItemModal';
 import { Toaster } from "@/components/ui/sonner";
-import { Key } from 'lucide-react';
 
 export type SortOption = 'name' | 'sku' | 'quantity_on_hand' | 'buy_price' | 'sell_price';
 export type SortDirection = 'asc' | 'desc';
@@ -120,18 +119,13 @@ export default function Inventory() {
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                         <h1 className="text-3xl font-bold">{t('inventory.title', 'Inventory')}</h1>
-                        <Button
-                            type="button"
-                            onClick={() => setIsAddItemModalOpen(true)}
-                            disabled={isExpired}
-                            className="text-white rounded-lg hover:shadow-lg"
-                        >
-                            <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
-                            <span className='me-2'>{t('inventory.add_item', 'Add New Item')}</span>
-                        </Button>
+
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
+
+
+                    <div className='flex flex-row justify-between'>
+                        <div className="flex flex-wrap items-center gap-3">
                         {/* Search */}
                         <div className="relative flex-grow max-w-md">
                             <img src="/eva-icons (2)/outline/search.png" alt="search" className="w-5 h-5 absolute ltr:left-3 rtl:right-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-60" />
@@ -175,13 +169,25 @@ export default function Inventory() {
                             </SelectContent>
                         </Select>
                     </div>
+
+                        {/* Add New Item */}
+                        <Button
+                            type="button"
+                            onClick={() => setIsAddItemModalOpen(true)}
+                            disabled={isExpired}
+                            className="text-white rounded-lg hover:shadow-lg"
+                        >
+                            <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
+                            <span className='me-2'>{t('inventory.add_item', 'Add New Item')}</span>
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Tabs */}
-                <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="" dir={i18n.dir()}>
                     <TabsList className="bg-white border p-1 h-auto flex-wrap justify-start">
                         <TabsTrigger value="all" className={`font-bold px-6 ${activeTab == "all"? "text-white bg-primary": ""}`}>{t('inventory.tabs.all', 'All Items')}</TabsTrigger>
-                        <TabsTrigger value="panels" className={`font-bold px-6 ${activeTab == "panels"? "text-white bg-primary": ""}`}>{t('inventory.tabs.panels', 'Panels')}</TabsTrigger>
+                        <TabsTrigger value="solar panels" className={`font-bold px-6 ${activeTab == "solar panels"? "text-white bg-primary": ""}`}>{t('inventory.tabs.panels', 'Panels')}</TabsTrigger>
                         <TabsTrigger value="inverters" className={`font-bold px-6 ${activeTab == "inverters"? "text-white bg-primary": ""}`}>{t('inventory.tabs.inverters', 'Inverters')}</TabsTrigger>
                         <TabsTrigger value="batteries" className={`font-bold px-6 ${activeTab == "batteries"? "text-white bg-primary": ""}`}>{t('inventory.tabs.batteries', 'Batteries')}</TabsTrigger>
                         <TabsTrigger value="accessories" className={`font-bold px-6 ${activeTab == "accessories"? "text-white bg-primary": ""}`}>{t('inventory.tabs.accessories', 'Accessories')}</TabsTrigger>

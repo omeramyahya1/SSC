@@ -82,15 +82,15 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
     const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-    const handleQuickAdjust = async (item: InventoryItem, amount: number) => {
-        try {
-            await adjustStock(item.uuid, amount, "Quick adjustment from table");
-            toast.success(t('inventory.quick_adjust_success', 'Stock updated successfully'));
-        } catch (error: any) {
-            console.error("Quick Adjust Failed:", error);
-            toast.error(t('inventory.quick_adjust_error', 'Failed to update stock'));
-        }
-    };
+    // const handleQuickAdjust = async (item: InventoryItem, amount: number) => {
+    //     try {
+    //         await adjustStock(item.uuid, amount, "Quick adjustment from table");
+    //         toast.success(t('inventory.quick_adjust_success', 'Stock updated successfully'));
+    //     } catch (error: any) {
+    //         console.error("Quick Adjust Failed:", error);
+    //         toast.error(t('inventory.quick_adjust_error', 'Failed to update stock'));
+    //     }
+    // };
 
     const handleConfirmDelete = async () => {
         if (!itemToDelete) return;
@@ -161,14 +161,14 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
                             {t('inventory.col.name', 'Name')}
                         </SortableHeader>
                         {showSKU && (
-                            <TableHead className="font-bold">
+                            <TableHead className="font-bold text-start">
                                 {t('inventory.col.sku', 'SKU')}
                             </TableHead>
                         )}
-                        {showSpecs && <TableHead className="font-bold">{t('inventory.col.specs', 'Specs')}</TableHead>}
-                        <SortableHeader sortKey="quantity_on_hand" sortConfig={sortConfig} onSort={onSort} className="font-bold text-center">
+                        {showSpecs && <TableHead className="font-bold text-start">{t('inventory.col.specs', 'Specs')}</TableHead>}
+                        <TableHead className="font-bold text-center">
                             {t('inventory.col.quantity', 'Quantity')}
-                        </SortableHeader>
+                        </TableHead>
                         <TableHead className="font-bold text-center">
                             {t('inventory.col.buy_price', 'Buy Price')}
                         </TableHead>
