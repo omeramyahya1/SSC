@@ -131,7 +131,7 @@ def _generic_mapper(record):
                 payload[col] = _to_iso(value)
             else:
                 payload[col] = value
-    fk_mappings = {'user_uuid': 'user_id', 'customer_uuid': 'customer_id', 'project_uuid': 'project_id', 'system_config_uuid': 'system_config_id', 'invoice_uuid': 'invoice_id', 'subscription_uuid': 'subscription_id', 'organization_uuid': 'organization_id', 'branch_uuid': 'branch_id'}
+    fk_mappings = {'user_uuid': 'user_id', 'customer_uuid': 'customer_id', 'project_uuid': 'project_id', 'system_config_uuid': 'system_config_id', 'invoice_uuid': 'invoice_id', 'subscription_uuid': 'subscription_id', 'organization_uuid': 'organization_id', 'branch_uuid': 'branch_id', 'category_uuid': 'category_id', 'item_uuid': 'item_id'}
     for local_fk, remote_fk in fk_mappings.items():
         if local_fk in payload:
             payload[remote_fk] = payload.pop(local_fk)
@@ -144,7 +144,7 @@ def _map_cloud_to_local(payload: dict, model_class) -> dict:
     Generic reverse mapper to convert a JSON payload from Supabase to a dictionary
     of attributes for a local SQLAlchemy model.
     """
-    fk_mappings = {'user_id': 'user_uuid', 'customer_id': 'customer_uuid', 'project_id': 'project_uuid', 'system_config_id': 'system_config_uuid', 'invoice_id': 'invoice_uuid', 'subscription_id': 'subscription_uuid', 'organization_id': 'organization_uuid', 'branch_id': 'branch_uuid'}
+    fk_mappings = {'user_id': 'user_uuid', 'customer_id': 'customer_uuid', 'project_id': 'project_uuid', 'system_config_id': 'system_config_uuid', 'invoice_id': 'invoice_uuid', 'subscription_id': 'subscription_uuid', 'organization_id': 'organization_uuid', 'branch_id': 'branch_uuid', 'category_id': 'category_uuid', 'item_id': 'item_uuid'}
     mapped_payload = {}
     for key, value in payload.items():
         if key == 'id':
@@ -183,6 +183,10 @@ SYNC_CONFIG = [
     {"model": models.Authentication, "table_name": "authentications", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Customer, "table_name": "customers", "mapper": _map_customer_to_payload, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Project, "table_name": "projects", "mapper": _map_project_to_payload, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.InventoryCategory, "table_name": "inventory_categories", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.InventoryItem, "table_name": "inventory_items", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.StockAdjustment, "table_name": "stock_adjustments", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.ProjectComponent, "table_name": "project_components", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Appliance, "table_name": "appliances", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Subscription, "table_name": "subscriptions", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},

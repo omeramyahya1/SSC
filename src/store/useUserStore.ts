@@ -6,6 +6,7 @@ import api from '@/api/client';
 
 export interface User {
     user_id: number;
+    uuid: string;
     username: string;
     created_at: string;
     updated_at: string;
@@ -14,13 +15,15 @@ export interface User {
     business_name?: string;
     account_type: "enterprise" | "standard";
     location?: string;
-    business_logo?: any; // Assuming LargeBinary can be complex
+    business_logo?: any;
     business_email?: string;
     status: "active" | "expired" | "grace" | "trial";
     org_id?: number;
     org_name?: string;
+    organization_uuid?: string;
     branch_id?: number;
     branch_location?: string;
+    branch_uuid?: string;
     role?: "admin" | "employee";
 }
 

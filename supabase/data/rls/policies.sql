@@ -248,3 +248,239 @@ CREATE POLICY "Password Resets: Admin and owner modify"
 ON public.password_reset_requests FOR UPDATE USING (is_superadmin() OR user_id = jwt_user_id());
 CREATE POLICY "Password Resets: Admin and owner delete"
 ON public.password_reset_requests FOR DELETE USING (is_superadmin() OR user_id = jwt_user_id());
+
+-- =================================================================
+-- RLS POLICIES: INVENTORY CATEGORIES
+-- =================================================================
+ALTER TABLE public.inventory_categories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow admin full access on inventory_categories" ON public.inventory_categories;
+CREATE POLICY "Allow admin full access on inventory_categories"
+ON public.inventory_categories
+FOR ALL
+USING (
+    is_superadmin()
+    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
+)
+WITH CHECK (
+    is_superadmin()
+    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
+);
+
+DROP POLICY IF EXISTS "Allow employee read access on inventory_categories" ON public.inventory_categories;
+CREATE POLICY "Allow employee read access on inventory_categories"
+ON public.inventory_categories
+FOR SELECT
+USING (
+    is_superadmin()
+    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'employee')
+);
+
+-- =================================================================
+-- RLS POLICIES: INVENTORY ITEMS
+-- =================================================================
+ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow admin full access on inventory_items" ON public.inventory_items;
+CREATE POLICY "Allow admin full access on inventory_items"
+ON public.inventory_items
+FOR ALL
+USING (
+    is_superadmin()
+    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
+)
+WITH CHECK (
+    is_superadmin()
+    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
+);
+
+DROP POLICY IF EXISTS "Allow employee full access on branch inventory_items" ON public.inventory_items;
+CREATE POLICY "Allow employee full access on branch inventory_items"
+ON public.inventory_items
+FOR ALL
+USING (
+    is_superadmin()
+    OR (
+        organization_id = jwt_org_id()
+        AND branch_id = jwt_branch_id()
+        AND jwt_app_role() = 'employee'
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (
+        organization_id = jwt_org_id()
+        AND branch_id = jwt_branch_id()
+        AND jwt_app_role() = 'employee'
+    )
+);
+
+DROP POLICY IF EXISTS "Allow employee read access on organization inventory_items" ON public.inventory_items;
+CREATE POLICY "Allow employee read access on organization inventory_items"
+ON public.inventory_items
+FOR SELECT
+USING (
+    is_superadmin()
+    OR (
+        organization_id = jwt_org_id()
+        AND branch_id = jwt_branch_id()
+        AND jwt_app_role() = 'employee'
+    )
+);
+
+-- =================================================================
+-- RLS POLICIES: STOCK ADJUSTMENTS
+-- =================================================================
+ALTER TABLE public.stock_adjustments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow admin full access on stock_adjustments" ON public.stock_adjustments;
+CREATE POLICY "Allow admin full access on stock_adjustments"
+ON public.stock_adjustments
+FOR ALL
+USING (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'admin'
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'admin'
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
+);
+
+DROP POLICY IF EXISTS "Allow employee full access on branch stock_adjustments" ON public.stock_adjustments;
+CREATE POLICY "Allow employee full access on branch stock_adjustments"
+ON public.stock_adjustments
+FOR ALL
+USING (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'employee'
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+            AND i.branch_id = jwt_branch_id()
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'employee'
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+            AND i.branch_id = jwt_branch_id()
+        )
+    )
+);
+
+DROP POLICY IF EXISTS "Allow user to create their own stock_adjustments" ON public.stock_adjustments;
+CREATE POLICY "Allow user to create their own stock_adjustments"
+ON public.stock_adjustments
+FOR INSERT
+WITH CHECK (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
+);
+
+DROP POLICY IF EXISTS "Allow user to view their own stock_adjustments" ON public.stock_adjustments;
+CREATE POLICY "Allow user to view their own stock_adjustments"
+ON public.stock_adjustments
+FOR SELECT
+USING (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
+);
+
+-- =================================================================
+-- RLS POLICIES: PROJECT COMPONENTS
+-- =================================================================
+ALTER TABLE public.project_components ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow access to project_components based on project access" ON public.project_components;
+CREATE POLICY "Allow access to project_components based on project access"
+ON public.project_components
+FOR ALL
+USING (
+    is_superadmin()
+    OR EXISTS (
+        SELECT 1
+        FROM public.projects p
+        LEFT JOIN public.users u ON u.id = p.user_id
+        JOIN public.inventory_items ii ON ii.id = project_components.item_id
+        WHERE p.id = project_components.project_id
+        AND (
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id() AND ii.organization_id = jwt_org_id())
+            OR (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND u.organization_id = jwt_org_id()
+                AND u.branch_id = jwt_branch_id()
+                AND ii.organization_id = jwt_org_id()
+                AND ii.branch_id = jwt_branch_id()
+            )
+            OR (
+                jwt_app_role() = 'user'
+                AND p.user_id = jwt_user_id()
+                AND ii.organization_id = jwt_org_id()
+            )
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR EXISTS (
+        SELECT 1
+        FROM public.projects p
+        LEFT JOIN public.users u ON u.id = p.user_id
+        JOIN public.inventory_items ii ON ii.id = project_components.item_id
+        WHERE p.id = project_components.project_id
+        AND (
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id() AND ii.organization_id = jwt_org_id())
+            OR (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND u.organization_id = jwt_org_id()
+                AND u.branch_id = jwt_branch_id()
+                AND ii.organization_id = jwt_org_id()
+                AND ii.branch_id = jwt_branch_id()
+            )
+            OR (
+                jwt_app_role() = 'user'
+                AND p.user_id = jwt_user_id()
+                AND ii.organization_id = jwt_org_id()
+            )
+        )
+    )
+);

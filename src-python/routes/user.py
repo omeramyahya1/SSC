@@ -250,7 +250,7 @@ def register_user():
 
         new_settings = ApplicationSettings(
             uuid=new_settings_uuid, user_uuid=new_user_uuid, language=payload.language,
-            other_settings={"appliance_library": DEFAULT_APPLIANCE_LIBRARY}, 
+            other_settings={"appliance_library": DEFAULT_APPLIANCE_LIBRARY},
             is_dirty=True
         )
         db.add(new_settings)
@@ -325,4 +325,25 @@ def get_all_users():
     with get_db() as db:
         items = db.query(User).all()
         return jsonify([model_to_dict(i) for i in items])
+
+@user_bp.route('/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    with get_db() as db:
+            item = db.query(User).filter(User.user_id == user_id).first()
+            if not item:
+                return jsonify({"error": "Not found"}), 404
+
+            try:
+                validated_data = UserUpdate(**request.json)
+            except ValidationError as e:
+                return jsonify({"errors": e.errors()}), 400
+
+            update_data = validated_data.dict(exclude_unset=True)
+            for key, value in update_data.items():
+                setattr(item, key, value)
+
+            db.commit()
+            db.refresh(item)
+            return(jsonify(model_to_dict(item)))
+
 
