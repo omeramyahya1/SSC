@@ -241,23 +241,40 @@ def create_adjustment():
             except ValidationError as e:
                 return jsonify({"errors": e.errors()}), 400
 
-            item = db.query(InventoryItem).filter(InventoryItem.uuid == validated_data.item_uuid).first()
-            if not item:
-                return jsonify({"error": "Item not found"}), 404
+            class _InsufficientStock(Exception):
+                pass
 
-            # Validate that the adjustment doesn't result in negative stock
-            if item.quantity_on_hand + validated_data.adjustment < 0:
+            class _ItemNotFound(Exception):
+                pass
+
+            new_adjustment = None
+            try:
+                with db.begin():
+                    item = (
+                        db.query(InventoryItem)
+                        .filter(InventoryItem.uuid == validated_data.item_uuid)
+                        .with_for_update()
+                        .first()
+                    )
+                    if not item:
+                        raise _ItemNotFound()
+
+                    # Validate that the adjustment doesn't result in negative stock
+                    if item.quantity_on_hand + validated_data.adjustment < 0:
+                        raise _InsufficientStock()
+
+                    # Centralized Stock Logic: update quantity_on_hand
+                    item.quantity_on_hand += validated_data.adjustment
+                    item.is_dirty = True
+
+                    new_adjustment = StockAdjustment(**validated_data.dict(exclude_unset=True))
+                    new_adjustment.is_dirty = True
+                    db.add(new_adjustment)
+            except _ItemNotFound:
+                return jsonify({"error": "Item not found"}), 404
+            except _InsufficientStock:
                 return jsonify({"error": "Stock quantity cannot become negative."}), 400
 
-            # Centralized Stock Logic: update quantity_on_hand
-            item.quantity_on_hand += validated_data.adjustment
-            item.is_dirty = True
-
-            new_adjustment = StockAdjustment(**validated_data.dict(exclude_unset=True))
-            new_adjustment.is_dirty = True
-            db.add(new_adjustment)
-
-            db.commit()
             db.refresh(new_adjustment)
             return jsonify(model_to_dict(new_adjustment)), 201
         except Exception as e:

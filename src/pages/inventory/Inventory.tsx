@@ -42,9 +42,11 @@ export default function Inventory() {
 
     const filteredAndSortedItems = useMemo(() => {
         const filtered = items.filter(item => {
-            const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                item.brand?.toLowerCase().includes(searchQuery.toLowerCase());
+            const q = searchQuery.toLowerCase();
+            const matchesSearch =
+                item.name.toLowerCase().includes(q) ||
+                (item.sku ?? '').toLowerCase().includes(q) ||
+                (item.brand ?? '').toLowerCase().includes(q);
 
             if (activeTab === 'all') return matchesSearch;
 

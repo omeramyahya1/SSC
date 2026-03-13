@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useInventoryStore, InventoryItem, InventoryCategory } from '@/store/useInventoryStore';
+import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
 import { toast } from "sonner";
 
 interface EditItemModalProps {
@@ -26,10 +26,6 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
         buy_price: source.buy_price,
         sell_price: source.sell_price,
         technical_specs: { ...(source.technical_specs || {}) }
-    });
-
-    const schema = (source: InventoryCategory) => ({
-        specs_schema: source.spec_schema
     });
 
     const [formData, setFormData] = useState(buildFormData(item));
@@ -128,7 +124,7 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                                         id={`edit-spec-${key}`}
                                         type="number"
                                         className="h-8 text-sm"
-                                        value={formData.technical_specs[key] || ''}
+                                        value={formData.technical_specs[key] ?? ''}
                                         onChange={e => handleSpecChange(key, e.target.value)}
                                     />
                                 </div>

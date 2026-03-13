@@ -339,11 +339,25 @@ ON public.stock_adjustments
 FOR ALL
 USING (
     is_superadmin()
-    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
+    OR (
+        jwt_app_role() = 'admin'
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
 )
 WITH CHECK (
     is_superadmin()
-    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
+    OR (
+        jwt_app_role() = 'admin'
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
 );
 
 DROP POLICY IF EXISTS "Allow employee full access on branch stock_adjustments" ON public.stock_adjustments;
@@ -353,17 +367,25 @@ FOR ALL
 USING (
     is_superadmin()
     OR (
-        organization_id = jwt_org_id()
-        AND branch_id = jwt_branch_id()
-        AND jwt_app_role() = 'employee'
+        jwt_app_role() = 'employee'
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+            AND i.branch_id = jwt_branch_id()
+        )
     )
 )
 WITH CHECK (
     is_superadmin()
     OR (
-        organization_id = jwt_org_id()
-        AND branch_id = jwt_branch_id()
-        AND jwt_app_role() = 'employee'
+        jwt_app_role() = 'employee'
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+            AND i.branch_id = jwt_branch_id()
+        )
     )
 );
 
@@ -373,7 +395,15 @@ ON public.stock_adjustments
 FOR INSERT
 WITH CHECK (
     is_superadmin()
-    OR (user_id = jwt_user_id() AND jwt_app_role() = 'user')
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
 );
 
 DROP POLICY IF EXISTS "Allow user to view their own stock_adjustments" ON public.stock_adjustments;
@@ -382,7 +412,15 @@ ON public.stock_adjustments
 FOR SELECT
 USING (
     is_superadmin()
-    OR (user_id = jwt_user_id() AND jwt_app_role() = 'user')
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
 );
 
 -- =================================================================
@@ -400,16 +438,23 @@ USING (
         SELECT 1
         FROM public.projects p
         LEFT JOIN public.users u ON u.id = p.user_id
+        JOIN public.inventory_items ii ON ii.id = project_components.item_id
         WHERE p.id = project_components.project_id
         AND (
-            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id() AND ii.organization_id = jwt_org_id())
             OR (
                 jwt_app_role() = 'employee'
                 AND p.organization_id = jwt_org_id()
                 AND u.organization_id = jwt_org_id()
                 AND u.branch_id = jwt_branch_id()
+                AND ii.organization_id = jwt_org_id()
+                AND ii.branch_id = jwt_branch_id()
             )
-            OR (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR (
+                jwt_app_role() = 'user'
+                AND p.user_id = jwt_user_id()
+                AND ii.organization_id = jwt_org_id()
+            )
         )
     )
 )
@@ -419,16 +464,23 @@ WITH CHECK (
         SELECT 1
         FROM public.projects p
         LEFT JOIN public.users u ON u.id = p.user_id
+        JOIN public.inventory_items ii ON ii.id = project_components.item_id
         WHERE p.id = project_components.project_id
         AND (
-            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id() AND ii.organization_id = jwt_org_id())
             OR (
                 jwt_app_role() = 'employee'
                 AND p.organization_id = jwt_org_id()
                 AND u.organization_id = jwt_org_id()
                 AND u.branch_id = jwt_branch_id()
+                AND ii.organization_id = jwt_org_id()
+                AND ii.branch_id = jwt_branch_id()
             )
-            OR (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR (
+                jwt_app_role() = 'user'
+                AND p.user_id = jwt_user_id()
+                AND ii.organization_id = jwt_org_id()
+            )
         )
     )
 );

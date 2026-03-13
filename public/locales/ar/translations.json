@@ -90,7 +90,7 @@
   "login.create_account_link": "إنشاء حساب جديد",
   "login.email_label": "عنوان البريد الإلكتروني",
   "login.forgot_password": "هل نسيت كلمة المرور؟",
-  "login.form_subtitle": "يرجى إدخل بياناتك لتسجيل الدخول.",
+  "login.form_subtitle": "يرجى إدخال بياناتك لتسجيل الدخول.",
   "login.form_title": "مرحبًا بعودتك",
   "login.invalid_credentials": "البيانات غير صحيحة",
   "login.need_help": "هل تحتاج مساعدة؟",
