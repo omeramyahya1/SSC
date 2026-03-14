@@ -29,10 +29,16 @@ def create_customer():
 
     with get_db() as db:
         # Create the SQLAlchemy model from validated data
-        new_item = Customer(**validated_data.dict())
+        print(1)
+        print(validated_data)
+        new_item = Customer(**validated_data.dict(exclude_unset=True))
+        print(2)
         new_item.is_dirty = True
+        print(3)
         db.add(new_item)
+        print(4)
         db.commit()
+        print(5)
         db.refresh(new_item)
         return jsonify(get_customer_with_stats(db, new_item)), 201
 
@@ -42,7 +48,7 @@ def update_customer(item_id):
         item = db.query(Customer).filter(Customer.customer_id == item_id, Customer.deleted_at == None).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
         try:
             # Validate request data
             validated_data = CustomerUpdate(**request.json)
@@ -53,7 +59,7 @@ def update_customer(item_id):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         item.is_dirty = True
         db.commit()
         db.refresh(item)
@@ -79,7 +85,7 @@ def delete_customer(item_id):
         item = db.query(Customer).filter(Customer.customer_id == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-        
+
         # Soft delete: set deleted_at instead of db.delete(item)
         item.deleted_at = datetime.utcnow()
         item.is_dirty = True
