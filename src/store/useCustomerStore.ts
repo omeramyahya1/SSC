@@ -6,14 +6,17 @@ import api from '@/api/client';
 
 export interface Customer {
   customer_id: number;
+  uuid: string;
   full_name: string;
   created_at: string;
   updated_at: string;
   is_dirty: boolean;
   phone_number?: string | null;
   email?: string | null;
-  org_id?: number | null;
-  user_id?: number | null;
+  organization_uuid?: string | null;
+  user_uuid?: string | null;
+  project_stats?: Record<string, number>;
+  deleted_at?: string | null;
 }
 
 export type NewCustomerData = Omit<Customer, 'customer_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
