@@ -288,7 +288,7 @@ export function Dashboard() {
                                         className={`h-8 rounded-md font-bold ${currentView === 'active' ? 'bg-primary text-white' : 'ghost'}`}
                                         onClick={() => setCurrentView('active')}
                                     >
-                                        <img src="/eva-icons (2)/outline/home.png" alt="archive" className={`w-4 h-4 ltr:mr-2 rtl:ml-2 ${currentView === 'active' ? 'invert' : 'opacity-70'}`} />
+                                        <img src="/eva-icons (2)/outline/home.png" alt="home" className={`w-4 h-4 ltr:mr-2 rtl:ml-2 ${currentView === 'active' ? 'invert' : 'opacity-70'}`} />
                                         {t('dashboard.home', 'Home')}
                                     </Button>
                                     <Button

@@ -14,6 +14,7 @@ def get_customer_with_stats(db, customer):
     # Fetch project counts grouped by status for this specific customer
     stats = db.query(Project.status, func.count(Project.project_id))\
               .filter(Project.customer_uuid == customer.uuid)\
+              .filter(Project.deleted_at.is_(None))\
               .group_by(Project.status).all()
     customer_dict['project_stats'] = {status: count for status, count in stats}
     return customer_dict
@@ -29,23 +30,18 @@ def create_customer():
 
     with get_db() as db:
         # Create the SQLAlchemy model from validated data
-        print(1)
         print(validated_data)
         new_item = Customer(**validated_data.dict(exclude_unset=True))
-        print(2)
         new_item.is_dirty = True
-        print(3)
         db.add(new_item)
-        print(4)
         db.commit()
-        print(5)
         db.refresh(new_item)
         return jsonify(get_customer_with_stats(db, new_item)), 201
 
 @customer_bp.route('/<int:item_id>', methods=['PUT'])
 def update_customer(item_id):
     with get_db() as db:
-        item = db.query(Customer).filter(Customer.customer_id == item_id, Customer.deleted_at == None).first()
+        item = db.query(Customer).filter(Customer.customer_id == item_id, Customer.deleted_at .is_(None)).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
 
@@ -68,13 +64,13 @@ def update_customer(item_id):
 @customer_bp.route('/', methods=['GET'])
 def get_all_customer():
     with get_db() as db:
-        items = db.query(Customer).filter(Customer.deleted_at == None).all()
+        items = db.query(Customer).filter(Customer.deleted_at .is_(None)).all()
         return jsonify([get_customer_with_stats(db, i) for i in items])
 
 @customer_bp.route('/<int:item_id>', methods=['GET'])
 def get_customer(item_id):
     with get_db() as db:
-        item = db.query(Customer).filter(Customer.customer_id == item_id, Customer.deleted_at == None).first()
+        item = db.query(Customer).filter(Customer.customer_id == item_id, Customer.deleted_at .is_(None)).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(get_customer_with_stats(db, item))

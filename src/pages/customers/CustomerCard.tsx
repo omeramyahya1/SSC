@@ -37,24 +37,22 @@ export function CustomerCard({ customer, onEdit, onDelete }: CustomerCardProps) 
                         {customer.full_name}
                     </h3>
                     <div className="flex flex-col text-sm text-muted-foreground gap-1">
-                        {customer.email && (
-                            <div 
+
+                            <div
                                 className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
                                 onClick={() => copyToClipboard(customer.email!, t('customers.col.email', 'Email'))}
                             >
                                 <img src="/eva-icons (2)/outline/email.png" alt="email" className="w-4 h-4 opacity-60" />
-                                <span className="truncate max-w-[180px]">{customer.email}</span>
+                                <span className="truncate max-w-[180px]">{customer.email ? customer.email : "N/A"}</span>
                             </div>
-                        )}
-                        {customer.phone_number && (
-                            <div 
+
+                            <div
                                 className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
                                 onClick={() => copyToClipboard(customer.phone_number!, t('customers.col.phone', 'Phone'))}
                             >
                                 <img src="/eva-icons (2)/outline/phone.png" alt="phone" className="w-4 h-4 opacity-60" />
-                                <span>{customer.phone_number}</span>
+                                <span>{customer.phone_number ? customer.phone_number : "N/A"}</span>
                             </div>
-                        )}
                     </div>
                 </div>
 

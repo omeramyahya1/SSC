@@ -38,10 +38,14 @@ export function EditCustomerModal({ customer, onOpenChange }: EditCustomerModalP
 
         setIsSubmitting(true);
         try {
-            await updateCustomer(customer.customer_id, formData);
-            toast.success(t('customers.update_success', 'Customer updated successfully'));
-            onOpenChange(false);
-        } catch (error: any) {
+            const result = await updateCustomer(customer.customer_id, formData);
+            if (result) {
+                toast.success(t('customers.update_success', 'Customer updated successfully'));
+                onOpenChange(false);
+            } else {
+                toast.error(t('customers.update_error', 'Failed to update customer'));
+            }
+        } catch {
             toast.error(t('customers.update_error', 'Failed to update customer'));
         } finally {
             setIsSubmitting(false);

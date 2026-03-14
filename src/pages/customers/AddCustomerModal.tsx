@@ -33,10 +33,14 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
 
         setIsSubmitting(true);
         try {
-            await createCustomer(formData);
-            toast.success(t('customers.add_success', 'Customer added successfully'));
-            onOpenChange(false);
-        } catch (error: any) {
+            const result = await createCustomer(formData);
+            if (result) {
+                toast.success(t('customers.add_success', 'Customer added successfully'));
+                onOpenChange(false);
+            } else {
+                toast.error(t('customers.add_error', 'Failed to add customer'));
+            }
+        } catch {
             toast.error(t('customers.add_error', 'Failed to add customer'));
         } finally {
             setIsSubmitting(false);
