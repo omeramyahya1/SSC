@@ -5,7 +5,7 @@ import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescripti
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
 
 interface EditItemModalProps {
     item: InventoryItem;

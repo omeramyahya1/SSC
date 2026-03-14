@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AdjustStockModal } from './AdjustStockModal';
 import { EditItemModal } from './EditItemModal';
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
 import { SortDirection, SortOption } from './Inventory';
 
 export interface SortConfig {

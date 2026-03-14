@@ -11,7 +11,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { InventoryTable, SortConfig } from './InventoryTable';
 import { AddItemModal } from './AddItemModal';
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "react-hot-toast";
 
 export type SortOption = 'name' | 'sku' | 'quantity_on_hand' | 'buy_price' | 'sell_price';
 export type SortDirection = 'asc' | 'desc';

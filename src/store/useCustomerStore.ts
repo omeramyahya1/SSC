@@ -6,18 +6,20 @@ import api from '@/api/client';
 
 export interface Customer {
   customer_id: number;
+  uuid: string;
   full_name: string;
   created_at: string;
   updated_at: string;
   is_dirty: boolean;
   phone_number?: string | null;
   email?: string | null;
-  org_id?: number | null;
-  user_id?: number | null;
+  organization_uuid?: string | null;
+  user_uuid?: string | null;
+  project_stats?: Record<string, number>;
+  deleted_at?: string | null;
 }
 
-export type NewCustomerData = Omit<Customer, 'customer_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
-
+export type NewCustomerData = Omit<Customer, 'customer_id' | 'uuid' | 'created_at' | 'updated_at' | 'is_dirty' | 'project_stats' | 'deleted_at'>;
 const resource = '/customers';
 
 // --- 2. Define Store ---
@@ -113,6 +115,7 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
       const errorMsg = e.message || `Failed to delete customer ${id}`;
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
+      throw e;
     }
   },
 }));

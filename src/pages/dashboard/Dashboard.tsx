@@ -14,7 +14,7 @@ import { useProjectStore, Project } from '@/store/useProjectStore';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -288,6 +288,7 @@ export function Dashboard() {
                                         className={`h-8 rounded-md font-bold ${currentView === 'active' ? 'bg-primary text-white' : 'ghost'}`}
                                         onClick={() => setCurrentView('active')}
                                     >
+                                        <img src="/eva-icons (2)/outline/home.png" alt="home" className={`w-4 h-4 ltr:mr-2 rtl:ml-2 ${currentView === 'active' ? 'invert' : 'opacity-70'}`} />
                                         {t('dashboard.home', 'Home')}
                                     </Button>
                                     <Button
