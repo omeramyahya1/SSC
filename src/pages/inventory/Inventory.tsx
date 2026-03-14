@@ -11,7 +11,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { InventoryTable, SortConfig } from './InventoryTable';
 import { AddItemModal } from './AddItemModal';
-import { Toaster } from "@/components/ui/sonner";
 
 export type SortOption = 'name' | 'sku' | 'quantity_on_hand' | 'buy_price' | 'sell_price';
 export type SortDirection = 'asc' | 'desc';
@@ -115,7 +114,6 @@ export default function Inventory() {
 
     return (
         <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
-            <Toaster />
             <div className="p-6 space-y-6">
                 {/* Header & Toolbar */}
                 <div className="flex flex-col gap-4">

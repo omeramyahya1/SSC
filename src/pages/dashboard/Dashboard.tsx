@@ -14,7 +14,7 @@ import { useProjectStore, Project } from '@/store/useProjectStore';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
 import {
     AlertDialog,
     AlertDialogAction,

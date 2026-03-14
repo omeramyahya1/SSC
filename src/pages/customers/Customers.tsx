@@ -20,8 +20,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CustomerCard } from './CustomerCard';
 import { AddCustomerModal } from './AddCustomerModal';
 import { EditCustomerModal } from './EditCustomerModal';
-import { Toaster } from "@/components/ui/sonner";
-import { toast } from "sonner";
+import { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 export default function CustomersPage() {
     const { t, i18n } = useTranslation();

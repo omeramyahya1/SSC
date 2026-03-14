@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useInventoryStore } from '@/store/useInventoryStore';
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
 
 interface AddItemModalProps {
     onOpenChange: (isOpen: boolean) => void;

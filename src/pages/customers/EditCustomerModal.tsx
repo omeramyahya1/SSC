@@ -5,7 +5,7 @@ import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescripti
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Customer, useCustomerStore } from '@/store/useCustomerStore';
-import { toast } from "sonner";
+import toast from "react-hot-toast";
 
 interface EditCustomerModalProps {
     customer: Customer;

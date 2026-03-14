@@ -10,7 +10,7 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { toast } from "sonner";
+import toast from "react-hot-toast";
 
 interface CustomerCardProps {
     customer: Customer;
