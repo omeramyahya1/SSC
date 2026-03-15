@@ -12,29 +12,29 @@ def calculate_dashboard_stats(db: Session, organization_uuid: str, branch_uuid: 
     revenue_query = db.query(func.sum(Payment.amount)) \
         .join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
         .filter(Invoice.organization_uuid == organization_uuid)
-    
+
     if branch_uuid:
         revenue_query = revenue_query.filter(Invoice.branch_uuid == branch_uuid)
-    
+
     total_revenue = revenue_query.scalar() or 0.0
 
     # 2. Outstanding Invoices (Total Invoice Amount - Total Paid)
     invoice_total_query = db.query(func.sum(Invoice.amount)) \
         .filter(Invoice.organization_uuid == organization_uuid)
-    
+
     if branch_uuid:
         invoice_total_query = invoice_total_query.filter(Invoice.branch_uuid == branch_uuid)
-    
+
     total_invoice_amount = invoice_total_query.scalar() or 0.0
     outstanding_invoices = total_invoice_amount - total_revenue
 
     # 3. Inventory Value (Asset Value: Sum of buy_price * quantity_on_hand)
     inventory_query = db.query(func.sum(InventoryItem.buy_price * InventoryItem.quantity_on_hand)) \
         .filter(InventoryItem.organization_uuid == organization_uuid)
-    
+
     if branch_uuid:
         inventory_query = inventory_query.filter(InventoryItem.branch_uuid == branch_uuid)
-    
+
     inventory_value = inventory_query.scalar() or 0.0
 
     return {
@@ -61,7 +61,7 @@ def execute_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
         item = db.query(InventoryItem).filter(InventoryItem.uuid == component.item_uuid).with_for_update().first()
         if not item:
             continue
-        
+
         if item.quantity_on_hand < component.quantity:
             raise ValueError(f"Insufficient stock for item: {item.name}. Available: {item.quantity_on_hand}, Required: {component.quantity}")
 
@@ -83,16 +83,23 @@ def execute_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
 
 def snapshot_project_components(db: Session, project_uuid: str):
     """
-    Finalizes prices/quantities by ensuring price_at_sale is set from current inventory.
-    This protects historical invoice data from future inventory price changes.
+    Explicitly snapshots the current InventoryItem.sell_price into ProjectComponent.price_at_sale.
+    This ensures that the invoice record maintains the price at the time of issuance,
+    avoiding "joining" to the current inventory price which may change over time.
     """
     components = db.query(ProjectComponent).filter(ProjectComponent.project_uuid == project_uuid).all()
     for component in components:
-        if component.price_at_sale is None:
-            item = db.query(InventoryItem).filter(InventoryItem.uuid == component.item_uuid).first()
-            if item:
+        # Fetch the current inventory price for the item
+        item = db.query(InventoryItem).filter(InventoryItem.uuid == component.item_uuid).first()
+        if item:
+            # We copy the price only if it wasn't already manually set (e.g., by the user in the editor)
+            # or if we want to ensure it's finalized at issuance.
+            if component.price_at_sale is None:
                 component.price_at_sale = item.sell_price
                 component.is_dirty = True
+        else:
+            # Optional: handle case where item no longer exists in inventory
+            pass
 
 def confirm_and_issue_invoice(db: Session, invoice_uuid: str, user_uuid: str):
     """
@@ -101,7 +108,7 @@ def confirm_and_issue_invoice(db: Session, invoice_uuid: str, user_uuid: str):
     invoice = db.query(Invoice).filter(Invoice.uuid == invoice_uuid).first()
     if not invoice:
         return {"error": "Invoice not found"}, 404
-    
+
     if invoice.status != "pending":
         return {"error": "Only pending invoices can be confirmed"}, 400
 
