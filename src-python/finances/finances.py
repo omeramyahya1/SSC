@@ -11,10 +11,11 @@ def calculate_dashboard_stats(db: Session, organization_uuid: str, branch_uuid: 
     # 1. Aggregate Total Revenue (Sum of all payments)
     revenue_query = db.query(func.sum(Payment.amount)) \
         .join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
+        .join(Project, Invoice.project_uuid == Project.uuid) \
         .filter(Invoice.organization_uuid == organization_uuid)
 
     if branch_uuid:
-        revenue_query = revenue_query.filter(Invoice.branch_uuid == branch_uuid)
+        revenue_query = revenue_query.filter(Project.branch_uuid == branch_uuid)
 
     total_revenue = revenue_query.scalar() or 0.0
 
@@ -123,10 +124,11 @@ def confirm_and_issue_invoice(db: Session, invoice_uuid: str, user_uuid: str):
     try:
         execute_stock_deduction(db, invoice_uuid, user_uuid)
     except ValueError as e:
-        # Rollback happens automatically via the get_db context manager if this is raised to it,
-        # but since we are inside a route logic, we return the error for the API to handle.
+        # Ensure we rollback partial changes (like issued_at) if deduction fails
+        db.rollback()
         return {"error": str(e)}, 400
     except Exception as e:
+        db.rollback()
         return {"error": f"Stock deduction failed: {str(e)}"}, 500
 
     return {"message": "Invoice confirmed and stock deducted successfully"}, 200

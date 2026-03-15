@@ -9,6 +9,9 @@ from models import Payment, Invoice
 from schemas import PaymentCreate, FinanceStatsSchema
 from pydantic import ValidationError
 from serializer import model_to_dict
+import logging
+
+logger = logging.getLogger(__name__)
 
 finances_bp = Blueprint('finances_bp', __name__, url_prefix='/finances')
 
@@ -43,7 +46,7 @@ def confirm_invoice(db, invoice_uuid):
 @finances_bp.route('/payments', methods=['POST'])
 def create_finance_payment():
     """
-    Create a payment and update the associated invoice status.
+    Create a payment and update the associated invoice status as a single transaction.
     """
     try:
         validated_data = PaymentCreate(**request.json)
@@ -51,29 +54,30 @@ def create_finance_payment():
         return jsonify({"errors": e.errors()}), 400
 
     with get_db() as db:
-        new_payment = Payment(**validated_data.dict())
-        db.add(new_payment)
-        db.commit() # Commit the payment first
-        db.refresh(new_payment)
-        
-        # Now update the invoice status
         try:
-            # We need the invoice_uuid, but Payment schema might have invoice_id (int) 
-            # while internal logic uses uuid. Let's check model.
-            # In models.py: Payment has invoice_uuid = Column(String, ForeignKey("invoices.uuid"))
-            # But schemas.py says PaymentCreate has invoice_id: Optional[int]. 
-            # This looks like a mismatch between local DB (int PK) and Sync (UUID).
-            # I'll use invoice_uuid if present in data, otherwise find by id.
+            # 1. Create the payment
+            # Using exclude_unset=True to avoid overwriting defaults with Nones
+            new_payment = Payment(**validated_data.dict(exclude_unset=True))
+            db.add(new_payment)
             
+            # Flush to ensure calculations in apply_payment_to_invoice see the new payment
+            db.flush()
+
+            # 2. Identify the linked invoice
             invoice = None
             if hasattr(new_payment, 'invoice_uuid') and new_payment.invoice_uuid:
                 invoice = db.query(Invoice).filter(Invoice.uuid == new_payment.invoice_uuid).first()
-            
+
+            # 3. Update the invoice status
             if invoice:
                 apply_payment_to_invoice(db, invoice.uuid)
-                db.commit()
-        except Exception as e:
-            print(f"Failed to update invoice status: {e}")
-            # We don't fail the payment if status update fails, but maybe we should?
             
-        return jsonify(model_to_dict(new_payment)), 201
+            # Note: get_db() will commit on success when exiting the block
+            return jsonify(model_to_dict(new_payment)), 201
+            
+        except Exception as e:
+            # Record full stack trace and context
+            logger.exception(f"Failed to process payment for invoice {getattr(new_payment, 'invoice_uuid', 'unknown')}")
+            # Ensure both operations are rolled back
+            db.rollback()
+            return jsonify({"error": "An error occurred while processing the payment."}), 500
