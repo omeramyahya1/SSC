@@ -20,6 +20,7 @@ from .user import user_bp
 from .organization import organization_bp
 from .branch import branch_bp
 from .inventory import inventory_bp
+from finances import finances_bp
 from ble.api import ble_bp
 from recommender.api import recommender_bp
 
@@ -40,6 +41,7 @@ all_blueprints = [
     organization_bp,
     branch_bp,
     inventory_bp,
+    finances_bp,
     ble_bp,
     recommender_bp,
 ]
