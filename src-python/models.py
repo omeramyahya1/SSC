@@ -189,6 +189,7 @@ class Invoice(Base, TimestampDirtyMixin):
     amount = Column(Float)
     status = Column(String)
     issued_at = Column(DateTime)
+    invoice_details = Column(JSON)
 
     __table_args__ = (
         CheckConstraint(status.in_(["paid","pending","partial"]), name="check_invoice_status"),
@@ -206,6 +207,7 @@ class Payment(Base, TimestampDirtyMixin):
     invoice_uuid = Column(String, ForeignKey("invoices.uuid"))
     amount = Column(Float)
     method = Column(String)
+    payment_reference = Column(String)
 
     invoice = relationship("Invoice", foreign_keys=[invoice_uuid], back_populates="payments")
 

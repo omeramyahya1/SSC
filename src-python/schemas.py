@@ -125,12 +125,20 @@ class DocumentUpdate(BaseModel):
     is_dirty: Optional[bool] = None
 
 
+class InvoiceDetails(BaseModel):
+    shipping_fee: Optional[float] = 0.0
+    installation_fee: Optional[float] = 0.0
+    discount_percent: Optional[float] = 0.0
+    due_date: Optional[datetime] = None
+    terms_and_conditions: Optional[str] = None
+
 class InvoiceCreate(BaseModel):
     project_id: Optional[int] = None
     user_id: Optional[int] = None
     amount: Optional[float] = None
     status: Optional[str] = None
     issued_at: Optional[datetime] = None
+    invoice_details: Optional[InvoiceDetails] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -141,6 +149,7 @@ class InvoiceUpdate(BaseModel):
     amount: Optional[float] = None
     status: Optional[str] = None
     issued_at: Optional[datetime] = None
+    invoice_details: Optional[InvoiceDetails] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -150,6 +159,7 @@ class PaymentCreate(BaseModel):
     invoice_id: Optional[int] = None
     amount: Optional[float] = None
     method: Optional[str] = None
+    payment_reference: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -158,9 +168,16 @@ class PaymentUpdate(BaseModel):
     invoice_id: Optional[int] = None
     amount: Optional[float] = None
     method: Optional[str] = None
+    payment_reference: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
+
+
+class FinanceStatsSchema(BaseModel):
+    total_revenue: float
+    outstanding_invoices: float
+    inventory_value: float
 
 
 class ProjectDetailsUpdate(BaseModel):
