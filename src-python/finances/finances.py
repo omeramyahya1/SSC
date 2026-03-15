@@ -47,6 +47,7 @@ def execute_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
     """
     Iterate through ProjectComponents and generate StockAdjustment records.
     Deducts stock from InventoryItem.
+    Raises ValueError if stock is insufficient.
     """
     invoice = db.query(Invoice).filter(Invoice.uuid == invoice_uuid).first()
     if not invoice:
@@ -56,9 +57,13 @@ def execute_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
     components = db.query(ProjectComponent).filter(ProjectComponent.project_uuid == invoice.project_uuid).all()
 
     for component in components:
-        item = db.query(InventoryItem).filter(InventoryItem.uuid == component.item_uuid).first()
+        # Use with_for_update() to lock the row during the transaction
+        item = db.query(InventoryItem).filter(InventoryItem.uuid == component.item_uuid).with_for_update().first()
         if not item:
             continue
+        
+        if item.quantity_on_hand < component.quantity:
+            raise ValueError(f"Insufficient stock for item: {item.name}. Available: {item.quantity_on_hand}, Required: {component.quantity}")
 
         # Deduct stock
         item.quantity_on_hand -= component.quantity
@@ -76,11 +81,23 @@ def execute_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
         )
         db.add(adjustment)
 
+def snapshot_project_components(db: Session, project_uuid: str):
+    """
+    Finalizes prices/quantities by ensuring price_at_sale is set from current inventory.
+    This protects historical invoice data from future inventory price changes.
+    """
+    components = db.query(ProjectComponent).filter(ProjectComponent.project_uuid == project_uuid).all()
+    for component in components:
+        if component.price_at_sale is None:
+            item = db.query(InventoryItem).filter(InventoryItem.uuid == component.item_uuid).first()
+            if item:
+                component.price_at_sale = item.sell_price
+                component.is_dirty = True
+
 def confirm_and_issue_invoice(db: Session, invoice_uuid: str, user_uuid: str):
     """
-    Critical: Confirms and issues an invoice, locking its status and triggering stock deduction.
+    Confirms and issues an invoice, snapshotting components and triggering stock deduction.
     """
-    # Use the session passed (which is already in a transaction if called from get_db)
     invoice = db.query(Invoice).filter(Invoice.uuid == invoice_uuid).first()
     if not invoice:
         return {"error": "Invoice not found"}, 404
@@ -88,24 +105,28 @@ def confirm_and_issue_invoice(db: Session, invoice_uuid: str, user_uuid: str):
     if invoice.status != "pending":
         return {"error": "Only pending invoices can be confirmed"}, 400
 
-    # Update Invoice Status
-    invoice.status = "pending" # Keep as pending or transition to partial/paid if there are payments?
-    # Usually 'Issuing' means it's ready for payment.
+    # 1. Snapshot prices to lock data integrity
+    snapshot_project_components(db, invoice.project_uuid)
+
+    # 2. Update Invoice Status/Date
     invoice.issued_at = datetime.utcnow()
     invoice.is_dirty = True
 
-    # Trigger Stock Deduction
+    # 3. Trigger Stock Deduction (Defaulting to ON_ISSUE as per current requirements)
     try:
         execute_stock_deduction(db, invoice_uuid, user_uuid)
+    except ValueError as e:
+        # Rollback happens automatically via the get_db context manager if this is raised to it,
+        # but since we are inside a route logic, we return the error for the API to handle.
+        return {"error": str(e)}, 400
     except Exception as e:
-        db.rollback()
         return {"error": f"Stock deduction failed: {str(e)}"}, 500
 
     return {"message": "Invoice confirmed and stock deducted successfully"}, 200
 
 def apply_payment_to_invoice(db: Session, invoice_uuid: str):
     """
-    Handle "Partial" vs "Paid" status transitions based on total payments vs invoice total.
+    Update "Partial" vs "Paid" status transitions based on total payments.
     """
     invoice = db.query(Invoice).filter(Invoice.uuid == invoice_uuid).first()
     if not invoice:
@@ -119,7 +140,11 @@ def apply_payment_to_invoice(db: Session, invoice_uuid: str):
     elif total_paid > 0:
         invoice.status = "partial"
     else:
-        invoice.status = "pending"
+        # If it was issued, it stays as is or pending
+        if invoice.issued_at:
+             invoice.status = "pending" # Or keep current if we don't want to revert issued state
+        else:
+             invoice.status = "pending"
 
     invoice.is_dirty = True
     return invoice.status
