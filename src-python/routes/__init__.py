@@ -21,8 +21,8 @@ from .organization import organization_bp
 from .branch import branch_bp
 from .inventory import inventory_bp
 from finances import finances_bp
-from ble.api import ble_bp
-from recommender.api import recommender_bp
+from ble import ble_bp
+from recommender import recommender_bp
 
 all_blueprints = [
     appliance_bp,

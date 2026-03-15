@@ -1,2 +1,1 @@
-# src-python/ble/__init__.py
-pass
+from .api import ble_bp
