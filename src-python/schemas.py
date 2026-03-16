@@ -419,3 +419,11 @@ class ProjectComponentCreate(BaseModel):
     quantity: int
     price_at_sale: Optional[float] = None
     is_recommended: Optional[bool] = False
+
+class ProjectComponentUpdate(BaseModel):
+    project_uuid: Optional[str] = None
+    item_uuid: Optional[str] = None
+    custom_name: Optional[str] = None
+    quantity: Optional[int] = None
+    price_at_sale: Optional[float] = None
+    is_recommended: Optional[bool] = False

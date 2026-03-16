@@ -77,6 +77,10 @@ def update_component_status(component_uuid):
                 comp.quantity = data["quantity"]
             if "price_at_sale" in data:
                 comp.price_at_sale = data["price_at_sale"]
+            if "item_uuid" in data:
+                comp.item_uuid = data["item_uuid"]
+            if "custom_name" in data:
+                comp.custom_name = data["custom_name"]
         
         comp.is_dirty = True
         db.commit()
