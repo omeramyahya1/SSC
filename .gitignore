@@ -33,6 +33,8 @@ __pycache__/
 .fuse_*
 dist/
 build/
+src-python/test/*
+src-python/seed_db.py
 src-python/ble/dataset/*.py
 src-python/ble/test.py
 src-python/seed_db.py

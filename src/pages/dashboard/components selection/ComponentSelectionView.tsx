@@ -5,22 +5,22 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
-import { 
-    Table, 
-    TableBody, 
-    TableCell, 
-    TableHead, 
-    TableHeader, 
-    TableRow 
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
 } from '@/components/ui/table';
-import { 
-    Plus, 
-    Trash2, 
-    ArrowLeft, 
-    Zap, 
-    Battery as BatteryIcon, 
-    Sun, 
-    Settings, 
+import {
+    Plus,
+    Trash2,
+    ArrowLeft,
+    Zap,
+    Battery as BatteryIcon,
+    Sun,
+    Settings,
     AlertCircle,
     CheckCircle2,
     Info,
@@ -42,15 +42,15 @@ interface ComponentSelectionViewProps {
 
 export function ComponentSelectionView({ projectUuid, bleResults, onBack }: ComponentSelectionViewProps) {
     const { t, i18n } = useTranslation();
-    const { 
-        components, 
-        isLoading, 
-        error, 
-        fetchComponents, 
-        addComponent, 
-        updateComponent, 
+    const {
+        components,
+        isLoading,
+        error,
+        fetchComponents,
+        addComponent,
+        updateComponent,
         removeComponent,
-        generateRecommendations 
+        generateRecommendations
     } = useProjectComponentStore();
 
     const { fetchItems, fetchCategories } = useInventoryStore();
@@ -89,8 +89,8 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
             });
 
             if (existingInSlot && selectedSlotCategory) {
-                 await updateComponent(existingInSlot.uuid, { 
-                    item_uuid: item.uuid, 
+                 await updateComponent(existingInSlot.uuid, {
+                    item_uuid: item.uuid,
                     price_at_sale: item.sell_price,
                     is_recommended: false
                  });
@@ -141,7 +141,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
     const slotBattery = findComponentByCategory('battery');
     const slotPanels = findComponentByCategory('panel');
 
-    const accessories = components.filter(c => 
+    const accessories = components.filter(c =>
         !c.item?.category?.name.toLowerCase().includes('inverter') &&
         !c.item?.category?.name.toLowerCase().includes('battery') &&
         !c.item?.category?.name.toLowerCase().includes('panel')
@@ -168,8 +168,8 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Button 
-                        variant="outline" 
+                    <Button
+                        variant="outline"
                         onClick={handleGenerateRecommendations}
                         disabled={isGenerating || !bleResults}
                         className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
@@ -179,7 +179,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                     </Button>
                     <div className="h-10 px-4 flex items-center bg-green-600 text-white rounded-lg font-bold shadow-sm">
                         <ShoppingCart className="mr-2 h-5 w-5" />
-                        {totalCost.toLocaleString()} 
+                        {totalCost.toLocaleString()}
                     </div>
                 </div>
             </div>
@@ -188,7 +188,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                 <div className="max-w-5xl mx-auto space-y-8">
                     {/* Primary Slots */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <ComponentSlot 
+                        <ComponentSlot
                             title={t('components.inverter', 'Inverter')}
                             icon={<Zap className="h-6 w-6 text-yellow-500" />}
                             requirement={reqInverter ? `${reqInverter.recommended_rating}W, ${reqInverter.output_voltage_v}V` : 'N/A'}
@@ -197,7 +197,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                             onRemove={handleRemove}
                             onUpdateQty={handleUpdateQuantity}
                         />
-                        <ComponentSlot 
+                        <ComponentSlot
                             title={t('components.battery_bank', 'Battery Bank')}
                             icon={<BatteryIcon className="h-6 w-6 text-green-500" />}
                             requirement={reqBattery ? `${reqBattery.capacity_per_unit_ah}Ah x ${reqBattery.quantity}` : 'N/A'}
@@ -206,7 +206,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                             onRemove={handleRemove}
                             onUpdateQty={handleUpdateQuantity}
                         />
-                        <ComponentSlot 
+                        <ComponentSlot
                             title={t('components.solar_array', 'Solar Array')}
                             icon={<Sun className="h-6 w-6 text-orange-500" />}
                             requirement={reqPanels ? `${reqPanels.power_rating_w}W x ${reqPanels.quantity}` : 'N/A'}
@@ -251,10 +251,10 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <Input 
-                                                        type="number" 
-                                                        className="w-20 text-center h-8" 
-                                                        value={c.quantity} 
+                                                    <Input
+                                                        type="number"
+                                                        className="w-20 text-center h-8"
+                                                        value={c.quantity}
                                                         onChange={(e) => handleUpdateQuantity(c.uuid, parseInt(e.target.value) || 0)}
                                                     />
                                                 </div>
@@ -291,7 +291,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
             </ScrollArea>
 
             <Dialog open={isInventoryModalOpen} onOpenChange={setIsInventoryModalOpen}>
-                <InventorySelectorModal 
+                <InventorySelectorModal
                     categoryName={selectedSlotCategory || undefined}
                     onSelect={handleSelectItem}
                     selectedItemUuid={selectedSlotCategory === 'Inverter' ? slotInverter?.item_uuid : selectedSlotCategory === 'Battery' ? slotBattery?.item_uuid : selectedSlotCategory === 'Panel' ? slotPanels?.item_uuid : undefined}
@@ -339,14 +339,14 @@ function ComponentSlot({ title, icon, requirement, component, onSelect, onRemove
                     <div className="p-3 bg-blue-50/30 rounded-lg border border-blue-100">
                         <div className="font-semibold text-sm line-clamp-1">{component.item?.name}</div>
                         <div className="text-xs text-muted-foreground line-clamp-1">{component.item?.brand} | {component.item?.model}</div>
-                        
+
                         <div className="mt-3 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <span className="text-xs font-bold">{t('components.qty', 'Qty')}:</span>
-                                <Input 
-                                    type="number" 
-                                    className="w-14 h-7 text-center text-xs px-1" 
-                                    value={component.quantity} 
+                                <Input
+                                    type="number"
+                                    className="w-14 h-7 text-center text-xs px-1"
+                                    value={component.quantity}
                                     onChange={(e) => onUpdateQty(component.uuid, parseInt(e.target.value) || 0)}
                                 />
                             </div>
