@@ -139,6 +139,7 @@ class InvoiceCreate(BaseModel):
     status: Optional[str] = None
     issued_at: Optional[datetime] = None
     invoice_details: Optional[InvoiceDetails] = None
+    invoice_items: Optional[Any] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -150,6 +151,7 @@ class InvoiceUpdate(BaseModel):
     status: Optional[str] = None
     issued_at: Optional[datetime] = None
     invoice_details: Optional[InvoiceDetails] = None
+    invoice_items: Optional[Any] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -412,7 +414,8 @@ class StockAdjustmentCreate(BaseModel):
 
 class ProjectComponentCreate(BaseModel):
     project_uuid: str
-    item_uuid: str
+    item_uuid: Optional[str] = None
+    custom_name: Optional[str] = None
     quantity: int
     price_at_sale: Optional[float] = None
     is_recommended: Optional[bool] = False
