@@ -545,6 +545,17 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         }
     };
 
+    const handleProceedToSelection = async () => {
+        if (project?.status === 'planning') {
+            try {
+                await handleStatusChange('execution');
+            } catch (e) {
+                console.error("Failed to update project status on proceed", e);
+            }
+        }
+        setCurrentView('components');
+    };
+
     if (!project) {
         return null;
     }
@@ -940,7 +951,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 variant="outline" 
                                 size="sm" 
                                 className="bg-blue-600 text-white hover:bg-blue-700 font-bold"
-                                onClick={() => setCurrentView('components')}
+                                onClick={handleProceedToSelection}
                             >
                                 <ShoppingCart className="h-4 w-4 mr-2" />
                                 {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
@@ -1047,7 +1058,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                         <Button 
                                             variant="outline" 
                                             className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 font-bold"
-                                            onClick={() => setCurrentView('components')}
+                                            onClick={handleProceedToSelection}
                                         >
                                             <ShoppingCart className="h-4 w-4 mr-2" />
                                             {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
