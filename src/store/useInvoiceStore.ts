@@ -11,6 +11,8 @@ export interface Invoice {
   amount: number;
   status: "paid" | "pending" | "partial";
   issued_at: string;
+  invoice_details?: any;
+  invoice_items?: any; // Snapshot of items sold
   created_at: string;
   updated_at: string;
   is_dirty: boolean;

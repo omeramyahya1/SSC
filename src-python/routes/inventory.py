@@ -320,3 +320,18 @@ def get_project_components(project_uuid):
     with get_db() as db:
         components = db.query(ProjectComponent).filter(ProjectComponent.project_uuid == project_uuid).all()
         return jsonify([model_to_dict(c) for c in components])
+
+@inventory_bp.route('/project-components/<string:uuid>', methods=['DELETE'])
+def delete_project_component(uuid):
+    with get_db() as db:
+        try:
+            item = db.query(ProjectComponent).filter(ProjectComponent.uuid == uuid).first()
+            if not item:
+                return jsonify({"error": "Not found"}), 404
+            db.delete(item)
+            db.commit()
+            return jsonify({"message": "Deleted successfully"}), 200
+        except Exception as e:
+            db.rollback()
+            logging.exception("Error deleting project component")
+            return jsonify({"error": str(e)}), 500
