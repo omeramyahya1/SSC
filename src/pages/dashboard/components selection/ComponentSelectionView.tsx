@@ -81,6 +81,17 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
         }
     };
 
+    const normalizeName = (value: string) => value.trim().toLowerCase();
+
+    const getSlotKey = (label?: string | null) => {
+        const v = normalizeName(label || '');
+        if (!v) return null;
+        if (v.includes('inverter')) return 'inverter';
+        if (v.includes('battery')) return 'battery';
+        if (v.includes('panel')) return 'panel';
+        return null;
+    };
+
     const getCategoryNameForItem = (item: InventoryItem | undefined) => {
         if (!item) return '';
         if (item.category?.name) return item.category.name;
@@ -88,12 +99,54 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
         return category?.name || '';
     };
 
+    const getCategoryUuidForComponent = (component?: ProjectComponent) => {
+        if (!component) return undefined;
+        if (component.item?.category_uuid) return component.item.category_uuid;
+        if (component.item_uuid) {
+            const item = items.find(i => i.uuid === component.item_uuid);
+            return item?.category_uuid;
+        }
+        return undefined;
+    };
+
+    const getCategoryNameForComponent = (component?: ProjectComponent) => {
+        if (!component) return '';
+        if (component.item?.category?.name) return component.item.category.name;
+        const catUuid = getCategoryUuidForComponent(component);
+        if (catUuid) {
+            const category = categories.find(c => c.uuid === catUuid);
+            return category?.name || '';
+        }
+        if (component.item_uuid) {
+            const item = items.find(i => i.uuid === component.item_uuid);
+            return getCategoryNameForItem(item);
+        }
+        return '';
+    };
+
+    const getCategoryUuidsByAliases = (aliases: string[]) => {
+        const aliasSet = new Set(aliases.map(normalizeName));
+        return categories
+            .filter(c => aliasSet.size > 0 && Array.from(aliasSet).some(a => normalizeName(c.name).includes(a)))
+            .map(c => c.uuid);
+    };
+
+    const categoryUuidsBySlot = useMemo(() => ({
+        inverter: getCategoryUuidsByAliases(['inverter']),
+        battery: getCategoryUuidsByAliases(['battery', 'battery bank', 'batteries', 'bank']),
+        panel: getCategoryUuidsByAliases(['panel', 'solar panel', 'solar panels', 'pv', 'module', 'modules']),
+    }), [categories]);
+
     const handleSelectItem = async (item: InventoryItem) => {
         try {
-            const existingInSlot = components.find(c => {
-                const catName = getCategoryNameForItem(item).toLowerCase();
-                return selectedSlotCategory && catName.includes(selectedSlotCategory.toLowerCase());
-            });
+            const slotKey = getSlotKey(selectedSlotCategory);
+            const slotCategoryUuids = slotKey ? new Set(categoryUuidsBySlot[slotKey]) : null;
+            const existingInSlot = slotCategoryUuids
+                ? components.find(c => {
+                    const catUuid = getCategoryUuidForComponent(c);
+                    return !!catUuid && slotCategoryUuids.has(catUuid);
+                })
+                : undefined;
 
             if (existingInSlot && selectedSlotCategory) {
                  await updateComponent(existingInSlot.uuid, {
@@ -140,34 +193,43 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
     const reqBattery = bleResults?.data?.battery_bank;
     const reqPanels = bleResults?.data?.solar_panels;
 
-    const getCategoryNameForComponent = (component?: ProjectComponent) => {
-        if (!component) return '';
-        if (component.item?.category?.name) return component.item.category.name;
-        if (component.item?.category_uuid) {
-            const category = categories.find(c => c.uuid === component.item?.category_uuid);
-            if (category?.name) return category.name;
+    const findComponentByCategoryKey = (key: keyof typeof categoryUuidsBySlot) => {
+        const allowed = new Set(categoryUuidsBySlot[key]);
+        if (allowed.size === 0) {
+            const needle = key.toLowerCase();
+            return components.find(c => getCategoryNameForComponent(c).toLowerCase().includes(needle));
         }
-        if (component.item_uuid) {
-            const item = items.find(i => i.uuid === component.item_uuid);
-            return getCategoryNameForItem(item);
-        }
-        return '';
+        return components.find(c => {
+            const catUuid = getCategoryUuidForComponent(c);
+            return !!catUuid && allowed.has(catUuid);
+        });
     };
 
-    const findComponentByCategory = (name: string) => {
-        const needle = name.toLowerCase();
-        return components.find(c => getCategoryNameForComponent(c).toLowerCase().includes(needle));
-    };
-
-    const slotInverter = findComponentByCategory('inverter');
-    const slotBattery = findComponentByCategory('battery');
-    const slotPanels = findComponentByCategory('panel');
+    const slotInverter = findComponentByCategoryKey('inverter');
+    const slotBattery = findComponentByCategoryKey('battery');
+    const slotPanels = findComponentByCategoryKey('panel');
 
     const accessories = components.filter(c => {
-        const catName = getCategoryNameForComponent(c).toLowerCase();
-        return !catName.includes('inverter') &&
-               !catName.includes('battery') &&
-               !catName.includes('panel');
+        const catUuid = getCategoryUuidForComponent(c);
+        if (!catUuid) {
+            const catName = getCategoryNameForComponent(c).toLowerCase();
+            return !catName.includes('inverter') &&
+                   !catName.includes('battery') &&
+                   !catName.includes('panel');
+        }
+        if (
+            categoryUuidsBySlot.inverter.length === 0 &&
+            categoryUuidsBySlot.battery.length === 0 &&
+            categoryUuidsBySlot.panel.length === 0
+        ) {
+            const catName = getCategoryNameForComponent(c).toLowerCase();
+            return !catName.includes('inverter') &&
+                   !catName.includes('battery') &&
+                   !catName.includes('panel');
+        }
+        return !categoryUuidsBySlot.inverter.includes(catUuid) &&
+               !categoryUuidsBySlot.battery.includes(catUuid) &&
+               !categoryUuidsBySlot.panel.includes(catUuid);
     });
 
     const totalCost = useMemo(() => {

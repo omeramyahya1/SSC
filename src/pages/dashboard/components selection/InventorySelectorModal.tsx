@@ -27,13 +27,42 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
     const { items, categories } = useInventoryStore();
     const [searchQuery, setSearchQuery] = useState('');
 
+    const normalizeName = (value: string) => value.trim().toLowerCase();
+
+    const getSlotKey = (label?: string) => {
+        const v = normalizeName(label || '');
+        if (!v) return null;
+        if (v.includes('inverter')) return 'inverter';
+        if (v.includes('battery')) return 'battery';
+        if (v.includes('panel')) return 'panel';
+        return null;
+    };
+
+    const categoryUuidsBySlot = useMemo(() => ({
+        inverter: categories.filter(c => normalizeName(c.name).includes('inverter')).map(c => c.uuid),
+        battery: categories.filter(c => {
+            const name = normalizeName(c.name);
+            return name.includes('battery') || name.includes('battery bank') || name.includes('batteries') || name.includes('bank');
+        }).map(c => c.uuid),
+        panel: categories.filter(c => {
+            const name = normalizeName(c.name);
+            return name.includes('panel') || name.includes('solar panel') || name.includes('solar panels') || name.includes('pv') || name.includes('module') || name.includes('modules');
+        }).map(c => c.uuid),
+    }), [categories]);
+
     const filteredItems = useMemo(() => {
         let result = items;
 
         if (categoryName) {
-            const category = categories.find(c => c.name.toLowerCase().includes(categoryName.toLowerCase()));
-            if (category) {
-                result = result.filter(item => item.category_uuid === category.uuid);
+            const slotKey = getSlotKey(categoryName);
+            if (slotKey) {
+                const allowed = new Set(categoryUuidsBySlot[slotKey]);
+                result = result.filter(item => allowed.has(item.category_uuid));
+            } else {
+                const category = categories.find(c => normalizeName(c.name).includes(normalizeName(categoryName)));
+                if (category) {
+                    result = result.filter(item => item.category_uuid === category.uuid);
+                }
             }
         }
 

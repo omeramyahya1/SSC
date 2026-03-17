@@ -12,6 +12,12 @@ def safe_float(value, default=0.0):
     except (ValueError, TypeError):
         return default
 
+def first_spec_value(specs: dict, keys: list, default=0.0):
+    for k in keys:
+        if k in specs and specs[k] is not None:
+            return safe_float(specs[k], default)
+    return default
+
 def generate_recommendations(db: Session, ble_results: dict):
     """
     Core function to generate component recommendations based on BLE results and inventory.
@@ -43,9 +49,9 @@ def generate_recommendations(db: Session, ble_results: dict):
         for inv in inverters:
             specs = inv.technical_specs or {}
             # Keys from ble.py: inverter_rated_power, inverter_mppt_min_v, inverter_mppt_max_v
-            inv_power = safe_float(specs.get("inverter_rated_power") or specs.get("power_rating_w"))
+            inv_power = first_spec_value(specs, ["inverter_rated_power", "power_rating_w"])
             # Check voltage compatibility
-            inv_voltage = safe_float(specs.get("system_voltage_v") or specs.get("voltage") or specs.get("output_voltage_v"))
+            inv_voltage = first_spec_value(specs, ["system_voltage_v", "voltage", "output_voltage_v"])
 
             if inv_voltage == system_voltage and inv_power >= required_inverter_power:
                 qualified_inverters.append(inv)
@@ -84,31 +90,41 @@ def generate_recommendations(db: Session, ble_results: dict):
             InventoryItem.quantity_on_hand > 0
         ).all()
 
+        required_capacity_ah = safe_float(
+            battery_req.get("capacity_per_unit_ah") or battery_req.get("capacity_ah"),
+            0.0
+        )
+
         qualified_batteries = []
         for batt in batteries:
             specs = batt.technical_specs or {}
-            batt_v = safe_float(specs.get("battery_rated_voltage") or specs.get("voltage"))
-            if batt_v > 0:
+            batt_cap = first_spec_value(specs, ["battery_rated_capacity_ah", "capacity_ah"])
+            if required_capacity_ah <= 0 or batt_cap >= required_capacity_ah:
                 qualified_batteries.append(batt)
 
-        if qualified_batteries:
-            # Select battery with best capacity_per_unit_ah / price ratio
-            def battery_ratio(b):
-                specs = b.technical_specs or {}
-                cap = safe_float(specs.get("battery_rated_capacity_ah") or specs.get("capacity_ah"), 1.0)
-                price = b.sell_price if b.sell_price and b.sell_price > 0 else float('inf')
-                return cap / price
+        flags = []
+        if not qualified_batteries and batteries:
+            flags.append("No batteries meet required capacity; selecting closest available")
+            qualified_batteries = batteries
 
-            qualified_batteries.sort(key=battery_ratio, reverse=True)
+        if qualified_batteries:
+            # Prefer lowest price among batteries that meet capacity; otherwise highest capacity
+            def battery_sort_key(b):
+                specs = b.technical_specs or {}
+                cap = first_spec_value(specs, ["battery_rated_capacity_ah", "capacity_ah"], 0.0)
+                price = b.sell_price if b.sell_price and b.sell_price > 0 else float('inf')
+                meets = cap >= required_capacity_ah if required_capacity_ah > 0 else True
+                return (0 if meets else 1, price, -cap)
+
+            qualified_batteries.sort(key=battery_sort_key)
             selected_battery = qualified_batteries[0]
-            
-            flags = []
+
             if selected_battery.sell_price is None:
                 flags.append("sell price not set")
             
             # Recalculate quantity based on system voltage and energy needs
             batt_specs = selected_battery.technical_specs or {}
-            batt_v = safe_float(batt_specs.get("battery_rated_voltage") or batt_specs.get("voltage"), 12.0)
+            batt_v = first_spec_value(batt_specs, ["battery_rated_voltage", "voltage"], 12.0)
             
             # Simple check: system_voltage / battery_v
             num_series = math.ceil(system_voltage / batt_v) if batt_v > 0 else 1
@@ -140,29 +156,36 @@ def generate_recommendations(db: Session, ble_results: dict):
         ).all()
 
         if panels:
-            # Select panel with best power_rating_w / price ratio
-            def panel_ratio(p):
-                specs = p.technical_specs or {}
-                pwr = safe_float(specs.get("panel_rated_power") or specs.get("power_rating_w"), 1.0)
-                price = p.sell_price if p.sell_price and p.sell_price > 0 else float('inf')
-                return pwr / price
+            required_panel_power = safe_float(panel_req.get("power_rating_w"), 0.0)
 
-            panels.sort(key=panel_ratio, reverse=True)
+            def panel_power(p):
+                specs = p.technical_specs or {}
+                return first_spec_value(specs, ["panel_rated_power", "power_rating_w"], 0.0)
+
+            def panel_sort_key(p):
+                pwr = panel_power(p)
+                price = p.sell_price if p.sell_price and p.sell_price > 0 else float('inf')
+                meets = pwr >= required_panel_power if required_panel_power > 0 else True
+                return (0 if meets else 1, price, -pwr)
+
+            panels.sort(key=panel_sort_key)
             selected_panel = panels[0]
             
             flags = []
             if selected_panel.sell_price is None:
                 flags.append("sell price not set")
+            if required_panel_power > 0 and panel_power(selected_panel) < required_panel_power:
+                flags.append("Selected panel below required power rating")
 
             # MPPT Re-calculation if inverter is selected
             qty = panel_req.get("quantity", 1)
             if selected_inverter:
                 inv_specs = selected_inverter.technical_specs or {}
-                v_mppt_min = safe_float(inv_specs.get("inverter_mppt_min_v"), 120.0)
-                v_mppt_max = safe_float(inv_specs.get("inverter_mppt_max_v"), 450.0)
+                v_mppt_min = first_spec_value(inv_specs, ["inverter_mppt_min_v"], 120.0)
+                v_mppt_max = first_spec_value(inv_specs, ["inverter_mppt_max_v"], 450.0)
                 
                 pan_specs = selected_panel.technical_specs or {}
-                v_mpp = safe_float(pan_specs.get("panel_mpp_voltage") or pan_specs.get("voltage"), 40.0)
+                v_mpp = first_spec_value(pan_specs, ["panel_mpp_voltage", "voltage"], 40.0)
                 
                 if v_mpp > 0:
                     max_panels_in_string = math.floor(v_mppt_max / v_mpp)
