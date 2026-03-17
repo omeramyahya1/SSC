@@ -38,9 +38,10 @@ interface ComponentSelectionViewProps {
     projectUuid: string;
     bleResults: any;
     onBack: () => void;
+    onCheckout: () => void;
 }
 
-export function ComponentSelectionView({ projectUuid, bleResults, onBack }: ComponentSelectionViewProps) {
+export function ComponentSelectionView({ projectUuid, bleResults, onBack, onCheckout }: ComponentSelectionViewProps) {
     const { t, i18n } = useTranslation();
     const {
         components,
@@ -278,6 +279,15 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                     >
                         {isGenerating ? <Spinner className=" h-4 w-4 group-hover:invert" /> : <img src="public/eva-icons (2)/outline/bulb.png" className=" h-5 w-5 group-hover:invert" />}
                         {t('components.auto_select', 'Auto-Select')}
+                    </Button>
+                    <Button
+                        variant="default"
+                        onClick={onCheckout}
+                        disabled={components.length === 0}
+                        className="h-10 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm"
+                    >
+                        <ShoppingCart className="me-2 h-5 w-5" />
+                        {t('invoicing.checkout', 'Check Out')}
                     </Button>
                     <div className="h-10 px-4 flex items-center bg-green-600 text-white rounded-lg font-bold shadow-sm">
                         <ShoppingCart className="me-2 h-5 w-5" />

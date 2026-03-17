@@ -29,6 +29,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
 import { Toaster, toast } from 'react-hot-toast';
 import { ComponentSelectionView } from './components selection/ComponentSelectionView';
+import { InvoiceEditor } from './invoicing/InvoiceEditor';
 
 // --- Helper Components ---
 
@@ -567,6 +568,18 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                     projectUuid={project.uuid}
                     bleResults={bleResults?.data ? bleResults : { data: systemConfiguration?.config_items }}
                     onBack={() => setCurrentView('config')}
+                    onCheckout={() => setCurrentView('invoicing')}
+                />
+            </DialogContent>
+        );
+    }
+
+    if (currentView === 'invoicing' && project.uuid) {
+        return (
+            <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
+                <InvoiceEditor
+                    projectUuid={project.uuid}
+                    onBack={() => setCurrentView('components')}
                 />
             </DialogContent>
         );
