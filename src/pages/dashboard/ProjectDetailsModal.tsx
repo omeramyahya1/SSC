@@ -234,7 +234,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
     const { t, i18n } = useTranslation();
     const [project, setProject] = useState<Project | null>(projectProp);
     const { updateProjectStatus } = useProjectStore();
-    const [currentView, setCurrentView] = useState<'config' | 'components'>('config');
+    const [currentView, setCurrentView] = useState<'config' | 'components' | 'invoicing'>('config');
 
     useEffect(() => {
         setProject(projectProp);
