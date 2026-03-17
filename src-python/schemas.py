@@ -133,8 +133,8 @@ class InvoiceDetails(BaseModel):
     terms_and_conditions: Optional[str] = None
 
 class InvoiceCreate(BaseModel):
-    project_id: Optional[int] = None
-    user_id: Optional[int] = None
+    project_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     amount: Optional[float] = None
     status: Optional[str] = None
     issued_at: Optional[datetime] = None
@@ -145,8 +145,8 @@ class InvoiceCreate(BaseModel):
     is_dirty: Optional[bool] = None
 
 class InvoiceUpdate(BaseModel):
-    project_id: Optional[int] = None
-    user_id: Optional[int] = None
+    project_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     amount: Optional[float] = None
     status: Optional[str] = None
     issued_at: Optional[datetime] = None
