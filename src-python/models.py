@@ -190,6 +190,7 @@ class Invoice(Base, TimestampDirtyMixin):
     status = Column(String)
     issued_at = Column(DateTime)
     invoice_details = Column(JSON)
+    invoice_items = Column(JSON) # Snapshot of items sold
 
     __table_args__ = (
         CheckConstraint(status.in_(["paid","pending","partial"]), name="check_invoice_status"),
@@ -353,7 +354,8 @@ class ProjectComponent(Base, TimestampDirtyMixin):
 
     project_component_id = Column(Integer, primary_key=True)
     project_uuid = Column(String, ForeignKey("projects.uuid"))
-    item_uuid = Column(String, ForeignKey("inventory_items.uuid"))
+    item_uuid = Column(String, ForeignKey("inventory_items.uuid"), nullable=True)
+    custom_name = Column(String, nullable=True) # For manual accessory entry
     quantity = Column(Integer, nullable=False)
     price_at_sale = Column(Float)
     is_recommended = Column(Boolean, default=False)

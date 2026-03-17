@@ -23,11 +23,12 @@ import { useApplianceStore, ProjectAppliance } from '@/store/useApplianceStore';
 import { useBleStore } from '@/store/useBleStore';
 import { Project } from "@/store/useProjectStore";
 import { cn } from "@/lib/utils";
-import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle } from 'lucide-react';
+import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ShoppingCart } from 'lucide-react';
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
 import { Toaster, toast } from 'react-hot-toast';
+import { ComponentSelectionView } from './components selection/ComponentSelectionView';
 
 // --- Helper Components ---
 
@@ -233,9 +234,11 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
     const { t, i18n } = useTranslation();
     const [project, setProject] = useState<Project | null>(projectProp);
     const { updateProjectStatus } = useProjectStore();
+    const [currentView, setCurrentView] = useState<'config' | 'components'>('config');
 
     useEffect(() => {
         setProject(projectProp);
+        setCurrentView('config');
     }, [projectProp]);
 
     const isArchived = project?.status === 'archived';
@@ -542,8 +545,31 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         }
     };
 
+    const handleProceedToSelection = async () => {
+        if (project?.status === 'planning') {
+            try {
+                await handleStatusChange('execution');
+            } catch (e) {
+                console.error("Failed to update project status on proceed", e);
+            }
+        }
+        setCurrentView('components');
+    };
+
     if (!project) {
         return null;
+    }
+
+    if (currentView === 'components' && project.uuid) {
+        return (
+            <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
+                <ComponentSelectionView
+                    projectUuid={project.uuid}
+                    bleResults={bleResults?.data ? bleResults : { data: systemConfiguration?.config_items }}
+                    onBack={() => setCurrentView('config')}
+                />
+            </DialogContent>
+        );
     }
 
     // Determine which results to display (saved or freshly calculated)
@@ -918,7 +944,20 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
 
                 {/* Right Column: BLE Results */}
                 <div className="flex flex-col p-6 overflow-y-auto">
-                    <h3 className="text-xl font-bold mb-4">{t('project_modal.system_configuration', 'System Configuration')}</h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-bold">{t('project_modal.system_configuration', 'System Configuration')}</h3>
+                        {displayResults && !isArchived && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-blue-600 text-white hover:bg-blue-700 font-bold"
+                                onClick={handleProceedToSelection}
+                            >
+                                <ShoppingCart className="h-4 w-4" />
+                                {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
+                            </Button>
+                        )}
+                    </div>
 
                     {isResultsLoading && (
                         <div className="flex items-center justify-center h-full">
@@ -1005,14 +1044,27 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 </AccordionItem>
                             </Accordion>
                             {!isArchived && (
-                                <Button
-                                    onClick={handleSaveConfiguration}
-                                    disabled={!bleResults?.data}
-                                    className="w-full mt-4 text-white"
-                                >
-                                    <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} />
-                                    {t('project_modal.save_config', 'Save Configuration')}
-                                </Button>
+                                <div className="flex flex-col gap-2 mt-4">
+                                    <Button
+                                        onClick={handleSaveConfiguration}
+                                        disabled={!bleResults?.data}
+                                        className="w-full text-white"
+                                    >
+                                        <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} />
+                                        {t('project_modal.save_config', 'Save Configuration')}
+                                    </Button>
+
+                                    {displayResults && (
+                                        <Button
+                                            variant="outline"
+                                            className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 font-bold"
+                                            onClick={handleProceedToSelection}
+                                        >
+                                            <ShoppingCart className="h-4 w-4 mr-2" />
+                                            {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
+                                        </Button>
+                                    )}
+                                </div>
                             )}
                         </ScrollArea>
                     )}

@@ -169,6 +169,7 @@ CREATE TABLE public.invoices (
   deleted_at timestamp with time zone,
   is_dirty boolean DEFAULT false,
   invoice_details jsonb,
+  invoice_items jsonb,
   CONSTRAINT invoices_pkey PRIMARY KEY (id),
   CONSTRAINT invoices_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
   CONSTRAINT invoices_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
@@ -238,7 +239,7 @@ CREATE TABLE public.pricing_discounts (
 CREATE TABLE public.project_components (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   project_id uuid NOT NULL,
-  item_id uuid NOT NULL,
+  item_id uuid,
   quantity integer NOT NULL,
   price_at_sale numeric,
   is_recommended boolean NOT NULL DEFAULT false,
@@ -246,6 +247,7 @@ CREATE TABLE public.project_components (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
   is_dirty boolean NOT NULL DEFAULT false,
+  custom_name character varying,
   CONSTRAINT project_components_pkey PRIMARY KEY (id),
   CONSTRAINT project_components_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
   CONSTRAINT project_components_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.inventory_items(id)

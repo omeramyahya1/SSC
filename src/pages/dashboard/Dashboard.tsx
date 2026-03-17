@@ -318,7 +318,7 @@ export function Dashboard() {
                                     className="group hover:shadow-lg h bg-white hover:bg-primary border rounded-lg shadow-sm "
                                     >
                                     <img src="/eva-icons (2)/outline/flash.png" alt="quick calc" className="w-5 h-5 group-hover:invert me-2" />
-                                    <span className='me-2 group-hover:text-white'>{t('dashboard.quick_calc', 'Quick Calculate')}</span>
+                                    <span className='me-2 text-gray-700 group-hover:text-white'>{t('dashboard.quick_calc', 'Quick Calculate')}</span>
                                 </Button>
                                 <Button
                                     onClick={() => setIsCreateModalOpen(true)}

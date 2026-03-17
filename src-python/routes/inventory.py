@@ -309,7 +309,11 @@ def add_project_component():
             db.add(new_comp)
             db.commit()
             db.refresh(new_comp)
-            return jsonify(model_to_dict(new_comp)), 201
+            
+            d = model_to_dict(new_comp, include_relationships=True)
+            if new_comp.item:
+                d['item'] = model_to_dict(new_comp.item, include_relationships=True)
+            return jsonify(d), 201
         except Exception as e:
             db.rollback()
             logging.exception("Error adding project component")
@@ -318,5 +322,29 @@ def add_project_component():
 @inventory_bp.route('/projects/<string:project_uuid>/components', methods=['GET'])
 def get_project_components(project_uuid):
     with get_db() as db:
+        # We need to eager load the item and category to make the slots work
         components = db.query(ProjectComponent).filter(ProjectComponent.project_uuid == project_uuid).all()
-        return jsonify([model_to_dict(c) for c in components])
+        # include_relationships=True will include the 'item' relationship
+        # item's relationship include_relationships=True will include 'category'
+        results = []
+        for c in components:
+            d = model_to_dict(c, include_relationships=True)
+            if c.item:
+                d['item'] = model_to_dict(c.item, include_relationships=True)
+            results.append(d)
+        return jsonify(results)
+
+@inventory_bp.route('/project-components/<string:uuid>', methods=['DELETE'])
+def delete_project_component(uuid):
+    with get_db() as db:
+        try:
+            item = db.query(ProjectComponent).filter(ProjectComponent.uuid == uuid).first()
+            if not item:
+                return jsonify({"error": "Not found"}), 404
+            db.delete(item)
+            db.commit()
+            return jsonify({"message": "Deleted successfully"}), 200
+        except Exception as e:
+            db.rollback()
+            logging.exception("Error deleting project component")
+            return jsonify({"error": str(e)}), 500
