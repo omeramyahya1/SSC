@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog } from '@/components/ui/dialog';
 import {
     Table,
     TableBody,
@@ -41,11 +41,10 @@ interface ComponentSelectionViewProps {
 }
 
 export function ComponentSelectionView({ projectUuid, bleResults, onBack }: ComponentSelectionViewProps) {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const {
         components,
         isLoading,
-        error,
         fetchComponents,
         addComponent,
         updateComponent,
@@ -209,28 +208,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
     const slotBattery = findComponentByCategoryKey('battery');
     const slotPanels = findComponentByCategoryKey('panel');
 
-    const accessories = components.filter(c => {
-        const catUuid = getCategoryUuidForComponent(c);
-        if (!catUuid) {
-            const catName = getCategoryNameForComponent(c).toLowerCase();
-            return !catName.includes('inverter') &&
-                   !catName.includes('battery') &&
-                   !catName.includes('panel');
-        }
-        if (
-            categoryUuidsBySlot.inverter.length === 0 &&
-            categoryUuidsBySlot.battery.length === 0 &&
-            categoryUuidsBySlot.panel.length === 0
-        ) {
-            const catName = getCategoryNameForComponent(c).toLowerCase();
-            return !catName.includes('inverter') &&
-                   !catName.includes('battery') &&
-                   !catName.includes('panel');
-        }
-        return !categoryUuidsBySlot.inverter.includes(catUuid) &&
-               !categoryUuidsBySlot.battery.includes(catUuid) &&
-               !categoryUuidsBySlot.panel.includes(catUuid);
-    });
+
 
     const totalCost = useMemo(() => {
         return components.reduce((sum, c) => sum + (c.price_at_sale || 0) * c.quantity, 0);
@@ -276,8 +254,10 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                         <ComponentSlot
                             title={t('components.inverter', 'Inverter')}
                             icon={<Zap className="h-6 w-6 text-yellow-500" />}
-                            requirement={reqInverter ? `${reqInverter.recommended_rating}W, ${reqInverter.output_voltage_v}V` : 'N/A'}
+                            requirement={reqInverter ? `${reqInverter.recommended_rating} W, ${reqInverter.output_voltage_v} V` : 'N/A'}
                             requirementValue={reqInverter?.recommended_rating}
+                            requirementQuantity={reqInverter?.quantity}
+                            requirementUnit="W"
                             component={slotInverter}
                             onSelect={() => { setSelectedSlotCategory('Inverter'); setIsInventoryModalOpen(true); }}
                             onRemove={handleRemove}
@@ -286,8 +266,10 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                         <ComponentSlot
                             title={t('components.battery_bank', 'Battery Bank')}
                             icon={<BatteryIcon className="h-6 w-6 text-green-500" />}
-                            requirement={reqBattery ? `${reqBattery.capacity_per_unit_ah}Ah x ${reqBattery.quantity}` : 'N/A'}
+                            requirement={reqBattery ? `${reqBattery.capacity_per_unit_ah} Ah x ${reqBattery.quantity}` : 'N/A'}
                             requirementValue={reqBattery?.capacity_per_unit_ah}
+                            requirementQuantity={reqBattery?.quantity}
+                            requirementUnit="Ah"
                             component={slotBattery}
                             onSelect={() => { setSelectedSlotCategory('Battery'); setIsInventoryModalOpen(true); }}
                             onRemove={handleRemove}
@@ -296,15 +278,16 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                         <ComponentSlot
                             title={t('components.solar_array', 'Solar Array')}
                             icon={<Sun className="h-6 w-6 text-orange-500" />}
-                            requirement={reqPanels ? `${reqPanels.power_rating_w}W x ${reqPanels.quantity}` : 'N/A'}
+                            requirement={reqPanels ? `${reqPanels.power_rating_w} W x ${reqPanels.quantity}` : 'N/A'}
                             requirementValue={reqPanels?.power_rating_w}
+                            requirementQuantity={reqPanels?.quantity}
+                            requirementUnit="W"
                             component={slotPanels}
                             onSelect={() => { setSelectedSlotCategory('Panel'); setIsInventoryModalOpen(true); }}
                             onRemove={handleRemove}
                             onUpdateQty={handleUpdateQuantity}
                         />
                     </div>
-
                     {/* All Components Table */}
                     <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
                         <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
@@ -394,13 +377,15 @@ interface ComponentSlotProps {
     icon: React.ReactNode;
     requirement: string;
     requirementValue?: number;
+    requirementQuantity?: number;
+    requirementUnit?: string;
     component?: ProjectComponent;
     onSelect: () => void;
     onRemove: (uuid: string) => void;
     onUpdateQty: (uuid: string, qty: number) => void;
 }
 
-function ComponentSlot({ title, icon, requirement, requirementValue, component, onSelect, onRemove, onUpdateQty }: ComponentSlotProps) {
+function ComponentSlot({ title, icon, requirement, requirementValue, requirementQuantity, requirementUnit, component, onSelect, onRemove, onUpdateQty }: ComponentSlotProps) {
     const { t } = useTranslation();
 
     // Logic to determine fulfillment status
@@ -411,7 +396,7 @@ function ComponentSlot({ title, icon, requirement, requirementValue, component, 
         return isNaN(parsed) ? 0 : parsed;
     };
 
-    // Simple spec validation (Power/Capacity)
+    // Spec and Quantity validation
     const getStatus = () => {
         if (!component) return {
             status: 'empty',
@@ -428,26 +413,50 @@ function ComponentSlot({ title, icon, requirement, requirementValue, component, 
             specs.capacity_ah
         );
 
+        const msgs: string[] = [];
+        let status: 'fulfilled' | 'misaligned' | 'understocked' | 'over' = 'fulfilled';
+        let color = 'text-green-600';
+
+        // 1. Check Technical Specs
         if (requirementValue && itemValue < requirementValue) {
-            return {
-                status: 'misaligned',
-                msg: t('components.status.misaligned', 'Selected item does not meet minimum requirements.'),
-                color: 'text-orange-600'
-            };
+            status = 'misaligned';
+            color = 'text-orange-600';
+            msgs.push(t('components.status.spec_below', 'Spec below requirement ({{val}}{{unit}})', { val: itemValue, unit: requirementUnit }));
+        } else if (requirementValue && itemValue > requirementValue * 1.5) {
+            // Significant over-spec (50%+)
+            if (status === 'fulfilled') status = 'over';
+            msgs.push(t('components.status.spec_over', 'Spec exceeds requirement ({{val}}{{unit}})', { val: itemValue, unit: requirementUnit }));
         }
 
+        // 2. Check Quantity
+        if (requirementQuantity && component.quantity < requirementQuantity) {
+            status = 'misaligned';
+            color = 'text-orange-600';
+            msgs.push(t('components.status.qty_below', 'Quantity below requirement ({{qty}}/{{req}})', { qty: component.quantity, req: requirementQuantity }));
+        } else if (requirementQuantity && component.quantity > requirementQuantity) {
+            if (status === 'fulfilled' || status === 'over') status = 'over';
+            msgs.push(t('components.status.qty_over', 'Quantity exceeds requirement ({{qty}}/{{req}})', { qty: component.quantity, req: requirementQuantity }));
+        }
+
+        // 3. Check Stock
         if (isUnderstocked) {
+            status = 'understocked';
+            color = 'text-red-600';
+            msgs.push(t('components.status.stock_insufficient', 'Insufficient stock ({{count}} available)', { count: component.item?.quantity_on_hand }));
+        }
+
+        if (msgs.length === 0) {
             return {
-                status: 'understocked',
-                msg: t('components.status.understocked', 'Requirement fulfilled but stock is insufficient.'),
-                color: 'text-red-600'
+                status: 'fulfilled',
+                msg: t('components.status.fulfilled', 'Requirement successfully fulfilled.'),
+                color: 'text-green-600'
             };
         }
 
         return {
-            status: 'fulfilled',
-            msg: t('components.status.fulfilled', 'Requirement successfully fulfilled.'),
-            color: 'text-green-600'
+            status,
+            msg: msgs.join(' | '),
+            color
         };
     };
 
@@ -468,7 +477,7 @@ function ComponentSlot({ title, icon, requirement, requirementValue, component, 
                 <div className="p-2 bg-gray-50 rounded-lg">{icon}</div>
                 <div className="flex-grow">
                     <h4 className="font-bold">{title}</h4>
-                    <p className="text-[10px] text-muted-foreground font-medium uppercase">{t('components.required', 'Required')}: {requirement}</p>
+                    <p className="text-[10px] text-muted-foreground text-semantic-error font-bold uppercase">{t('components.required', 'Required')}: {requirement}</p>
                 </div>
             </div>
 
@@ -496,9 +505,9 @@ function ComponentSlot({ title, icon, requirement, requirementValue, component, 
                         </div>
 
                         <div className={cn("flex items-start gap-1.5 p-2 rounded text-[10px] font-bold leading-tight",
-                            statusInfo.status === 'fulfilled' ? "bg-green-50" : statusInfo.status === 'misaligned' ? "bg-orange-50" : "bg-red-50"
+                            statusInfo.status === 'fulfilled' ? "bg-green-50" : statusInfo.status === 'over' ? "bg-blue-50" : statusInfo.status === 'misaligned' ? "bg-orange-50" : "bg-red-50"
                         )}>
-                            {statusInfo.status === 'empty' ? <CheckCircle2 className="h-3 w-3 mt-0.5" /> : <AlertCircle className="h-3 w-3 mt-0.5" />}
+                            {statusInfo.status === 'fulfilled' ? <CheckCircle2 className="h-3 w-3 mt-0.5" /> : <AlertCircle className="h-3 w-3 mt-0.5" />}
                             <span className={statusInfo.color}>{statusInfo.msg}</span>
                         </div>
 

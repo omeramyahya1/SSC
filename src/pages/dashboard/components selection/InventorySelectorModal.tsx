@@ -113,6 +113,7 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                             <TableHead className="hidden md:table-cell">{t('inventory.specs', 'Technical Specs')}</TableHead>
                             <TableHead className="text-center">{t('inventory.stock', 'Stock')}</TableHead>
                             <TableHead className="text-right">{t('inventory.price', 'Price')}</TableHead>
+                            <TableHead className='w-[80px]'></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -152,6 +153,9 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                                     </TableCell>
                                     <TableCell className="text-right font-bold">
                                         {item.sell_price ? `${item.sell_price.toLocaleString()} ` : 'N/A'}
+                                    </TableCell>
+                                    <TableCell className='text-center'>
+                                        {selectedItemUuid === item.uuid && <Check className='h-5 w-5 text-blue-600 mx-auto' />}
                                     </TableCell>
                                 </TableRow>
                             ))
