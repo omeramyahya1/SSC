@@ -29,7 +29,7 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
 
     const filteredItems = useMemo(() => {
         let result = items;
-        
+
         if (categoryName) {
             const category = categories.find(c => c.name.toLowerCase().includes(categoryName.toLowerCase()));
             if (category) {
@@ -39,9 +39,9 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
 
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
-            result = result.filter(item => 
-                item.name.toLowerCase().includes(q) || 
-                item.brand?.toLowerCase().includes(q) || 
+            result = result.filter(item =>
+                item.name.toLowerCase().includes(q) ||
+                item.brand?.toLowerCase().includes(q) ||
                 item.model?.toLowerCase().includes(q) ||
                 item.sku?.toLowerCase().includes(q)
             );
@@ -53,8 +53,8 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
     const formatSpecs = (specs: Record<string, any>) => {
         if (!specs) return 'N/A';
         return Object.entries(specs)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join(', ');
+            .map(([key, value]) => `${key.replaceAll('_', " ")}: ${value}`)
+            .join('|');
     };
 
     return (
@@ -84,20 +84,19 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                             <TableHead className="hidden md:table-cell">{t('inventory.specs', 'Technical Specs')}</TableHead>
                             <TableHead className="text-center">{t('inventory.stock', 'Stock')}</TableHead>
                             <TableHead className="text-right">{t('inventory.price', 'Price')}</TableHead>
-                            <TableHead className="w-[80px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredItems.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
                                     {t('common.no_items_found', 'No items found matching your criteria.')}
                                 </TableCell>
                             </TableRow>
                         ) : (
                             filteredItems.map((item) => (
-                                <TableRow 
-                                    key={item.uuid} 
+                                <TableRow
+                                    key={item.uuid}
                                     className={cn("cursor-pointer hover:bg-gray-50", selectedItemUuid === item.uuid && "bg-blue-50")}
                                     onClick={() => onSelect(item)}
                                 >
@@ -109,8 +108,8 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                                         <div className="font-medium">{item.name}</div>
                                         <div className="text-xs text-gray-400">SKU: {item.sku}</div>
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell">
-                                        <div className="text-xs max-w-[300px] truncate" title={formatSpecs(item.technical_specs)}>
+                                    <TableCell className="md:table-cell">
+                                        <div className="text-xs max-w-[300px]" title={formatSpecs(item.technical_specs)}>
                                             {formatSpecs(item.technical_specs)}
                                         </div>
                                     </TableCell>
@@ -124,9 +123,6 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                                     </TableCell>
                                     <TableCell className="text-right font-bold">
                                         {item.sell_price ? `${item.sell_price.toLocaleString()} ` : 'N/A'}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        {selectedItemUuid === item.uuid && <Check className="h-5 w-5 text-blue-600 mx-auto" />}
                                     </TableCell>
                                 </TableRow>
                             ))

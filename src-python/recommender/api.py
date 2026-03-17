@@ -22,11 +22,9 @@ def recommend_components(project_uuid):
 
         recommendations = generate_recommendations(db, ble_results)
 
-        # Clear previous auto-recommendations for this project to avoid duplicates
-        # We only delete items that were marked as 'is_recommended = True'
+        # Clear previous components for this project to provide a fresh recommendation slate
         db.query(ProjectComponent).filter(
-            ProjectComponent.project_uuid == project_uuid,
-            ProjectComponent.is_recommended == True
+            ProjectComponent.project_uuid == project_uuid
         ).delete()
 
         final_results = []
@@ -85,4 +83,7 @@ def update_component_status(component_uuid):
         comp.is_dirty = True
         db.commit()
         db.refresh(comp)
-        return jsonify(model_to_dict(comp)), 200
+        d = model_to_dict(comp, include_relationships=True)
+        if comp.item:
+            d['item'] = model_to_dict(comp.item, include_relationships=True)
+        return jsonify(d), 200
