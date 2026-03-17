@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -57,12 +57,27 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
     const [isGenerating, setIsGenerating] = useState(false);
     const [selectedSlotCategory, setSelectedSlotCategory] = useState<string | null>(null);
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+    const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
+    const inFlightQtyRef = useRef<Record<string, boolean>>({});
+    const latestQtyRef = useRef<Record<string, number>>({});
 
     useEffect(() => {
         fetchComponents(projectUuid);
         fetchItems();
         fetchCategories();
     }, [projectUuid]);
+
+    useEffect(() => {
+        setQuantityDrafts(prev => {
+            const next = { ...prev };
+            for (const c of components) {
+                if (next[c.uuid] === undefined) {
+                    next[c.uuid] = String(c.quantity ?? 1);
+                }
+            }
+            return next;
+        });
+    }, [components]);
 
     const handleGenerateRecommendations = async () => {
         if (!bleResults) {
@@ -169,13 +184,38 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
         }
     };
 
-    const handleUpdateQuantity = async (uuid: string, qty: number) => {
+    const commitQuantityUpdate = async (uuid: string, qty: number) => {
         if (qty < 1) return;
         try {
-            await updateComponent(uuid, { quantity: qty });
+            latestQtyRef.current[uuid] = qty;
+            if (inFlightQtyRef.current[uuid]) return;
+
+            inFlightQtyRef.current[uuid] = true;
+            while (true) {
+                const targetQty = latestQtyRef.current[uuid];
+                await updateComponent(uuid, { quantity: targetQty });
+                if (latestQtyRef.current[uuid] === targetQty) break;
+            }
         } catch (e: any) {
              toast.error(e.message || "Failed to update quantity");
+        } finally {
+            inFlightQtyRef.current[uuid] = false;
         }
+    };
+
+    const handleDraftChange = (uuid: string, value: string) => {
+        setQuantityDrafts(prev => ({ ...prev, [uuid]: value }));
+    };
+
+    const handleDraftCommit = (uuid: string) => {
+        const raw = quantityDrafts[uuid];
+        const qty = parseInt(raw || '0', 10);
+        if (!qty || qty < 1) {
+            const fallback = components.find(c => c.uuid === uuid)?.quantity ?? 1;
+            setQuantityDrafts(prev => ({ ...prev, [uuid]: String(fallback) }));
+            return;
+        }
+        commitQuantityUpdate(uuid, qty);
     };
 
     const handleRemove = async (uuid: string) => {
@@ -253,38 +293,44 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                         <ComponentSlot
                             title={t('components.inverter', 'Inverter')}
                             icon={<Zap className="h-6 w-6 text-yellow-500" />}
-                            requirement={reqInverter ? `${reqInverter.recommended_rating} W, ${reqInverter.output_voltage_v} V` : 'N/A'}
+                            requirement={reqInverter ? `${reqInverter.recommended_rating} W` + `, ${reqInverter.output_voltage_v} V` : 'N/A'}
                             requirementValue={reqInverter?.recommended_rating}
                             requirementQuantity={reqInverter?.quantity}
                             requirementUnit="W"
                             component={slotInverter}
+                            quantityDrafts={quantityDrafts}
+                            onDraftChange={handleDraftChange}
+                            onDraftCommit={handleDraftCommit}
                             onSelect={() => { setSelectedSlotCategory('Inverter'); setIsInventoryModalOpen(true); }}
                             onRemove={handleRemove}
-                            onUpdateQty={handleUpdateQuantity}
                         />
                         <ComponentSlot
                             title={t('components.battery_bank', 'Battery Bank')}
                             icon={<BatteryIcon className="h-6 w-6 text-green-500" />}
-                            requirement={reqBattery ? `${reqBattery.capacity_per_unit_ah} Ah x ${reqBattery.quantity}` : 'N/A'}
+                            requirement={reqBattery ? `${reqBattery.capacity_per_unit_ah} Ah` + ` x ${reqBattery.quantity}` : 'N/A'}
                             requirementValue={reqBattery?.capacity_per_unit_ah}
                             requirementQuantity={reqBattery?.quantity}
                             requirementUnit="Ah"
                             component={slotBattery}
+                            quantityDrafts={quantityDrafts}
+                            onDraftChange={handleDraftChange}
+                            onDraftCommit={handleDraftCommit}
                             onSelect={() => { setSelectedSlotCategory('Battery'); setIsInventoryModalOpen(true); }}
                             onRemove={handleRemove}
-                            onUpdateQty={handleUpdateQuantity}
                         />
                         <ComponentSlot
                             title={t('components.solar_array', 'Solar Array')}
                             icon={<Sun className="h-6 w-6 text-orange-500" />}
-                            requirement={reqPanels ? `${reqPanels.power_rating_w} W x ${reqPanels.quantity}` : 'N/A'}
+                            requirement={reqPanels ? `${reqPanels.power_rating_w} W` + ` x ${reqPanels.quantity}` : 'N/A'}
                             requirementValue={reqPanels?.power_rating_w}
                             requirementQuantity={reqPanels?.quantity}
                             requirementUnit="W"
                             component={slotPanels}
+                            quantityDrafts={quantityDrafts}
+                            onDraftChange={handleDraftChange}
+                            onDraftCommit={handleDraftCommit}
                             onSelect={() => { setSelectedSlotCategory('Panel'); setIsInventoryModalOpen(true); }}
                             onRemove={handleRemove}
-                            onUpdateQty={handleUpdateQuantity}
                         />
                     </div>
                     {/* All Components Table */}
@@ -308,7 +354,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                             <TableBody>
                                 {components.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground italic">
+                                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground italic">
                                             {t('components.no_components', 'No components added yet.')}
                                         </TableCell>
                                     </TableRow>
@@ -324,8 +370,14 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                                                     <Input
                                                         type="number"
                                                         className="w-20 text-center h-8"
-                                                        value={c.quantity}
-                                                        onChange={(e) => handleUpdateQuantity(c.uuid, parseInt(e.target.value) || 0)}
+                                                        value={quantityDrafts[c.uuid] ?? String(c.quantity ?? 1)}
+                                                        onChange={(e) => handleDraftChange(c.uuid, e.target.value)}
+                                                        onBlur={() => handleDraftCommit(c.uuid)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                (e.currentTarget as HTMLInputElement).blur();
+                                                            }
+                                                        }}
                                                     />
                                                 </div>
                                             </TableCell>
@@ -379,12 +431,27 @@ interface ComponentSlotProps {
     requirementQuantity?: number;
     requirementUnit?: string;
     component?: ProjectComponent;
+    quantityDrafts: Record<string, string>;
+    onDraftChange: (uuid: string, value: string) => void;
+    onDraftCommit: (uuid: string) => void;
     onSelect: () => void;
     onRemove: (uuid: string) => void;
-    onUpdateQty: (uuid: string, qty: number) => void;
 }
 
-function ComponentSlot({ title, icon, requirement, requirementValue, requirementQuantity, requirementUnit, component, onSelect, onRemove, onUpdateQty }: ComponentSlotProps) {
+function ComponentSlot({
+    title,
+    icon,
+    requirement,
+    requirementValue,
+    requirementQuantity,
+    requirementUnit,
+    component,
+    quantityDrafts,
+    onDraftChange,
+    onDraftCommit,
+    onSelect,
+    onRemove
+}: ComponentSlotProps) {
     const { t, i18n } = useTranslation();
 
     // Logic to determine fulfillment status
@@ -495,8 +562,14 @@ function ComponentSlot({ title, icon, requirement, requirementValue, requirement
                                     <Input
                                         type="number"
                                         className="w-14 h-7 text-center text-xs px-1"
-                                        value={component.quantity}
-                                        onChange={(e) => onUpdateQty(component.uuid, parseInt(e.target.value) || 0)}
+                                        value={quantityDrafts[component.uuid] ?? String(component.quantity ?? 1)}
+                                        onChange={(e) => onDraftChange(component.uuid, e.target.value)}
+                                        onBlur={() => onDraftCommit(component.uuid)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                (e.currentTarget as HTMLInputElement).blur();
+                                            }
+                                        }}
                                     />
                                 </div>
                                 <div className="text-sm font-bold text-blue-700">

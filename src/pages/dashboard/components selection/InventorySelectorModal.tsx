@@ -118,7 +118,7 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                     <TableBody>
                         {filteredItems.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                                     {t('common.no_items_found', 'No items found matching your criteria.')}
                                 </TableCell>
                             </TableRow>
@@ -126,8 +126,17 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                             filteredItems.map((item) => (
                                 <TableRow
                                     key={item.uuid}
+                                    role='button'
+                                    tabIndex={0}
+                                    aria-selected={selectedItemUuid === item.uuid}
                                     className={cn("cursor-pointer hover:bg-gray-50", selectedItemUuid === item.uuid && "bg-blue-50")}
                                     onClick={() => onSelect(item)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            onSelect(item);
+                                        }
+                                    }}
                                 >
                                     <TableCell>
                                         <div className="font-semibold">{item.brand || 'N/A'}</div>
@@ -137,7 +146,7 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                                         <div className="font-medium">{item.name}</div>
                                         <div className="text-xs text-gray-400">SKU: {item.sku}</div>
                                     </TableCell>
-                                    <TableCell className="md:table-cell">
+                                    <TableCell className="hidden md:table-cell">
                                         <div className="text-xs max-w-[300px]" title={formatSpecs(item.technical_specs)}>
                                             {formatSpecs(item.technical_specs)}
                                         </div>

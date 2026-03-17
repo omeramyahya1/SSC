@@ -426,4 +426,4 @@ class ProjectComponentUpdate(BaseModel):
     custom_name: Optional[str] = None
     quantity: Optional[int] = None
     price_at_sale: Optional[float] = None
-    is_recommended: Optional[bool] = False
+    is_recommended: Optional[bool] = None

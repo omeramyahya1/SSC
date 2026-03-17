@@ -563,10 +563,10 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
     if (currentView === 'components' && project.uuid) {
         return (
             <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
-                <ComponentSelectionView 
-                    projectUuid={project.uuid} 
-                    bleResults={bleResults?.data ? bleResults : { data: systemConfiguration?.config_items }} 
-                    onBack={() => setCurrentView('config')} 
+                <ComponentSelectionView
+                    projectUuid={project.uuid}
+                    bleResults={bleResults?.data ? bleResults : { data: systemConfiguration?.config_items }}
+                    onBack={() => setCurrentView('config')}
                 />
             </DialogContent>
         );
@@ -947,13 +947,13 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xl font-bold">{t('project_modal.system_configuration', 'System Configuration')}</h3>
                         {displayResults && !isArchived && (
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 className="bg-blue-600 text-white hover:bg-blue-700 font-bold"
                                 onClick={handleProceedToSelection}
                             >
-                                <ShoppingCart className="h-4 w-4 mr-2" />
+                                <ShoppingCart className="h-4 w-4" />
                                 {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
                             </Button>
                         )}
@@ -1053,10 +1053,10 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                         <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} />
                                         {t('project_modal.save_config', 'Save Configuration')}
                                     </Button>
-                                    
+
                                     {displayResults && (
-                                        <Button 
-                                            variant="outline" 
+                                        <Button
+                                            variant="outline"
                                             className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 font-bold"
                                             onClick={handleProceedToSelection}
                                         >

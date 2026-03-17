@@ -19,6 +19,7 @@ interface ProjectComponentState {
     components: ProjectComponent[];
     isLoading: boolean;
     error: string | null;
+    lastFetchRequestId: number;
 
     fetchComponents: (projectUuid: string) => Promise<void>;
     addComponent: (component: Partial<ProjectComponent>) => Promise<ProjectComponent | undefined>;
@@ -31,14 +32,20 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
     components: [],
     isLoading: false,
     error: null,
+    lastFetchRequestId: 0,
 
     fetchComponents: async (projectUuid) => {
-        set({ isLoading: true, error: null });
+        const requestId = get().lastFetchRequestId + 1;
+        set({ isLoading: true, error: null, components: [], lastFetchRequestId: requestId });
         try {
             const { data } = await api.get<ProjectComponent[]>(`/inventory/projects/${projectUuid}/components`);
-            set({ components: data, isLoading: false });
+            if (get().lastFetchRequestId === requestId) {
+                set({ components: data, isLoading: false });
+            }
         } catch (e: any) {
-            set({ error: e.message || "Failed to fetch components", isLoading: false });
+            if (get().lastFetchRequestId === requestId) {
+                set({ error: e.message || "Failed to fetch components", isLoading: false });
+            }
         }
     },
 

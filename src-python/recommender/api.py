@@ -24,7 +24,8 @@ def recommend_components(project_uuid):
 
         # Clear previous components for this project to provide a fresh recommendation slate
         db.query(ProjectComponent).filter(
-            ProjectComponent.project_uuid == project_uuid
+            ProjectComponent.project_uuid == project_uuid,
+            ProjectComponent.is_recommended.is_(True)
         ).delete()
 
         final_results = []
@@ -43,7 +44,7 @@ def recommend_components(project_uuid):
                     new_comp.is_dirty = True
                     db.add(new_comp)
                     db.flush() # To get the uuid for the response
-                    
+
                     rec_response = rec.copy()
                     rec_response["project_component_uuid"] = new_comp.uuid
                     final_results.append(rec_response)
@@ -65,11 +66,11 @@ def update_component_status(component_uuid):
         comp = db.query(ProjectComponent).filter(ProjectComponent.uuid == component_uuid).first()
         if not comp:
             return jsonify({"error": "Project component not found"}), 404
-        
+
         # If any data is provided in the PATCH, we assume it's an edit
         # and thus it's no longer a "pure" recommendation.
         comp.is_recommended = False
-        
+
         if data:
             if "quantity" in data:
                 comp.quantity = data["quantity"]
@@ -79,7 +80,7 @@ def update_component_status(component_uuid):
                 comp.item_uuid = data["item_uuid"]
             if "custom_name" in data:
                 comp.custom_name = data["custom_name"]
-        
+
         comp.is_dirty = True
         db.commit()
         db.refresh(comp)
