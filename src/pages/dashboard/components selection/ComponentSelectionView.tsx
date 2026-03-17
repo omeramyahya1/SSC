@@ -20,12 +20,12 @@ import {
     Zap,
     Battery as BatteryIcon,
     Sun,
-    Settings,
     AlertCircle,
     CheckCircle2,
     Info,
     Edit3,
-    ShoppingCart
+    ShoppingCart,
+    ArrowRight
 } from 'lucide-react';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
@@ -41,7 +41,7 @@ interface ComponentSelectionViewProps {
 }
 
 export function ComponentSelectionView({ projectUuid, bleResults, onBack }: ComponentSelectionViewProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const {
         components,
         isLoading,
@@ -219,15 +219,14 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
     }
 
     return (
-        <div className="flex flex-col h-full bg-gray-50/50">
+        <div className="flex flex-col h-full bg-gray-50/50" dir={i18n.dir()}>
             <div className="flex items-center justify-between p-4 bg-white border-b sticky top-0 z-20">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={onBack}>
-                        <ArrowLeft className="h-5 w-5" />
+                        {i18n.dir() === "ltr"? <ArrowLeft className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
                     </Button>
                     <div>
                         <h2 className="text-xl font-bold">{t('components.title', 'Component Selection')}</h2>
-                        <p className="text-sm text-muted-foreground">{t('components.subtitle', 'Map calculated requirements to real inventory items.')}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -235,13 +234,13 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                         variant="outline"
                         onClick={handleGenerateRecommendations}
                         disabled={isGenerating || !bleResults}
-                        className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                        className="h-10 rounded-lg group hover:shadow-lg hover:text-white bg-white hover:bg-primary border shadow-sm"
                     >
-                        {isGenerating ? <Spinner className="mr-2 h-4 w-4" /> : <Settings className="mr-2 h-4 w-4" />}
+                        {isGenerating ? <Spinner className=" h-4 w-4 group-hover:invert" /> : <img src="public/eva-icons (2)/outline/bulb.png" className=" h-5 w-5 group-hover:invert" />}
                         {t('components.auto_select', 'Auto-Select')}
                     </Button>
                     <div className="h-10 px-4 flex items-center bg-green-600 text-white rounded-lg font-bold shadow-sm">
-                        <ShoppingCart className="mr-2 h-5 w-5" />
+                        <ShoppingCart className="me-2 h-5 w-5" />
                         {totalCost.toLocaleString()}
                     </div>
                 </div>
@@ -289,14 +288,14 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                         />
                     </div>
                     {/* All Components Table */}
-                    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-xl border shadow-sm overflow-hidden" dir={i18n.dir()}>
                         <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
                             <h3 className="font-bold text-lg">{t('components.system_components_table', 'Solar System Components')}</h3>
                             <Button size="sm" onClick={() => { setSelectedSlotCategory(null); setIsInventoryModalOpen(true); }}>
-                                <Plus className="h-4 w-4 mr-1" /> {t('components.add_from_inventory', 'Add Item')}
+                                <Plus className="h-4 w-4 me-1" /> {t('components.add_from_inventory', 'Add Item')}
                             </Button>
                         </div>
-                        <Table>
+                        <Table dir={i18n.dir()}>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>{t('components.item', 'Item')}</TableHead>
@@ -386,7 +385,7 @@ interface ComponentSlotProps {
 }
 
 function ComponentSlot({ title, icon, requirement, requirementValue, requirementQuantity, requirementUnit, component, onSelect, onRemove, onUpdateQty }: ComponentSlotProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
 
     // Logic to determine fulfillment status
     const isUnderstocked = component?.item && component.item.quantity_on_hand < component.quantity;
@@ -466,9 +465,11 @@ function ComponentSlot({ title, icon, requirement, requirementValue, requirement
         <div className={cn(
             "flex flex-col p-4 rounded-xl border bg-white shadow-sm transition-all relative overflow-hidden h-full",
             component ? "border-blue-200 ring-1 ring-blue-50" : "border-dashed border-gray-300"
-        )}>
+        )}
+            dir={i18n.dir()}
+        >
             {component?.is_recommended && (
-                <div className="absolute top-0 right-0 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-bl-lg z-10">
+                <div className="absolute top-0 end-0 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-bs-lg z-10">
                     {t('components.recommended', 'Recommended')}
                 </div>
             )}
@@ -513,7 +514,7 @@ function ComponentSlot({ title, icon, requirement, requirementValue, requirement
 
                         <div className="flex gap-2 mt-auto">
                             <Button variant="outline" size="sm" className="flex-grow h-8 text-xs font-semibold" onClick={onSelect}>
-                                <Edit3 className="h-3 w-3 mr-1" /> {t('common.change', 'Change')}
+                                <Edit3 className="h-3 w-3 me-1" /> {t('common.change', 'Change')}
                             </Button>
                             <Button variant="outline" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-600 border-red-100" onClick={() => onRemove(component.uuid)}>
                                 <Trash2 className="h-3 w-3" />
@@ -527,7 +528,7 @@ function ComponentSlot({ title, icon, requirement, requirementValue, requirement
                             <p className="text-xs text-muted-foreground leading-relaxed">{statusInfo.msg}</p>
                         </div>
                         <Button size="sm" className="h-8 font-bold bg-white text-blue-600 border-blue-200 hover:bg-blue-50 shadow-none" variant="outline" onClick={onSelect}>
-                            <Plus className="h-3 w-3 mr-1" /> {t('components.select_item', 'Select Item')}
+                            <Plus className="h-3 w-3 me-1" /> {t('components.select_item', 'Select Item')}
                         </Button>
                     </div>
                 )}

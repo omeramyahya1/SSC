@@ -11,7 +11,6 @@ import {
     TableCell,
 } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
 import { Search, Package, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -87,11 +86,11 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
     };
 
     return (
-        <DialogContent className="max-w-[80vw] h-[80vh] flex flex-col p-0 bg-white">
+        <DialogContent className="max-w-[80vw] h-[80vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
             <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-xl flex items-center gap-2">
                     <Package className="h-5 w-5" />
-                    {categoryName ? t('inventory.select_category_item', { category: categoryName, defaultValue: `Select ${categoryName}` }) : t('inventory.select_item', 'Select Item')}
+                    {t('inventory.select_item', 'Select Item')}
                 </DialogTitle>
                 <div className="relative mt-2">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -104,15 +103,15 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                 </div>
             </DialogHeader>
 
-            <ScrollArea className="flex-grow">
+            <ScrollArea className="flex-grow" dir={i18n.dir()}>
                 <Table>
                     <TableHeader className="sticky top-0 bg-white z-10">
                         <TableRow>
-                            <TableHead className="w-[200px]">{t('inventory.brand_model', 'Brand / Model')}</TableHead>
-                            <TableHead>{t('inventory.name', 'Name')}</TableHead>
-                            <TableHead className="hidden md:table-cell">{t('inventory.specs', 'Technical Specs')}</TableHead>
+                            <TableHead className="w-[200px] text-start">{t('inventory.brand_model', 'Brand / Model')}</TableHead>
+                            <TableHead className='text-start'>{t('inventory.name', 'Name')}</TableHead>
+                            <TableHead className="hidden text-start md:table-cell">{t('inventory.specs', 'Technical Specs')}</TableHead>
                             <TableHead className="text-center">{t('inventory.stock', 'Stock')}</TableHead>
-                            <TableHead className="text-right">{t('inventory.price', 'Price')}</TableHead>
+                            <TableHead className="text-end">{t('inventory.price', 'Price')}</TableHead>
                             <TableHead className='w-[80px]'></TableHead>
                         </TableRow>
                     </TableHeader>
