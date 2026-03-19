@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
-import { 
-    ArrowLeft, 
-    Plus, 
-    Trash2, 
-    FileText, 
-    Printer, 
-    Share2, 
+import {
+    ArrowLeft,
+    Plus,
+    Trash2,
+    FileText,
+    Printer,
+    Share2,
     Calendar as CalendarIcon,
     AlertCircle,
     Info,
@@ -18,18 +18,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-    Table, 
-    TableBody, 
-    TableCell, 
-    TableHead, 
-    TableHeader, 
-    TableRow 
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
 } from '@/components/ui/table';
-import { 
-    Popover, 
-    PopoverContent, 
-    PopoverTrigger 
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
@@ -54,20 +54,20 @@ interface InvoiceEditorProps {
 export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
-    const { 
-        currentInvoice, 
-        fetchInvoiceByProject, 
-        createInvoice, 
-        updateInvoice, 
+    const {
+        currentInvoice,
+        fetchInvoiceByProject,
+        createInvoice,
+        updateInvoice,
         issueInvoice,
-        isLoading: isInvoiceLoading 
+        isLoading: isInvoiceLoading
     } = useInvoiceStore();
-    const { 
-        components, 
-        fetchComponents, 
-        addComponent, 
-        updateComponent, 
-        removeComponent 
+    const {
+        components,
+        fetchComponents,
+        addComponent,
+        updateComponent,
+        removeComponent
     } = useProjectComponentStore();
 
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
@@ -120,7 +120,7 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
             ...currentInvoice.invoice_details,
             [field]: value
         };
-        await updateInvoice(currentInvoice.uuid, { 
+        await updateInvoice(currentInvoice.uuid, {
             invoice_details: newDetails,
             amount: grandTotal // Update main amount as well
         });
@@ -233,8 +233,8 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
                                                     <div className="text-xs text-muted-foreground">{c.item.brand} | {c.item.model}</div>
                                                 </div>
                                             ) : (
-                                                <Input 
-                                                    value={c.custom_name} 
+                                                <Input
+                                                    value={c.custom_name}
                                                     onChange={(e) => handleComponentUpdate(c.uuid, { custom_name: e.target.value })}
                                                     className="h-8 font-medium"
                                                     disabled={isIssued}
@@ -242,7 +242,7 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            <Input 
+                                            <Input
                                                 type="number"
                                                 value={c.price_at_sale || 0}
                                                 onChange={(e) => handleComponentUpdate(c.uuid, { price_at_sale: parseFloat(e.target.value) || 0 })}
@@ -251,7 +251,7 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            <Input 
+                                            <Input
                                                 type="number"
                                                 value={c.quantity}
                                                 onChange={(e) => handleComponentUpdate(c.uuid, { quantity: parseInt(e.target.value) || 1 })}
@@ -290,27 +290,27 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label className="text-xs">{t('invoicing.shipping_fee', 'Shipping Fee')}</Label>
-                                    <Input 
-                                        type="number" 
-                                        value={currentInvoice?.invoice_details?.shipping_fee || 0} 
+                                    <Input
+                                        type="number"
+                                        value={currentInvoice?.invoice_details?.shipping_fee || 0}
                                         onChange={(e) => handleDetailUpdate('shipping_fee', parseFloat(e.target.value) || 0)}
                                         disabled={isIssued}
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="text-xs">{t('invoicing.installation_fee', 'Installation Fee')}</Label>
-                                    <Input 
-                                        type="number" 
-                                        value={currentInvoice?.invoice_details?.installation_fee || 0} 
+                                    <Input
+                                        type="number"
+                                        value={currentInvoice?.invoice_details?.installation_fee || 0}
                                         onChange={(e) => handleDetailUpdate('installation_fee', parseFloat(e.target.value) || 0)}
                                         disabled={isIssued}
                                     />
                                 </div>
                                 <div className="space-y-2 col-span-2">
                                     <Label className="text-xs">{t('invoicing.discount', 'Discount (%)')}</Label>
-                                    <Input 
-                                        type="number" 
-                                        value={currentInvoice?.invoice_details?.discount_percent || 0} 
+                                    <Input
+                                        type="number"
+                                        value={currentInvoice?.invoice_details?.discount_percent || 0}
                                         onChange={(e) => handleDetailUpdate('discount_percent', parseFloat(e.target.value) || 0)}
                                         max={100}
                                         disabled={isIssued}
@@ -323,8 +323,8 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
                                 <div className="flex items-center justify-between">
                                     <Label className="font-bold">{t('invoicing.terms_title', 'Terms & Conditions')}</Label>
                                     <div className="flex items-center gap-2">
-                                        <Switch 
-                                            checked={currentInvoice?.invoice_details?.enable_custom_terms} 
+                                        <Switch
+                                            checked={currentInvoice?.invoice_details?.enable_custom_terms}
                                             onCheckedChange={(v) => handleDetailUpdate('enable_custom_terms', v)}
                                             disabled={isIssued}
                                         />
@@ -332,7 +332,7 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
                                     </div>
                                 </div>
                                 {currentInvoice?.invoice_details?.enable_custom_terms && (
-                                    <Textarea 
+                                    <Textarea
                                         placeholder={t('invoicing.custom_terms_ph', 'Enter terms...')}
                                         value={currentInvoice?.invoice_details?.terms_and_conditions || ''}
                                         onChange={(e) => handleDetailUpdate('terms_and_conditions', e.target.value)}
@@ -344,8 +344,8 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
                                     <Label className="text-xs">{t('invoicing.due_date', 'Due Date')}</Label>
                                     <Popover>
                                         <PopoverTrigger asChild>
-                                            <Button 
-                                                variant="outline" 
+                                            <Button
+                                                variant="outline"
                                                 className={cn("w-full justify-start text-left font-normal", !currentInvoice?.invoice_details?.due_date && "text-muted-foreground")}
                                                 disabled={isIssued}
                                             >
@@ -356,9 +356,11 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
                                         <PopoverContent className="w-auto p-0" align="start">
                                             <Calendar
                                                 mode="single"
+                                                className='bg-white rounded-xl'
+                                                captionLayout='dropdown'
                                                 selected={currentInvoice?.invoice_details?.due_date ? new Date(currentInvoice.invoice_details.due_date) : undefined}
                                                 onSelect={(date) => handleDetailUpdate('due_date', date?.toISOString())}
-                                                initialFocus
+
                                             />
                                         </PopoverContent>
                                     </Popover>
@@ -424,7 +426,7 @@ export function InvoiceEditor({ projectUuid, onBack }: InvoiceEditorProps) {
             </ScrollArea>
 
             <Dialog open={isInventoryModalOpen} onOpenChange={setIsInventoryModalOpen}>
-                <InventorySelectorModal 
+                <InventorySelectorModal
                     onSelect={handleSelectItem}
                 />
             </Dialog>
