@@ -284,7 +284,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         variant="default"
                         onClick={onCheckout}
                         disabled={components.length === 0}
-                        className="h-10 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm"
+                        className="h-10 rounded-lg bg-primary hover:bg-blue-700 text-white font-bold shadow-sm"
                     >
                         <ShoppingCart className="me-2 h-5 w-5" />
                         {t('invoicing.checkout', 'Check Out')}
@@ -546,7 +546,7 @@ function ComponentSlot({
             dir={i18n.dir()}
         >
             {component?.is_recommended && (
-                <div className="absolute top-0 end-0 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-bs-lg z-10">
+                <div className="absolute top-0 end-0 px-2 py-0.5 bg-semantic-info text-white text-[10px] font-bold uppercase tracking-wider rounded-bs-lg z-10">
                     {t('components.recommended', 'Recommended')}
                 </div>
             )}

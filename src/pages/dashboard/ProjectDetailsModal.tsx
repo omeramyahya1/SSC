@@ -578,7 +578,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         return (
             <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
                 <InvoiceEditor
-                    projectUuid={project.uuid}
+                    project={project}
                     onBack={() => setCurrentView('components')}
                 />
             </DialogContent>

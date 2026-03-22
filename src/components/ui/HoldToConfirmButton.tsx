@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Button, ButtonProps } from './button';
-import { Progress } from './progress';
 
 interface HoldToConfirmButtonProps extends ButtonProps {
   onConfirm: () => void;
@@ -16,85 +16,76 @@ export function HoldToConfirmButton({
   children,
   className,
   disabled,
-  variant,
+  variant = 'default',
   ...props
 }: HoldToConfirmButtonProps) {
-  const [progress, setProgress] = useState(0);
   const [isHolding, setIsHolding] = useState(false);
-  const timerRef = useRef<number | null>(null);
-  const startTimeRef = useRef<number>(0);
+  const animationRef = useRef<ReturnType<typeof animate> | null>(null);
+  const progress = useMotionValue(0);
+  const fillRightOffset = useTransform(progress, (v) => `${(1 - v) * 100}%`);
 
   const startHolding = useCallback(() => {
     if (disabled) return;
     setIsHolding(true);
-    startTimeRef.current = Date.now();
-    
-    const updateProgress = () => {
-      const elapsed = Date.now() - startTimeRef.current;
-      const newProgress = Math.min((elapsed / holdDuration) * 100, 100);
-      setProgress(newProgress);
-      
-      if (newProgress < 100) {
-        timerRef.current = requestAnimationFrame(updateProgress);
-      } else {
+    if (animationRef.current) animationRef.current.stop();
+    progress.set(0);
+    animationRef.current = animate(progress, 1, {
+      duration: holdDuration / 1000,
+      ease: 'linear',
+      onComplete: () => {
         setIsHolding(false);
-        setProgress(0);
+        progress.set(0);
         onConfirm();
-      }
-    };
-    
-    timerRef.current = requestAnimationFrame(updateProgress);
-  }, [disabled, holdDuration, onConfirm]);
+      },
+    });
+  }, [disabled, holdDuration, onConfirm, progress]);
 
   const stopHolding = useCallback(() => {
     setIsHolding(false);
-    setProgress(0);
-    if (timerRef.current) {
-      cancelAnimationFrame(timerRef.current);
-      timerRef.current = null;
+    if (animationRef.current) {
+      animationRef.current.stop();
+      animationRef.current = null;
     }
-  }, []);
+    progress.set(0);
+  }, [progress]);
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) cancelAnimationFrame(timerRef.current);
+      if (animationRef.current) animationRef.current.stop();
     };
   }, []);
 
   return (
-    <div className="relative w-full group overflow-hidden rounded-md">
-      <Button
-        className={cn(
-          "w-full transition-all duration-200 relative z-10",
-          isHolding && "scale-[0.98]",
-          className
-        )}
-        onMouseDown={startHolding}
-        onMouseUp={stopHolding}
-        onMouseLeave={stopHolding}
-        onTouchStart={startHolding}
-        onTouchEnd={stopHolding}
-        disabled={disabled}
-        variant={variant}
-        {...props}
-      >
-        {isHolding && confirmationLabel ? confirmationLabel : children}
-      </Button>
-      
-      {isHolding && (
-        <div 
-          className="absolute inset-0 bg-white/20 z-20 pointer-events-none transition-all duration-75"
-          style={{ width: `${progress}%` }}
-        />
+    <Button
+      className={cn(
+        "w-full relative overflow-hidden transition-all duration-200 border-transparent", className,
+        isHolding && cn(
+          "scale-[0.95] bg-primary-light"
+        )
       )}
-      
-      {/* Visual background fill effect for feedback */}
-      <div 
+      onPointerDown={(e) => {
+        e.preventDefault();
+        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+        startHolding();
+      }}
+      onPointerUp={stopHolding}
+      onPointerLeave={stopHolding}
+      onPointerCancel={stopHolding}
+      disabled={disabled}
+      variant={variant}
+      {...props}
+    >
+      {/* Filling background */}
+      <motion.div
         className={cn(
-            "absolute inset-0 bg-black/10 z-0 transition-opacity duration-300",
-            isHolding ? "opacity-100" : "opacity-0"
+          "absolute left-0 top-0 bottom-0 pointer-events-none z-0 bg-primary"
         )}
+        style={{ right: fillRightOffset }}
       />
-    </div>
+
+      <span className="relative z-10 flex items-center justify-center gap-2">
+        {isHolding && confirmationLabel ? confirmationLabel : children}
+      </span>
+    </Button>
   );
 }
