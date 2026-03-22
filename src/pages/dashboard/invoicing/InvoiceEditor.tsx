@@ -318,7 +318,9 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <Button size="sm" variant="outline" onClick={() => setIsInventoryModalOpen(true)} className="border-blue-200 text-blue-700">
                                         <PlusCircle className="h-4 w-4 mr-1" /> {t('invoicing.add_item', 'Add Item')}
                                     </Button>
-
+                                    <Button size="sm" variant="outline" onClick={handleAddManual}>
+                                        <Plus className="h-4 w-4 mr-1" /> {t('invoicing.add_manual', 'Manual Item')}
+                                    </Button>
                                 </div>
                             )}
                         </div>
@@ -399,7 +401,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                 </h3>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label className="text-xs font-bold">{t('invoicing.shipping_fee', 'Shipping Fee')}</Label>
+                                        <Label className="text-xs">{t('invoicing.shipping_fee', 'Shipping Fee')}</Label>
                                         <Input
                                             type="number"
                                             value={localDetails?.shipping_fee || 0}
@@ -409,7 +411,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-xs font-bold">{t('invoicing.installation_fee', 'Installation Fee')}</Label>
+                                        <Label className="text-xs">{t('invoicing.installation_fee', 'Installation Fee')}</Label>
                                         <Input
                                             type="number"
                                             value={localDetails?.installation_fee || 0}
@@ -419,7 +421,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                         />
                                     </div>
                                     <div className="space-y-2 col-span-2">
-                                        <Label className="text-xs font-bold">{t('invoicing.discount', 'Discount (%)')}</Label>
+                                        <Label className="text-xs">{t('invoicing.discount', 'Discount (%)')}</Label>
                                         <Input
                                             type="number"
                                             value={localDetails?.discount_percent || 0}
@@ -457,8 +459,8 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                         </div>
 
                         {/* Grand Total & Confirmation */}
-                        <div className="bg-gray-50 p-8 rounded-2xl border border-primary-gray flex flex-col h-fit sticky top-24">
-                            <div className="space-y-4 mb-8 text-primary">
+                        <div className="bg-blue-50/50 p-8 rounded-2xl border border-blue-100 flex flex-col h-fit sticky top-24">
+                            <div className="space-y-4 mb-8 text-blue-800">
                                 <div className="flex justify-between text-base">
                                     <span className="font-medium">{t('invoicing.subtotal', 'Subtotal')}</span>
                                     <span className="font-bold">{subtotal.toLocaleString()}</span>
@@ -472,13 +474,12 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <span className="font-bold">+ {(localDetails?.installation_fee || 0).toLocaleString()}</span>
                                 </div>
                                 {discountAmount > 0 && (
-                                    <div className="flex justify-between text-base text-red-600">
+                                    <div className="flex justify-between text-base text-green-600">
                                         <span className="font-medium">{t('invoicing.discount', 'Discount')} ({localDetails?.discount_percent}%)</span>
                                         <span className="font-bold">- {discountAmount.toLocaleString()}</span>
                                     </div>
                                 )}
-                                <div className="pt-6 border-t border-blue-200 flex justify-between text-3xl font-black text-primary">
-                                    <span>{t('invoicing.total', "Total")}</span>
+                                <div className="pt-6 border-t border-blue-200 flex justify-between text-3xl font-black text-blue-900">
                                     <span>{grandTotal.toLocaleString()}</span>
                                 </div>
                             </div>
@@ -503,7 +504,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                 </div>
                             )}
 
-                            <p className="text-[11px] text-muted-foreground mt-6 text-start leading-relaxed">
+                            <p className="text-[11px] text-muted-foreground mt-6 text-center leading-relaxed">
                                 <Info className="h-3 w-3 inline mr-1" />
                                 {t('invoicing.issue_disclaimer', 'Issuing an invoice will deduct items from inventory and finalize prices.')}
                             </p>
