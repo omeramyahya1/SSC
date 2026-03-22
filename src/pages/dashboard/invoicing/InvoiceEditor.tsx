@@ -249,10 +249,10 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => toast.loading('Preview coming soon!')}>
+                    <Button variant="outline" size="sm" onClick={() => toast.custom('Preview coming soon!')}>
                         <Printer className="h-4 w-4 " /> {t('invoicing.preview_print', 'Preview & Print')}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => toast.loading('Sharing coming soon!')}>
+                    <Button variant="outline" size="sm" onClick={() => toast.custom('Sharing coming soon!')}>
                         <Share2 className="h-4 w-4 " /> {t('invoicing.share', 'Share')}
                     </Button>
                 </div>
@@ -318,6 +318,15 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <Calendar
                                         mode="single"
                                         className='bg-white'
+                                        disabled={
+                                            (date) => {
+                                                const min = currentInvoice?.issued_at ? new Date(currentInvoice.issued_at) : new Date();
+                                                min.setHours(0, 0, 0, 0);
+                                                const d = new Date(date);
+                                                d.setHours(0, 0, 0, 0);
+                                                return d < min;
+                                            }
+                                        }
                                         selected={dueDate ?? undefined}
                                         onSelect={(date) => {
                                             if (date) {
