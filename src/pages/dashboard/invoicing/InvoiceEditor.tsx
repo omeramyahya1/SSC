@@ -77,6 +77,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
 
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [isIssuing, setIsIssuing] = useState(false);
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     // Local state for immediate UI feedback on fees/details
     const [localDetails, setLocalDetails] = useState<InvoiceDetails | null>(null);
@@ -152,7 +153,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
         });
     };
 
-    const handleDetailUpdate = (field: keyof InvoiceDetails, value: any) => {
+    const handleDetailUpdate = (field: keyof InvoiceDetails, value: any, persist = true) => {
         if (isIssued || !localDetails) return;
         const updated = { ...localDetails, [field]: value };
 
@@ -162,7 +163,9 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
         }
 
         setLocalDetails(updated);
-        syncToStore(updated);
+        if (persist) {
+            syncToStore(updated);
+        }
     };
 
     const handleComponentUpdate = async (uuid: string, updates: Partial<ProjectComponent>) => {
@@ -277,7 +280,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                             {/* Date Selection Section (Requested to be above summary) */}
                             <div className="pt-4">
                                 <Label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">{t('invoicing.due_date', 'Due Date')}</Label>
-                                <Popover>
+                                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
@@ -294,7 +297,10 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                             className='bg-white'
                                             selected={localDetails?.due_date ? new Date(localDetails.due_date) : undefined}
                                             onSelect={(date) => {
-                                                if (date) handleDetailUpdate('due_date', date.toISOString());
+                                                if (date) {
+                                                    handleDetailUpdate('due_date', date.toISOString());
+                                                    setIsCalendarOpen(false);
+                                                }
                                             }}
                                             initialFocus
                                         />
@@ -400,7 +406,8 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                         <Input
                                             type="number"
                                             value={localDetails?.shipping_fee || 0}
-                                            onChange={(e) => handleDetailUpdate('shipping_fee', parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => handleDetailUpdate('shipping_fee', parseFloat(e.target.value) || 0, false)}
+                                            onBlur={() => syncToStore(localDetails!)}
                                             disabled={isIssued}
                                             className="font-medium"
                                         />
@@ -410,7 +417,8 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                         <Input
                                             type="number"
                                             value={localDetails?.installation_fee || 0}
-                                            onChange={(e) => handleDetailUpdate('installation_fee', parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => handleDetailUpdate('installation_fee', parseFloat(e.target.value) || 0, false)}
+                                            onBlur={() => syncToStore(localDetails!)}
                                             disabled={isIssued}
                                             className="font-medium"
                                         />
@@ -420,7 +428,8 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                         <Input
                                             type="number"
                                             value={localDetails?.discount_percent || 0}
-                                            onChange={(e) => handleDetailUpdate('discount_percent', parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => handleDetailUpdate('discount_percent', parseFloat(e.target.value) || 0, false)}
+                                            onBlur={() => syncToStore(localDetails!)}
                                             max={100}
                                             disabled={isIssued}
                                             className="font-medium"
@@ -441,7 +450,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                         <span className="text-xs font-bold">{t('invoicing.enable_custom_terms', 'Custom')}</span>
                                     </div>
                                 </div>
-                                {localDetails?.enable_custom_terms && (
+                                {localDetails?.enable_custom_terms ? (
                                     <Textarea
                                         placeholder={t('invoicing.custom_terms_ph', 'Enter terms...')}
                                         value={localDetails?.terms_and_conditions || ''}
@@ -449,6 +458,10 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                         className="h-40 font-mono text-sm leading-relaxed"
                                         disabled={isIssued}
                                     />
+                                ) : (
+                                    <div className="p-4 bg-gray-50 border rounded-md h-40 overflow-y-auto font-mono text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                                        {generateDefaultTerms()}
+                                    </div>
                                 )}
                             </div>
                         </div>
