@@ -21,24 +21,53 @@ export function HoldToConfirmButton({
 }: HoldToConfirmButtonProps) {
   const [isHolding, setIsHolding] = useState(false);
   const animationRef = useRef<ReturnType<typeof animate> | null>(null);
+  const holdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const confirmedRef = useRef(false);
   const progress = useMotionValue(0);
   const fillRightOffset = useTransform(progress, (v) => `${(1 - v) * 100}%`);
 
+  // Use a Ref for onConfirm to avoid stale closures during long hold animations
+  const onConfirmRef = useRef(onConfirm);
+  useEffect(() => {
+    onConfirmRef.current = onConfirm;
+  }, [onConfirm]);
+
+  const triggerConfirm = useCallback(() => {
+    if (confirmedRef.current) return;
+    confirmedRef.current = true;
+    setIsHolding(false);
+    progress.set(0);
+    if (animationRef.current) {
+      animationRef.current.stop();
+      animationRef.current = null;
+    }
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
+    }
+    onConfirmRef.current();
+  }, [progress]);
+
   const startHolding = useCallback(() => {
     if (disabled) return;
+    if (isHolding) return;
+    confirmedRef.current = false;
     setIsHolding(true);
     if (animationRef.current) animationRef.current.stop();
     progress.set(0);
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
+    }
+    holdTimeoutRef.current = setTimeout(() => {
+      triggerConfirm();
+    }, holdDuration);
     animationRef.current = animate(progress, 1, {
       duration: holdDuration / 1000,
       ease: 'linear',
-      onComplete: () => {
-        setIsHolding(false);
-        progress.set(0);
-        onConfirm();
-      },
+      onComplete: triggerConfirm,
     });
-  }, [disabled, holdDuration, onConfirm, progress]);
+  }, [disabled, holdDuration, progress, isHolding, triggerConfirm]);
 
   const stopHolding = useCallback(() => {
     setIsHolding(false);
@@ -46,12 +75,17 @@ export function HoldToConfirmButton({
       animationRef.current.stop();
       animationRef.current = null;
     }
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
+    }
     progress.set(0);
   }, [progress]);
 
   useEffect(() => {
     return () => {
       if (animationRef.current) animationRef.current.stop();
+      if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
     };
   }, []);
 
@@ -64,12 +98,13 @@ export function HoldToConfirmButton({
         )
       )}
       onPointerDown={(e) => {
-        e.preventDefault();
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         startHolding();
       }}
-      onPointerUp={stopHolding}
-      onPointerLeave={stopHolding}
+      onPointerUp={(e) => {
+        (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+        stopHolding();
+      }}
       onPointerCancel={stopHolding}
       disabled={disabled}
       variant={variant}

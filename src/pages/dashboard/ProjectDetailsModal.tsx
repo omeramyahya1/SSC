@@ -27,7 +27,7 @@ import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, Shopping
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
-import { Toaster, toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { ComponentSelectionView } from './components selection/ComponentSelectionView';
 import { InvoiceEditor } from './invoicing/InvoiceEditor';
 
@@ -592,7 +592,6 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
 
     return (
         <DialogContent className="max-w-[90vw] h-[90vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
-            <Toaster />
             <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-2xl">{project.customer?.full_name ?? t('dashboard.no_customer', 'No Customer')}</DialogTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">

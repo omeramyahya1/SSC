@@ -196,18 +196,13 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
         toast.success(t('components.item_added', 'Item added.'));
     };
 
-    const handleAddManual = async () => {
-        await addComponent({
-            project_uuid: project.uuid,
-            custom_name: 'New Accessory',
-            quantity: 1,
-            price_at_sale: 0,
-            is_recommended: false
-        });
-    };
+    const handleIssue = useCallback(async () => {
+        if (!currentUser) {
+            toast.error(t('invoicing.error_no_user', 'User not authenticated.'));
+            console.log(currentUser)
+            return;
+        }
 
-    const handleIssue = async () => {
-        if (!currentInvoice || !currentUser) return;
         const details: InvoiceDetails = {
             shipping_fee: shippingFee,
             installation_fee: installationFee,
@@ -216,20 +211,37 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
             enable_custom_terms: customTermsEnabled,
             terms_and_conditions: customTermsEnabled ? customTerms : generateDefaultTerms()
         };
+
         setIsIssuing(true);
         try {
-            await updateInvoice(currentInvoice.uuid, {
-                invoice_details: details,
-                amount: subtotal + shippingFee + installationFee - ((subtotal * discountPercent) / 100)
-            });
-            await issueInvoice(currentInvoice.uuid, currentUser.uuid);
+            let invoice = currentInvoice;
+            if (!invoice) {
+                const created = await createInvoice({
+                    project_uuid: project.uuid,
+                    user_uuid: currentUser.uuid,
+                    status: 'pending',
+                    invoice_details: details,
+                    amount: grandTotal
+                });
+                if (!created) {
+                    toast.error(t('invoicing.error_no_invoice', 'Failed to create invoice.'));
+                    return;
+                }
+                invoice = created;
+            } else {
+                await updateInvoice(invoice.uuid, {
+                    invoice_details: details,
+                    amount: grandTotal
+                });
+            }
+            await issueInvoice(invoice.uuid, currentUser.uuid);
             toast.success(t('invoicing.issue_success', 'Invoice issued successfully!'));
         } catch (e: any) {
             toast.error(e.message || t('invoicing.issue_error', 'Failed to issue invoice.'));
         } finally {
             setIsIssuing(false);
         }
-    };
+    }, [currentInvoice, currentUser, shippingFee, installationFee, discountPercent, dueDate, customTermsEnabled, customTerms, generateDefaultTerms, grandTotal, t, updateInvoice, issueInvoice, createInvoice, project.uuid]);
 
     if (isInvoiceLoading && !currentInvoice) {
         return <div className="flex flex-col items-center justify-center h-full"><Spinner className="w-12 h-12" /></div>;
@@ -538,7 +550,6 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     variant="default"
                                     className="bg-primary h-14 text-xl font-bold"
                                     confirmationLabel={t('invoicing.issuing', 'Issuing...')}
-                                    disabled={isIssuing || components.length === 0}
                                 >
                                     {t('invoicing.confirm_issue', 'Confirm & Issue')}
                                 </HoldToConfirmButton>
@@ -554,7 +565,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
 
                             <p className="text-[13px] text-muted-foreground mt-6 text-start flex flex-row">
 
-                                <Info className="h-3 w-3 inline me-1" />
+                                <Info className="h-3 w-3 inline me-1 mt-0.5" />
                                 {t('invoicing.issue_disclaimer', 'Issuing an invoice will deduct items from inventory and finalize prices.')}
                             </p>
                         </div>
