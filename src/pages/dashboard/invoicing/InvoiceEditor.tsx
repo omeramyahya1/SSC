@@ -79,15 +79,26 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     const [isIssuing, setIsIssuing] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-    // Local state for immediate UI feedback on fees/details
-    const [localDetails, setLocalDetails] = useState<InvoiceDetails | null>(null);
+    // Local-only state for fees/discount/date/terms
+    const [dueDate, setDueDate] = useState<Date | null>(addDays(new Date(), 7));
+    const [shippingFeeInput, setShippingFeeInput] = useState('0');
+    const [installationFeeInput, setInstallationFeeInput] = useState('0');
+    const [discountPercentInput, setDiscountPercentInput] = useState('0');
+    const [customTermsEnabled, setCustomTermsEnabled] = useState(false);
+    const [customTerms, setCustomTerms] = useState('');
 
     // Load initial data
     useEffect(() => {
         fetchComponents(project.uuid);
         fetchInvoiceByProject(project.uuid).then((invoice) => {
             if (invoice) {
-                setLocalDetails(invoice.invoice_details);
+                const details = invoice.invoice_details;
+                setShippingFeeInput(String(details.shipping_fee ?? 0));
+                setInstallationFeeInput(String(details.installation_fee ?? 0));
+                setDiscountPercentInput(String(details.discount_percent ?? 0));
+                setDueDate(details.due_date ? new Date(details.due_date) : addDays(new Date(), 7));
+                setCustomTermsEnabled(!!details.enable_custom_terms);
+                setCustomTerms(details.terms_and_conditions || '');
             } else if (currentUser) {
                 const initialDetails: InvoiceDetails = {
                     shipping_fee: 0,
@@ -97,24 +108,30 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                     terms_and_conditions: '',
                     due_date: addDays(new Date(), 7).toISOString()
                 };
+                setShippingFeeInput('0');
+                setInstallationFeeInput('0');
+                setDiscountPercentInput('0');
+                setDueDate(new Date(initialDetails.due_date!));
+                setCustomTermsEnabled(false);
+                setCustomTerms('');
                 createInvoice({
                     project_uuid: project.uuid,
                     user_uuid: currentUser.uuid,
                     status: 'pending',
                     invoice_details: initialDetails
-                }).then(newInv => {
-                    if (newInv) setLocalDetails(newInv.invoice_details);
                 });
             }
         });
     }, [project.uuid]);
 
-    // Sync local details when external invoice changes (e.g., after save)
-    useEffect(() => {
-        if (currentInvoice && !localDetails) {
-            setLocalDetails(currentInvoice.invoice_details);
-        }
-    }, [currentInvoice]);
+    const toNumber = (value: string) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : 0;
+    };
+
+    const shippingFee = useMemo(() => toNumber(shippingFeeInput), [shippingFeeInput]);
+    const installationFee = useMemo(() => toNumber(installationFeeInput), [installationFeeInput]);
+    const discountPercent = useMemo(() => toNumber(discountPercentInput), [discountPercentInput]);
 
     const isIssued = currentInvoice?.status !== 'pending' && !!currentInvoice?.issued_at;
 
@@ -124,48 +141,42 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     }, [components]);
 
     const discountAmount = useMemo(() => {
-        const pct = localDetails?.discount_percent || 0;
+        const pct = discountPercent;
         return (subtotal * pct) / 100;
-    }, [subtotal, localDetails?.discount_percent]);
+    }, [subtotal, discountPercent]);
 
     const grandTotal = useMemo(() => {
-        if (!localDetails) return subtotal;
-        return subtotal + (localDetails.shipping_fee || 0) + (localDetails.installation_fee || 0) - discountAmount;
-    }, [subtotal, localDetails, discountAmount]);
+        return subtotal + shippingFee + installationFee - discountAmount;
+    }, [subtotal, shippingFee, installationFee, discountAmount]);
 
     // Generate Default Terms
     const generateDefaultTerms = useCallback(() => {
-        const validityDate = localDetails?.due_date ? format(new Date(localDetails.due_date), "dd/MM/yyyy") : "dd/mm/yyyy";
-        const discount = localDetails?.discount_percent || 0;
+        const validityDate = dueDate ? format(dueDate, "dd/MM/yyyy") : "dd/mm/yyyy";
+        const discount = discountPercent;
 
         return `Payment Terms: Payment is due within 7 days of the invoice date.\n` +
                `Validity: This quotation is valid until ${validityDate}.\n` +
                `Discount: A ${discount}% discount has been applied.\n` +
                `Additional Costs: Any additional costs after the invoice issuance will be quoted separately.`;
-    }, [localDetails]);
+    }, [dueDate, discountPercent]);
 
-    // Handle Field Updates with Debounce or Immediate Store Sync
-    const syncToStore = async (details: InvoiceDetails) => {
-        if (!currentInvoice || isIssued) return;
-        await updateInvoice(currentInvoice.uuid, {
-            invoice_details: details,
-            amount: subtotal + (details.shipping_fee || 0) + (details.installation_fee || 0) - ((subtotal * details.discount_percent) / 100)
-        });
+    const handleNumberInputChange = (
+        setter: (value: string) => void,
+        rawValue: string
+    ) => {
+        if (!/^\d*\.?\d*$/.test(rawValue)) return;
+        setter(rawValue);
     };
 
-    const handleDetailUpdate = (field: keyof InvoiceDetails, value: any, persist = true) => {
-        if (isIssued || !localDetails) return;
-        const updated = { ...localDetails, [field]: value };
-
-        // If enabling custom terms for the first time and it's empty, fill with default
-        if (field === 'enable_custom_terms' && value === true && !updated.terms_and_conditions) {
-            updated.terms_and_conditions = generateDefaultTerms();
-        }
-
-        setLocalDetails(updated);
-        if (persist) {
-            syncToStore(updated);
-        }
+    const normalizeNumberInput = (
+        value: string,
+        setter: (value: string) => void,
+        { clampMax }: { clampMax?: number } = {}
+    ) => {
+        let numeric = value === '' ? 0 : Number(value);
+        if (Number.isNaN(numeric)) numeric = 0;
+        if (typeof clampMax === 'number') numeric = Math.min(clampMax, Math.max(0, numeric));
+        setter(String(numeric));
     };
 
     const handleComponentUpdate = async (uuid: string, updates: Partial<ProjectComponent>) => {
@@ -197,8 +208,20 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
 
     const handleIssue = async () => {
         if (!currentInvoice || !currentUser) return;
+        const details: InvoiceDetails = {
+            shipping_fee: shippingFee,
+            installation_fee: installationFee,
+            discount_percent: discountPercent,
+            due_date: dueDate ? dueDate.toISOString() : undefined,
+            enable_custom_terms: customTermsEnabled,
+            terms_and_conditions: customTermsEnabled ? customTerms : generateDefaultTerms()
+        };
         setIsIssuing(true);
         try {
+            await updateInvoice(currentInvoice.uuid, {
+                invoice_details: details,
+                amount: subtotal + shippingFee + installationFee - ((subtotal * discountPercent) / 100)
+            });
             await issueInvoice(currentInvoice.uuid, currentUser.uuid);
             toast.success(t('invoicing.issue_success', 'Invoice issued successfully!'));
         } catch (e: any) {
@@ -227,10 +250,10 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                 </div>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={() => toast.loading('Preview coming soon!')}>
-                        <Printer className="h-4 w-4 mr-2" /> {t('invoicing.preview_print', 'Preview & Print')}
+                        <Printer className="h-4 w-4 " /> {t('invoicing.preview_print', 'Preview & Print')}
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => toast.loading('Sharing coming soon!')}>
-                        <Share2 className="h-4 w-4 mr-2" /> {t('invoicing.share', 'Share')}
+                        <Share2 className="h-4 w-4 " /> {t('invoicing.share', 'Share')}
                     </Button>
                 </div>
             </div>
@@ -281,28 +304,28 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                             <div className="pt-4">
                                 <Label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">{t('invoicing.due_date', 'Due Date')}</Label>
                                 <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className={cn("w-fit justify-end text-left font-bold", !localDetails?.due_date && "text-muted-foreground")}
-                                            disabled={isIssued}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                                            {localDetails?.due_date ? format(new Date(localDetails.due_date), "PPP") : <span>{t('invoicing.pick_date', 'Pick a date')}</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="end">
-                                        <Calendar
-                                            mode="single"
-                                            className='bg-white'
-                                            selected={localDetails?.due_date ? new Date(localDetails.due_date) : undefined}
-                                            onSelect={(date) => {
-                                                if (date) {
-                                                    handleDetailUpdate('due_date', date.toISOString());
-                                                    setIsCalendarOpen(false);
-                                                }
-                                            }}
-                                            initialFocus
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn("w-fit justify-end text-left font-bold", !dueDate && "text-muted-foreground")}
+                                        disabled={isIssued}
+                                    >
+                                        <CalendarIcon className="h-4 w-4 text-primary" />
+                                        {dueDate ? format(dueDate, "PPP") : <span>{t('invoicing.pick_date', 'Pick a date')}</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                    <Calendar
+                                        mode="single"
+                                        className='bg-white'
+                                        selected={dueDate ?? undefined}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setDueDate(date);
+                                                setIsCalendarOpen(false);
+                                            }
+                                        }}
+
                                         />
                                     </PopoverContent>
                                 </Popover>
@@ -320,7 +343,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                             {!isIssued && (
                                 <div className="flex gap-2">
                                     <Button size="sm" variant="default" onClick={() => setIsInventoryModalOpen(true)} >
-                                        <PlusCircle className="h-4 w-4 mr-1 text-white" /> {t('invoicing.add_item', 'Add Item')}
+                                        <PlusCircle className="h-4 w-4  text-white" /> {t('invoicing.add_item', 'Add Item')}
                                     </Button>
                                 </div>
                             )}
@@ -404,10 +427,11 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <div className="space-y-2">
                                         <Label className="text-xs">{t('invoicing.shipping_fee', 'Shipping Fee')}</Label>
                                         <Input
-                                            type="number"
-                                            value={localDetails?.shipping_fee || 0}
-                                            onChange={(e) => handleDetailUpdate('shipping_fee', parseFloat(e.target.value) || 0, false)}
-                                            onBlur={() => syncToStore(localDetails!)}
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={shippingFeeInput}
+                                            onChange={(e) => handleNumberInputChange(setShippingFeeInput, e.target.value)}
+                                            onBlur={() => normalizeNumberInput(shippingFeeInput, setShippingFeeInput)}
                                             disabled={isIssued}
                                             className="font-medium"
                                         />
@@ -415,10 +439,11 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <div className="space-y-2">
                                         <Label className="text-xs">{t('invoicing.installation_fee', 'Installation Fee')}</Label>
                                         <Input
-                                            type="number"
-                                            value={localDetails?.installation_fee || 0}
-                                            onChange={(e) => handleDetailUpdate('installation_fee', parseFloat(e.target.value) || 0, false)}
-                                            onBlur={() => syncToStore(localDetails!)}
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={installationFeeInput}
+                                            onChange={(e) => handleNumberInputChange(setInstallationFeeInput, e.target.value)}
+                                            onBlur={() => normalizeNumberInput(installationFeeInput, setInstallationFeeInput)}
                                             disabled={isIssued}
                                             className="font-medium"
                                         />
@@ -426,11 +451,11 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <div className="space-y-2 col-span-2">
                                         <Label className="text-xs">{t('invoicing.discount', 'Discount (%)')}</Label>
                                         <Input
-                                            type="number"
-                                            value={localDetails?.discount_percent || 0}
-                                            onChange={(e) => handleDetailUpdate('discount_percent', parseFloat(e.target.value) || 0, false)}
-                                            onBlur={() => syncToStore(localDetails!)}
-                                            max={100}
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={discountPercentInput}
+                                            onChange={(e) => handleNumberInputChange(setDiscountPercentInput, e.target.value)}
+                                            onBlur={() => normalizeNumberInput(discountPercentInput, setDiscountPercentInput, { clampMax: 100 })}
                                             disabled={isIssued}
                                             className="font-medium"
                                         />
@@ -443,18 +468,23 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <Label className="font-bold text-lg">{t('invoicing.terms_title', 'Terms & Conditions')}</Label>
                                     <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-md">
                                         <Switch
-                                            checked={localDetails?.enable_custom_terms}
-                                            onCheckedChange={(v) => handleDetailUpdate('enable_custom_terms', v)}
+                                            checked={customTermsEnabled}
+                                            onCheckedChange={(v) => {
+                                                setCustomTermsEnabled(v);
+                                                if (v && !customTerms) {
+                                                    setCustomTerms(generateDefaultTerms());
+                                                }
+                                            }}
                                             disabled={isIssued}
                                         />
                                         <span className="text-xs font-bold">{t('invoicing.enable_custom_terms', 'Custom')}</span>
                                     </div>
                                 </div>
-                                {localDetails?.enable_custom_terms ? (
+                                {customTermsEnabled ? (
                                     <Textarea
                                         placeholder={t('invoicing.custom_terms_ph', 'Enter terms...')}
-                                        value={localDetails?.terms_and_conditions || ''}
-                                        onChange={(e) => handleDetailUpdate('terms_and_conditions', e.target.value)}
+                                        value={customTerms}
+                                        onChange={(e) => setCustomTerms(e.target.value)}
                                         className="h-40 font-mono text-sm leading-relaxed"
                                         disabled={isIssued}
                                     />
@@ -475,12 +505,12 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                 </div>
                                 <div className="flex justify-between text-base">
                                     <span className="font-medium">{t('invoicing.shipping_fee', 'Shipping')}</span>
-                                    <span className="font-bold">+ {(localDetails?.shipping_fee || 0).toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between text-base">
-                                    <span className="font-medium">{t('invoicing.installation_fee', 'Installation')}</span>
-                                    <span className="font-bold">+ {(localDetails?.installation_fee || 0).toLocaleString()}</span>
-                                </div>
+                                        <span className="font-bold">+ {shippingFee.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between text-base">
+                                        <span className="font-medium">{t('invoicing.installation_fee', 'Installation')}</span>
+                                        <span className="font-bold">+ {installationFee.toLocaleString()}</span>
+                                    </div>
 
                                     <div className="flex justify-between text-base text-red-600">
                                         <span className="font-medium">{t('invoicing.discount', 'Discount')}</span>
@@ -514,7 +544,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                             )}
 
                             <p className="text-[11px] text-muted-foreground mt-6 text-center leading-relaxed">
-                                <Info className="h-3 w-3 inline mr-1" />
+                                <Info className="h-3 w-3 inline " />
                                 {t('invoicing.issue_disclaimer', 'Issuing an invoice will deduct items from inventory and finalize prices.')}
                             </p>
                         </div>
