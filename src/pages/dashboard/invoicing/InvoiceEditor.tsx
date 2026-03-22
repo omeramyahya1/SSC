@@ -552,8 +552,9 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                 </div>
                             )}
 
-                            <p className="text-[11px] text-muted-foreground mt-6 text-center leading-relaxed">
-                                <Info className="h-3 w-3 inline " />
+                            <p className="text-[13px] text-muted-foreground mt-6 text-start flex flex-row">
+
+                                <Info className="h-3 w-3 inline me-1" />
                                 {t('invoicing.issue_disclaimer', 'Issuing an invoice will deduct items from inventory and finalize prices.')}
                             </p>
                         </div>
