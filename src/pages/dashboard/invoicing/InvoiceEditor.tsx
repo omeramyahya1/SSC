@@ -260,21 +260,19 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                         {/* Invoice Metadata (End) */}
                         <div className="md:text-end space-y-2">
                             <div className='flex flex-col gap-2 items-end'>
-                                <span className='w-fit font-bold pe-3'>{t('invoicing.invoice_no', 'Invoice No')}</span>
+                                <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block mb-1'>{t('invoicing.invoice_no', 'Invoice No')}</span>
                                 <div className="w-fit inline-flex items-center bg-gray-100 text-red-500 px-3 py-1 rounded-full text-sm font-bold mb-4">
                                     <Hash className="h-4 w-4 text-neutral" />
                                     {currentInvoice?.uuid.split('-')[0].toUpperCase() || 'DRAFT'}
                                 </div>
 
                             </div>
-                            <div className="flex flex-col gap-2 items-end md:justify-end  text-muted-foreground">
-                                <div className='w-fit inline-flex items-center gap-2 font-bold'>
-                                    <CalendarIcon className="h-4 w-4" />
+                                <div className='text-[10px] uppercase font-bold text-gray-400 block mb-1'>
                                     {t('invoicing.issue_date', 'Issue Date')}
                                 </div>
 
                                 <span className="text-sm font-bold"> {currentInvoice?.issued_at ? format(new Date(currentInvoice.issued_at), "dd/MM/yyyy") : format(new Date(), "dd/MM/yyyy")}</span>
-                            </div>
+
 
                             {/* Date Selection Section (Requested to be above summary) */}
                             <div className="pt-4">
@@ -283,10 +281,10 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant="outline"
-                                            className={cn("w-full md:w-48 justify-start text-left font-bold border-blue-200", !localDetails?.due_date && "text-muted-foreground")}
+                                            className={cn("w-fit justify-end text-left font-bold", !localDetails?.due_date && "text-muted-foreground")}
                                             disabled={isIssued}
                                         >
-                                            <CalendarIcon className="mr-2 h-4 w-4 text-blue-500" />
+                                            <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
                                             {localDetails?.due_date ? format(new Date(localDetails.due_date), "PPP") : <span>{t('invoicing.pick_date', 'Pick a date')}</span>}
                                         </Button>
                                     </PopoverTrigger>
@@ -310,16 +308,13 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                     <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
                         <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
                             <h3 className="font-bold text-lg flex items-center gap-2">
-                                <Package className="h-5 w-5 text-blue-600" />
+                                <Package className="h-5 w-5 text-primary" />
                                 {t('invoicing.summary', 'Invoice Summary')}
                             </h3>
                             {!isIssued && (
                                 <div className="flex gap-2">
-                                    <Button size="sm" variant="outline" onClick={() => setIsInventoryModalOpen(true)} className="border-blue-200 text-blue-700">
-                                        <PlusCircle className="h-4 w-4 mr-1" /> {t('invoicing.add_item', 'Add Item')}
-                                    </Button>
-                                    <Button size="sm" variant="outline" onClick={handleAddManual}>
-                                        <Plus className="h-4 w-4 mr-1" /> {t('invoicing.add_manual', 'Manual Item')}
+                                    <Button size="sm" variant="default" onClick={() => setIsInventoryModalOpen(true)} >
+                                        <PlusCircle className="h-4 w-4 mr-1 text-white" /> {t('invoicing.add_item', 'Add Item')}
                                     </Button>
                                 </div>
                             )}
@@ -396,7 +391,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                         <div className="space-y-8">
                             <div>
                                 <h3 className="font-bold text-lg flex items-center gap-2 mb-4">
-                                    <PlusCircle className="h-5 w-5 text-blue-600" />
+                                    <PlusCircle className="h-5 w-5 text-primary" />
                                     {t('invoicing.add_ons', 'Fees & Discounts')}
                                 </h3>
                                 <div className="grid grid-cols-2 gap-4">
@@ -459,8 +454,8 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                         </div>
 
                         {/* Grand Total & Confirmation */}
-                        <div className="bg-blue-50/50 p-8 rounded-2xl border border-blue-100 flex flex-col h-fit sticky top-24">
-                            <div className="space-y-4 mb-8 text-blue-800">
+                        <div className="bg-gray-50 p-8 rounded-2xl border border-primary-gray flex flex-col h-fit sticky top-24">
+                            <div className="space-y-4 mb-8 text-primary">
                                 <div className="flex justify-between text-base">
                                     <span className="font-medium">{t('invoicing.subtotal', 'Subtotal')}</span>
                                     <span className="font-bold">{subtotal.toLocaleString()}</span>
@@ -473,13 +468,14 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <span className="font-medium">{t('invoicing.installation_fee', 'Installation')}</span>
                                     <span className="font-bold">+ {(localDetails?.installation_fee || 0).toLocaleString()}</span>
                                 </div>
-                                {discountAmount > 0 && (
-                                    <div className="flex justify-between text-base text-green-600">
-                                        <span className="font-medium">{t('invoicing.discount', 'Discount')} ({localDetails?.discount_percent}%)</span>
+
+                                    <div className="flex justify-between text-base text-red-600">
+                                        <span className="font-medium">{t('invoicing.discount', 'Discount')}</span>
                                         <span className="font-bold">- {discountAmount.toLocaleString()}</span>
                                     </div>
-                                )}
-                                <div className="pt-6 border-t border-blue-200 flex justify-between text-3xl font-black text-blue-900">
+
+                                <div className="pt-6 border-t border-primary flex justify-between text-3xl font-black text-primary">
+                                    <span>Total</span>
                                     <span>{grandTotal.toLocaleString()}</span>
                                 </div>
                             </div>
