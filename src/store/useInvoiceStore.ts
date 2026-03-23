@@ -32,6 +32,7 @@ export interface Invoice {
 export type NewInvoiceData = Partial<Omit<Invoice, 'uuid' | 'created_at' | 'updated_at' | 'is_dirty'>>;
 
 const resource = '/invoices';
+const createByProject = new Map<string, Promise<Invoice | undefined>>();
 
 // --- 2. Define Store ---
 
@@ -103,21 +104,41 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   },
 
   createInvoice: async (newInvoiceData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.post<Invoice>(resource, newInvoiceData);
-      set((state) => ({
+    const projectUuid = newInvoiceData.project_uuid;
+    if (projectUuid) {
+      const state = get();
+      const existing =
+        state.currentInvoice?.project_uuid === projectUuid
+          ? state.currentInvoice
+          : state.invoices.find((i) => i.project_uuid === projectUuid);
+      if (existing) return existing;
+
+      const inflight = createByProject.get(projectUuid);
+      if (inflight) return inflight;
+    }
+
+    const createPromise = (async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const { data } = await api.post<Invoice>(resource, newInvoiceData);
+        set((state) => ({
           invoices: [...state.invoices, data],
           currentInvoice: data,
           isLoading: false
-      }));
-      return data;
-    } catch (e: any) {
-      const errorMsg = e.response?.data?.error || e.message || "Failed to create invoice";
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-      return undefined;
-    }
+        }));
+        return data;
+      } catch (e: any) {
+        const errorMsg = e.response?.data?.error || e.message || "Failed to create invoice";
+        set({ error: errorMsg, isLoading: false });
+        console.error(errorMsg, e);
+        return undefined;
+      } finally {
+        if (projectUuid) createByProject.delete(projectUuid);
+      }
+    })();
+
+    if (projectUuid) createByProject.set(projectUuid, createPromise);
+    return createPromise;
   },
 
   updateInvoice: async (uuid, updatedData) => {

@@ -99,7 +99,10 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                 setDueDate(details.due_date ? new Date(details.due_date) : addDays(new Date(), 7));
                 setCustomTermsEnabled(!!details.enable_custom_terms);
                 setCustomTerms(details.terms_and_conditions || '');
-            } else if (currentUser) {
+                return;
+            }
+
+            if (currentUser) {
                 const initialDetails: InvoiceDetails = {
                     shipping_fee: 0,
                     installation_fee: 0,
@@ -122,7 +125,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                 });
             }
         });
-    }, [project.uuid]);
+    }, [project.uuid, currentUser, fetchComponents, fetchInvoiceByProject, createInvoice]);
 
     const toNumber = (value: string) => {
         const n = Number(value);
@@ -298,8 +301,8 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                         {/* Invoice Metadata (End) */}
                         <div className="md:text-end space-y-2">
                             <div className='flex flex-col gap-2 items-end'>
-                                <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block mb-1'>{t('invoicing.invoice_no', 'Invoice No')}</span>
-                                <div className="w-fit inline-flex items-center bg-gray-100 text-red-500 px-3 py-1 rounded-full text-sm font-bold mb-4">
+                                <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block '>{t('invoicing.invoice_no', 'Invoice No')}</span>
+                                <div className="w-fit h-fit inline-flex items-center text-red-500 text-xl font-mono font-bold">
                                     <Hash className="h-4 w-4 text-neutral" />
                                     {String(currentInvoice?.invoice_id).padStart(5, '0') || 'DRAFT'}
                                 </div>
@@ -546,7 +549,12 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
 
                             {!isIssued ? (
                                 <HoldToConfirmButton
-                                    onConfirm={handleIssue}
+                                    // onConfirm={handleIssue}
+                                    onConfirm={
+                                        () => {
+                                            console.log(currentInvoice)
+                                        }
+                                    }
                                     variant="default"
                                     className="bg-primary h-14 text-xl font-bold"
                                     confirmationLabel={t('invoicing.issuing', 'Issuing...')}

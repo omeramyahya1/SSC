@@ -277,7 +277,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         disabled={isGenerating || !bleResults}
                         className="h-10 rounded-lg group hover:shadow-lg hover:text-white bg-white hover:bg-primary border shadow-sm"
                     >
-                        {isGenerating ? <Spinner className=" h-4 w-4 group-hover:invert" /> : <img src="public/eva-icons (2)/outline/bulb.png" className=" h-5 w-5 group-hover:invert" />}
+                        {isGenerating ? <Spinner className=" h-4 w-4 group-hover:invert" /> : <img src="eva-icons (2)/outline/bulb.png" className=" h-5 w-5 group-hover:invert" />}
                         {t('components.auto_select', 'Auto-Select')}
                     </Button>
                     <Button
