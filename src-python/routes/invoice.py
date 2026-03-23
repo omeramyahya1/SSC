@@ -43,7 +43,7 @@ def update_invoice(uuid):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         item.is_dirty = True
         db.commit()
         db.refresh(item)
@@ -56,7 +56,7 @@ def get_all_invoices():
         query = db.query(Invoice)
         if project_uuid:
             query = query.filter(Invoice.project_uuid == project_uuid)
-        
+
         items = query.all()
         return jsonify([model_to_dict(i) for i in items])
 

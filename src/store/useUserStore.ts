@@ -1,5 +1,6 @@
 // src/store/useUserStore.ts
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import api from '@/api/client';
 
 // --- 1. Define Types ---
@@ -39,14 +40,14 @@ export interface UserStore {
   isLoading: boolean;
   error: string | null;
   fetchUsers: () => Promise<void>;
-  fetchUser: (id: number) => Promise<void>;
+  fetchUser: (id: string) => Promise<void>;
   createUser: (data: NewUserData) => Promise<User | undefined>;
   updateUser: (id: number, data: Partial<NewUserData>) => Promise<User | undefined>;
   deleteUser: (id: number) => Promise<void>;
   setCurrentUser: (user: User | null) => void;
 }
 
-export const useUserStore = create<UserStore>((set) => ({
+export const useUserStore = create<UserStore>()(persist((set) => ({
   users: [],
   currentUser: null,
   isLoading: false,
@@ -126,4 +127,7 @@ export const useUserStore = create<UserStore>((set) => ({
       console.error(errorMsg, e);
     }
   },
+}), {
+  name: 'user-store',
+  partialize: (state) => ({ currentUser: state.currentUser }),
 }));

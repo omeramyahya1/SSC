@@ -129,8 +129,9 @@ class InvoiceDetails(BaseModel):
     shipping_fee: Optional[float] = 0.0
     installation_fee: Optional[float] = 0.0
     discount_percent: Optional[float] = 0.0
-    due_date: Optional[datetime] = None
+    due_date: Optional[str] = None
     terms_and_conditions: Optional[str] = None
+    enable_custom_terms: Optional[bool] = False
 
 class InvoiceCreate(BaseModel):
     project_uuid: Optional[str] = None

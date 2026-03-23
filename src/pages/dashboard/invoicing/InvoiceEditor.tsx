@@ -301,7 +301,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                 <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block mb-1'>{t('invoicing.invoice_no', 'Invoice No')}</span>
                                 <div className="w-fit inline-flex items-center bg-gray-100 text-red-500 px-3 py-1 rounded-full text-sm font-bold mb-4">
                                     <Hash className="h-4 w-4 text-neutral" />
-                                    {currentInvoice?.uuid.split('-')[0].toUpperCase() || 'DRAFT'}
+                                    {String(currentInvoice?.invoice_id).padStart(5, '0') || 'DRAFT'}
                                 </div>
 
                             </div>

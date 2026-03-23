@@ -15,6 +15,7 @@ export interface InvoiceDetails {
 
 export interface Invoice {
   uuid: string;
+  invoice_id: number;
   project_uuid: string;
   user_uuid: string;
   amount: number;
@@ -25,6 +26,7 @@ export interface Invoice {
   created_at: string;
   updated_at: string;
   is_dirty: boolean;
+
 }
 
 export type NewInvoiceData = Partial<Omit<Invoice, 'uuid' | 'created_at' | 'updated_at' | 'is_dirty'>>;
@@ -104,10 +106,10 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.post<Invoice>(resource, newInvoiceData);
-      set((state) => ({ 
-          invoices: [...state.invoices, data], 
+      set((state) => ({
+          invoices: [...state.invoices, data],
           currentInvoice: data,
-          isLoading: false 
+          isLoading: false
       }));
       return data;
     } catch (e: any) {

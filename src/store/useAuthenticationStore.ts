@@ -1,5 +1,6 @@
 // src/store/useAuthenticationStore.ts
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import api from '@/api/client';
 import { User } from './useUserStore'; // Import User type from useUserStore
 
@@ -7,7 +8,7 @@ import { User } from './useUserStore'; // Import User type from useUserStore
 
 export interface Authentication {
   auth_id: number;
-  user_id: number;
+  user_uuid: string;
   password_hash: string;
   password_salt: string;
   current_jwt?: string | null;
@@ -66,7 +67,7 @@ export interface AuthenticationStore {
   logout: () => Promise<void>;
 }
 
-export const useAuthenticationStore = create<AuthenticationStore>((set, get) => ({
+export const useAuthenticationStore = create<AuthenticationStore>()(persist((set, get) => ({
   authentications: [],
   currentAuthentication: null,
   isLoading: false,
@@ -92,7 +93,7 @@ export const useAuthenticationStore = create<AuthenticationStore>((set, get) => 
       console.error(errorMsg, e);
     }
   },
-  
+
   setCurrentAuthentication: (auth) => {
     set({ currentAuthentication: auth });
   },
@@ -181,4 +182,7 @@ export const useAuthenticationStore = create<AuthenticationStore>((set, get) => 
       console.error(errorMsg, e);
     }
   },
+}), {
+  name: 'auth-store',
+  partialize: (state) => ({ currentAuthentication: state.currentAuthentication }),
 }));
