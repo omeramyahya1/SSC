@@ -299,8 +299,8 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                         </div>
 
                         {/* Invoice Metadata (End) */}
-                        <div className="md:text-end space-y-2">
-                            <div className='flex flex-col gap-2 items-end'>
+                        <div className="md:text-end flex flex-col gap-2">
+                            <div className='flex flex-col items-end'>
                                 <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block '>{t('invoicing.invoice_no', 'Invoice No')}</span>
                                 <div className="w-fit h-fit inline-flex items-center text-red-500 text-xl font-mono font-bold">
                                     <Hash className="h-4 w-4 text-neutral" />
@@ -308,15 +308,17 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                 </div>
 
                             </div>
+                            <div>
                                 <div className='text-[10px] uppercase font-bold text-gray-400 block mb-1'>
                                     {t('invoicing.issue_date', 'Issue Date')}
                                 </div>
-
                                 <span className="text-sm font-bold"> {currentInvoice?.issued_at ? format(new Date(currentInvoice.issued_at), "dd/MM/yyyy") : format(new Date(), "dd/MM/yyyy")}</span>
+                            </div>
+
 
 
                             {/* Date Selection Section (Requested to be above summary) */}
-                            <div className="pt-4">
+                            <div>
                                 <Label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">{t('invoicing.due_date', 'Due Date')}</Label>
                                 <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                                 <PopoverTrigger asChild>
