@@ -19,7 +19,7 @@ def create_invoice():
         try:
             existing = None
             if validated_data.project_uuid:
-                existing = db.query(Invoice).filter(Invoice.project_uuid == validated_data.project_uuid)
+                existing = db.query(Invoice).filter(Invoice.project_uuid == validated_data.project_uuid).first()
             if existing:
                 return jsonify(model_to_dict(existing)), 200
             new_item = Invoice(**validated_data.dict(exclude_unset=True))

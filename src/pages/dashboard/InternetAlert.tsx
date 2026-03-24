@@ -32,8 +32,14 @@ export function InternetAlert() {
   if (showInternetAlert && !isOnline) {
     return (
       <div className="fixed top-4 inset-x-0 z-50 p-4 w-fit max-w-md mx-auto animate-in slide-in-from-top-16 duration-300">
-        <Alert className="bg-yellow-100 border-yellow-500 text-yellow-900 shadow-sm rounded-base">
-          <button onClick={() => setShowInternetAlert(false)} className='w-fit absolute z-50'>X</button>
+        <Alert className="relative bg-yellow-100 border-yellow-500 text-yellow-900 shadow-sm rounded-base">
+          <button
+            onClick={() => setShowInternetAlert(false)}
+            className="absolute top-2 right-2 z-10 p-1 text-yellow-700 hover:text-yellow-900 focus:outline-none focus:ring-2 focus:ring-yellow-500 rounded"
+            aria-label={t('common.dismiss', 'Dismiss')}
+          >
+            X
+          </button>
           <div className="relative flex flex-col items-center">
             <img src="/eva-icons (2)/fill/alert-triangle.png" className="h-5 w-5 opacity-70 mb-1" alt={t('registration.warning_alt', 'Warning')} />
             <AlertTitle className="text-yellow-900 font-bold text-center">{t('dashboard.no_internet_title', 'No Internet Connection')}</AlertTitle>
