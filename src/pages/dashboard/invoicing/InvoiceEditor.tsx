@@ -15,7 +15,6 @@ import {
     MapPin,
     Mail,
     Phone,
-    User as UserIcon,
     Hash
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -306,7 +305,6 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                         {/* Customer Info (Start) */}
                         <div className="space-y-2">
                             <h3 className="text-2xl font-black text-primary mb-4 flex items-center gap-2">
-                                <UserIcon className="h-6 w-6" />
                                 {project.customer?.full_name || t('dashboard.no_customer', 'Customer')}
                             </h3>
                             <div className="flex items-center gap-2 text-muted-foreground">

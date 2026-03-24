@@ -958,17 +958,6 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                 <div className="flex flex-col p-6 overflow-y-auto">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xl font-bold">{t('project_modal.system_configuration', 'System Configuration')}</h3>
-                        {displayResults && !isArchived && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="bg-blue-600 text-white hover:bg-blue-700 font-bold"
-                                onClick={handleProceedToSelection}
-                            >
-                                <ShoppingCart className="h-4 w-4" />
-                                {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
-                            </Button>
-                        )}
                     </div>
 
                     {isResultsLoading && (

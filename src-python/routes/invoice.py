@@ -19,7 +19,7 @@ def create_invoice():
         try:
             existing = None
             if validated_data.project_uuid:
-                existing = db.query(Invoice).filter(Invoice.project_uuid == validated_data.project_uuid).first()
+                existing = db.query(Invoice).filter(Invoice.project_uuid == validated_data.project_uuid)
             if existing:
                 return jsonify(model_to_dict(existing)), 200
             new_item = Invoice(**validated_data.dict(exclude_unset=True))
@@ -31,7 +31,7 @@ def create_invoice():
         except Exception as e:
             db.rollback()
             logging.exception("Error creating invoice")
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": "Internal server error"}), 500
 
 @invoice_bp.route('/<string:uuid>', methods=['PUT'])
 def update_invoice(uuid):

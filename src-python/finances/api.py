@@ -36,7 +36,7 @@ def confirm_invoice(db, invoice_uuid):
     """
     Confirm and issue an invoice.
     """
-    user_uuid = request.args.get('user_uuid') # In a real app, this would come from the JWT
+    user_uuid = request.args.get('user_uuid')
     if not user_uuid:
         return jsonify({"error": "user_uuid is required"}), 400
 

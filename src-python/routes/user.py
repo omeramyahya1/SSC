@@ -326,8 +326,6 @@ def get_user(user_uuid):
         item = db.query(User).filter(User.uuid == user_uuid).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-
-        print(model_to_dict(item))
         return jsonify(model_to_dict(item))
 
 
