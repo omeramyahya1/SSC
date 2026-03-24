@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db
-from models import Invoice
+from models import Invoice, Project
+from finances.finances import reverse_stock_deduction
 from schemas import InvoiceCreate, InvoiceUpdate
 from serializer import model_to_dict
 import logging
@@ -58,9 +59,24 @@ def update_invoice(uuid):
 def get_all_invoices():
     with get_db() as db:
         project_uuid = request.args.get('project_uuid')
+        org_uuid = request.args.get('org_uuid')
+        branch_uuid = request.args.get('branch_uuid')
+        status = request.args.get('status')
+        
         query = db.query(Invoice)
+        
+        # Join with Project for branch/org filtering
+        if org_uuid or branch_uuid:
+            query = query.join(Project, Invoice.project_uuid == Project.uuid)
+            if org_uuid:
+                query = query.filter(Project.organization_uuid == org_uuid)
+            if branch_uuid:
+                query = query.filter(Project.branch_uuid == branch_uuid)
+        
         if project_uuid:
             query = query.filter(Invoice.project_uuid == project_uuid)
+        if status:
+            query = query.filter(Invoice.status == status)
 
         items = query.all()
         return jsonify([model_to_dict(i) for i in items])
@@ -83,11 +99,17 @@ def get_invoice_by_project(project_uuid):
 
 @invoice_bp.route('/<string:uuid>', methods=['DELETE'])
 def delete_invoice(uuid):
+    user_uuid = request.args.get('user_uuid')
     with get_db() as db:
         try:
             item = db.query(Invoice).filter(Invoice.uuid == uuid).first()
             if not item:
                 return jsonify({"error": "Not found"}), 404
+            
+            # Rollback stock if issued
+            if item.issued_at and user_uuid:
+                reverse_stock_deduction(db, item.uuid, user_uuid)
+
             db.delete(item)
             db.commit()
             return jsonify({"message": "Deleted successfully"}), 200

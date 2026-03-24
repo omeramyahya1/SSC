@@ -82,6 +82,39 @@ def execute_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
         )
         db.add(adjustment)
 
+def reverse_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
+    """
+    Reverses stock deductions for a deleted or voided invoice.
+    Adds back quantities to InventoryItem and creates 'Reversal' StockAdjustment records.
+    """
+    invoice = db.query(Invoice).filter(Invoice.uuid == invoice_uuid).first()
+    if not invoice:
+        return
+
+    # Get components associated with the project
+    components = db.query(ProjectComponent).filter(ProjectComponent.project_uuid == invoice.project_uuid).all()
+
+    for component in components:
+        item = db.query(InventoryItem).filter(InventoryItem.uuid == component.item_uuid).with_for_update().first()
+        if not item:
+            continue
+
+        # Add back stock
+        item.quantity_on_hand += component.quantity
+        item.is_dirty = True
+
+        # Create Reversal StockAdjustment record
+        adjustment = StockAdjustment(
+            organization_uuid=item.organization_uuid,
+            branch_uuid=item.branch_uuid,
+            item_uuid=item.uuid,
+            adjustment=component.quantity,
+            reason=f"Reversal for Deleted Invoice {invoice.invoice_id}",
+            user_uuid=user_uuid,
+            is_dirty=True
+        )
+        db.add(adjustment)
+
 def snapshot_project_components(db: Session, project_uuid: str):
     """
     Explicitly snapshots the current InventoryItem.sell_price into ProjectComponent.price_at_sale.
