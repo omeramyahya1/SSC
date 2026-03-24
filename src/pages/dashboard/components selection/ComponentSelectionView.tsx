@@ -31,6 +31,7 @@ import {
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
 import { InventorySelectorModal } from './InventorySelectorModal';
+import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
@@ -56,6 +57,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
 
     const { items, categories, fetchItems, fetchCategories } = useInventoryStore();
 
+    const {currentInvoice} = useInvoiceStore();
 
     const [isGenerating, setIsGenerating] = useState(false);
     const [selectedSlotCategory, setSelectedSlotCategory] = useState<string | null>(null);
@@ -63,6 +65,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
     const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
     const inFlightQtyRef = useRef<Record<string, boolean>>({});
     const latestQtyRef = useRef<Record<string, number>>({});
+
 
     useEffect(() => {
         fetchComponents(projectUuid);
