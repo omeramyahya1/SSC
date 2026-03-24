@@ -37,6 +37,7 @@ const resource = '/users';
 export interface UserStore {
   users: User[];
   currentUser: User | null;
+  currentUserSnapshot: { user_id: number; uuid: string } | null;
   isLoading: boolean;
   error: string | null;
   fetchUsers: () => Promise<void>;
@@ -50,11 +51,15 @@ export interface UserStore {
 export const useUserStore = create<UserStore>()(persist((set) => ({
   users: [],
   currentUser: null,
+  currentUserSnapshot: null,
   isLoading: false,
   error: null,
 
   setCurrentUser: (user) => {
-    set({ currentUser: user });
+    set({
+      currentUser: user,
+      currentUserSnapshot: user ? { user_id: user.user_id, uuid: user.uuid } : null
+    });
   },
 
   fetchUsers: async () => {
@@ -73,7 +78,11 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<User>(`${resource}/${id}`);
-      set({ currentUser: data, isLoading: false });
+      set({
+        currentUser: data,
+        currentUserSnapshot: { user_id: data.user_id, uuid: data.uuid },
+        isLoading: false
+      });
     } catch (e: any) {
       const errorMsg = e.message || `Failed to fetch user ${id}`;
       set({ error: errorMsg, isLoading: false });
@@ -129,5 +138,12 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
   },
 }), {
   name: 'user-store',
-  partialize: (state) => ({ currentUser: state.currentUser }),
+  partialize: (state) => ({ currentUserSnapshot: state.currentUserSnapshot }),
+  onRehydrateStorage: () => (state, error) => {
+    if (error || !state) return;
+    const snapshot = state.currentUserSnapshot;
+    if (snapshot?.user_id) {
+      state.fetchUser(String(snapshot.user_id));
+    }
+  }
 }));
