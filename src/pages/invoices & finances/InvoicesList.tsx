@@ -73,7 +73,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
         if (window.confirm(t('invoicing.confirm_delete', 'Are you sure? Deleting an issued invoice will return items to inventory.'))) {
             try {
                 // We pass user_uuid for the stock adjustment record
-                await deleteInvoice(invoice.uuid);
+                await deleteInvoice(invoice.uuid, currentUser.uuid);
                 toast.success(t('invoicing.delete_success', 'Invoice deleted successfully.'));
                 fetchInvoices(filterParams);
             } catch (error: any) {

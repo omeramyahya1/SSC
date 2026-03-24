@@ -41,12 +41,17 @@ export interface InvoiceStore {
   currentInvoice: Invoice | null;
   isLoading: boolean;
   error: string | null;
-  fetchInvoices: (params?: { project_uuid?: string }) => Promise<void>;
+  fetchInvoices: (params?: { 
+      project_uuid?: string; 
+      org_uuid?: string; 
+      branch_uuid?: string;
+      status?: string;
+    }) => Promise<void>;
   fetchInvoice: (uuid: string) => Promise<void>;
   fetchInvoiceByProject: (projectUuid: string) => Promise<Invoice | undefined>;
   createInvoice: (data: NewInvoiceData) => Promise<Invoice | undefined>;
   updateInvoice: (uuid: string, data: Partial<NewInvoiceData>) => Promise<Invoice | undefined>;
-  deleteInvoice: (uuid: string) => Promise<void>;
+  deleteInvoice: (uuid: string, userUuid?: string) => Promise<void>;
   issueInvoice: (invoiceUuid: string, userUuid: string) => Promise<void>;
   setCurrentInvoice: (invoice: Invoice | null) => void;
 }
@@ -159,10 +164,12 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     }
   },
 
-  deleteInvoice: async (uuid) => {
+  deleteInvoice: async (uuid, userUuid) => {
     set({ isLoading: true, error: null });
     try {
-      await api.delete(`${resource}/${uuid}`);
+      await api.delete(`${resource}/${uuid}`, {
+          params: { user_uuid: userUuid }
+      });
       set((state) => ({
         invoices: state.invoices.filter((i) => i.uuid !== uuid),
         currentInvoice: state.currentInvoice?.uuid === uuid ? null : state.currentInvoice,
@@ -172,6 +179,7 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
       const errorMsg = e.response?.data?.error || e.message || `Failed to delete invoice ${uuid}`;
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
+      throw new Error(errorMsg);
     }
   },
 

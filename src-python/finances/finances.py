@@ -12,7 +12,7 @@ def calculate_dashboard_stats(db: Session, organization_uuid: str, branch_uuid: 
     revenue_query = db.query(func.sum(Payment.amount)) \
         .join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
         .join(Project, Invoice.project_uuid == Project.uuid) \
-        .filter(Invoice.organization_uuid == organization_uuid)
+        .filter(Project.organization_uuid == organization_uuid)
 
     if branch_uuid:
         revenue_query = revenue_query.filter(Project.branch_uuid == branch_uuid)
@@ -21,10 +21,11 @@ def calculate_dashboard_stats(db: Session, organization_uuid: str, branch_uuid: 
 
     # 2. Outstanding Invoices (Total Invoice Amount - Total Paid)
     invoice_total_query = db.query(func.sum(Invoice.amount)) \
-        .filter(Invoice.organization_uuid == organization_uuid)
+        .join(Project, Invoice.project_uuid == Project.uuid) \
+        .filter(Project.organization_uuid == organization_uuid)
 
     if branch_uuid:
-        invoice_total_query = invoice_total_query.filter(Invoice.branch_uuid == branch_uuid)
+        invoice_total_query = invoice_total_query.filter(Project.branch_uuid == branch_uuid)
 
     total_invoice_amount = invoice_total_query.scalar() or 0.0
     outstanding_invoices = total_invoice_amount - total_revenue
