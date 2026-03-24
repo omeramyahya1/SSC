@@ -76,7 +76,6 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     } = useProjectComponentStore();
 
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
-    const [isIssuing, setIsIssuing] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     // Local-only state for fees/discount/date/terms
@@ -150,7 +149,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     const installationFee = useMemo(() => toNumber(installationFeeInput), [installationFeeInput]);
     const discountPercent = useMemo(() => toNumber(discountPercentInput), [discountPercentInput]);
 
-    const isIssued = currentInvoice?.status == 'pending' && currentInvoice?.issued_at ? true : false;
+    const isIssued = Boolean(currentInvoice?.issued_at);
 
     // Totals Calculation
     const subtotal = useMemo(() => {
@@ -237,7 +236,6 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
             terms_and_conditions: customTermsEnabled ? customTerms : generateDefaultTerms()
         };
 
-        setIsIssuing(true);
         try {
             let invoice = currentInvoice;
             if (!invoice) {
@@ -263,9 +261,8 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
             toast.success(t('invoicing.issue_success', 'Invoice issued successfully!'));
         } catch (e: any) {
             toast.error(e.message || t('invoicing.issue_error', 'Failed to issue invoice.'));
-        } finally {
-            setIsIssuing(false);
         }
+
     }, [currentInvoice, currentUser, shippingFee, installationFee, discountPercent, dueDate, customTermsEnabled, customTerms, generateDefaultTerms, grandTotal, t, updateInvoice, issueInvoice, createInvoice, project.uuid]);
 
     if (isInvoiceLoading && !currentInvoice) {
@@ -327,7 +324,11 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                 <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block '>{t('invoicing.invoice_no', 'Invoice No')}</span>
                                 <div className="w-fit h-fit inline-flex items-center text-red-500 text-xl font-mono font-bold">
                                     <Hash className="h-4 w-4 text-neutral" />
-                                    {String(currentInvoice?.invoice_id).padStart(5, '0') || 'DRAFT'}
+                                    {
+                                        currentInvoice?.invoice_id != null
+                                        ? String(currentInvoice.invoice_id).padStart(5, '0')
+                                        : 'DRAFT'
+                                    }
                                 </div>
 
                             </div>

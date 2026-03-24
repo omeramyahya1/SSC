@@ -20,7 +20,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { CustomerCard } from './CustomerCard';
 import { AddCustomerModal } from './AddCustomerModal';
 import { EditCustomerModal } from './EditCustomerModal';
-import { Toaster } from "react-hot-toast";
 import toast from "react-hot-toast";
 
 export default function CustomersPage() {
@@ -112,9 +111,9 @@ export default function CustomersPage() {
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredCustomers.map(customer => (
-                    <CustomerCard 
-                        key={customer.uuid} 
-                        customer={customer} 
+                    <CustomerCard
+                        key={customer.uuid}
+                        customer={customer}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                     />
@@ -125,7 +124,6 @@ export default function CustomersPage() {
 
     return (
         <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
-            <Toaster />
             <div className="p-6 space-y-6">
                 {/* Header & Toolbar */}
                 <div className="flex flex-col gap-4">
@@ -135,10 +133,10 @@ export default function CustomersPage() {
 
                     <div className="flex flex-row justify-between items-center gap-4">
                         <div className="relative flex-grow max-w-md">
-                            <img 
-                                src="/eva-icons (2)/outline/search.png" 
-                                alt="search" 
-                                className="w-5 h-5 absolute ltr:left-3 rtl:right-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-60" 
+                            <img
+                                src="/eva-icons (2)/outline/search.png"
+                                alt="search"
+                                className="w-5 h-5 absolute ltr:left-3 rtl:right-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-60"
                             />
                             <Input
                                 placeholder={t('customers.search_ph', 'Search by name, email, phone...')}
@@ -182,9 +180,9 @@ export default function CustomersPage() {
 
             <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
                 {customerToEdit && (
-                    <EditCustomerModal 
-                        customer={customerToEdit} 
-                        onOpenChange={setIsEditModalOpen} 
+                    <EditCustomerModal
+                        customer={customerToEdit}
+                        onOpenChange={setIsEditModalOpen}
                     />
                 )}
             </Dialog>

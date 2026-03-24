@@ -25,11 +25,13 @@ import {
     Info,
     Edit3,
     ShoppingCart,
-    ArrowRight
+    ArrowRight,
+    FileText
 } from 'lucide-react';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
 import { InventorySelectorModal } from './InventorySelectorModal';
+import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
@@ -54,6 +56,8 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
     } = useProjectComponentStore();
 
     const { items, categories, fetchItems, fetchCategories } = useInventoryStore();
+
+    const {currentInvoice} = useInvoiceStore();
 
     const [isGenerating, setIsGenerating] = useState(false);
     const [selectedSlotCategory, setSelectedSlotCategory] = useState<string | null>(null);
@@ -286,8 +290,22 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         disabled={components.length === 0}
                         className="h-10 rounded-lg bg-primary hover:bg-blue-700 text-white font-bold shadow-sm"
                     >
-                        <ShoppingCart className="me-2 h-5 w-5" />
-                        {t('invoicing.checkout', 'Check Out')}
+                        {
+                            currentInvoice?.issued_at ? (
+                                <>
+                                <FileText className="me-2 h-5 w-5" />
+                                {t('components.view_invoice', 'View Invoice')}
+                                </>
+                            ) : (
+                                <>
+                                <ShoppingCart className="me-2 h-5 w-5" />
+                                {t('invoicing.checkout', 'Check Out')}
+                                </>
+
+                            )
+
+                        }
+
                     </Button>
                     <div className="h-10 px-4 flex items-center bg-green-600 text-white rounded-lg font-bold shadow-sm">
                         <ShoppingCart className="me-2 h-5 w-5" />

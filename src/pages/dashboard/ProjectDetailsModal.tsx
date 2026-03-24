@@ -1058,10 +1058,11 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     {displayResults && (
                                         <Button
                                             variant="outline"
-                                            className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 font-bold"
+                                            className="w-full group border-primary text-primary hover:bg-primary hover:text-white font-bold"
                                             onClick={handleProceedToSelection}
+                                            disabled={bleResults?.data}
                                         >
-                                            <ShoppingCart className="h-4 w-4 " />
+                                            <ShoppingCart className="h-4 w-4" />
                                             {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
                                         </Button>
                                     )}

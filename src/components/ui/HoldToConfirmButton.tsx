@@ -101,6 +101,18 @@ export function HoldToConfirmButton({
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         startHolding();
       }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) {
+          e.preventDefault();
+          startHolding();
+        }
+      }}
+      onKeyUp={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          stopHolding();
+        }
+      }}
       onPointerUp={(e) => {
         (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
         stopHolding();
