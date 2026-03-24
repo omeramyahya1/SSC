@@ -136,7 +136,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     const installationFee = useMemo(() => toNumber(installationFeeInput), [installationFeeInput]);
     const discountPercent = useMemo(() => toNumber(discountPercentInput), [discountPercentInput]);
 
-    const isIssued = currentInvoice?.status !== 'pending' && !!currentInvoice?.issued_at;
+    const isIssued = currentInvoice?.status == 'pending' && currentInvoice?.issued_at ? true : false;
 
     // Totals Calculation
     const subtotal = useMemo(() => {
@@ -157,10 +157,10 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
         const validityDate = dueDate ? format(dueDate, "dd/MM/yyyy") : "dd/mm/yyyy";
         const discount = discountPercent;
 
-        return `Payment Terms: Payment is due within 7 days of the invoice date.\n` +
-               `Validity: This quotation is valid until ${validityDate}.\n` +
-               `Discount: A ${discount}% discount has been applied.\n` +
-               `Additional Costs: Any additional costs after the invoice issuance will be quoted separately.`;
+        return `- Payment Terms: Payment is due within 7 days of the invoice date.\n` +
+               `- Validity: This quotation is valid until ${validityDate}.\n` +
+               `- Discount: A ${discount}% discount has been applied.\n` +
+               `- Additional Costs: Any additional costs after the invoice issuance will be quoted separately.`;
     }, [dueDate, discountPercent]);
 
     const handleNumberInputChange = (
@@ -263,14 +263,16 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                         <p className="text-sm text-muted-foreground">{t('invoicing.subtitle', 'Review and customize your invoice before issuance.')}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => toast.custom('Preview coming soon!')}>
-                        <Printer className="h-4 w-4 " /> {t('invoicing.preview_print', 'Preview & Print')}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => toast.custom('Sharing coming soon!')}>
-                        <Share2 className="h-4 w-4 " /> {t('invoicing.share', 'Share')}
-                    </Button>
-                </div>
+                { currentInvoice?.issued_at &&
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => toast.custom('Preview coming soon!')}>
+                            <Printer className="h-4 w-4 " /> {t('invoicing.preview_print', 'Preview & Print')}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => toast.custom('Sharing coming soon!')}>
+                            <Share2 className="h-4 w-4 " /> {t('invoicing.share', 'Share')}
+                        </Button>
+                    </div>
+                }
             </div>
 
             <ScrollArea className="flex-grow">
@@ -320,41 +322,48 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                             {/* Date Selection Section (Requested to be above summary) */}
                             <div>
                                 <Label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">{t('invoicing.due_date', 'Due Date')}</Label>
-                                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className={cn("w-fit justify-end text-left font-bold", !dueDate && "text-muted-foreground")}
-                                        disabled={isIssued}
-                                    >
-                                        <CalendarIcon className="h-4 w-4 text-primary" />
-                                        {dueDate ? format(dueDate, "PPP") : <span>{t('invoicing.pick_date', 'Pick a date')}</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="end">
-                                    <Calendar
-                                        mode="single"
-                                        className='bg-white'
-                                        disabled={
-                                            (date) => {
-                                                const min = currentInvoice?.issued_at ? new Date(currentInvoice.issued_at) : new Date();
-                                                min.setHours(0, 0, 0, 0);
-                                                const d = new Date(date);
-                                                d.setHours(0, 0, 0, 0);
-                                                return d < min;
-                                            }
-                                        }
-                                        selected={dueDate ?? undefined}
-                                        onSelect={(date) => {
-                                            if (date) {
-                                                setDueDate(date);
-                                                setIsCalendarOpen(false);
-                                            }
-                                        }}
+                                {
+                                    currentInvoice?.issued_at ? (
+                                        <span className="text-sm font-bold">{dueDate ? format(dueDate, "dd/MM/yyyy") : ""}</span>
+                                    ) : (
+                                         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className={cn("w-fit justify-end text-left font-bold")}
 
-                                        />
-                                    </PopoverContent>
+                                        >
+                                            <CalendarIcon className="h-4 w-4 text-primary" />
+                                            {dueDate ? format(dueDate, "dd/MM/yyyy") : <span>{t('invoicing.pick_date', 'Pick a date')}</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="end">
+                                        <Calendar
+                                            mode="single"
+                                            className='bg-white'
+                                            disabled={
+                                                (date) => {
+                                                    const min = currentInvoice?.issued_at ? new Date(currentInvoice.issued_at) : new Date();
+                                                    min.setHours(0, 0, 0, 0);
+                                                    const d = new Date(date);
+                                                    d.setHours(0, 0, 0, 0);
+                                                    return d < min;
+                                                }
+                                            }
+                                            selected={dueDate ?? undefined}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    setDueDate(date);
+                                                    setIsCalendarOpen(false);
+                                                }
+                                            }}
+
+                                            />
+                                        </PopoverContent>
                                 </Popover>
+                                    )
+                                }
+
                             </div>
                         </div>
                     </div>
@@ -403,22 +412,39 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            <Input
-                                                type="number"
-                                                value={c.price_at_sale || 0}
-                                                onChange={(e) => handleComponentUpdate(c.uuid, { price_at_sale: parseFloat(e.target.value) || 0 })}
-                                                className="h-8 text-center"
-                                                disabled={isIssued}
-                                            />
+                                            <div className='flex flex-col items-center'>
+                                                {
+                                                    isIssued ? (
+                                                        <span className='font-bold'>{c.price_at_sale || 0}</span>
+                                                    ) : (
+                                                        <Input
+                                                            type="number"
+                                                            value={c.price_at_sale || 0}
+                                                            onChange={(e) => handleComponentUpdate(c.uuid, { price_at_sale: parseFloat(e.target.value) || 0 })}
+                                                            className="h-8 text-center"
+                                                            disabled={isIssued}
+                                                        />
+                                                    )
+                                                }
+                                            </div>
                                         </TableCell>
                                         <TableCell>
-                                            <Input
-                                                type="number"
-                                                value={c.quantity}
-                                                onChange={(e) => handleComponentUpdate(c.uuid, { quantity: parseInt(e.target.value) || 1 })}
-                                                className="h-8 text-center"
-                                                disabled={isIssued}
-                                            />
+                                            <div className='flex flex-col items-center'>
+                                                {
+                                                    isIssued ? (
+                                                        <span className='font-bold'>{c.quantity}</span>
+                                                    ) : (
+                                                        <Input
+                                                            type="number"
+                                                            value={c.quantity}
+                                                            onChange={(e) => handleComponentUpdate(c.uuid, { quantity: parseInt(e.target.value) || 1 })}
+                                                            className="h-8 text-center"
+                                                            disabled={isIssued}
+                                                        />
+                                                    )
+                                                }
+                                            </div>
+
                                         </TableCell>
                                         <TableCell className="text-end font-bold">
                                             {((c.price_at_sale || 0) * c.quantity).toLocaleString()}
@@ -444,7 +470,11 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                         {/* Fees & Terms */}
                         <div className="space-y-8">
-                            <div>
+                            {
+                                currentInvoice?.issued_at ? (
+                                    ""
+                                ) : (
+                                    <div>
                                 <h3 className="font-bold text-lg flex items-center gap-2 mb-4">
                                     <PlusCircle className="h-5 w-5 text-primary" />
                                     {t('invoicing.add_ons', 'Fees & Discounts')}
@@ -488,23 +518,28 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     </div>
                                 </div>
                             </div>
+                                )
+                            }
 
-                            <div className="space-y-4 pt-6 border-t">
+
+                            <div className={`space-y-4 ${!currentInvoice?.issued_at && "pt-6 border-t"}`}>
                                 <div className="flex items-center justify-between">
                                     <Label className="font-bold text-lg">{t('invoicing.terms_title', 'Terms & Conditions')}</Label>
-                                    <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-md">
-                                        <Switch
-                                            checked={customTermsEnabled}
-                                            onCheckedChange={(v) => {
-                                                setCustomTermsEnabled(v);
-                                                if (v && !customTerms) {
-                                                    setCustomTerms(generateDefaultTerms());
-                                                }
-                                            }}
-                                            disabled={isIssued}
-                                        />
-                                        <span className="text-xs font-bold">{t('invoicing.enable_custom_terms', 'Custom')}</span>
-                                    </div>
+                                    { !currentInvoice?.issued_at &&
+                                        <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-md">
+                                            <Switch
+                                                checked={customTermsEnabled}
+                                                onCheckedChange={(v) => {
+                                                    setCustomTermsEnabled(v);
+                                                    if (v && !customTerms) {
+                                                        setCustomTerms(generateDefaultTerms());
+                                                    }
+                                                }}
+                                                disabled={isIssued}
+                                            />
+                                            <span className="text-xs font-bold">{t('invoicing.enable_custom_terms', 'Custom')}</span>
+                                        </div>
+                                    }
                                 </div>
                                 {customTermsEnabled ? (
                                     <Textarea
@@ -515,7 +550,9 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                         disabled={isIssued}
                                     />
                                 ) : (
-                                    <div className="p-4 bg-gray-50 border rounded-md h-40 overflow-y-auto font-mono text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                                    <div
+                                        className={`${!currentInvoice?.issued_at? "p-4 bg-gray-50 border rounded-md h-40 overflow-y-auto font-mono text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap" : "font-bold font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap text-[16px]"}`}
+                                    >
                                         {generateDefaultTerms()}
                                     </div>
                                 )}
@@ -543,7 +580,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                         <span className="font-bold">- {discountAmount.toLocaleString()}</span>
                                     </div>
 
-                                <div className="pt-6 border-t border-primary flex justify-between text-3xl font-black text-primary">
+                                <div className="pt-6 border-t border-primary-gray flex justify-between text-3xl font-black text-primary">
                                     <span>Total</span>
                                     <span>{grandTotal.toLocaleString()}</span>
                                 </div>
@@ -551,12 +588,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
 
                             {!isIssued ? (
                                 <HoldToConfirmButton
-                                    // onConfirm={handleIssue}
-                                    onConfirm={
-                                        () => {
-                                            console.log(currentInvoice)
-                                        }
-                                    }
+                                    onConfirm={handleIssue}
                                     variant="default"
                                     className="bg-primary h-14 text-xl font-bold"
                                     confirmationLabel={t('invoicing.issuing', 'Issuing...')}
@@ -564,20 +596,22 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     {t('invoicing.confirm_issue', 'Confirm & Issue')}
                                 </HoldToConfirmButton>
                             ) : (
-                                <div className="p-6 bg-green-100 text-green-800 border border-green-200 rounded-xl flex items-center gap-4">
-                                    <FileText className="h-8 w-8" />
+                                <div className="px-4 py-4 bg-green-100 text-green-800 border border-green-200 rounded-xl flex items-center gap-4">
+                                    <FileText className="h-14 w-14" />
                                     <div>
                                         <p className="font-black text-lg leading-none mb-1">{t('invoicing.issued', 'Invoice Issued')}</p>
-                                        <p className="text-sm opacity-80">{format(new Date(currentInvoice.issued_at!), "PPP")}</p>
+                                        <p className="text-sm opacity-80">{format(new Date(currentInvoice?.issued_at!), "PPP")}</p>
+                                        <p className="text-sm opacity-80">{t('invoicing.issued_by', "by") + ": " + currentUser?.username}</p>
                                     </div>
                                 </div>
                             )}
 
-                            <p className="text-[13px] text-muted-foreground mt-6 text-start flex flex-row">
-
-                                <Info className="h-3 w-3 inline me-1 mt-0.5" />
-                                {t('invoicing.issue_disclaimer', 'Issuing an invoice will deduct items from inventory and finalize prices.')}
-                            </p>
+                            {!currentInvoice?.issued_at &&
+                                <p className="text-[13px] text-muted-foreground mt-6 text-start flex flex-row">
+                                    <Info className="h-3 w-3 inline me-1 mt-0.5" />
+                                    {t('invoicing.issue_disclaimer', 'Issuing an invoice will deduct items from inventory and finalize prices.')}
+                                </p>
+                            }
                         </div>
                     </div>
                 </div>
