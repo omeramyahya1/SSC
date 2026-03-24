@@ -411,8 +411,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
 
                     {/* Stock Alert */}
                     {components.some(c => c.item && c.item.quantity_on_hand < c.quantity) && (
-                        <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
+                        <Alert variant="destructive" dir={i18n.dir()}>
                             <AlertTitle>{t('components.stock_warning_title', 'Insufficient Stock')}</AlertTitle>
                             <AlertDescription>
                                 {t('components.stock_warning_desc', 'Some selected items exceed current inventory levels. Please adjust quantities or check stock.')}

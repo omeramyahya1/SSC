@@ -549,5 +549,16 @@
   "invoicing.share": "مشاركة",
   "invoicing.issue_success": "تم إصدار الفاتورة بنجاح!",
   "invoicing.issue_error": "فشل إصدار الفاتورة.",
-  "invoicing.stock_insufficient": "مخزون غير كافٍ لواحد أو أكثر من الأصناف."
+  "invoicing.stock_insufficient": "مخزون غير كافٍ لواحد أو أكثر من الأصناف.",
+  "invoicing.add_ons": "إضافات",
+  "invoicing.error_no_invoice": "الفاتورة غير موجودة.",
+  "invoicing.error_no_user": "المستخدم غير موجود.",
+  "invoicing.invoice_no": "رقم الفاتورة",
+  "invoicing.issue_date": "تاريخ الإصدار",
+  "invoicing.issue_disclaimer": "هذه وثيقة ملزمة قانونًا.",
+  "invoicing.issued": "صادرة",
+  "invoicing.issued_by": "صادرة بواسطة",
+  "invoicing.issuing": "جاري الإصدار...",
+  "invoicing.pick_date": "اختر تاريخًا",
+  "invoicing.description": "هذا هو المكان الذي سيتم فيه عرض الفواتير والمعلومات المالية."
 }

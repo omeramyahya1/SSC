@@ -546,5 +546,16 @@
   "invoicing.share": "Share",
   "invoicing.issue_success": "Invoice issued successfully!",
   "invoicing.issue_error": "Failed to issue invoice.",
-  "invoicing.stock_insufficient": "Insufficient stock for one or more items."
+  "invoicing.stock_insufficient": "Insufficient stock for one or more items.",
+  "invoicing.add_ons": "Add-ons",
+  "invoicing.error_no_invoice": "Invoice not found.",
+  "invoicing.error_no_user": "User not found.",
+  "invoicing.invoice_no": "Invoice No.",
+  "invoicing.issue_date": "Issue Date",
+  "invoicing.issue_disclaimer": "This is a legally binding document.",
+  "invoicing.issued": "Issued",
+  "invoicing.issued_by": "Issued By",
+  "invoicing.issuing": "Issuing...",
+  "invoicing.pick_date": "Pick a date",
+  "invoicing.description": "This is where invoices and financial information will be displayed."
 }
