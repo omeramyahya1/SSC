@@ -509,6 +509,7 @@
   "components.recommended": "موصى به",
   "components.required": "مطلوب",
   "components.qty": "الكمية",
+  "components.view_invoice": "الفاتورة",
   "common.change": "تغيير",
   "components.select_item": "اختر عنصرًا",
   "inventory.select_category_item": "اختر {{category}}",

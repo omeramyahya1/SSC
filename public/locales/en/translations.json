@@ -507,6 +507,7 @@
   "components.recommended": "Recommended",
   "components.required": "Required",
   "components.qty": "Qty",
+  "components.view_invoice": "View Invoice",
   "common.change": "Change",
   "components.select_item": "Select Item",
   "inventory.select_category_item": "Select {{category}}",
