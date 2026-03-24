@@ -93,10 +93,6 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
                     </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ltr:right-0 rtl:left-0">
-                    <Badge style={{ backgroundColor: '#E2E2E2', color: '#1F1F1F' }} className="h-6">
-                        #{project.project_id > 0 ? project.project_id : '...'}
-                    </Badge>
-
                     {viewMode === 'trash' ? (
                         <div className="flex items-center">
                             <Button variant="ghost" size="icon" className="h-8 w-8 group text-green-600 hover:text-green-700 hover:bg-green-500" onClick={handleRecover} title={t('dashboard.recover', 'Recover')}>

@@ -320,6 +320,15 @@ def register_user():
             "jwt": jwt_token
         }), 201
 
+@user_bp.route("/<string:user_uuid>", methods=['GET'])
+def get_user(user_uuid):
+    with get_db() as db:
+        item = db.query(User).filter(User.uuid == user_uuid).first()
+        if not item:
+            return jsonify({"error": "Not found"}), 404
+        return jsonify(model_to_dict(item))
+
+
 @user_bp.route("/", methods=['GET'])
 def get_all_users():
     with get_db() as db:

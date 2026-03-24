@@ -1,5 +1,6 @@
 // src/store/useAuthenticationStore.ts
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import api from '@/api/client';
 import { User } from './useUserStore'; // Import User type from useUserStore
 
@@ -7,7 +8,7 @@ import { User } from './useUserStore'; // Import User type from useUserStore
 
 export interface Authentication {
   auth_id: number;
-  user_id: number;
+  user_uuid: string;
   password_hash: string;
   password_salt: string;
   current_jwt?: string | null;
@@ -54,6 +55,7 @@ export interface LoginResponse {
 export interface AuthenticationStore {
   authentications: Authentication[];
   currentAuthentication: Authentication | null;
+  currentAuthenticationSnapshot: { auth_id: number; user_uuid: string; is_logged_in: boolean } | null;
   isLoading: boolean;
   error: string | null;
   fetchAuthentications: () => Promise<void>;
@@ -66,9 +68,10 @@ export interface AuthenticationStore {
   logout: () => Promise<void>;
 }
 
-export const useAuthenticationStore = create<AuthenticationStore>((set, get) => ({
+export const useAuthenticationStore = create<AuthenticationStore>()(persist((set, get) => ({
   authentications: [],
   currentAuthentication: null,
+  currentAuthenticationSnapshot: null,
   isLoading: false,
   error: null,
 
@@ -82,7 +85,7 @@ export const useAuthenticationStore = create<AuthenticationStore>((set, get) => 
     set({ isLoading: true, error: null });
     try {
       await api.post(`${resource}/logout`, { auth_id: currentAuth.auth_id });
-      set({ currentAuthentication: null, isLoading: false });
+      set({ currentAuthentication: null, currentAuthenticationSnapshot: null, isLoading: false });
       // Also clear other user-related stores if necessary
       // e.g., useUserStore.getState().setCurrentUser(null);
       console.log("Logout successful.");
@@ -92,9 +95,14 @@ export const useAuthenticationStore = create<AuthenticationStore>((set, get) => 
       console.error(errorMsg, e);
     }
   },
-  
+
   setCurrentAuthentication: (auth) => {
-    set({ currentAuthentication: auth });
+    set({
+      currentAuthentication: auth,
+      currentAuthenticationSnapshot: auth
+        ? { auth_id: auth.auth_id, user_uuid: auth.user_uuid, is_logged_in: auth.is_logged_in }
+        : null
+    });
   },
 
   fetchAuthentications: async () => {
@@ -113,7 +121,11 @@ export const useAuthenticationStore = create<AuthenticationStore>((set, get) => 
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<Authentication>(`${resource}/${id}`);
-      set({ currentAuthentication: data, isLoading: false });
+      set({
+        currentAuthentication: data,
+        currentAuthenticationSnapshot: { auth_id: data.auth_id, user_uuid: data.user_uuid, is_logged_in: data.is_logged_in },
+        isLoading: false
+      });
     } catch (e: any) {
       const errorMsg = e.message || `Failed to fetch authentication ${id}`;
       set({ error: errorMsg, isLoading: false });
@@ -125,11 +137,15 @@ export const useAuthenticationStore = create<AuthenticationStore>((set, get) => 
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<Authentication>(`${resource}/latest`);
-      set({ currentAuthentication: data, isLoading: false });
+      set({
+        currentAuthentication: data,
+        currentAuthenticationSnapshot: { auth_id: data.auth_id, user_uuid: data.user_uuid, is_logged_in: data.is_logged_in },
+        isLoading: false
+      });
       return data;
     } catch (e: any) {
       const errorMsg = e.message || `Failed to fetch latest authentication`;
-      set({ error: errorMsg, isLoading: false, currentAuthentication: null });
+      set({ error: errorMsg, isLoading: false, currentAuthentication: null, currentAuthenticationSnapshot: null });
       console.error(errorMsg, e);
       return undefined;
     }
@@ -181,4 +197,16 @@ export const useAuthenticationStore = create<AuthenticationStore>((set, get) => 
       console.error(errorMsg, e);
     }
   },
+}), {
+  name: 'auth-store',
+  partialize: (state) => ({ currentAuthenticationSnapshot: state.currentAuthenticationSnapshot }),
+  onRehydrateStorage: () => (state, error) => {
+    if (error || !state) return;
+    const snapshot = state.currentAuthenticationSnapshot;
+    if (snapshot?.auth_id) {
+      state.fetchAuthentication(snapshot.auth_id);
+    } else if (snapshot?.is_logged_in) {
+      state.fetchLatestAuthentication();
+    }
+  }
 }));

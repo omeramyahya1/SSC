@@ -27,8 +27,9 @@ import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, Shopping
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
-import { Toaster, toast } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { ComponentSelectionView } from './components selection/ComponentSelectionView';
+import { InvoiceEditor } from './invoicing/InvoiceEditor';
 
 // --- Helper Components ---
 
@@ -234,7 +235,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
     const { t, i18n } = useTranslation();
     const [project, setProject] = useState<Project | null>(projectProp);
     const { updateProjectStatus } = useProjectStore();
-    const [currentView, setCurrentView] = useState<'config' | 'components'>('config');
+    const [currentView, setCurrentView] = useState<'config' | 'components' | 'invoicing'>('config');
 
     useEffect(() => {
         setProject(projectProp);
@@ -567,6 +568,18 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                     projectUuid={project.uuid}
                     bleResults={bleResults?.data ? bleResults : { data: systemConfiguration?.config_items }}
                     onBack={() => setCurrentView('config')}
+                    onCheckout={() => setCurrentView('invoicing')}
+                />
+            </DialogContent>
+        );
+    }
+
+    if (currentView === 'invoicing' && project.uuid) {
+        return (
+            <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
+                <InvoiceEditor
+                    project={project}
+                    onBack={() => setCurrentView('components')}
                 />
             </DialogContent>
         );
@@ -579,7 +592,6 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
 
     return (
         <DialogContent className="max-w-[90vw] h-[90vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
-            <Toaster />
             <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-2xl">{project.customer?.full_name ?? t('dashboard.no_customer', 'No Customer')}</DialogTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -846,7 +858,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                         disabled={!customApplianceName || !customApplianceWattage || customApplianceWattage <= 0}
                                         className="w-full font-bold text-white"
                                     >
-                                        <PlusIcon className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} /> {t('project_modal.add', 'Add')}
+                                        <PlusIcon className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : '')} /> {t('project_modal.add', 'Add')}
                                     </Button>
                                 </div>
                             </div>
@@ -935,7 +947,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                             disabled={isBleLoading || hasBleSettingsErrors || hasApplianceInputErrors}
                             className="w-full mt-auto text-white"
                         >
-                            {isBleLoading ? <Spinner className="mr-2" /> : <Calculator className="h-4 w-4 mr-2" />}
+                            {isBleLoading ? <Spinner className="" /> : <Calculator className="h-4 w-4 " />}
                             {t('project_modal.calculate', 'Calculate')}
                         </Button>
                     )}
@@ -946,17 +958,6 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                 <div className="flex flex-col p-6 overflow-y-auto">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-xl font-bold">{t('project_modal.system_configuration', 'System Configuration')}</h3>
-                        {displayResults && !isArchived && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="bg-blue-600 text-white hover:bg-blue-700 font-bold"
-                                onClick={handleProceedToSelection}
-                            >
-                                <ShoppingCart className="h-4 w-4" />
-                                {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
-                            </Button>
-                        )}
                     </div>
 
                     {isResultsLoading && (
@@ -1044,23 +1045,24 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 </AccordionItem>
                             </Accordion>
                             {!isArchived && (
-                                <div className="flex flex-col gap-2 mt-4">
+                                <div className="flex flex-col gap-2 mt-4" dir={i18n.dir()}>
                                     <Button
                                         onClick={handleSaveConfiguration}
                                         disabled={!bleResults?.data}
                                         className="w-full text-white"
                                     >
-                                        <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} />
+                                        <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : '')} />
                                         {t('project_modal.save_config', 'Save Configuration')}
                                     </Button>
 
                                     {displayResults && (
                                         <Button
                                             variant="outline"
-                                            className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 font-bold"
+                                            className="w-full group border-primary text-primary hover:bg-primary hover:text-white font-bold"
                                             onClick={handleProceedToSelection}
+                                            disabled={bleResults?.data}
                                         >
-                                            <ShoppingCart className="h-4 w-4 mr-2" />
+                                            <ShoppingCart className="h-4 w-4" />
                                             {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
                                         </Button>
                                     )}

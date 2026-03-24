@@ -25,11 +25,13 @@ import {
     Info,
     Edit3,
     ShoppingCart,
-    ArrowRight
+    ArrowRight,
+    FileText
 } from 'lucide-react';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
 import { InventorySelectorModal } from './InventorySelectorModal';
+import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
@@ -38,9 +40,10 @@ interface ComponentSelectionViewProps {
     projectUuid: string;
     bleResults: any;
     onBack: () => void;
+    onCheckout: () => void;
 }
 
-export function ComponentSelectionView({ projectUuid, bleResults, onBack }: ComponentSelectionViewProps) {
+export function ComponentSelectionView({ projectUuid, bleResults, onBack, onCheckout }: ComponentSelectionViewProps) {
     const { t, i18n } = useTranslation();
     const {
         components,
@@ -54,12 +57,15 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
 
     const { items, categories, fetchItems, fetchCategories } = useInventoryStore();
 
+    const {currentInvoice} = useInvoiceStore();
+
     const [isGenerating, setIsGenerating] = useState(false);
     const [selectedSlotCategory, setSelectedSlotCategory] = useState<string | null>(null);
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
     const inFlightQtyRef = useRef<Record<string, boolean>>({});
     const latestQtyRef = useRef<Record<string, number>>({});
+
 
     useEffect(() => {
         fetchComponents(projectUuid);
@@ -276,8 +282,31 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
                         disabled={isGenerating || !bleResults}
                         className="h-10 rounded-lg group hover:shadow-lg hover:text-white bg-white hover:bg-primary border shadow-sm"
                     >
-                        {isGenerating ? <Spinner className=" h-4 w-4 group-hover:invert" /> : <img src="public/eva-icons (2)/outline/bulb.png" className=" h-5 w-5 group-hover:invert" />}
+                        {isGenerating ? <Spinner className=" h-4 w-4 group-hover:invert" /> : <img src="eva-icons (2)/outline/bulb.png" className=" h-5 w-5 group-hover:invert" />}
                         {t('components.auto_select', 'Auto-Select')}
+                    </Button>
+                    <Button
+                        variant="default"
+                        onClick={onCheckout}
+                        disabled={components.length === 0}
+                        className="h-10 rounded-lg bg-primary hover:bg-blue-700 text-white font-bold shadow-sm"
+                    >
+                        {
+                            currentInvoice?.issued_at ? (
+                                <>
+                                <FileText className="me-2 h-5 w-5" />
+                                {t('components.view_invoice', 'View Invoice')}
+                                </>
+                            ) : (
+                                <>
+                                <ShoppingCart className="me-2 h-5 w-5" />
+                                {t('invoicing.checkout', 'Check Out')}
+                                </>
+
+                            )
+
+                        }
+
                     </Button>
                     <div className="h-10 px-4 flex items-center bg-green-600 text-white rounded-lg font-bold shadow-sm">
                         <ShoppingCart className="me-2 h-5 w-5" />
@@ -401,8 +430,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack }: Comp
 
                     {/* Stock Alert */}
                     {components.some(c => c.item && c.item.quantity_on_hand < c.quantity) && (
-                        <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
+                        <Alert variant="destructive" dir={i18n.dir()}>
                             <AlertTitle>{t('components.stock_warning_title', 'Insufficient Stock')}</AlertTitle>
                             <AlertDescription>
                                 {t('components.stock_warning_desc', 'Some selected items exceed current inventory levels. Please adjust quantities or check stock.')}
@@ -536,7 +564,7 @@ function ComponentSlot({
             dir={i18n.dir()}
         >
             {component?.is_recommended && (
-                <div className="absolute top-0 end-0 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-bs-lg z-10">
+                <div className="absolute top-0 end-0 px-2 py-0.5 bg-semantic-info text-white text-[10px] font-bold uppercase tracking-wider rounded-bs-lg z-10">
                     {t('components.recommended', 'Recommended')}
                 </div>
             )}

@@ -129,12 +129,13 @@ class InvoiceDetails(BaseModel):
     shipping_fee: Optional[float] = 0.0
     installation_fee: Optional[float] = 0.0
     discount_percent: Optional[float] = 0.0
-    due_date: Optional[datetime] = None
+    due_date: Optional[str] = None
     terms_and_conditions: Optional[str] = None
+    enable_custom_terms: Optional[bool] = False
 
 class InvoiceCreate(BaseModel):
-    project_id: Optional[int] = None
-    user_id: Optional[int] = None
+    project_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     amount: Optional[float] = None
     status: Optional[str] = None
     issued_at: Optional[datetime] = None
@@ -145,8 +146,8 @@ class InvoiceCreate(BaseModel):
     is_dirty: Optional[bool] = None
 
 class InvoiceUpdate(BaseModel):
-    project_id: Optional[int] = None
-    user_id: Optional[int] = None
+    project_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     amount: Optional[float] = None
     status: Optional[str] = None
     issued_at: Optional[datetime] = None

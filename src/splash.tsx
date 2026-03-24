@@ -50,13 +50,13 @@ export async function runSplashScreenLogic() {
 
     // 3. Load required data
     updateStatus('Loading...');
-    
+
     const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
-    
-    if (latestAuth && latestAuth.user_id) {
-      const userId = latestAuth.user_id;
+
+    if (latestAuth && latestAuth.user_uuid) {
+      const userUUID = latestAuth.user_uuid;
       // Fetch user data and settings
-      await useUserStore.getState().fetchUser(userId);
+      await useUserStore.getState().fetchUser(userUUID);
       // In a real scenario you would fetch settings related to the user
       // For now we will fetch all settings as an example
       await useApplicationSettingsStore.getState().fetchSettings();
@@ -65,7 +65,7 @@ export async function runSplashScreenLogic() {
       // Persist the loaded data to localStorage for the main window
       const { currentUser } = useUserStore.getState();
       const { settings } = useApplicationSettingsStore.getState();
-      
+
       if (currentUser) {
         localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
       }

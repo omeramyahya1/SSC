@@ -184,7 +184,7 @@ class Invoice(Base, TimestampDirtyMixin):
     __tablename__ = 'invoices'
 
     invoice_id = Column(Integer, primary_key=True)
-    project_uuid = Column(String, ForeignKey("projects.uuid"))
+    project_uuid = Column(String,ForeignKey("projects.uuid"), unique=True)
     user_uuid = Column(String, ForeignKey("user.uuid"))
     amount = Column(Float)
     status = Column(String)

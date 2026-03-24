@@ -5,7 +5,7 @@ from finances.finances import (
     confirm_and_issue_invoice,
     apply_payment_to_invoice
 )
-from models import Payment, Invoice
+from models import Payment, Invoice, Authentication
 from schemas import PaymentCreate, FinanceStatsSchema
 from pydantic import ValidationError
 from serializer import model_to_dict
@@ -23,10 +23,10 @@ def get_stats(db):
     """
     org_uuid = request.args.get('org_uuid')
     branch_uuid = request.args.get('branch_uuid')
-    
+
     if not org_uuid:
         return jsonify({"error": "org_uuid is required"}), 400
-        
+
     stats = calculate_dashboard_stats(db, org_uuid, branch_uuid)
     return jsonify(stats), 200
 
@@ -36,10 +36,10 @@ def confirm_invoice(db, invoice_uuid):
     """
     Confirm and issue an invoice.
     """
-    user_uuid = request.args.get('user_uuid') # In a real app, this would come from the JWT
+    user_uuid = request.args.get('user_uuid')
     if not user_uuid:
         return jsonify({"error": "user_uuid is required"}), 400
-        
+
     result, status_code = confirm_and_issue_invoice(db, invoice_uuid, user_uuid)
     return jsonify(result), status_code
 
@@ -59,7 +59,7 @@ def create_finance_payment():
             # Using exclude_unset=True to avoid overwriting defaults with Nones
             new_payment = Payment(**validated_data.dict(exclude_unset=True))
             db.add(new_payment)
-            
+
             # Flush to ensure calculations in apply_payment_to_invoice see the new payment
             db.flush()
 
@@ -71,10 +71,10 @@ def create_finance_payment():
             # 3. Update the invoice status
             if invoice:
                 apply_payment_to_invoice(db, invoice.uuid)
-            
+
             # Note: get_db() will commit on success when exiting the block
             return jsonify(model_to_dict(new_payment)), 201
-            
+
         except Exception as e:
             # Record full stack trace and context
             logger.exception(f"Failed to process payment for invoice {getattr(new_payment, 'invoice_uuid', 'unknown')}")
