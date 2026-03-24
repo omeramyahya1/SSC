@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { format, addDays } from "date-fns";
 import {
     ArrowLeft,
-    Plus,
+    ArrowRight,
     Trash2,
     FileText,
     Printer,
@@ -42,8 +42,8 @@ import { Dialog } from '@/components/ui/dialog';
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-
-import { useInvoiceStore, Invoice, InvoiceDetails } from '@/store/useInvoiceStore';
+import { useLocationData } from '@/hooks/useLocationData';
+import { useInvoiceStore, InvoiceDetails } from '@/store/useInvoiceStore';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useUserStore } from '@/store/useUserStore';
 import { InventorySelectorModal } from '../components selection/InventorySelectorModal';
@@ -59,6 +59,7 @@ interface InvoiceEditorProps {
 export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
+    const { getClimateDataForCity } = useLocationData();
     const {
         currentInvoice,
         fetchInvoiceByProject,
@@ -132,6 +133,20 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
         return Number.isFinite(n) ? n : 0;
     };
 
+    const formatProjectLocation = (location: string | null) => {
+        if (!location) return '';
+        const [city, state] = location.split(',').map(s => s.trim());
+        const locationData = getClimateDataForCity(city, state);
+
+        if (i18n.language === 'ar' && locationData) {
+            return `${locationData.city_ar}, ${locationData.state_ar}`;
+        }
+
+        return [city, state].filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
+    };
+
+    const displayLocation = formatProjectLocation(project.project_location ?? null);
+
     const shippingFee = useMemo(() => toNumber(shippingFeeInput), [shippingFeeInput]);
     const installationFee = useMemo(() => toNumber(installationFeeInput), [installationFeeInput]);
     const discountPercent = useMemo(() => toNumber(discountPercentInput), [discountPercentInput]);
@@ -157,10 +172,18 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
         const validityDate = dueDate ? format(dueDate, "dd/MM/yyyy") : "dd/mm/yyyy";
         const discount = discountPercent;
 
-        return `- Payment Terms: Payment is due within 7 days of the invoice date.\n` +
-               `- Validity: This quotation is valid until ${validityDate}.\n` +
-               `- Discount: A ${discount}% discount has been applied.\n` +
-               `- Additional Costs: Any additional costs after the invoice issuance will be quoted separately.`;
+        return (i18n.dir() === "ltr") ? (
+                    `- Payment Terms: Payment is due within 7 days of the invoice date.\n` +
+                    `- Validity: This quotation is valid until ${validityDate}.\n` +
+                    `- Discount: A ${discount}% discount has been applied.\n` +
+                    `- Additional Costs: Any additional costs after the invoice issuance will be quoted separately.`
+        ) : (
+                    `- شروط الدفع: يستحق الدفع خلال 7 أيام من تاريخ الفاتورة.\n` +
+                    `- الصلاحية: هذا العرض صالح حتى ${validityDate}.\n` +
+                    `- الخصم: تم تطبيق خصم بنسبة ${discount}%.\n` +
+                    `- تكاليف إضافية: سيتم تسعير أي تكاليف إضافية بعد إصدار الفاتورة بشكل منفصل.`
+
+        )
     }, [dueDate, discountPercent]);
 
     const handleNumberInputChange = (
@@ -251,12 +274,12 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     }
 
     return (
-        <div className="flex flex-col h-full bg-white">
+        <div className="flex flex-col h-full bg-white" dir={i18n.dir()}>
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-20">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={onBack}>
-                        <ArrowLeft className="h-5 w-5" />
+                        {i18n.dir() === "ltr"? <ArrowLeft className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
                     </Button>
                     <div>
                         <h2 className="text-xl font-bold">{t('invoicing.title', 'Invoice Editor')}</h2>
@@ -275,7 +298,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                 }
             </div>
 
-            <ScrollArea className="flex-grow">
+            <ScrollArea className="flex-grow" dir={i18n.dir()}>
                 <div className="max-w-5xl mx-auto p-8 space-y-10">
 
                     {/* Customer & Invoice Info Header */}
@@ -288,15 +311,15 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                             </h3>
                             <div className="flex items-center gap-2 text-muted-foreground">
                                 <MapPin className="h-4 w-4 shrink-0" />
-                                <span className="text-sm font-bold">Address: {project.project_location || 'N/A'}</span>
+                                <span className="text-sm font-bold">{t('invoicing.address', 'Address')}: {displayLocation}</span>
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
                                 <Mail className="h-4 w-4 shrink-0" />
-                                <span className="text-sm font-bold">Email: {project.customer?.email || 'N/A'}</span>
+                                <span className="text-sm font-bold">{t('invoicing.email', 'Email')}: {project.customer?.email || 'N/A'}</span>
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground">
                                 <Phone className="h-4 w-4 shrink-0" />
-                                <span className="text-sm font-bold">Phone No: {project.customer?.phone_number || 'N/A'}</span>
+                                <span className="text-sm font-bold">{t('invoicing.phone_No', 'Phone No')}: {project.customer?.phone_number || 'N/A'}</span>
                             </div>
                         </div>
 

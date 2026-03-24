@@ -858,7 +858,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                         disabled={!customApplianceName || !customApplianceWattage || customApplianceWattage <= 0}
                                         className="w-full font-bold text-white"
                                     >
-                                        <PlusIcon className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} /> {t('project_modal.add', 'Add')}
+                                        <PlusIcon className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : '')} /> {t('project_modal.add', 'Add')}
                                     </Button>
                                 </div>
                             </div>
@@ -947,7 +947,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                             disabled={isBleLoading || hasBleSettingsErrors || hasApplianceInputErrors}
                             className="w-full mt-auto text-white"
                         >
-                            {isBleLoading ? <Spinner className="mr-2" /> : <Calculator className="h-4 w-4 mr-2" />}
+                            {isBleLoading ? <Spinner className="" /> : <Calculator className="h-4 w-4 " />}
                             {t('project_modal.calculate', 'Calculate')}
                         </Button>
                     )}
@@ -1056,13 +1056,13 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 </AccordionItem>
                             </Accordion>
                             {!isArchived && (
-                                <div className="flex flex-col gap-2 mt-4">
+                                <div className="flex flex-col gap-2 mt-4" dir={i18n.dir()}>
                                     <Button
                                         onClick={handleSaveConfiguration}
                                         disabled={!bleResults?.data}
                                         className="w-full text-white"
                                     >
-                                        <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} />
+                                        <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : '')} />
                                         {t('project_modal.save_config', 'Save Configuration')}
                                     </Button>
 
@@ -1072,7 +1072,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                             className="w-full border-blue-600 text-blue-600 hover:bg-blue-50 font-bold"
                                             onClick={handleProceedToSelection}
                                         >
-                                            <ShoppingCart className="h-4 w-4 mr-2" />
+                                            <ShoppingCart className="h-4 w-4 " />
                                             {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
                                         </Button>
                                     )}

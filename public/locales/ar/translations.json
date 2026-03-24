@@ -560,5 +560,8 @@
   "invoicing.issued_by": "صادرة بواسطة",
   "invoicing.issuing": "جاري الإصدار...",
   "invoicing.pick_date": "اختر تاريخًا",
-  "invoicing.description": "هذا هو المكان الذي سيتم فيه عرض الفواتير والمعلومات المالية."
+  "invoicing.description": "هذا هو المكان الذي سيتم فيه عرض الفواتير والمعلومات المالية.",
+  "invoicing.address": "العنوان",
+  "invoicing.email": "البريد الإلكتروني",
+  "invoicing.phone_No": "رقم الهاتف"
 }

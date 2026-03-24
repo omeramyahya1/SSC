@@ -557,5 +557,8 @@
   "invoicing.issued_by": "Issued By",
   "invoicing.issuing": "Issuing...",
   "invoicing.pick_date": "Pick a date",
-  "invoicing.description": "This is where invoices and financial information will be displayed."
+  "invoicing.description": "This is where invoices and financial information will be displayed.",
+  "invoicing.address": "Address",
+  "invoicing.email": "Email",
+  "invoicing.phone_No": "Phone No."
 }
