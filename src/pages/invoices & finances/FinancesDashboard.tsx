@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-    TrendingUp, 
-    TrendingDown, 
-    DollarSign, 
-    FileText, 
+import {
+    TrendingUp,
+    TrendingDown,
+    DollarSign,
+    FileText,
     Package,
     ArrowUpRight
 } from 'lucide-react';
-import { 
-    AreaChart, 
-    Area, 
-    XAxis, 
-    YAxis, 
-    CartesianGrid, 
-    Tooltip, 
+import {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
     ResponsiveContainer,
     PieChart,
     Pie,
@@ -22,6 +22,7 @@ import {
 } from 'recharts';
 import api from '@/api/client';
 import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 interface FinancesDashboardProps {
     filterParams: {
@@ -135,29 +136,29 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis 
-                                    dataKey="name" 
-                                    axisLine={false} 
-                                    tickLine={false} 
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
                                     tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
                                     dy={10}
                                 />
-                                <YAxis 
-                                    axisLine={false} 
-                                    tickLine={false} 
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
                                     tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 500 }}
                                     dx={-10}
                                 />
-                                <Tooltip 
+                                <Tooltip
                                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                                 />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="revenue" 
-                                    stroke="#3b82f6" 
+                                <Area
+                                    type="monotone"
+                                    dataKey="revenue"
+                                    stroke="#3b82f6"
                                     strokeWidth={3}
-                                    fillOpacity={1} 
-                                    fill="url(#colorRev)" 
+                                    fillOpacity={1}
+                                    fill="url(#colorRev)"
                                 />
                             </AreaChart>
                         </ResponsiveContainer>

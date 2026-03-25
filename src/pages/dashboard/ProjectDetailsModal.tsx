@@ -73,7 +73,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
 
     useEffect(() => {
         if (project && !isEditing) {
-            const [city, state] = project.project_location?.split(', ').map(p => p.trim()) || ['', ''];
+            const [state] = project.project_location?.split(', ').map(p => p.trim())[1] || [''];
             setEditData({
                 full_name: project.customer?.full_name ?? '',
                 email: project.customer?.email ?? '',
@@ -123,7 +123,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
     const handleCancel = () => {
         setIsEditing(false);
         if (project) {
-             const [city, state] = project.project_location?.split(', ').map(p => p.trim()) || ['', ''];
+             const [state] = project.project_location?.split(', ').map(p => p.trim())[1] || [''];
             setEditData({
                 full_name: project.customer?.full_name ?? '',
                 email: project.customer?.email ?? '',
@@ -286,6 +286,8 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
             console.error(error);
         }
     };
+
+    const [proceed, setProceed] = useState(false);
 
     // State for custom appliance input
     const [customApplianceName, setCustomApplianceName] = useState('');
@@ -529,6 +531,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
 
         try {
             await runCalculation(project.project_id, bleSettings);
+            setProceed(true);
         } catch (e) {
             console.error("Calculation process failed:", e);
         }
@@ -539,7 +542,9 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         if (!project?.uuid || !bleResults?.data) return;
         try {
             await saveSystemConfiguration(project.uuid, bleResults.data);
+            setProceed(false)
             toast.success(t('project_modal.config_save_success', 'System configuration saved successfully!'));
+
         } catch (error) {
             console.error("Failed to save system configuration:", error);
             toast.error(t('project_modal.config_save_error', 'Failed to save system configuration.'));
@@ -1048,7 +1053,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 <div className="flex flex-col gap-2 mt-4" dir={i18n.dir()}>
                                     <Button
                                         onClick={handleSaveConfiguration}
-                                        disabled={!bleResults?.data}
+                                        disabled={!bleResults?.data || !proceed}
                                         className="w-full text-white"
                                     >
                                         <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : '')} />
@@ -1060,7 +1065,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                             variant="outline"
                                             className="w-full group border-primary text-primary hover:bg-primary hover:text-white font-bold"
                                             onClick={handleProceedToSelection}
-                                            disabled={bleResults?.data}
+                                            disabled={proceed}
                                         >
                                             <ShoppingCart className="h-4 w-4" />
                                             {t('project_modal.proceed_to_selection', 'Proceed to Selection')}

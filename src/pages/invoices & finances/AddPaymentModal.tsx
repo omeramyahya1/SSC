@@ -1,21 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogHeader, 
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
     DialogTitle,
     DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-    Select, 
-    SelectContent, 
-    SelectItem, 
-    SelectTrigger, 
-    SelectValue 
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
 } from "@/components/ui/select";
 import { useInvoiceStore, Invoice } from '@/store/useInvoiceStore';
 import { usePaymentStore } from '@/store/usePaymentStore';
@@ -39,9 +39,9 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid }: AddPaymentModalPro
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
-        if (isOpen && orgUuid) {
+        if (isOpen) {
             // Fetch only non-paid invoices for selection
-            fetchInvoices({ org_uuid: orgUuid });
+            fetchInvoices();
         }
     }, [isOpen, orgUuid, fetchInvoices]);
 
@@ -73,20 +73,28 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid }: AddPaymentModalPro
         }
     };
 
+    const handleNumberInputChange = (
+        setter: (value: string) => void,
+        rawValue: string
+    ) => {
+        if (!/^\d*\.?\d*$/.test(rawValue)) return;
+        setter(rawValue);
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[425px] bg-white p-0 overflow-hidden rounded-2xl border-none shadow-2xl" dir={i18n.dir()}>
-                <div className="p-6 bg-primary text-white">
+                <div className="p-6">
                     <DialogHeader>
-                        <DialogTitle className="text-2xl font-black text-white">{t('finances.record_payment', 'Record Payment')}</DialogTitle>
+                        <DialogTitle className="text-2xl font-bold">{t('finances.record_payment', 'Record Payment')}</DialogTitle>
                     </DialogHeader>
                 </div>
-                
-                <div className="p-8 space-y-6">
+
+                <div className="px-8 space-y-6">
                     <div className="space-y-2">
-                        <Label className="font-bold text-xs uppercase text-muted-foreground">{t('finances.select_invoice', 'Select Invoice')}</Label>
+                        <Label className="font-bold text-xs  text-muted-foreground">{t('finances.select_invoice', 'Select Invoice')}</Label>
                         <Select value={selectedInvoiceUuid} onValueChange={setSelectedInvoiceUuid}>
-                            <SelectTrigger className="h-12 border-gray-200 rounded-xl focus:ring-primary">
+                            <SelectTrigger className="border-gray-200 rounded-xl focus:ring-primary">
                                 <SelectValue placeholder={t('finances.select_invoice_ph', 'Choose an invoice')} />
                             </SelectTrigger>
                             <SelectContent className='bg-white'>
@@ -100,36 +108,38 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid }: AddPaymentModalPro
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="font-bold text-xs uppercase text-muted-foreground">{t('finances.amount', 'Amount')}</Label>
-                        <Input 
-                            type="number" 
-                            placeholder="0.00" 
-                            className="h-12 border-gray-200 rounded-xl focus:ring-primary font-black text-lg"
+                        <Label className="font-bold text-xs  text-muted-foreground">{t('finances.amount', 'Amount')}</Label>
+                        <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0.00"
+                            className=" border-gray-200 rounded-xl focus:ring-primary font-black text-lg"
                             value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
+                            onChange={(e) => handleNumberInputChange(setAmount, e.target.value)}
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label className="font-bold text-xs uppercase text-muted-foreground">{t('finances.method', 'Payment Method')}</Label>
+                            <Label className="font-bold text-xs  text-muted-foreground">{t('finances.method', 'Payment Method')}</Label>
                             <Select value={method} onValueChange={setMethod}>
-                                <SelectTrigger className="h-12 border-gray-200 rounded-xl focus:ring-primary">
-                                    <SelectValue />
+                                <SelectTrigger className="border-gray-200 rounded-xl focus:ring-primary">
+                                    <SelectValue placeholder={t('finances.choose_method', 'Choose a Payment Method')}/>
                                 </SelectTrigger>
                                 <SelectContent className='bg-white'>
-                                    <SelectItem value="cash">{t('finances.methods.cash', 'Cash')}</SelectItem>
-                                    <SelectItem value="bank">{t('finances.methods.bank', 'Bank Transfer')}</SelectItem>
-                                    <SelectItem value="cheque">{t('finances.methods.cheque', 'Cheque')}</SelectItem>
-                                    <SelectItem value="other">{t('finances.methods.other', 'Other')}</SelectItem>
+                                    {
+                                    ['Bankak', 'Ocash', 'Fawry', 'MyCashi', 'BNMB', 'Other'].map((m) => (
+                                        <SelectItem value={m}>{t('finances.methods.'+m.toLowerCase(), m)}</SelectItem>
+                                    ))
+                                    }
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <Label className="font-bold text-xs uppercase text-muted-foreground">{t('finances.reference', 'Reference No.')}</Label>
-                            <Input 
-                                placeholder="Ref #" 
-                                className="h-12 border-gray-200 rounded-xl focus:ring-primary"
+                            <Label className="font-bold text-xs  text-muted-foreground">{t('finances.reference', 'Reference No.')}</Label>
+                            <Input
+                                placeholder="Ref #"
+                                className="border-gray-200 rounded-xl focus:ring-primary"
                                 value={reference}
                                 onChange={(e) => setReference(e.target.value)}
                             />
@@ -137,11 +147,11 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid }: AddPaymentModalPro
                     </div>
                 </div>
 
-                <DialogFooter className="p-8 pt-0 flex gap-3">
-                    <Button variant="outline" onClick={onClose} className="h-12 rounded-xl flex-1 font-bold">
+                <DialogFooter className="p-8 flex items-end gap-3">
+                    <Button variant="outline" onClick={onClose}>
                         {t('common.cancel', 'Cancel')}
                     </Button>
-                    <Button onClick={handleSave} disabled={isSubmitting} className="h-12 rounded-xl flex-1 font-bold text-white">
+                    <Button onClick={handleSave} disabled={isSubmitting} className="text-white">
                         {isSubmitting ? t('common.saving', 'Saving...') : t('finances.save_payment', 'Save Payment')}
                     </Button>
                 </DialogFooter>

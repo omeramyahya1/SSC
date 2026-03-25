@@ -83,8 +83,6 @@ export interface BleSettingsPayload {
     stc_temp: number;
     reference_irradiance: number;
     calculate_temp_derating: boolean;
-    project_location_state: string;
-    project_location_city: string;
 }
 
 
