@@ -10,7 +10,8 @@ import {
     Clock,
     AlertCircle,
     Eye,
-    DollarSign
+    DollarSign,
+    ArrowUpDown
 } from 'lucide-react';
 import {
     Table,
@@ -35,6 +36,24 @@ import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { InvoiceEditorModal } from './InvoiceEditorModal';
+import { AddPaymentModal } from './AddPaymentModal';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
 
 interface InvoicesListProps {
     filterParams: {
@@ -50,35 +69,59 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [sortBy, setSortBy] = useState('date-desc');
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+    const [invoiceForPayment, setInvoiceForPayment] = useState<Invoice | null>(null);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
     useEffect(() => {
         fetchInvoices(filterParams);
     }, [filterParams, fetchInvoices]);
 
-    const filteredInvoices = useMemo(() => {
-        return invoices.filter(inv => {
+    const filteredAndSortedInvoices = useMemo(() => {
+        let filtered = invoices.filter(inv => {
+            const q = searchQuery.toLowerCase();
             const matchesSearch =
-                inv.invoice_id.toString().includes(searchQuery);
+                inv.invoice_id?.toString().includes(q) ||
+                (inv.customer_name || '').toLowerCase().includes(q);
 
             const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
 
             return matchesSearch && matchesStatus;
         });
-    }, [invoices, searchQuery, statusFilter]);
 
-    const handleDelete = async (invoice: Invoice) => {
-        if (!currentUser) return;
-        if (window.confirm(t('invoicing.confirm_delete', 'Are you sure? Deleting an issued invoice will return items to inventory.'))) {
-            try {
-                // We pass user_uuid for the stock adjustment record
-                await deleteInvoice(invoice.uuid, currentUser.uuid);
-                toast.success(t('invoicing.delete_success', 'Invoice deleted successfully.'));
-                fetchInvoices(filterParams);
-            } catch (error: any) {
-                toast.error(error.message || t('invoicing.delete_error', 'Failed to delete invoice.'));
+        const [key, dir] = sortBy.split('-');
+        return filtered.sort((a, b) => {
+            let valA: any, valB: any;
+            if (key === 'date') {
+                valA = new Date(a.issued_at || a.created_at).getTime();
+                valB = new Date(b.issued_at || b.created_at).getTime();
+            } else if (key === 'amount') {
+                valA = a.amount || 0;
+                valB = b.amount || 0;
+            } else if (key === 'remainder') {
+                valA = (a as any).remainder || 0;
+                valB = (b as any).remainder || 0;
+            } else {
+                valA = a.invoice_id || 0;
+                valB = b.invoice_id || 0;
             }
+            return dir === 'asc' ? valA - valB : valB - valA;
+        });
+    }, [invoices, searchQuery, statusFilter, sortBy]);
+
+    const handleConfirmDelete = async () => {
+        if (!invoiceToDelete || !currentUser) return;
+        try {
+            await deleteInvoice(invoiceToDelete.uuid, currentUser.uuid);
+            toast.success(t('invoicing.delete_success', 'Invoice deleted successfully.'));
+            fetchInvoices(filterParams);
+        } catch (error: any) {
+            toast.error(error.message || t('invoicing.delete_error', 'Failed to delete invoice.'));
+        } finally {
+            setInvoiceToDelete(null);
         }
     };
 
@@ -105,43 +148,46 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
         <div className="space-y-4" dir={i18n.dir()}>
             {/* Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-2 bg-white p-1 rounded-xl border shadow-sm flex-grow max-w-md">
-                    <div className="flex items-center px-3 text-muted-foreground">
-                        <Search className="h-4 w-4" />
+                <div className="flex items-center gap-4 flex-grow max-w-4xl">
+                    <div className="flex items-center gap-2 bg-white p-1 rounded-xl border shadow-sm flex-grow">
+                        <div className="flex items-center px-3 text-muted-foreground">
+                            <Search className="h-4 w-4" />
+                        </div>
+                        <Input
+                            placeholder={t('invoicing.search_ph', 'Search by ID or Customer...')}
+                            className="border-none shadow-none focus-visible:ring-0 bg-transparent"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
                     </div>
-                    <Input
-                        placeholder={t('invoicing.search_ph', 'Search by ID...')}
-                        className="border-none shadow-none focus-visible:ring-0 bg-transparent"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
 
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant={statusFilter === 'all' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setStatusFilter('all')}
-                        className="font-bold"
-                    >
-                        {t('finances.all', 'All')}
-                    </Button>
-                    <Button
-                        variant={statusFilter === 'pending' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setStatusFilter('pending')}
-                        className="font-bold"
-                    >
-                        {t('finances.outstanding', 'Outstanding')}
-                    </Button>
-                    <Button
-                        variant={statusFilter === 'paid' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setStatusFilter('paid')}
-                        className="font-bold"
-                    >
-                        {t('finances.paid', 'Paid')}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                         <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[140px] bg-white h-10 rounded-xl">
+                                <SelectValue placeholder={t('finances.filter_status', 'Status')} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                                <SelectItem value="all">{t('finances.all', 'All Status')}</SelectItem>
+                                <SelectItem value="pending">{t('finances.pending', 'Pending')}</SelectItem>
+                                <SelectItem value="partial">{t('finances.partial', 'Partial')}</SelectItem>
+                                <SelectItem value="paid">{t('finances.paid', 'Paid')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        <Select value={sortBy} onValueChange={setSortBy}>
+                            <SelectTrigger className="w-[160px] bg-white h-10 rounded-xl">
+                                <ArrowUpDown className="h-4 w-4 me-2 opacity-60" />
+                                <SelectValue placeholder={t('common.sort_by', 'Sort By')} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                                <SelectItem value="date-desc">{t('common.sort.date_new', 'Newest First')}</SelectItem>
+                                <SelectItem value="date-asc">{t('common.sort.date_old', 'Oldest First')}</SelectItem>
+                                <SelectItem value="amount-desc">{t('common.sort.amount_high', 'Amount: High-Low')}</SelectItem>
+                                <SelectItem value="amount-asc">{t('common.sort.amount_low', 'Amount: Low-High')}</SelectItem>
+                                <SelectItem value="remainder-desc">{t('common.sort.remainder_high', 'Remainder: High-Low')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
             </div>
 
@@ -150,24 +196,39 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                 <Table>
                     <TableHeader className="bg-gray-50/50">
                         <TableRow>
-                            <TableHead className="w-[120px] font-bold">{t('invoicing.id', 'ID')}</TableHead>
-                            <TableHead className="font-bold">{t('invoicing.date', 'Date')}</TableHead>
+                            <TableHead className="w-[80px] font-bold">{t('invoicing.id', 'ID')}</TableHead>
+                            <TableHead className="font-bold">{t('invoicing.customer', 'Customer')}</TableHead>
+                            <TableHead className="font-bold">{t('invoicing.due_date', 'Due Date')}</TableHead>
                             <TableHead className="font-bold">{t('invoicing.amount', 'Amount')}</TableHead>
+                            <TableHead className="font-bold">{t('invoicing.paid', 'Paid')}</TableHead>
+                            <TableHead className="font-bold">{t('invoicing.remainder', 'Remainder')}</TableHead>
                             <TableHead className="text-center font-bold">{t('invoicing.status', 'Status')}</TableHead>
                             <TableHead className="text-end font-bold">{t('invoicing.actions', 'Actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredInvoices.map((invoice) => (
+                        {filteredAndSortedInvoices.map((invoice) => (
                             <TableRow key={invoice.uuid} className="hover:bg-gray-50/50 transition-colors">
                                 <TableCell className="font-mono font-bold text-primary">
                                     #{String(invoice.invoice_id).padStart(5, '0')}
                                 </TableCell>
-                                <TableCell className="text-sm font-medium">
-                                    {invoice.issued_at ? format(new Date(invoice.issued_at), 'dd/MM/yyyy') : t('invoicing.draft', 'Draft')}
+                                <TableCell className="font-medium">
+                                    {invoice.customer_name || 'N/A'}
                                 </TableCell>
-                                <TableCell className="font-black">
+                                <TableCell className="text-sm">
+                                    { (invoice as any).due_date ? format(new Date((invoice as any).due_date), 'dd/MM/yyyy') : '—'}
+                                </TableCell>
+                                <TableCell className="font-black text-gray-900">
                                     {invoice.amount?.toLocaleString()}
+                                </TableCell>
+                                <TableCell className="font-bold text-green-600">
+                                    {(invoice as any).paid_amount?.toLocaleString() || '0'}
+                                </TableCell>
+                                <TableCell className={cn(
+                                    "font-black",
+                                    (invoice as any).remainder > 0 ? "text-red-500" : "text-green-600"
+                                )}>
+                                    {(invoice as any).remainder?.toLocaleString() || '0'}
                                 </TableCell>
                                 <TableCell className='text-center'>
                                     {getStatusBadge(invoice.status)}
@@ -180,10 +241,18 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl">
-                                            <DropdownMenuItem onClick={() => toast.success('Printing coming soon!')} className="cursor-pointer rounded-lg hover:bg-gray-100 font-bold gap-2">
-                                                <DollarSign className="h-4 w-4 text-gray-500" />
-                                                {t('invoicing.add_payment', 'Add Payment')}
-                                            </DropdownMenuItem>
+                                            {invoice.status !== 'paid' && (
+                                                <DropdownMenuItem
+                                                    onClick={() => {
+                                                        setInvoiceForPayment(invoice);
+                                                        setIsPaymentModalOpen(true);
+                                                    }}
+                                                    className="cursor-pointer rounded-lg hover:bg-gray-100 font-bold gap-2"
+                                                >
+                                                    <DollarSign className="h-4 w-4 text-green-600" />
+                                                    {t('invoicing.add_payment', 'Add Payment')}
+                                                </DropdownMenuItem>
+                                            )}
                                             <DropdownMenuItem onClick={() => {
                                                 setSelectedInvoice(invoice);
                                                 setIsEditorOpen(true);
@@ -195,7 +264,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                                 <Printer className="h-4 w-4 text-gray-500" />
                                                 {t('invoicing.print', 'Print PDF')}
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDelete(invoice)} className="rounded-lg text-red-700 border-red-200 hover:text-white hover:bg-red-500">
+                                            <DropdownMenuItem onClick={() => setInvoiceToDelete(invoice)} className="cursor-pointer rounded-lg text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2">
                                                 <Trash2 className="h-4 w-4" />
                                                 {t('invoicing.delete', 'Delete Invoice')}
                                             </DropdownMenuItem>
@@ -204,9 +273,9 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                 </TableCell>
                             </TableRow>
                         ))}
-                        {filteredInvoices.length === 0 && (
+                        {filteredAndSortedInvoices.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground font-medium">
+                                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground font-medium">
                                     {t('invoicing.no_invoices', 'No invoices found.')}
                                 </TableCell>
                             </TableRow>
@@ -215,18 +284,52 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                 </Table>
             </div>
 
-            {/* Editor Modal */}
+            {/* Modals & Dialogs */}
             {selectedInvoice && (
                 <InvoiceEditorModal
                     isOpen={isEditorOpen}
                     onClose={() => {
                         setIsEditorOpen(false);
                         setSelectedInvoice(null);
-                        fetchInvoices(filterParams); // Refresh after edit
+                        fetchInvoices(filterParams);
                     }}
                     invoiceUuid={selectedInvoice.uuid}
                 />
             )}
+
+            <AddPaymentModal
+                isOpen={isPaymentModalOpen}
+                onClose={() => {
+                    setIsPaymentModalOpen(false);
+                    setInvoiceForPayment(null);
+                    fetchInvoices(filterParams);
+                }}
+                initialInvoiceUuid={invoiceForPayment?.uuid}
+                initialAmount={(invoiceForPayment as any)?.remainder}
+                orgUuid={currentUser?.organization_uuid}
+            />
+
+            <AlertDialog open={!!invoiceToDelete} onOpenChange={(isOpen) => !isOpen && setInvoiceToDelete(null)}>
+                <AlertDialogContent className='bg-white border-2'>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            {t('invoicing.confirm_delete.title', 'Are you sure you want to delete this invoice?')}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {t('invoicing.confirm_delete.description', 'This action will reverse inventory deductions for issued invoices. This cannot be undone.')}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setInvoiceToDelete(null)}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-red-50 text-red-700 border-red-200 hover:text-white hover:bg-red-500"
+                            onClick={handleConfirmDelete}
+                        >
+                            {t('common.delete', 'Delete')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

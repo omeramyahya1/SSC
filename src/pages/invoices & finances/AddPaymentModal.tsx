@@ -25,9 +25,11 @@ interface AddPaymentModalProps {
     isOpen: boolean;
     onClose: () => void;
     orgUuid?: string;
+    initialInvoiceUuid?: string;
+    initialAmount?: number;
 }
 
-export function AddPaymentModal({ isOpen, onClose, orgUuid }: AddPaymentModalProps) {
+export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, initialAmount }: AddPaymentModalProps) {
     const { t, i18n } = useTranslation();
     const { invoices, fetchInvoices } = useInvoiceStore();
     const { createPayment } = usePaymentStore();
@@ -40,10 +42,28 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid }: AddPaymentModalPro
 
     useEffect(() => {
         if (isOpen) {
-            // Fetch only non-paid invoices for selection
             fetchInvoices();
         }
-    }, [isOpen, orgUuid, fetchInvoices]);
+    }, [isOpen, fetchInvoices]);
+
+    useEffect(() => {
+        if (isOpen) {
+            if (initialInvoiceUuid) {
+                setSelectedInvoiceUuid(initialInvoiceUuid);
+            } else {
+                setSelectedInvoiceUuid('');
+            }
+            
+            if (initialAmount !== undefined) {
+                setAmount(String(initialAmount));
+            } else {
+                setAmount('');
+            }
+            
+            setMethod('Cash');
+            setReference('');
+        }
+    }, [isOpen, initialInvoiceUuid, initialAmount]);
 
     const handleSave = async () => {
         if (!selectedInvoiceUuid || !amount) {
@@ -93,12 +113,16 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid }: AddPaymentModalPro
                 <div className="px-8 space-y-6">
                     <div className="space-y-2">
                         <Label className="font-bold text-xs  text-muted-foreground">{t('finances.select_invoice', 'Select Invoice')}</Label>
-                        <Select value={selectedInvoiceUuid} onValueChange={setSelectedInvoiceUuid}>
+                        <Select 
+                            value={selectedInvoiceUuid} 
+                            onValueChange={setSelectedInvoiceUuid}
+                            disabled={!!initialInvoiceUuid}
+                        >
                             <SelectTrigger className="border-gray-200 rounded-xl focus:ring-primary">
                                 <SelectValue placeholder={t('finances.select_invoice_ph', 'Choose an invoice')} />
                             </SelectTrigger>
                             <SelectContent className='bg-white'>
-                                {invoices.filter(inv => inv.status !== 'paid').map(inv => (
+                                {invoices.filter(inv => inv.status !== 'paid' || inv.uuid === initialInvoiceUuid).map(inv => (
                                     <SelectItem key={inv.uuid} value={inv.uuid}>
                                         <span className='font-bold'>#{String(inv.invoice_id).padStart(5, '0')}</span> - {inv.amount.toLocaleString()} ({inv.status})
                                     </SelectItem>
