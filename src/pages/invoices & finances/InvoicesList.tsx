@@ -224,10 +224,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                 <TableCell className="font-bold text-green-600">
                                     {(invoice as any).paid_amount?.toLocaleString() || '0'}
                                 </TableCell>
-                                <TableCell className={cn(
-                                    "font-black",
-                                    (invoice as any).remainder > 0 ? "text-red-500" : "text-green-600"
-                                )}>
+                                <TableCell className={`font-black ${(invoice as any).remainder > 0 ? `text-red-500` : `text-green-600`}`}>
                                     {(invoice as any).remainder?.toLocaleString() || '0'}
                                 </TableCell>
                                 <TableCell className='text-center'>
