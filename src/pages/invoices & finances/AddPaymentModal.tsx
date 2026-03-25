@@ -17,7 +17,7 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
-import { useInvoiceStore, Invoice } from '@/store/useInvoiceStore';
+import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { usePaymentStore } from '@/store/usePaymentStore';
 import { toast } from 'react-hot-toast';
 
