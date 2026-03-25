@@ -128,7 +128,7 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid }: AddPaymentModalPro
                                 </SelectTrigger>
                                 <SelectContent className='bg-white'>
                                     {
-                                    ['Bankak', 'Ocash', 'Fawry', 'MyCashi', 'BNMB', 'Other'].map((m) => (
+                                    ['Cash','Bankak', 'Ocash', 'Fawry', 'MyCashi', 'BNMB', 'Other'].map((m) => (
                                         <SelectItem value={m}>{t('finances.methods.'+m.toLowerCase(), m)}</SelectItem>
                                     ))
                                     }
@@ -140,8 +140,9 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid }: AddPaymentModalPro
                             <Input
                                 placeholder="Ref #"
                                 className="border-gray-200 rounded-xl focus:ring-primary"
-                                value={reference}
+                                value={method ==="Cash"? "N/A" :reference}
                                 onChange={(e) => setReference(e.target.value)}
+                                disabled={method==="Cash"}
                             />
                         </div>
                     </div>

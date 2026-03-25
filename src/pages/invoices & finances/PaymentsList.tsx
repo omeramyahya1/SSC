@@ -1,28 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-    Search, 
-    MoreVertical, 
-    Trash2, 
-    Download, 
+import {
+    Search,
+    MoreVertical,
+    Trash2,
+    Download,
     CreditCard,
     Calendar,
     Hash,
     User
 } from 'lucide-react';
-import { 
-    Table, 
-    TableBody, 
-    TableCell, 
-    TableHead, 
-    TableHeader, 
-    TableRow 
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
 } from "@/components/ui/table";
-import { 
-    DropdownMenu, 
-    DropdownMenuContent, 
-    DropdownMenuItem, 
-    DropdownMenuTrigger 
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
 
     const filteredPayments = useMemo(() => {
         return payments.filter(p => {
-            const matchesSearch = 
+            const matchesSearch =
                 (p.payment_reference ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (p.project_name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (p.invoice_id?.toString() ?? '').includes(searchQuery);
@@ -78,7 +78,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                 <div className="flex items-center px-3 text-muted-foreground">
                     <Search className="h-4 w-4" />
                 </div>
-                <Input 
+                <Input
                     placeholder={t('finances.search_payments_ph', 'Search by reference, project...')}
                     className="border-none shadow-none focus-visible:ring-0 bg-transparent"
                     value={searchQuery}
@@ -87,13 +87,13 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
             </div>
 
             {/* Payments Table */}
-            <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+            <div className="bg-white px-4 rounded-xl border shadow-sm overflow-hidden">
                 <Table>
                     <TableHeader className="bg-gray-50/50">
                         <TableRow>
                             <TableHead className="font-bold">{t('finances.date', 'Date')}</TableHead>
-                            <TableHead className="font-bold">{t('finances.project_invoice', 'Project / Invoice')}</TableHead>
-                            <TableHead className="font-bold">{t('finances.method', 'Method')}</TableHead>
+                            <TableHead className="font-bold">{t('invoicing.id', 'Invoice ID')}</TableHead>
+                            <TableHead className="text-center font-bold">{t('finances.method', 'Method')}</TableHead>
                             <TableHead className="font-bold">{t('finances.reference', 'Reference')}</TableHead>
                             <TableHead className="font-bold">{t('finances.amount', 'Amount')}</TableHead>
                             <TableHead className="text-end font-bold">{t('finances.actions', 'Actions')}</TableHead>
@@ -104,21 +104,18 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                             <TableRow key={payment.uuid} className="hover:bg-gray-50/50 transition-colors">
                                 <TableCell>
                                     <div className="flex flex-col">
-                                        <span className="font-bold">{format(new Date(payment.created_at), 'dd MMM yyyy')}</span>
+                                        <span className="font-bold">{format(new Date(payment.created_at), 'dd/MM/yyyy')}</span>
                                         <span className="text-[10px] text-muted-foreground uppercase">{format(new Date(payment.created_at), 'HH:mm')}</span>
                                     </div>
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex flex-col">
-                                        <span className="font-bold">{payment.project_name || 'N/A'}</span>
-                                        <span className="text-xs text-primary font-mono">#{String(payment.invoice_id).padStart(5, '0')}</span>
+                                        <span className="font-mono font-bold"># {String(payment.invoice_uuid).padStart(5, '0')}</span>
+                                        <span className="text-xs text-primary font-mono"></span>
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        <CreditCard className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-sm font-medium capitalize">{payment.method}</span>
-                                    </div>
+                                        <div className="text-sm text-center font-medium capitalize">{payment.method}</div>
                                 </TableCell>
                                 <TableCell className="font-mono text-sm">
                                     {payment.payment_reference || '—'}
@@ -133,12 +130,9 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl shadow-xl border-none">
-                                            <DropdownMenuItem onClick={() => toast.success('PDF Receipt coming soon!')} className="rounded-lg font-bold gap-2">
-                                                <Download className="h-4 w-4 text-blue-500" />
-                                                {t('finances.download_receipt', 'Download Receipt')}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDelete(payment)} className="rounded-lg font-bold gap-2 text-red-600 focus:text-red-600 focus:bg-red-50">
+                                        <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl">
+
+                                            <DropdownMenuItem onClick={() => handleDelete(payment)} className="rounded-lg text-red-700 border-red-200 hover:text-white hover:bg-red-500">
                                                 <Trash2 className="h-4 w-4" />
                                                 {t('finances.delete_payment', 'Delete Transaction')}
                                             </DropdownMenuItem>

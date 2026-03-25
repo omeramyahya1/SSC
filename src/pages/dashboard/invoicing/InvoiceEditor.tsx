@@ -279,7 +279,6 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                     </Button>
                     <div>
                         <h2 className="text-xl font-bold">{t('invoicing.title', 'Invoice Editor')}</h2>
-                        <p className="text-sm text-muted-foreground">{t('invoicing.subtitle', 'Review and customize your invoice before issuance.')}</p>
                     </div>
                 </div>
                 { currentInvoice?.issued_at &&

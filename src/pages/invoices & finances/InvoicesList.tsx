@@ -9,7 +9,8 @@ import {
     CheckCircle2,
     Clock,
     AlertCircle,
-    Eye
+    Eye,
+    DollarSign
 } from 'lucide-react';
 import {
     Table,
@@ -59,8 +60,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
     const filteredInvoices = useMemo(() => {
         return invoices.filter(inv => {
             const matchesSearch =
-                inv.invoice_id.toString().includes(searchQuery) ||
-                inv.uuid.toLowerCase().includes(searchQuery.toLowerCase());
+                inv.invoice_id.toString().includes(searchQuery);
 
             const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
 
@@ -146,14 +146,14 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
             </div>
 
             {/* Invoices Table */}
-            <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+            <div className="bg-white px-4 rounded-xl border shadow-sm overflow-hidden">
                 <Table>
                     <TableHeader className="bg-gray-50/50">
                         <TableRow>
                             <TableHead className="w-[120px] font-bold">{t('invoicing.id', 'ID')}</TableHead>
                             <TableHead className="font-bold">{t('invoicing.date', 'Date')}</TableHead>
                             <TableHead className="font-bold">{t('invoicing.amount', 'Amount')}</TableHead>
-                            <TableHead className="font-bold">{t('invoicing.status', 'Status')}</TableHead>
+                            <TableHead className="text-center font-bold">{t('invoicing.status', 'Status')}</TableHead>
                             <TableHead className="text-end font-bold">{t('invoicing.actions', 'Actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -164,12 +164,12 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                     #{String(invoice.invoice_id).padStart(5, '0')}
                                 </TableCell>
                                 <TableCell className="text-sm font-medium">
-                                    {invoice.issued_at ? format(new Date(invoice.issued_at), 'dd MMM yyyy') : t('invoicing.draft', 'Draft')}
+                                    {invoice.issued_at ? format(new Date(invoice.issued_at), 'dd/MM/yyyy') : t('invoicing.draft', 'Draft')}
                                 </TableCell>
                                 <TableCell className="font-black">
                                     {invoice.amount?.toLocaleString()}
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className='text-center'>
                                     {getStatusBadge(invoice.status)}
                                 </TableCell>
                                 <TableCell className="text-end">
@@ -180,12 +180,16 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl">
+                                            <DropdownMenuItem onClick={() => toast.success('Printing coming soon!')} className="cursor-pointer rounded-lg hover:bg-gray-100 font-bold gap-2">
+                                                <DollarSign className="h-4 w-4 text-gray-500" />
+                                                {t('invoicing.add_payment', 'Add Payment')}
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => {
                                                 setSelectedInvoice(invoice);
                                                 setIsEditorOpen(true);
                                             }} className="cursor-pointer rounded-lg hover:bg-gray-100 font-bold gap-2">
-                                                <Edit3 className="h-4 w-4" />
-                                                {t('invoicing.edit', 'Edit Invoice')}
+                                                <Eye className="h-4 w-4" />
+                                                {t('invoicing.view', 'View Invoice')}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => toast.success('Printing coming soon!')} className="cursor-pointer rounded-lg hover:bg-gray-100 font-bold gap-2">
                                                 <Printer className="h-4 w-4 text-gray-500" />

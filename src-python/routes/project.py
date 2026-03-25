@@ -159,6 +159,14 @@ def get_all_project():
             results.append(project_dict)
         return jsonify(results)
 
+@project_bp.route('/uuid/<string:uuid>', methods=['GET'])
+def get_project_by_uuid(uuid):
+    with get_db() as db:
+        item = db.query(Project).filter(Project.uuid == uuid).first()
+        if not item:
+            return jsonify({"error": "Not found"}), 404
+        return jsonify(model_to_dict(item))
+
 @project_bp.route('/<int:item_id>', methods=['GET'])
 def get_project(item_id):
     with get_db() as db:

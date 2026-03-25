@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-    Dialog, 
+import {
+    Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle
@@ -31,7 +31,7 @@ export function InvoiceEditorModal({ isOpen, onClose, invoiceUuid }: InvoiceEdit
                 // 1. Get the invoice details
                 const { data: invoice } = await api.get(`/invoices/${invoiceUuid}`);
                 // 2. Get the project details
-                const { data: proj } = await api.get(`/projects/${invoice.project_uuid}`);
+                const { data: proj } = await api.get(`/projects/uuid/${invoice.project_uuid}`);
                 setProject(proj);
             } catch (error) {
                 console.error("Failed to load invoice context", error);
