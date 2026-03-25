@@ -1,29 +1,29 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-    Search, 
-    MoreVertical, 
-    Printer, 
-    Trash2, 
-    Edit3, 
-    CheckCircle2, 
-    Clock, 
+import {
+    Search,
+    MoreVertical,
+    Printer,
+    Trash2,
+    Edit3,
+    CheckCircle2,
+    Clock,
     AlertCircle,
     Eye
 } from 'lucide-react';
-import { 
-    Table, 
-    TableBody, 
-    TableCell, 
-    TableHead, 
-    TableHeader, 
-    TableRow 
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
 } from "@/components/ui/table";
-import { 
-    DropdownMenu, 
-    DropdownMenuContent, 
-    DropdownMenuItem, 
-    DropdownMenuTrigger 
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
     const { invoices, fetchInvoices, deleteInvoice, isLoading } = useInvoiceStore();
-    
+
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -58,12 +58,12 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
 
     const filteredInvoices = useMemo(() => {
         return invoices.filter(inv => {
-            const matchesSearch = 
+            const matchesSearch =
                 inv.invoice_id.toString().includes(searchQuery) ||
                 inv.uuid.toLowerCase().includes(searchQuery.toLowerCase());
-            
+
             const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
-            
+
             return matchesSearch && matchesStatus;
         });
     }, [invoices, searchQuery, statusFilter]);
@@ -109,7 +109,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                     <div className="flex items-center px-3 text-muted-foreground">
                         <Search className="h-4 w-4" />
                     </div>
-                    <Input 
+                    <Input
                         placeholder={t('invoicing.search_ph', 'Search by ID...')}
                         className="border-none shadow-none focus-visible:ring-0 bg-transparent"
                         value={searchQuery}
@@ -118,25 +118,25 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button 
-                        variant={statusFilter === 'all' ? 'default' : 'outline'} 
-                        size="sm" 
+                    <Button
+                        variant={statusFilter === 'all' ? 'default' : 'outline'}
+                        size="sm"
                         onClick={() => setStatusFilter('all')}
                         className="font-bold"
                     >
                         {t('finances.all', 'All')}
                     </Button>
-                    <Button 
-                        variant={statusFilter === 'outstanding' ? 'default' : 'outline'} 
-                        size="sm" 
+                    <Button
+                        variant={statusFilter === 'pending' ? 'default' : 'outline'}
+                        size="sm"
                         onClick={() => setStatusFilter('pending')}
                         className="font-bold"
                     >
                         {t('finances.outstanding', 'Outstanding')}
                     </Button>
-                    <Button 
-                        variant={statusFilter === 'paid' ? 'default' : 'outline'} 
-                        size="sm" 
+                    <Button
+                        variant={statusFilter === 'paid' ? 'default' : 'outline'}
+                        size="sm"
                         onClick={() => setStatusFilter('paid')}
                         className="font-bold"
                     >
@@ -179,19 +179,19 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl shadow-xl border-none">
+                                        <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl">
                                             <DropdownMenuItem onClick={() => {
                                                 setSelectedInvoice(invoice);
                                                 setIsEditorOpen(true);
-                                            }} className="rounded-lg font-bold gap-2">
-                                                <Edit3 className="h-4 w-4 text-blue-500" />
+                                            }} className="cursor-pointer rounded-lg hover:bg-gray-100 font-bold gap-2">
+                                                <Edit3 className="h-4 w-4" />
                                                 {t('invoicing.edit', 'Edit Invoice')}
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => toast.success('Printing coming soon!')} className="rounded-lg font-bold gap-2">
+                                            <DropdownMenuItem onClick={() => toast.success('Printing coming soon!')} className="cursor-pointer rounded-lg hover:bg-gray-100 font-bold gap-2">
                                                 <Printer className="h-4 w-4 text-gray-500" />
                                                 {t('invoicing.print', 'Print PDF')}
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDelete(invoice)} className="rounded-lg font-bold gap-2 text-red-600 focus:text-red-600 focus:bg-red-50">
+                                            <DropdownMenuItem onClick={() => handleDelete(invoice)} className="rounded-lg text-red-700 border-red-200 hover:text-white hover:bg-red-500">
                                                 <Trash2 className="h-4 w-4" />
                                                 {t('invoicing.delete', 'Delete Invoice')}
                                             </DropdownMenuItem>
@@ -213,7 +213,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
 
             {/* Editor Modal */}
             {selectedInvoice && (
-                <InvoiceEditorModal 
+                <InvoiceEditorModal
                     isOpen={isEditorOpen}
                     onClose={() => {
                         setIsEditorOpen(false);

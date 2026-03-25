@@ -5,8 +5,7 @@ import {
     FileText,
     Receipt,
     Plus,
-    Building2,
-    Filter
+    Building2
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,7 @@ export default function InvoicesFinance() {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
 
-    const [activeTab, setActiveTab] = useState('finances');
+    const [activeTab, setActiveTab] = useState('reports');
     const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
 
     // Filtering state for Admin/HQ views
@@ -80,11 +79,11 @@ export default function InvoicesFinance() {
                 </div>
 
                 {/* Main Tabs */}
-                <Tabs defaultValue="finances" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <Tabs defaultValue="reports" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
                     <TabsList className="bg-white border p-1 h-10 w-fit">
-                        <TabsTrigger value="finances" className="font-bold px-6 data-[state=active]:bg-primary data-[state=active]:text-white">
+                        <TabsTrigger value="reports" className="font-bold px-6 data-[state=active]:bg-primary data-[state=active]:text-white">
                             <LayoutDashboard className="h-4 w-4 me-2" />
-                            {t('finances.tabs.dashboard', 'Finances')}
+                            {t('finances.tabs.reports', 'Reports')}
                         </TabsTrigger>
                         <TabsTrigger value="invoices" className="font-bold px-6 data-[state=active]:bg-primary data-[state=active]:text-white">
                             <FileText className="h-4 w-4 me-2" />
@@ -96,7 +95,7 @@ export default function InvoicesFinance() {
                         </TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="finances" className="mt-0">
+                    <TabsContent value="reports" className="mt-0">
                         <FinancesDashboard filterParams={filterParams} />
                     </TabsContent>
 
