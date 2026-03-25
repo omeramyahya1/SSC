@@ -55,6 +55,9 @@ def update_invoice(uuid):
         db.refresh(item)
         return jsonify(model_to_dict(item))
 
+from models import Invoice, Project, Customer, Payment
+from sqlalchemy import func
+
 @invoice_bp.route('/', methods=['GET'])
 def get_all_invoices():
     with get_db() as db:
@@ -63,23 +66,37 @@ def get_all_invoices():
         branch_uuid = request.args.get('branch_uuid')
         status = request.args.get('status')
         
-        query = db.query(Invoice)
+        query = db.query(Invoice).join(Project, Invoice.project_uuid == Project.uuid).join(Customer, Project.customer_uuid == Customer.uuid)
         
-        # Join with Project for branch/org filtering
-        if org_uuid or branch_uuid:
-            query = query.join(Project, Invoice.project_uuid == Project.uuid)
-            if org_uuid:
-                query = query.filter(Project.organization_uuid == org_uuid)
-            if branch_uuid:
-                query = query.filter(Project.branch_uuid == branch_uuid)
-        
+        if org_uuid:
+            query = query.filter(Project.organization_uuid == org_uuid)
+        if branch_uuid:
+            query = query.filter(Project.branch_uuid == branch_uuid)
         if project_uuid:
             query = query.filter(Invoice.project_uuid == project_uuid)
         if status:
             query = query.filter(Invoice.status == status)
 
         items = query.all()
-        return jsonify([model_to_dict(i) for i in items])
+        results = []
+        for i in items:
+            d = model_to_dict(i)
+            # Add Customer Info
+            if i.project and i.project.customer:
+                d['customer_name'] = i.project.customer.full_name
+            
+            # Add Payment Stats
+            paid = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == i.uuid).scalar() or 0.0
+            d['paid_amount'] = float(paid)
+            d['remainder'] = float((i.amount or 0.0) - paid)
+            
+            # Extract Due Date from JSON
+            if i.invoice_details and 'due_date' in i.invoice_details:
+                d['due_date'] = i.invoice_details['due_date']
+                
+            results.append(d)
+            
+        return jsonify(results)
 
 @invoice_bp.route('/<string:uuid>', methods=['GET'])
 def get_invoice(uuid):

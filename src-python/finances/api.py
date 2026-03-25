@@ -67,8 +67,7 @@ def get_payments(db):
     if invoice_uuid:
         query = query.filter(Payment.invoice_uuid == invoice_uuid)
 
-    payments = query.all()
-    # We want to include some invoice info like project/customer for the history view
+    payments = query.order_by(Payment.created_at.desc()).all()
     results = []
     for p in payments:
         d = model_to_dict(p)
@@ -78,7 +77,8 @@ def get_payments(db):
             d['invoice_id'] = inv.invoice_id
             proj = db.query(Project).filter(Project.uuid == inv.project_uuid).first()
             if proj:
-                d['project_name'] = f"{proj.customer.full_name}'s Project" if proj.customer else "Project"
+                d['project_name'] = proj.customer.full_name if proj.customer else "N/A"
+                d['customer_name'] = proj.customer.full_name if proj.customer else "N/A"
         results.append(d)
         
     return jsonify(results), 200
@@ -121,28 +121,18 @@ def create_finance_payment():
     with get_db() as db:
         try:
             # 1. Create the payment
-            # Using exclude_unset=True to avoid overwriting defaults with Nones
             new_payment = Payment(**validated_data.dict(exclude_unset=True))
             db.add(new_payment)
-
-            # Flush to ensure calculations in apply_payment_to_invoice see the new payment
             db.flush()
 
-            # 2. Identify the linked invoice
-            invoice = None
-            if hasattr(new_payment, 'invoice_uuid') and new_payment.invoice_uuid:
-                invoice = db.query(Invoice).filter(Invoice.uuid == new_payment.invoice_uuid).first()
+            # 2. Update the invoice status
+            if new_payment.invoice_uuid:
+                apply_payment_to_invoice(db, new_payment.invoice_uuid)
 
-            # 3. Update the invoice status
-            if invoice:
-                apply_payment_to_invoice(db, invoice.uuid)
-
-            # Note: get_db() will commit on success when exiting the block
+            db.commit()
             return jsonify(model_to_dict(new_payment)), 201
 
         except Exception as e:
-            # Record full stack trace and context
             logger.exception(f"Failed to process payment for invoice {getattr(new_payment, 'invoice_uuid', 'unknown')}")
-            # Ensure both operations are rolled back
             db.rollback()
             return jsonify({"error": "An error occurred while processing the payment."}), 500
