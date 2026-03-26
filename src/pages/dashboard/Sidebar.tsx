@@ -19,7 +19,13 @@ const SidebarItem = ({ icon, text, children, to, onClick, isSelected }: { icon: 
 
     const content = (
         <>
-            <img src={icon} alt="" className="w-6 h-6 opacity-40 group-hover:opacity-100" />
+            {
+                icon !== "sales" ? (
+                    <img src={icon} alt="" className="w-6 h-6 opacity-40 group-hover:opacity-100" />
+                ) : (
+                    <img src="/eva-icons (2)/outline/banknote.png" alt="" className="w-6 h-6 opacity-40 group-hover:opacity-100" />
+                )
+            }
             <span className="truncate font-bold">{text}</span>
             {children}
         </>
@@ -127,9 +133,9 @@ export function Sidebar() {
                     {showSidebarContent &&
                         <Button variant="outline" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className={`group ${isCollapsed ? 'hover:bg-gray-700' : 'bg-gray-700'}`}>
                             {isCollapsed ? (
-                                    <SidebarIcon className={`h-6 w-6 group-hover:text-white `}/>
+                                    <SidebarIcon className={`h-6 w-6 group-hover:text-white`}/>
                                 ) : (
-                                    <SidebarClose className='h-6 w-6 text-white '/>
+                                    <SidebarClose className='h-6 w-6 text-white'/>
                                 )
                             }
                         </Button>
@@ -145,7 +151,7 @@ export function Sidebar() {
                     <Separator className="bg-gray-700 my-2" />
                     <div className="space-y-1">
                         <SidebarItem icon="/eva-icons (2)/outline/archive.png" text={t('dashboard.inventory', 'Inventory')} to="/home/inventory" />
-                        <SidebarItem icon="/eva-icons (2)/outline/file-text.png" text={t('dashboard.invoices', 'Invoices / Finance')} to="/home/invoices" />
+                        <SidebarItem icon="sales" text={t('dashboard.Sales', 'Sales')} to="/home/sales" />
                     </div>
                     <Separator className="bg-gray-700 my-2" />
                      <div className="space-y-1">

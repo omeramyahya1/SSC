@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom"
-const Sales = () => {
+const ContactSales = () => {
   return (
         <div>
             <h1>
@@ -10,4 +10,4 @@ const Sales = () => {
     )
 }
 
-export default Sales
+export default ContactSales
