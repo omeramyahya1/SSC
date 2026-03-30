@@ -59,7 +59,7 @@ export default function Sales() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {!isAdmin && (
+                        {isAdmin && (
                             <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                                 <SelectTrigger className="h-auto 8 w-fit gap-2 bg-white">
                                     <Building2 className="h-4 w-4 opacity-60" />

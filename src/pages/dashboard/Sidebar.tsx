@@ -106,6 +106,8 @@ export function Sidebar() {
     const [nonNavSelected, setNonNavSelected] = useState<string | null>(null);
     const location = useLocation();
 
+    const { currentUser } = useUserStore();
+
     useEffect(() => {
         setNonNavSelected(null);
     }, [location.pathname]);
@@ -155,7 +157,11 @@ export function Sidebar() {
                     </div>
                     <Separator className="bg-gray-700 my-2" />
                      <div className="space-y-1">
-                        <SidebarItem icon="/eva-icons (2)/outline/building.png" text={t('dashboard.team', 'Team / Organization')} to="/home/team"/>
+                        {
+                            currentUser?.role === 'admin' && (
+                                <SidebarItem icon="/eva-icons (2)/outline/building.png" text={t('dashboard.team', 'Team / Organization')} to="/home/team"/>
+                            )
+                        }
                         <Popover>
                             <PopoverTrigger asChild>
                                 <div onClick={() => setNonNavSelected('subscription')}>
