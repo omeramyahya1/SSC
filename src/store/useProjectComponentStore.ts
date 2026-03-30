@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 import { InventoryItem } from './useInventoryStore';
 
 export interface ProjectComponent {
@@ -20,6 +21,7 @@ interface ProjectComponentState {
     isLoading: boolean;
     error: string | null;
     lastFetchRequestId: number;
+    lastProjectUuid: string | null;
 
     fetchComponents: (projectUuid: string) => Promise<void>;
     addComponent: (component: Partial<ProjectComponent>) => Promise<ProjectComponent | undefined>;
@@ -33,10 +35,11 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
     isLoading: false,
     error: null,
     lastFetchRequestId: 0,
+    lastProjectUuid: null,
 
     fetchComponents: async (projectUuid) => {
         const requestId = get().lastFetchRequestId + 1;
-        set({ isLoading: true, error: null, components: [], lastFetchRequestId: requestId });
+        set({ isLoading: true, error: null, components: [], lastFetchRequestId: requestId, lastProjectUuid: projectUuid });
         try {
             const { data } = await api.get<ProjectComponent[]>(`/inventory/projects/${projectUuid}/components`);
             if (get().lastFetchRequestId === requestId) {
@@ -102,7 +105,7 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
             const { data } = await api.post<ProjectComponent[]>(`/recommendations/projects/${projectUuid}/recommend`, bleResults);
             // After recommending, we should probably re-fetch components to get the full objects with items
             const { data: fullComponents } = await api.get<ProjectComponent[]>(`/inventory/projects/${projectUuid}/components`);
-            set({ components: fullComponents, isLoading: false });
+            set({ components: fullComponents, isLoading: false, lastProjectUuid: projectUuid });
             return fullComponents;
         } catch (e: any) {
             const msg = e.response?.data?.error || e.message || "Failed to generate recommendations";
@@ -111,3 +114,10 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
         }
     }
 }));
+
+registerStore(StoreKeys.ProjectComponent, () => {
+  const { lastProjectUuid, fetchComponents } = useProjectComponentStore.getState();
+  if (lastProjectUuid) {
+    fetchComponents(lastProjectUuid);
+  }
+});

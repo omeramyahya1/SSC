@@ -1,6 +1,7 @@
 // src/store/useDocumentStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 // --- 1. Define Types ---
 
@@ -115,3 +116,7 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
     }
   },
 }));
+
+registerStore(StoreKeys.Document, () => {
+  useDocumentStore.getState().fetchDocuments();
+});

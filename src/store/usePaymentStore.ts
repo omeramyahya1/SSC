@@ -1,6 +1,7 @@
 // src/store/usePaymentStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 // --- 1. Define Types ---
 
@@ -30,6 +31,7 @@ export interface PaymentStore {
   currentPayment: Payment | null;
   isLoading: boolean;
   error: string | null;
+  lastFetchParams: { org_uuid?: string; branch_uuid?: string; invoice_uuid?: string } | null;
   fetchPayments: (params?: { org_uuid?: string; branch_uuid?: string; invoice_uuid?: string }) => Promise<void>;
   fetchPayment: (uuid: string) => Promise<void>;
   createPayment: (data: NewPaymentData) => Promise<Payment | undefined>;
@@ -38,20 +40,22 @@ export interface PaymentStore {
   setCurrentPayment: (payment: Payment | null) => void;
 }
 
-export const usePaymentStore = create<PaymentStore>((set) => ({
+export const usePaymentStore = create<PaymentStore>((set, get) => ({
   payments: [],
   currentPayment: null,
   isLoading: false,
   error: null,
+  lastFetchParams: null,
 
   setCurrentPayment: (payment) => {
     set({ currentPayment: payment });
   },
 
   fetchPayments: async (params) => {
-    set({ isLoading: true, error: null });
+    const resolvedParams = params ?? get().lastFetchParams ?? undefined;
+    set({ isLoading: true, error: null, lastFetchParams: params ?? get().lastFetchParams });
     try {
-      const { data } = await api.get<Payment[]>(resource, { params });
+      const { data } = await api.get<Payment[]>(resource, { params: resolvedParams });
       set({ payments: data, isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch payments";
@@ -120,3 +124,8 @@ export const usePaymentStore = create<PaymentStore>((set) => ({
     }
   },
 }));
+
+registerStore(StoreKeys.Payment, () => {
+  const { fetchPayments, lastFetchParams } = usePaymentStore.getState();
+  fetchPayments(lastFetchParams ?? undefined);
+});

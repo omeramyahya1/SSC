@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 export interface InventoryCategory {
     uuid: string;
@@ -138,3 +139,9 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         }
     },
 }));
+
+registerStore(StoreKeys.Inventory, () => {
+  const { fetchCategories, fetchItems } = useInventoryStore.getState();
+  fetchCategories();
+  fetchItems();
+});

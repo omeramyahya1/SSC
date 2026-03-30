@@ -1,6 +1,7 @@
 // src/store/useCustomerStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 // --- 1. Define Types ---
 
@@ -119,3 +120,7 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
     }
   },
 }));
+
+registerStore(StoreKeys.Customer, () => {
+  useCustomerStore.getState().fetchCustomers();
+});

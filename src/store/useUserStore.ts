@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 // --- 1. Define Types ---
 
@@ -147,3 +148,7 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     }
   }
 }));
+
+registerStore(StoreKeys.User, () => {
+  useUserStore.getState().fetchUsers();
+});
