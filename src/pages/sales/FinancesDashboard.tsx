@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     TrendingUp,
-    TrendingDown,
     DollarSign,
     FileText,
-    Package,
-    ArrowUpRight
+    ArrowUpRight,
+    Archive
 } from 'lucide-react';
 import {
     AreaChart,
@@ -108,7 +107,7 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                 <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-2">
                     <div className="flex items-center justify-between">
                         <div className="p-2 bg-blue-50 rounded-lg">
-                            <Package className="h-6 w-6 text-blue-600" />
+                            <Archive className="h-6 w-6 text-primary" />
                         </div>
                     </div>
                     <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('finances.inventory_value', 'Inventory Asset Value')}</p>
