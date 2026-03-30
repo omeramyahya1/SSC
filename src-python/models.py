@@ -1,6 +1,6 @@
 # src-python/models.py
 from datetime import datetime
-from sqlalchemy import JSON, CheckConstraint, Column, Float, Integer, LargeBinary, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import JSON, CheckConstraint, Column, Numeric, Float, Integer, LargeBinary, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 import uuid
@@ -186,7 +186,7 @@ class Invoice(Base, TimestampDirtyMixin):
     invoice_id = Column(Integer, primary_key=True)
     project_uuid = Column(String,ForeignKey("projects.uuid"), unique=True)
     user_uuid = Column(String, ForeignKey("user.uuid"))
-    amount = Column(Float)
+    amount = Column(Numeric(precision=16, scale=2))
     status = Column(String)
     issued_at = Column(DateTime)
     invoice_details = Column(JSON)
@@ -206,7 +206,7 @@ class Payment(Base, TimestampDirtyMixin):
 
     payment_id = Column(Integer, primary_key=True)
     invoice_uuid = Column(String, ForeignKey("invoices.uuid"))
-    amount = Column(Float)
+    amount = Column(Numeric(precision=16, scale=2))
     method = Column(String)
     payment_reference = Column(String)
 
@@ -218,7 +218,7 @@ class SubscriptionPayment(Base, TimestampDirtyMixin):
 
     payment_id = Column(Integer, primary_key=True)
     subscription_uuid = Column(String, ForeignKey("subscriptions.uuid"))
-    amount = Column(Float)
+    amount = Column(Numeric(precision=16, scale=2))
     payment_method = Column(String)
     trx_no = Column(String, nullable=True)
     trx_screenshot = Column(LargeBinary, nullable=True)
@@ -326,8 +326,8 @@ class InventoryItem(Base, TimestampDirtyMixin):
     technical_specs = Column(JSON)  # e.g., {"wattage": 550, "voltage": 49.8}
     quantity_on_hand = Column(Integer, default=0)
     low_stock_threshold = Column(Integer, default=10)
-    buy_price = Column(Float)
-    sell_price = Column(Float)
+    buy_price = Column(Numeric(precision=16, scale=2))
+    sell_price = Column(Numeric(precision=16, scale=2))
 
     category = relationship("InventoryCategory", back_populates="items")
     adjustments = relationship("StockAdjustment", back_populates="item")
@@ -357,7 +357,7 @@ class ProjectComponent(Base, TimestampDirtyMixin):
     item_uuid = Column(String, ForeignKey("inventory_items.uuid"), nullable=True)
     custom_name = Column(String, nullable=True) # For manual accessory entry
     quantity = Column(Integer, nullable=False)
-    price_at_sale = Column(Float)
+    price_at_sale = Column(Numeric(precision=16, scale=2))
     is_recommended = Column(Boolean, default=False)
 
     project = relationship("Project", back_populates="project_components")
