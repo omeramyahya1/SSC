@@ -75,9 +75,9 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                 (p.payment_reference ?? '').toLowerCase().includes(q) ||
                 (p.project_name ?? '').toLowerCase().includes(q) ||
                 p.invoice_id?.toString().includes(q);
-            
+
             const matchesMethod = methodFilter === 'all' || p.method === methodFilter;
-            
+
             return matchesSearch && matchesMethod;
         });
 
@@ -208,10 +208,6 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl">
-                                            <DropdownMenuItem onClick={() => toast.success('Download coming soon!')} className="rounded-lg font-bold gap-2">
-                                                <Download className="h-4 w-4 text-blue-500" />
-                                                {t('finances.download_receipt', 'Download Receipt')}
-                                            </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setPaymentToDelete(payment)} className="rounded-lg text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2">
                                                 <Trash2 className="h-4 w-4" />
                                                 {t('finances.delete_payment', 'Delete Transaction')}
