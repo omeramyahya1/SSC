@@ -65,9 +65,9 @@ def get_all_invoices():
         org_uuid = request.args.get('org_uuid')
         branch_uuid = request.args.get('branch_uuid')
         status = request.args.get('status')
-        
+
         query = db.query(Invoice).join(Project, Invoice.project_uuid == Project.uuid).join(Customer, Project.customer_uuid == Customer.uuid)
-        
+
         if org_uuid:
             query = query.filter(Project.organization_uuid == org_uuid)
         if branch_uuid:
@@ -84,18 +84,18 @@ def get_all_invoices():
             # Add Customer Info
             if i.project and i.project.customer:
                 d['customer_name'] = i.project.customer.full_name
-            
+
             # Add Payment Stats
             paid = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == i.uuid).scalar() or 0.0
             d['paid_amount'] = float(paid)
-            d['remainder'] = float((i.amount or 0.0) - paid)
-            
+            d['remainder'] = float((float(i.amount if i.amount else 0.0)) - float(paid))
+
             # Extract Due Date from JSON
             if i.invoice_details and 'due_date' in i.invoice_details:
                 d['due_date'] = i.invoice_details['due_date']
-                
+
             results.append(d)
-            
+
         return jsonify(results)
 
 @invoice_bp.route('/<string:uuid>', methods=['GET'])
@@ -122,7 +122,7 @@ def delete_invoice(uuid):
             item = db.query(Invoice).filter(Invoice.uuid == uuid).first()
             if not item:
                 return jsonify({"error": "Not found"}), 404
-            
+
             # Rollback stock if issued
             if item.issued_at and user_uuid:
                 reverse_stock_deduction(db, item.uuid, user_uuid)

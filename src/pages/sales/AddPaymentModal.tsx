@@ -53,13 +53,13 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
             } else {
                 setSelectedInvoiceUuid('');
             }
-            
+
             if (initialAmount !== undefined) {
                 setAmount(String(initialAmount));
             } else {
                 setAmount('');
             }
-            
+
             setMethod('Cash');
             setReference('');
         }
@@ -113,8 +113,8 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
                 <div className="px-8 space-y-6">
                     <div className="space-y-2">
                         <Label className="font-bold text-xs  text-muted-foreground">{t('finances.select_invoice', 'Select Invoice')}</Label>
-                        <Select 
-                            value={selectedInvoiceUuid} 
+                        <Select
+                            value={selectedInvoiceUuid}
                             onValueChange={setSelectedInvoiceUuid}
                             disabled={!!initialInvoiceUuid}
                         >
@@ -124,7 +124,7 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
                             <SelectContent className='bg-white'>
                                 {invoices.filter(inv => inv.status !== 'paid' || inv.uuid === initialInvoiceUuid).map(inv => (
                                     <SelectItem key={inv.uuid} value={inv.uuid}>
-                                        <span className='font-bold'>#{String(inv.invoice_id).padStart(5, '0')}</span> - {inv.amount.toLocaleString()} ({inv.status})
+                                        <span className='font-bold'>#{String(inv.invoice_id).padStart(5, '0')}</span> - {inv.amount?.toLocaleString()} ({inv.status})
                                     </SelectItem>
                                 ))}
                             </SelectContent>

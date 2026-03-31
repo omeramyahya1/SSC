@@ -5,7 +5,7 @@ from finances.finances import (
     confirm_and_issue_invoice,
     apply_payment_to_invoice
 )
-from models import Payment, Invoice, Authentication
+from models import Payment, Invoice, Project
 from schemas import PaymentCreate, FinanceStatsSchema
 from pydantic import ValidationError
 from serializer import model_to_dict
@@ -54,7 +54,7 @@ def get_payments(db):
     invoice_uuid = request.args.get('invoice_uuid')
 
     query = db.query(Payment)
-    
+
     # Filter by org/branch via Join
     if org_uuid or branch_uuid:
         query = query.join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
@@ -63,7 +63,7 @@ def get_payments(db):
             query = query.filter(Project.organization_uuid == org_uuid)
         if branch_uuid:
             query = query.filter(Project.branch_uuid == branch_uuid)
-            
+
     if invoice_uuid:
         query = query.filter(Payment.invoice_uuid == invoice_uuid)
 
@@ -80,7 +80,7 @@ def get_payments(db):
                 d['project_name'] = proj.customer.full_name if proj.customer else "N/A"
                 d['customer_name'] = proj.customer.full_name if proj.customer else "N/A"
         results.append(d)
-        
+
     return jsonify(results), 200
 
 @finances_bp.route('/payments/<string:payment_uuid>', methods=['DELETE'])
@@ -92,15 +92,15 @@ def delete_payment(db, payment_uuid):
     payment = db.query(Payment).filter(Payment.uuid == payment_uuid).first()
     if not payment:
         return jsonify({"error": "Payment not found"}), 404
-    
+
     invoice_uuid = payment.invoice_uuid
     try:
         db.delete(payment)
         db.flush()
-        
+
         if invoice_uuid:
             apply_payment_to_invoice(db, invoice_uuid)
-            
+
         db.commit()
         return jsonify({"message": "Payment deleted and invoice updated"}), 200
     except Exception as e:

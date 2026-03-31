@@ -1,6 +1,7 @@
 // src/store/useSystemConfigurationStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 import { BleConfigData } from './useBleStore'; 
 import { useProjectStore, Project } from './useProjectStore';
 
@@ -18,6 +19,7 @@ interface SystemConfigurationStore {
     systemConfiguration: SystemConfiguration | null;
     isLoading: boolean;
     error: string | null;
+    lastProjectUuid: string | null;
 
     saveSystemConfiguration: (projectUuid: string, bleResultsData: BleConfigData) => Promise<void>;
     fetchSystemConfiguration: (projectUuid: string) => Promise<void>;
@@ -30,6 +32,7 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
     systemConfiguration: null,
     isLoading: false,
     error: null,
+    lastProjectUuid: null,
 
     saveSystemConfiguration: async (projectUuid, bleResultsData) => {
         set({ isLoading: true, error: null });
@@ -47,7 +50,7 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
             // Extract the system_config from the returned project
             const systemConfigData = updatedProject.system_config;
 
-            set({ systemConfiguration: systemConfigData, isLoading: false });
+            set({ systemConfiguration: systemConfigData, isLoading: false, lastProjectUuid: projectUuid });
             
             // Update the project in the ProjectStore
             useProjectStore.getState().receiveProjectUpdate(updatedProject);
@@ -64,7 +67,7 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
         set({ isLoading: true, error: null });
         try {
             const { data } = await api.get<SystemConfiguration>(`${resource}/project/${projectUuid}`);
-            set({ systemConfiguration: data, isLoading: false });
+            set({ systemConfiguration: data, isLoading: false, lastProjectUuid: projectUuid });
         } catch (e: any) {
             const is404 = e.response?.status === 404;
             const errorMsg = is404 ? null : (e.response?.data?.message || e.message || "Failed to fetch system configuration");
@@ -85,3 +88,10 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
         set({ systemConfiguration: null, error: null });
     }
 }));
+
+registerStore(StoreKeys.SystemConfiguration, () => {
+  const { lastProjectUuid, fetchSystemConfiguration } = useSystemConfigurationStore.getState();
+  if (lastProjectUuid) {
+    fetchSystemConfiguration(lastProjectUuid);
+  }
+});

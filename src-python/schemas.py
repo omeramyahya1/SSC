@@ -159,7 +159,7 @@ class InvoiceUpdate(BaseModel):
 
 
 class PaymentCreate(BaseModel):
-    invoice_id: Optional[int] = None
+    invoice_uuid: Optional[str] = None
     amount: Optional[float] = None
     method: Optional[str] = None
     payment_reference: Optional[str] = None

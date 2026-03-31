@@ -1,6 +1,7 @@
 // src/store/useInvoiceStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 // --- 1. Define Types ---
 
@@ -22,10 +23,11 @@ export interface Invoice {
   status: "paid" | "pending" | "partial";
   issued_at?: string;
   invoice_details: InvoiceDetails;
-  invoice_items?: any; // Snapshot of items sold
+  invoice_items?: any;
   created_at: string;
   updated_at: string;
   is_dirty: boolean;
+  customer_name: string;
 
 }
 
@@ -41,9 +43,15 @@ export interface InvoiceStore {
   currentInvoice: Invoice | null;
   isLoading: boolean;
   error: string | null;
-  fetchInvoices: (params?: { 
-      project_uuid?: string; 
-      org_uuid?: string; 
+  lastFetchParams: {
+      project_uuid?: string;
+      org_uuid?: string;
+      branch_uuid?: string;
+      status?: string;
+    } | null;
+  fetchInvoices: (params?: {
+      project_uuid?: string;
+      org_uuid?: string;
       branch_uuid?: string;
       status?: string;
     }) => Promise<void>;
@@ -61,15 +69,17 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   currentInvoice: null,
   isLoading: false,
   error: null,
+  lastFetchParams: null,
 
   setCurrentInvoice: (invoice) => {
     set({ currentInvoice: invoice });
   },
 
   fetchInvoices: async (params) => {
-    set({ isLoading: true, error: null });
+    const resolvedParams = params ?? get().lastFetchParams ?? undefined;
+    set({ isLoading: true, error: null, lastFetchParams: params ?? get().lastFetchParams });
     try {
-      const { data } = await api.get<Invoice[]>(resource, { params });
+      const { data } = await api.get<Invoice[]>(resource, { params: resolvedParams });
       set({ invoices: data, isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch invoices";
@@ -203,3 +213,8 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
       }
   }
 }));
+
+registerStore(StoreKeys.Invoice, () => {
+  const { fetchInvoices, lastFetchParams } = useInvoiceStore.getState();
+  fetchInvoices(lastFetchParams ?? undefined);
+});

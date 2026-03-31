@@ -1,6 +1,7 @@
 // src/store/useApplianceStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 // --- 1. Define Types ---
 
@@ -20,6 +21,7 @@ export interface ApplianceStore {
     projectAppliances: ProjectAppliance[];
     isLoading: boolean;
     error: string | null;
+    lastProjectUuid: string | null;
 
     fetchAppliancesByProject: (project_uuid: string) => Promise<void>;
     setProjectAppliances: (appliances: ProjectAppliance[]) => void;
@@ -32,12 +34,13 @@ export const useApplianceStore = create<ApplianceStore>((set, get) => ({
     projectAppliances: [],
     isLoading: false,
     error: null,
+    lastProjectUuid: null,
 
     fetchAppliancesByProject: async (project_uuid) => {
         set({ isLoading: true, error: null });
         try {
             const { data: appliances } = await api.get<ProjectAppliance[]>(`/appliances/project/${project_uuid}`);
-            set({ projectAppliances: appliances, isLoading: false });
+            set({ projectAppliances: appliances, isLoading: false, lastProjectUuid: project_uuid });
         } catch (e: any) {
             const errorMsg = e.message || "Failed to fetch appliances";
             set({ error: errorMsg, isLoading: false });
@@ -103,3 +106,10 @@ export const useApplianceStore = create<ApplianceStore>((set, get) => ({
         }
     },
 }));
+
+registerStore(StoreKeys.Appliance, () => {
+  const { lastProjectUuid, fetchAppliancesByProject } = useApplianceStore.getState();
+  if (lastProjectUuid) {
+    fetchAppliancesByProject(lastProjectUuid);
+  }
+});

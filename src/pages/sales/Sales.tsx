@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     LayoutDashboard,
@@ -22,7 +22,7 @@ import { InvoicesList } from './InvoicesList';
 import { PaymentsList } from './PaymentsList';
 import { AddPaymentModal } from './AddPaymentModal';
 
-export default function InvoicesFinance() {
+export default function Sales() {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
 
@@ -55,11 +55,11 @@ export default function InvoicesFinance() {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold">{t('invoicing.title', 'Invoicing & Finances')}</h1>
+                        <h1 className="text-3xl font-bold">{t('sales.title', 'Sales')}</h1>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        {!isAdmin && (
+                        {isAdmin && (
                             <Select value={selectedBranch} onValueChange={setSelectedBranch}>
                                 <SelectTrigger className="h-auto 8 w-fit gap-2 bg-white">
                                     <Building2 className="h-4 w-4 opacity-60" />
