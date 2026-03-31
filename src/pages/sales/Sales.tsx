@@ -17,6 +17,8 @@ import {
     SelectValue
 } from "@/components/ui/select";
 import { useUserStore } from '@/store/useUserStore';
+import { useBranchStore } from '@/store/useBranchStore';
+import { useEffect } from 'react';
 import { FinancesDashboard } from './FinancesDashboard';
 import { InvoicesList } from './InvoicesList';
 import { PaymentsList } from './PaymentsList';
@@ -25,6 +27,7 @@ import { AddPaymentModal } from './AddPaymentModal';
 export default function Sales() {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
+    const { branches, fetchBranches } = useBranchStore();
 
     const [activeTab, setActiveTab] = useState('reports');
     const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
@@ -33,6 +36,12 @@ export default function Sales() {
     const [selectedBranch, setSelectedBranch] = useState<string>('all');
 
     const isAdmin = currentUser?.role === 'admin';
+
+    useEffect(() => {
+        if (isAdmin) {
+            fetchBranches();
+        }
+    }, [isAdmin]);
 
     // We can assume branches are available from the user's organization if needed,
     // but for now let's keep it simple or fetch them if isAdmin.
@@ -67,7 +76,11 @@ export default function Sales() {
                                 </SelectTrigger>
                                 <SelectContent className='bg-white'>
                                     <SelectItem value="all">{t('finances.all_branches', 'All Branches')}</SelectItem>
-                                    {/* Map actual branches here if available in store */}
+                                    {branches.map((branch) => (
+                                        <SelectItem key={branch.uuid} value={branch.uuid}>
+                                            {branch.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         )}

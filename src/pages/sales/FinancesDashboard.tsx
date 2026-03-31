@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     TrendingUp,
     DollarSign,
     FileText,
     ArrowUpRight,
-    Archive
+    Archive,
+    Calendar as CalendarIcon,
+    ChevronDown
 } from 'lucide-react';
 import {
     AreaChart,
@@ -19,9 +21,18 @@ import {
     Pie,
     Cell
 } from 'recharts';
+import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import api from '@/api/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from '@/lib/utils';
+import { DateRange } from 'react-day-picker';
 
 interface FinancesDashboardProps {
     filterParams: {
@@ -41,11 +52,22 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
     const [stats, setStats] = useState<Stats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Date Range State
+    const [date, setDate] = useState<DateRange | undefined>({
+        from: startOfMonth(new Date()),
+        to: endOfMonth(new Date()),
+    });
+
     useEffect(() => {
         const fetchStats = async () => {
             setIsLoading(true);
             try {
-                const { data } = await api.get('/finances/stats', { params: filterParams });
+                const params = {
+                    ...filterParams,
+                    start_date: date?.from ? format(date.from, 'yyyy-MM-dd') : undefined,
+                    end_date: date?.to ? format(date.to, 'yyyy-MM-dd') : undefined,
+                };
+                const { data } = await api.get('/finances/stats', { params });
                 setStats(data);
             } catch (error) {
                 console.error("Failed to fetch finance stats", error);
@@ -54,7 +76,14 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
             }
         };
         fetchStats();
-    }, [filterParams]);
+    }, [filterParams, date]);
+
+    const presets = [
+        { label: t('finances.presets.today', 'Today'), from: new Date(), to: new Date() },
+        { label: t('finances.presets.last_7_days', 'Last 7 Days'), from: subDays(new Date(), 7), to: new Date() },
+        { label: t('finances.presets.this_month', 'This Month'), from: startOfMonth(new Date()), to: endOfMonth(new Date()) },
+        { label: t('finances.presets.last_month', 'Last Month'), from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) },
+    ];
 
     // Mock trend data for now as the backend doesn't provide time-series yet
     const trendData = [
@@ -71,10 +100,72 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
         { name: t('finances.outstanding', 'Outstanding'), value: stats?.outstanding_invoices || 0, color: '#f59e0b' },
     ];
 
-    if (isLoading) return <div className="h-96 flex items-center justify-center"><Spinner className="w-12 h-12" /></div>;
+    if (isLoading && !stats) return <div className="h-96 flex items-center justify-center"><Spinner className="w-12 h-12" /></div>;
 
     return (
         <div className="space-y-6" dir={i18n.dir()}>
+            {/* Filters Bar */}
+            <div className="w-fit flex flex-col justify-between bg-white px-4 py-2 rounded-2xl border shadow-sm">
+
+                <div className="flex flex-row items-center justify-between">
+                    {/* Presets */}
+                    <div className="hidden md:flex items-center gap-1 ">
+                        {presets.map((preset) => (
+                            <Button
+                                key={preset.label}
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                    "text-xs font-bold rounded-full h-8",
+                                    preset.label === "This Month" && "bg-primary text-white"
+                                )}
+                                onClick={() => setDate({ from: preset.from, to: preset.to })}
+                            >
+                                {preset.label}
+                            </Button>
+                        ))}
+                    </div>
+
+                    {/* Date Range Picker */}
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    "justify-end text-start font-bold h-10 px-4 rounded-xl border-gray-200",
+                                    !date && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className=" h-4 w-4" />
+                                {date?.from ? (
+                                    date.to ? (
+                                        <>
+                                            {format(date.from, "dd/MM/yyyy")} -{" "}
+                                            {format(date.to, "dd/MM/yyyy")}
+                                        </>
+                                    ) : (
+                                        format(date.from, "dd/MM/yyyy")
+                                    )
+                                ) : (
+                                    <span>{t('finances.pick_date', 'Pick a date')}</span>
+                                )}
+                                <ChevronDown className="h-4 w-4 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-white" align="end">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={date?.from}
+                                selected={date}
+                                onSelect={setDate}
+                                numberOfMonths={1}
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </div>
+
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-2">
@@ -96,9 +187,6 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                         <div className="p-2 bg-amber-50 rounded-lg">
                             <FileText className="h-6 w-6 text-amber-600" />
                         </div>
-                        <span className="text-xs font-bold text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-full">
-                            {t('finances.pending_actions', 'Pending')}
-                        </span>
                     </div>
                     <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('finances.outstanding', 'Outstanding Invoices')}</p>
                     <h3 className="text-3xl font-black">{stats?.outstanding_invoices.toLocaleString()}</h3>

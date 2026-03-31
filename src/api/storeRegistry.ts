@@ -14,6 +14,7 @@ export const StoreKeys = {
   SubscriptionPayment: "SubscriptionPaymentStore",
   SyncLog: "SyncLogStore",
   ApplicationSettings: "ApplicationSettingsStore",
+  Branch: "BranchStore",
 } as const;
 
 export type StoreKey = (typeof StoreKeys)[keyof typeof StoreKeys];

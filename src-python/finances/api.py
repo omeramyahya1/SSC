@@ -23,11 +23,13 @@ def get_stats(db):
     """
     org_uuid = request.args.get('org_uuid')
     branch_uuid = request.args.get('branch_uuid')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
 
     if not org_uuid:
         return jsonify({"error": "org_uuid is required"}), 400
 
-    stats = calculate_dashboard_stats(db, org_uuid, branch_uuid)
+    stats = calculate_dashboard_stats(db, org_uuid, branch_uuid, start_date, end_date)
     return jsonify(stats), 200
 
 @finances_bp.route('/invoices/<string:invoice_uuid>/confirm', methods=['POST'])

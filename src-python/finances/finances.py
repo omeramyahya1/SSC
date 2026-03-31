@@ -4,11 +4,11 @@ from models import Invoice, Payment, InventoryItem, ProjectComponent, StockAdjus
 from datetime import datetime
 from typing import Optional
 
-def calculate_dashboard_stats(db: Session, organization_uuid: str, branch_uuid: Optional[str] = None):
+def calculate_dashboard_stats(db: Session, organization_uuid: str, branch_uuid: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None):
     """
-    Calculate Finance Dashboard statistics.
+    Calculate Finance Dashboard statistics with optional date filtering.
     """
-    # 1. Aggregate Total Revenue (Sum of all payments)
+    # 1. Aggregate Total Revenue (Sum of all payments within range)
     revenue_query = db.query(func.sum(Payment.amount)) \
         .join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
         .join(Project, Invoice.project_uuid == Project.uuid) \
@@ -16,21 +16,37 @@ def calculate_dashboard_stats(db: Session, organization_uuid: str, branch_uuid: 
 
     if branch_uuid:
         revenue_query = revenue_query.filter(Project.branch_uuid == branch_uuid)
+    
+    if start_date:
+        revenue_query = revenue_query.filter(Payment.created_at >= datetime.fromisoformat(start_date))
+    if end_date:
+        revenue_query = revenue_query.filter(Payment.created_at <= datetime.fromisoformat(end_date))
 
     total_revenue = revenue_query.scalar() or 0.0
 
-    # 2. Outstanding Invoices (Total Invoice Amount - Total Paid)
+    # 2. Total Invoices Amount (Sum of all invoices issued within range)
     invoice_total_query = db.query(func.sum(Invoice.amount)) \
         .join(Project, Invoice.project_uuid == Project.uuid) \
-        .filter(Project.organization_uuid == organization_uuid)
+        .filter(Project.organization_uuid == organization_uuid) \
+        .filter(Invoice.issued_at != None)
 
     if branch_uuid:
         invoice_total_query = invoice_total_query.filter(Project.branch_uuid == branch_uuid)
+    
+    if start_date:
+        invoice_total_query = invoice_total_query.filter(Invoice.issued_at >= datetime.fromisoformat(start_date))
+    if end_date:
+        invoice_total_query = invoice_total_query.filter(Invoice.issued_at <= datetime.fromisoformat(end_date))
 
     total_invoice_amount = invoice_total_query.scalar() or 0.0
+    
+    # Outstanding = Total Amount of Invoices issued in range - Revenue from those same invoices?
+    # Actually, usually "Outstanding" on a dashboard means "Total currently unpaid for invoices issued in range"
+    # To keep it simple and consistent with the previous logic:
     outstanding_invoices = total_invoice_amount - total_revenue
 
     # 3. Inventory Value (Asset Value: Sum of buy_price * quantity_on_hand)
+    # Note: Inventory is usually a snapshot of current value, not historical range
     inventory_query = db.query(func.sum(InventoryItem.buy_price * InventoryItem.quantity_on_hand)) \
         .filter(InventoryItem.organization_uuid == organization_uuid)
 
@@ -41,7 +57,7 @@ def calculate_dashboard_stats(db: Session, organization_uuid: str, branch_uuid: 
 
     return {
         "total_revenue": float(total_revenue),
-        "outstanding_invoices": float(outstanding_invoices),
+        "outstanding_invoices": float(max(0, outstanding_invoices)),
         "inventory_value": float(inventory_value)
     }
 
