@@ -31,7 +31,11 @@ interface StockAdjustment {
     created_at: string;
 }
 
-export function InventoryHistoryModal() {
+interface InventoryHistoryModalProps {
+    isOpen: boolean;
+}
+
+export function InventoryHistoryModal({ isOpen }: InventoryHistoryModalProps) {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
     const [history, setHistory] = useState<StockAdjustment[]>([]);
@@ -42,7 +46,7 @@ export function InventoryHistoryModal() {
             setIsLoading(true);
             try {
                 const params = {
-                    org_uuid: currentUser?.organization_uuid,
+                    org_uuid: undefined, // currentUser?.organization_uuid,
                     user_uuid: !currentUser?.organization_uuid ? currentUser?.uuid : undefined,
                 };
                 const { data } = await api.get('/inventory/adjustments/history', { params });
@@ -53,10 +57,10 @@ export function InventoryHistoryModal() {
                 setIsLoading(false);
             }
         };
-        if (currentUser) {
+        if (isOpen && currentUser) {
             fetchHistory();
         }
-    }, [currentUser]);
+    }, [isOpen, currentUser]);
 
     return (
         <DialogContent className="sm:max-w-[800px] bg-white max-h-[80vh] overflow-hidden flex flex-col" dir={i18n.dir()}>

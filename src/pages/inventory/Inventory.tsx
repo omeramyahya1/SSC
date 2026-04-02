@@ -229,7 +229,7 @@ export default function Inventory() {
             </Dialog>
 
             <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
-                <InventoryHistoryModal />
+                <InventoryHistoryModal isOpen={isHistoryModalOpen} />
             </Dialog>
         </main>
     );
