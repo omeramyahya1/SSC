@@ -21,7 +21,7 @@ import {
     Pie,
     Cell
 } from 'recharts';
-import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, subMonths, subYears } from 'date-fns';
 import api from '@/api/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from '@/lib/utils';
-import { DateRange } from 'react-day-picker';
+import { DateRange, Select } from 'react-day-picker';
 
 interface FinancesDashboardProps {
     filterParams: {
@@ -51,12 +51,10 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
     const { t, i18n } = useTranslation();
     const [stats, setStats] = useState<Stats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [period, setPeriod] = useState("all");
 
     // Date Range State
-    const [date, setDate] = useState<DateRange | undefined>({
-        from: startOfMonth(new Date()),
-        to: endOfMonth(new Date()),
-    });
+    const [date, setDate] = useState<DateRange | undefined>(undefined);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -79,10 +77,11 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
     }, [filterParams, date]);
 
     const presets = [
-        { label: t('finances.presets.today', 'Today'), from: new Date(), to: new Date() },
-        { label: t('finances.presets.last_7_days', 'Last 7 Days'), from: subDays(new Date(), 7), to: new Date() },
-        { label: t('finances.presets.this_month', 'This Month'), from: startOfMonth(new Date()), to: endOfMonth(new Date()) },
-        { label: t('finances.presets.last_month', 'Last Month'), from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) },
+        { name: "all", label: t('finances.presets.all', 'All'), from: subYears(new Date(), 100), to: new Date() },
+        { name: "today", label: t('finances.presets.today', 'Today'), from: new Date(), to: new Date() },
+        { name: "last_7_days", label: t('finances.presets.last_7_days', 'Last 7 Days'), from: subDays(new Date(), 7), to: new Date() },
+        { name: "this_month", label: t('finances.presets.this_month', 'This Month'), from: startOfMonth(new Date()), to: endOfMonth(new Date()) },
+        { name: "last_month", label: t('finances.presets.last_month', 'Last Month'), from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) },
     ];
 
     // Mock trend data for now as the backend doesn't provide time-series yet
@@ -107,7 +106,7 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
             {/* Filters Bar */}
             <div className="w-fit flex flex-col justify-between bg-white px-4 py-2 rounded-2xl border shadow-sm">
 
-                <div className="flex flex-row items-center justify-between">
+                <div className="flex flex-row gap-2 items-center justify-between">
                     {/* Presets */}
                     <div className="hidden md:flex items-center gap-1 ">
                         {presets.map((preset) => (
@@ -116,10 +115,17 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                                 variant="ghost"
                                 size="sm"
                                 className={cn(
-                                    "text-xs font-bold rounded-full h-8",
-                                    preset.label === "This Month" && "bg-primary text-white"
+                                    "text-xs font-bold rounded-full h-10",
+                                    period === preset.name && "bg-primary text-white"
                                 )}
-                                onClick={() => setDate({ from: preset.from, to: preset.to })}
+                                onClick={() => {
+                                    setPeriod(preset.name);
+                                    if (preset.name === "all") {
+                                        setDate(undefined);
+                                        return;
+                                    }
+                                    setDate({ from: preset.from, to: preset.to });
+                                }}
                             >
                                 {preset.label}
                             </Button>
@@ -133,11 +139,11 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                                 variant="outline"
                                 className={cn(
                                     "justify-end text-start font-bold h-10 px-4 rounded-xl border-gray-200",
-                                    !date && "text-muted-foreground"
+                                    period === "" && date?.from ? "bg-primary text-white" : "text-muted-foreground"
                                 )}
                             >
                                 <CalendarIcon className=" h-4 w-4" />
-                                {date?.from ? (
+                                {period === "" && date?.from ? (
                                     date.to ? (
                                         <>
                                             {format(date.from, "dd/MM/yyyy")} -{" "}
@@ -154,11 +160,19 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0 bg-white" align="end">
                             <Calendar
-                                initialFocus
+                                autoFocus
                                 mode="range"
                                 defaultMonth={date?.from}
                                 selected={date}
-                                onSelect={setDate}
+                                onSelect={(nextDate) => {
+                                    if (!nextDate?.from) {
+                                        setDate(undefined);
+                                        setPeriod("all");
+                                        return;
+                                    }
+                                    setDate(nextDate);
+                                    setPeriod("");
+                                }}
                                 numberOfMonths={1}
                             />
                         </PopoverContent>
@@ -173,10 +187,6 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                         <div className="p-2 bg-green-50 rounded-lg">
                             <DollarSign className="h-6 w-6 text-green-600" />
                         </div>
-                        <span className="text-xs font-bold text-green-600 flex items-center bg-green-50 px-2 py-0.5 rounded-full">
-                            <TrendingUp className="h-3 w-3 me-1" />
-                            +12%
-                        </span>
                     </div>
                     <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('finances.total_revenue', 'Total Revenue')}</p>
                     <h3 className="text-3xl font-black">{stats?.total_revenue.toLocaleString()}</h3>

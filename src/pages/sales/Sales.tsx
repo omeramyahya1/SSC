@@ -70,7 +70,7 @@ export default function Sales() {
                     <div className="flex items-center gap-3">
                         {isAdmin && (
                             <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                                <SelectTrigger className="h-auto 8 w-fit gap-2 bg-white">
+                                <SelectTrigger className={`h-auto 8 w-fit gap-2 ${selectedBranch !== "all" ? "bg-primary text-white": "bg-white"} `}>
                                     <Building2 className="h-4 w-4 opacity-60" />
                                     <SelectValue placeholder={t('finances.all_branches', 'All Branches')} />
                                 </SelectTrigger>
