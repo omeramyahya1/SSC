@@ -218,13 +218,13 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                     { (invoice as any).due_date ? format(new Date((invoice as any).due_date), 'dd/MM/yyyy') : '—'}
                                 </TableCell>
                                 <TableCell className="font-black text-gray-900">
-                                    {invoice.amount?.toLocaleString()}
+                                    {invoice.amount?.toLocaleString('en-US')}
                                 </TableCell>
                                 <TableCell className="font-bold text-green-600">
-                                    {(invoice as any).paid_amount?.toLocaleString() || '0'}
+                                    {(invoice as any).paid_amount?.toLocaleString('en-US') || '0'}
                                 </TableCell>
                                 <TableCell className={`font-black ${(invoice as any).remainder > 0 ? `text-red-500` : `text-green-600`}`}>
-                                    {(invoice as any).remainder?.toLocaleString() || '0'}
+                                    {(invoice as any).remainder?.toLocaleString('en-US') || '0'}
                                 </TableCell>
                                 <TableCell className='text-center'>
                                     {getStatusBadge(invoice.status)}

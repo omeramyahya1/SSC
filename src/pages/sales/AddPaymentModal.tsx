@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Calendar as CalendarIcon, ChevronDown } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -17,9 +18,18 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { cn } from '@/lib/utils';
 import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { usePaymentStore } from '@/store/usePaymentStore';
 import { toast } from 'react-hot-toast';
+import { format } from 'date-fns';
 
 interface AddPaymentModalProps {
     isOpen: boolean;
@@ -39,6 +49,7 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
     const [method, setMethod] = useState('cash');
     const [reference, setReference] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
 
     useEffect(() => {
         if (isOpen) {
@@ -62,6 +73,7 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
 
             setMethod('Cash');
             setReference('');
+            setPaymentDate(new Date());
         }
     }, [isOpen, initialInvoiceUuid, initialAmount]);
 
@@ -77,7 +89,8 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
                 invoice_uuid: selectedInvoiceUuid,
                 amount: parseFloat(amount),
                 method: method,
-                payment_reference: reference
+                payment_reference: reference,
+                payment_date: paymentDate ? format(paymentDate, 'yyyy-MM-dd') : undefined,
             });
             toast.success(t('finances.payment_success', 'Payment recorded successfully!'));
             onClose();
@@ -86,6 +99,7 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
             setAmount('');
             setMethod('cash');
             setReference('');
+            setPaymentDate(new Date());
         } catch (error) {
             toast.error(t('finances.payment_error', 'Failed to record payment.'));
         } finally {
@@ -101,9 +115,18 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
         setter(rawValue);
     };
 
+    const invoiceItems = useMemo(() => {
+        return invoices
+            .filter((inv) => inv.status !== 'paid' || inv.uuid === initialInvoiceUuid)
+            .map((inv) => ({
+                value: inv.uuid,
+                label: `#${String(inv.invoice_id).padStart(5, '0')} - ${inv.amount?.toLocaleString()} (${inv.status})`,
+            }));
+    }, [invoices, initialInvoiceUuid]);
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px] bg-white p-0 overflow-hidden rounded-2xl border-none shadow-2xl" dir={i18n.dir()}>
+            <DialogContent className="sm:max-w-[425px] bg-white p-0 overflow-hidden rounded-2xl border-none shadow-2xl filter-none backdrop-blur-0" dir={i18n.dir()}>
                 <div className="p-6">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-bold">{t('finances.add_payment', 'Add a Payment')}</DialogTitle>
@@ -113,22 +136,14 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
                 <div className="px-8 space-y-6">
                     <div className="space-y-2">
                         <Label className="font-bold text-xs  text-muted-foreground">{t('finances.select_invoice', 'Select Invoice')}</Label>
-                        <Select
+                        <SearchableSelect
                             value={selectedInvoiceUuid}
                             onValueChange={setSelectedInvoiceUuid}
                             disabled={!!initialInvoiceUuid}
-                        >
-                            <SelectTrigger className="border-gray-200 rounded-xl focus:ring-primary">
-                                <SelectValue placeholder={t('finances.select_invoice_ph', 'Choose an invoice')} />
-                            </SelectTrigger>
-                            <SelectContent className='bg-white'>
-                                {invoices.filter(inv => inv.status !== 'paid' || inv.uuid === initialInvoiceUuid).map(inv => (
-                                    <SelectItem key={inv.uuid} value={inv.uuid}>
-                                        <span className='font-bold'>#{String(inv.invoice_id).padStart(5, '0')}</span> - {inv.amount?.toLocaleString()} ({inv.status})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            placeholder={t('finances.select_invoice_ph', 'Choose an invoice')}
+                            items={invoiceItems}
+
+                        />
                     </div>
 
                     <div className="space-y-2">
@@ -141,6 +156,38 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
                             value={amount}
                             onChange={(e) => handleNumberInputChange(setAmount, e.target.value)}
                         />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="font-bold text-xs  text-muted-foreground">{t('finances.payment_date', 'Payment Date')}</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className={cn(
+                                        "w-full justify-between text-start font-bold h-10 px-4 rounded-xl border-gray-200",
+                                        !paymentDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className=" h-4 w-4" />
+                                    {paymentDate ? (
+                                        format(paymentDate, "dd/MM/yyyy")
+                                    ) : (
+                                        <span>{t('finances.pick_date', 'Pick a date')}</span>
+                                    )}
+                                    <ChevronDown className="h-4 w-4 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 bg-white" align="end">
+                                <Calendar
+                                    autoFocus
+                                    mode="single"
+                                    selected={paymentDate}
+                                    onSelect={setPaymentDate}
+                                    numberOfMonths={1}
+                                />
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
