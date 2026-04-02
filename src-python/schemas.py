@@ -163,6 +163,7 @@ class PaymentCreate(BaseModel):
     amount: Optional[float] = None
     method: Optional[str] = None
     payment_reference: Optional[str] = None
+    payment_date: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None

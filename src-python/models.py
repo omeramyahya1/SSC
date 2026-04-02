@@ -209,6 +209,7 @@ class Payment(Base, TimestampDirtyMixin):
     amount = Column(Numeric(precision=16, scale=2))
     method = Column(String)
     payment_reference = Column(String)
+    payment_date = Column(DateTime)
 
     invoice = relationship("Invoice", foreign_keys=[invoice_uuid], back_populates="payments")
 

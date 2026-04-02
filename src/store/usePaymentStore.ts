@@ -15,6 +15,7 @@ export interface Payment {
   amount: number;
   method: string;
   payment_reference?: string;
+  payment_date?: string;
   // UI-only joined fields
   invoice_id?: number;
   project_name?: string;
