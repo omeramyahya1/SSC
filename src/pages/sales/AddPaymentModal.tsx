@@ -106,7 +106,7 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
             <DialogContent className="sm:max-w-[425px] bg-white p-0 overflow-hidden rounded-2xl border-none shadow-2xl" dir={i18n.dir()}>
                 <div className="p-6">
                     <DialogHeader>
-                        <DialogTitle className="text-2xl font-bold">{t('finances.record_payment', 'Record Payment')}</DialogTitle>
+                        <DialogTitle className="text-2xl font-bold">{t('finances.add_payment', 'Add a Payment')}</DialogTitle>
                     </DialogHeader>
                 </div>
 

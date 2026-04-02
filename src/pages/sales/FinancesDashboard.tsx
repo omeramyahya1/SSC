@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    TrendingUp,
     DollarSign,
     FileText,
     ArrowUpRight,
@@ -32,7 +31,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from '@/lib/utils';
-import { DateRange, Select } from 'react-day-picker';
+import { DateRange } from 'react-day-picker';
 
 interface FinancesDashboardProps {
     filterParams: {
