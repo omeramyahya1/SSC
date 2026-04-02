@@ -162,11 +162,11 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
 
                     <div className="flex items-center gap-2">
                          <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[140px] bg-white h-10 rounded-xl">
+                            <SelectTrigger className={`w-[140px] h-10 rounded-xl ${statusFilter === 'all'? 'bg-white' : 'bg-primary text-white'}`}>
                                 <SelectValue placeholder={t('finances.filter_status', 'Status')} />
                             </SelectTrigger>
                             <SelectContent className="bg-white">
-                                <SelectItem value="all">{t('finances.all', 'All Status')}</SelectItem>
+                                <SelectItem value="all">{t('finances.all', 'All (status)')}</SelectItem>
                                 <SelectItem value="pending">{t('finances.pending', 'Pending')}</SelectItem>
                                 <SelectItem value="partial">{t('finances.partial', 'Partial')}</SelectItem>
                                 <SelectItem value="paid">{t('finances.paid', 'Paid')}</SelectItem>
@@ -174,7 +174,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                         </Select>
 
                         <Select value={sortBy} onValueChange={setSortBy}>
-                            <SelectTrigger className="w-[160px] bg-white h-10 rounded-xl">
+                            <SelectTrigger className={`w-[140px] h-10 rounded-xl ${sortBy === 'date-desc'? 'bg-white' : 'bg-primary text-white'}`}>
                                 <ArrowUpDown className="h-4 w-4 me-2 opacity-60" />
                                 <SelectValue placeholder={t('common.sort_by', 'Sort By')} />
                             </SelectTrigger>
