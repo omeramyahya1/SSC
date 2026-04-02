@@ -22,14 +22,15 @@ def get_stats(db):
     Get Finance Dashboard statistics.
     """
     org_uuid = request.args.get('org_uuid')
+    user_uuid = request.args.get('user_uuid')
     branch_uuid = request.args.get('branch_uuid')
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
 
-    if not org_uuid:
-        return jsonify({"error": "org_uuid is required"}), 400
+    if not org_uuid and not user_uuid:
+        return jsonify({"error": "Either org_uuid or user_uuid is required"}), 400
 
-    stats = calculate_dashboard_stats(db, org_uuid, branch_uuid, start_date, end_date)
+    stats = calculate_dashboard_stats(db, org_uuid, branch_uuid, start_date, end_date, user_uuid)
     return jsonify(stats), 200
 
 @finances_bp.route('/invoices/<string:invoice_uuid>/confirm', methods=['POST'])

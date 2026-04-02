@@ -288,6 +288,34 @@ def get_item_adjustments(item_uuid):
         adjustments = db.query(StockAdjustment).filter(StockAdjustment.item_uuid == item_uuid).all()
         return jsonify([model_to_dict(a) for a in adjustments])
 
+@inventory_bp.route('/adjustments/history', methods=['GET'])
+def get_adjustments_history():
+    """
+    Get global stock adjustment history.
+    """
+    org_uuid = request.args.get('org_uuid')
+    user_uuid = request.args.get('user_uuid')
+
+    with get_db() as db:
+        query = db.query(StockAdjustment).join(InventoryItem, StockAdjustment.item_uuid == InventoryItem.uuid)
+        
+        if org_uuid:
+            query = query.filter(StockAdjustment.organization_uuid == org_uuid)
+        elif user_uuid:
+            query = query.filter(StockAdjustment.user_uuid == user_uuid)
+
+        adjustments = query.order_by(StockAdjustment.created_at.desc()).all()
+        
+        results = []
+        for adj in adjustments:
+            d = model_to_dict(adj)
+            if adj.item:
+                d['item_name'] = adj.item.name
+                d['item_sku'] = adj.item.sku
+            results.append(d)
+            
+        return jsonify(results)
+
 
 # --- Project Components ---
 
