@@ -185,6 +185,15 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
                                     selected={paymentDate}
                                     onSelect={setPaymentDate}
                                     numberOfMonths={1}
+                                    disabled={
+                                                (date) => {
+                                                    const min = new Date();
+                                                    min.setHours(0, 0, 0, 0);
+                                                    const d = new Date(date);
+                                                    d.setHours(0, 0, 0, 0);
+                                                    return d > min;
+                                                }
+                                            }
                                 />
                             </PopoverContent>
                         </Popover>

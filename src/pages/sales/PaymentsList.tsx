@@ -4,11 +4,6 @@ import {
     Search,
     MoreVertical,
     Trash2,
-    Download,
-    CreditCard,
-    Calendar,
-    Hash,
-    User,
     ArrowUpDown
 } from 'lucide-react';
 import {
@@ -121,7 +116,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                     <div className="flex items-center gap-2 bg-white p-1 rounded-xl border shadow-sm flex-grow">
                         <div className="flex items-center px-3 text-muted-foreground">
                             <Search className="h-4 w-4" />
-                        </div>
+                 ArrowUpDown       </div>
                         <Input
                             placeholder={t('finances.search_payments_ph', 'Search by reference, project, or Invoice ID...')}
                             className="border-none shadow-none focus-visible:ring-0 bg-transparent"
@@ -179,12 +174,11 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                             <TableRow key={payment.uuid} className="hover:bg-gray-50/50 transition-colors">
                                 <TableCell>
                                     <div className="flex flex-col">
-                                        <span className="font-bold">{format(new Date(payment.created_at), 'dd/MM/yyyy')}</span>
-                                        <span className="text-[10px] text-muted-foreground uppercase">{format(new Date(payment.created_at), 'HH:mm')}</span>
+                                        <span className="font-bold">{format(new Date(String(payment.payment_date)), 'dd/MM/yyyy')}</span>
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <span className="font-mono font-bold text-primary"># {String(payment.invoice_id || 0).padStart(5, '0')}</span>
+                                    <span className="font-mono font-bold text-primary">#{String(payment.invoice_id || 0).padStart(5, '0')}</span>
                                 </TableCell>
                                 <TableCell className="font-medium">
                                     {payment.project_name || 'N/A'}
