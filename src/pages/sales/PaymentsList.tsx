@@ -116,7 +116,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                     <div className="flex items-center gap-2 bg-white p-1 rounded-xl border shadow-sm flex-grow">
                         <div className="flex items-center px-3 text-muted-foreground">
                             <Search className="h-4 w-4" />
-                 ArrowUpDown       </div>
+                        </div>
                         <Input
                             placeholder={t('finances.search_payments_ph', 'Search by reference, project, or Invoice ID...')}
                             className="border-none shadow-none focus-visible:ring-0 bg-transparent"

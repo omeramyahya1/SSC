@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     DollarSign,
@@ -20,7 +20,7 @@ import {
     Pie,
     Cell
 } from 'recharts';
-import { format, subDays, startOfMonth, endOfMonth, subMonths, subYears } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, subMonths, subYears, parseISO } from 'date-fns';
 import api from '@/api/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
+import { useUserStore } from '@/store/useUserStore';
 
 interface FinancesDashboardProps {
     filterParams: {
@@ -40,14 +41,21 @@ interface FinancesDashboardProps {
     };
 }
 
+interface TrendPoint {
+    date: string;
+    revenue: number;
+}
+
 interface Stats {
     total_revenue: number;
     outstanding_invoices: number;
     inventory_value: number;
+    revenue_trend: TrendPoint[];
 }
 
 export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
     const { t, i18n } = useTranslation();
+    const { currentUser } = useUserStore();
     const [stats, setStats] = useState<Stats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [period, setPeriod] = useState("all");
@@ -61,6 +69,7 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
             try {
                 const params = {
                     ...filterParams,
+                    user_uuid: !filterParams.org_uuid ? currentUser?.uuid : undefined,
                     start_date: date?.from ? format(date.from, 'yyyy-MM-dd') : undefined,
                     end_date: date?.to ? format(date.to, 'yyyy-MM-dd') : undefined,
                 };
@@ -72,8 +81,10 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                 setIsLoading(false);
             }
         };
-        fetchStats();
-    }, [filterParams, date]);
+        if (currentUser) {
+            fetchStats();
+        }
+    }, [filterParams, date, currentUser]);
 
     const presets = [
         { name: "all", label: t('finances.presets.all', 'All'), from: subYears(new Date(), 100), to: new Date() },
@@ -83,15 +94,13 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
         { name: "last_month", label: t('finances.presets.last_month', 'Last Month'), from: startOfMonth(subMonths(new Date(), 1)), to: endOfMonth(subMonths(new Date(), 1)) },
     ];
 
-    // Mock trend data for now as the backend doesn't provide time-series yet
-    const trendData = [
-        { name: 'Jan', revenue: 4000 },
-        { name: 'Feb', revenue: 3000 },
-        { name: 'Mar', revenue: 5000 },
-        { name: 'Apr', revenue: 4500 },
-        { name: 'May', revenue: 6000 },
-        { name: 'Jun', revenue: stats?.total_revenue || 0 },
-    ];
+    const formattedTrendData = useMemo(() => {
+        if (!stats?.revenue_trend) return [];
+        return stats.revenue_trend.map(point => ({
+            ...point,
+            name: format(parseISO(point.date), 'dd MMM')
+        }));
+    }, [stats?.revenue_trend]);
 
     const pieData = [
         { name: t('finances.paid', 'Paid'), value: stats?.total_revenue || 0, color: '#10b981' },
@@ -217,14 +226,11 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                 <div className="lg:col-span-2 bg-white p-6 rounded-2xl border shadow-sm space-y-6">
                     <div className="flex items-center justify-between">
                         <h3 className="text-xl font-bold">{t('finances.revenue_trend', 'Revenue Trend')}</h3>
-                        <Button variant="ghost" size="sm" className="text-primary font-bold">
-                            {t('finances.view_report', 'View Detailed Report')}
-                            <ArrowUpRight className="h-4 w-4 ms-1" />
-                        </Button>
+
                     </div>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={trendData}>
+                            <AreaChart data={formattedTrendData}>
                                 <defs>
                                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1}/>

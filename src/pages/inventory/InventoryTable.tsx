@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Table,
@@ -82,15 +82,19 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
     const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-    // const handleQuickAdjust = async (item: InventoryItem, amount: number) => {
-    //     try {
-    //         await adjustStock(item.uuid, amount, "Quick adjustment from table");
-    //         toast.success(t('inventory.quick_adjust_success', 'Stock updated successfully'));
-    //     } catch (error: any) {
-    //         console.error("Quick Adjust Failed:", error);
-    //         toast.error(t('inventory.quick_adjust_error', 'Failed to update stock'));
-    //     }
-    // };
+    const stats = useMemo(() => {
+        const counts = { inStock: 0, lowStock: 0, outOfStock: 0 };
+        items.forEach(item => {
+            if (item.quantity_on_hand === 0) {
+                counts.outOfStock++;
+            } else if (item.quantity_on_hand <= item.low_stock_threshold) {
+                counts.lowStock++;
+            } else {
+                counts.inStock++;
+            }
+        });
+        return counts;
+    }, [items]);
 
     const handleConfirmDelete = async () => {
         if (!itemToDelete) return;
@@ -134,25 +138,45 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
 
     return (
         <>
-            <div className="p-4 border-b flex justify-end gap-2">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowSpecs(!showSpecs)}
-                    className="text-xs text-muted-foreground"
-                >
-                    {showSpecs ? t('inventory.hide_specs', 'Hide Specs') : t('inventory.show_specs', 'Show Specs')}
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowSKU(!showSKU)}
-                    className="text-xs text-muted-foreground"
-                >
-                    {showSKU ? t('inventory.hide_sku', 'Hide SKU') : t('inventory.show_sku', 'Show SKU')}
-                </Button>
+            <div className="p-4 border-b flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <div className="w-1 h-8 bg-green-500 rounded-full" />
+                        <span className="text-xl font-black">{stats.inStock}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{t('inventory.status.in_stock', 'In Stock')}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-1 h-8 bg-yellow-500 rounded-full" />
+                        <span className="text-xl font-black">{stats.lowStock}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{t('inventory.status.low_stock', 'Low Stock')}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-1 h-8 bg-red-500 rounded-full" />
+                        <span className="text-xl font-black">{stats.outOfStock}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{t('inventory.status.out_of_stock', 'Out of Stock')}</span>
+                    </div>
+                </div>
+
+                <div className="flex gap-2">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowSpecs(!showSpecs)}
+                        className="text-xs text-muted-foreground font-bold border rounded-lg h-9 px-3"
+                    >
+                        {showSpecs ? t('inventory.hide_specs', 'Hide Specs') : t('inventory.show_specs', 'Show Specs')}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowSKU(!showSKU)}
+                        className="text-xs text-muted-foreground font-bold border rounded-lg h-9 px-3"
+                    >
+                        {showSKU ? t('inventory.hide_sku', 'Hide SKU') : t('inventory.show_sku', 'Show SKU')}
+                    </Button>
+                </div>
             </div>
             <Table>
                 <TableHeader>
