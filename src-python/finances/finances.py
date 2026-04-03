@@ -14,10 +14,10 @@ def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = No
             query = query.filter(Project.organization_uuid == organization_uuid)
         elif user_uuid:
             query = query.filter(Project.user_uuid == user_uuid)
-        
+
         if branch_uuid:
             query = query.filter(Project.branch_uuid == branch_uuid)
-        
+
         if model == Payment:
             if start_date:
                 query = query.filter(Payment.created_at >= datetime.fromisoformat(start_date))
@@ -34,7 +34,7 @@ def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = No
     revenue_query = db.query(func.sum(Payment.amount)) \
         .join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
         .join(Project, Invoice.project_uuid == Project.uuid)
-    
+
     revenue_query = apply_filters(revenue_query, Payment)
     total_revenue = revenue_query.scalar() or 0.0
 
@@ -45,8 +45,8 @@ def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = No
 
     invoice_total_query = apply_filters(invoice_total_query, Invoice)
     total_invoice_amount = invoice_total_query.scalar() or 0.0
-    
-    outstanding_invoices = total_invoice_amount - total_revenue
+
+    outstanding_invoices = float(total_invoice_amount) - float(total_revenue)
 
     # 3. Inventory Value (Asset Value: Sum of buy_price * quantity_on_hand)
     inventory_query = db.query(func.sum(InventoryItem.buy_price * InventoryItem.quantity_on_hand))
@@ -72,7 +72,7 @@ def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = No
 
     trend_query = apply_filters(trend_query, Payment)
     trend_results = trend_query.group_by(func.date(Payment.created_at)).order_by(func.date(Payment.created_at)).all()
-    
+
     revenue_trend = [{"date": r.date, "revenue": float(r.revenue)} for r in trend_results]
 
     return {
@@ -215,7 +215,7 @@ def apply_payment_to_invoice(db: Session, invoice_uuid: str):
     # Calculate total paid
     total_paid = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == invoice_uuid).scalar() or 0.0
 
-    if total_paid >= invoice.amount:
+    if total_paid >= float(invoice.amount):
         invoice.status = "paid"
     elif total_paid > 0:
         invoice.status = "partial"
