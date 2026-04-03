@@ -12,7 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { SidebarClose, SidebarIcon } from 'lucide-react';
+import { SidebarClose, SidebarIcon, SidebarOpen } from 'lucide-react';
 
 const SidebarItem = ({ icon, text, children, to, onClick, isSelected }: { icon: string, text: string, to?: string, onClick?: () => void, children?: React.ReactNode, isSelected?: boolean }) => {
     const { i18n } = useTranslation();
@@ -135,9 +135,9 @@ export function Sidebar() {
                     {showSidebarContent &&
                         <Button variant="outline" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className={`group ${isCollapsed ? 'hover:bg-gray-700' : 'bg-gray-700'}`}>
                             {isCollapsed ? (
-                                    <SidebarIcon className={`h-6 w-6 group-hover:text-white`}/>
+                                    <SidebarOpen className={`h-6 w-6 group-hover:text-white ${i18n.dir() === 'rtl' && 'rotate-180'}`}/>
                                 ) : (
-                                    <SidebarClose className='h-6 w-6 text-white'/>
+                                    <SidebarClose className={`h-6 w-6 text-white ${i18n.dir() === 'rtl' && 'rotate-180'}`}/>
                                 )
                             }
                         </Button>

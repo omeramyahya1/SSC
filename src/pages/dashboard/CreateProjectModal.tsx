@@ -125,7 +125,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
                     </div>
                 </div>
             </div>
-            <DialogFooter className='flex sm:justify-end'>
+            <DialogFooter className='flex gap-4 sm:justify-end'>
                 <Button onClick={() => onOpenChange(false)} variant="outline">{t('dashboard.cancel', 'Cancel')}</Button>
                 <Button onClick={handleCreate} disabled={!isFormValid} className="text-white">{t('dashboard.create_button', 'Create Project')}</Button>
             </DialogFooter>

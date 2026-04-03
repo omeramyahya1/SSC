@@ -27,9 +27,10 @@ def _default_inventory_categories():
             "name": "Inverters",
             "spec_schema": {
                 "inverter_rated_power": "W",
+                "system_voltage_v": "V",
                 "inverter_mppt_min_v": "V",
                 "inverter_mppt_max_v": "V",
-                "system_voltage_v": "V"
+                "output_voltage_v": "V"
             }
         },
         {
@@ -37,7 +38,10 @@ def _default_inventory_categories():
             "spec_schema": {
                 "battery_rated_capacity_ah": "Ah",
                 "battery_rated_voltage": "V",
-                "battery_max_parallel": "count"
+                "battery_max_parallel": "count",
+                "dod": "%",
+                "efficiency": "%",
+                "battery_type": "type"
             }
         },
         {
