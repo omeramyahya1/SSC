@@ -471,6 +471,8 @@
   "inventory.col.reason": "السبب",
   "inventory.history_desc": "تتبع جميع حركات المخزون الواردة والصادرة.",
   "inventory.history_title": "سجل حركات المخزون",
+  "inventory.reason.invoice": "فاتورة {{invoice}}",
+  "inventory.reason.reversal": "إلغاء لفاتورة محذوفة {{invoice}}",
   "inventory.no_history": "لا توجد حركات مسجلة بعد.",
   "inventory.view_history": "عرض السجل",
   "customers.title": "العملاء",

@@ -470,6 +470,8 @@
   "inventory.col.reason": "Reason",
   "inventory.history_desc": "Track all stock ins and outs across your inventory.",
   "inventory.history_title": "Inventory Movement History",
+  "inventory.reason.invoice": "Invoice {{invoice}}",
+  "inventory.reason.reversal": "Reversal for Deleted Invoice {{invoice}}",
   "inventory.no_history": "No movements recorded yet.",
   "inventory.view_history": "View History",
   "customers.title": "Customers",

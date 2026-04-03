@@ -4,7 +4,6 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogDescription
 } from "@/components/ui/dialog";
 import {
     Table,
@@ -62,13 +61,27 @@ export function InventoryHistoryModal({ isOpen }: InventoryHistoryModalProps) {
         }
     }, [isOpen, currentUser]);
 
+    const formatReason = (reason: string) => {
+        const invoiceMatch = reason.match(/^Invoice\s+(.+)$/);
+        if (invoiceMatch) {
+            return t('inventory.reason.invoice', 'Invoice {{invoice}}', { invoice: invoiceMatch[1] });
+        }
+        const reversalMatch = reason.match(/^Reversal for Deleted Invoice\s+(.+)$/);
+        if (reversalMatch) {
+            return t('inventory.reason.reversal', 'Reversal for Deleted Invoice {{invoice}}', { invoice: reversalMatch[1] });
+        }
+        const deductionMatch = reason.match(/^Deduction for Invoice\s+(.+)$/);
+        if (deductionMatch) {
+            return t('inventory.reason.invoice', 'Invoice {{invoice}}', { invoice: deductionMatch[1] });
+        }
+        return reason;
+    };
+
     return (
-        <DialogContent className="sm:max-w-[800px] bg-white max-h-[80vh] overflow-hidden flex flex-col" dir={i18n.dir()}>
+        <DialogContent className="sm:max-w-[800px] bg-white max-h-[80vh] overflow-hidden flex flex-col filter-none backdrop-blur-0" dir={i18n.dir()}>
             <DialogHeader className="px-1">
                 <DialogTitle className="text-2xl font-bold">{t('inventory.history_title', 'Inventory Movement History')}</DialogTitle>
-                <DialogDescription>
-                    {t('inventory.history_desc', 'Track all stock ins and outs across your inventory.')}
-                </DialogDescription>
+
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto mt-4 border rounded-lg">
@@ -84,17 +97,17 @@ export function InventoryHistoryModal({ isOpen }: InventoryHistoryModalProps) {
                     <Table>
                         <TableHeader className="bg-gray-50 sticky top-0 z-10">
                             <TableRow>
-                                <TableHead className="font-bold">{t('inventory.col.date', 'Date')}</TableHead>
-                                <TableHead className="font-bold">{t('inventory.col.item', 'Item')}</TableHead>
-                                <TableHead className="font-bold text-center">{t('inventory.col.adjustment', 'Adjustment')}</TableHead>
-                                <TableHead className="font-bold">{t('inventory.col.reason', 'Reason')}</TableHead>
+                                <TableHead className="text-start font-bold">{t('inventory.col.date', 'Date')}</TableHead>
+                                <TableHead className="text-start font-bold">{t('inventory.col.item', 'Item')}</TableHead>
+                                <TableHead className="text-start font-bold text-center">{t('inventory.col.adjustment', 'Adjustment')}</TableHead>
+                                <TableHead className="text-start font-bold">{t('inventory.col.reason', 'Reason')}</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {history.map((adj) => (
                                 <TableRow key={adj.uuid}>
                                     <TableCell className="text-xs whitespace-nowrap">
-                                        {format(parseISO(adj.created_at), 'dd/MM/yyyy HH:mm')}
+                                        {format(parseISO(adj.created_at), 'dd/MM/yyyy')}
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col">
@@ -115,7 +128,7 @@ export function InventoryHistoryModal({ isOpen }: InventoryHistoryModalProps) {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-sm text-muted-foreground">
-                                        {adj.reason || t('common.none', 'None')}
+                                        {adj.reason ? formatReason(adj.reason) : t('common.none', 'None')}
                                     </TableCell>
                                 </TableRow>
                             ))}

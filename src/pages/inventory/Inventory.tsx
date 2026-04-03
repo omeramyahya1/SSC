@@ -186,6 +186,7 @@ export default function Inventory() {
                                 const [key, direction] = value.split('-') as [SortOption, SortDirection];
                                 setSortConfig({ key, direction });
                             }}
+                            dir={i18n.dir()}
                         >
                             <SelectTrigger className={`w-auto border-gray-200 h-10 rounded-xl flex gap-2 font-bold ${sortConfig.key !== "name" || sortConfig.direction !== "asc" ? "bg-primary text-white" : "bg-white"}`}>
                                 <img src="/eva-icons (2)/outline/swap.png" alt="sort" className={`w-4 h-4 rotate-90 ${sortConfig.key !== "name" || sortConfig.direction !== "asc" ? "invert" : "opacity-60"}`} />
