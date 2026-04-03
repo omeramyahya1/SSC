@@ -133,7 +133,6 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
             <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">{t('inventory.add_item_title', 'Add New Inventory Item')}</DialogTitle>
                 <DialogDescription>
-                    {t('inventory.add_item_desc', 'Fill in the details to add a new component to your stock.')}
                 </DialogDescription>
             </DialogHeader>
 
