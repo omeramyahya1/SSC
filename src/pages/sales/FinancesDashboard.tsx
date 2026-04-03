@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import {
     DollarSign,
     FileText,
-    ArrowUpRight,
     Archive,
     Calendar as CalendarIcon,
     ChevronDown

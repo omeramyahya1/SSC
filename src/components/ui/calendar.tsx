@@ -7,6 +7,8 @@ import {
   ChevronRightIcon,
 } from "lucide-react"
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
+import { arSA } from "react-day-picker/locale"
+import { useTranslation } from "react-i18next"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -23,11 +25,17 @@ function Calendar({
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
+  const { i18n } = useTranslation()
   const defaultClassNames = getDefaultClassNames()
+  const defaultLocale = i18n.language?.startsWith("ar") ? arSA : undefined
+  const resolvedDir = props.dir ?? i18n.dir()
+  const resolvedLocale = props.locale ?? defaultLocale
 
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      dir={resolvedDir}
+      locale={resolvedLocale}
       className={cn(
         "bg-background rounded-lg group/calendar p-3 [--cell-size:2rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
@@ -138,16 +146,28 @@ function Calendar({
         Chevron: ({ className, orientation, ...props }) => {
           if (orientation === "left") {
             return (
+              i18n.dir() === 'ltr' ? (
               <ChevronLeftIcon className={cn("size-4", className)} {...props} />
+            ) : (
+
+              <ChevronRightIcon className={cn("size-4", className)} {...props} />
+            )
             )
           }
 
           if (orientation === "right") {
             return (
-              <ChevronRightIcon
+              i18n.dir() === 'rtl' ? (
+                <ChevronLeftIcon
                 className={cn("size-4", className)}
                 {...props}
               />
+              ) : (
+                <ChevronRightIcon
+                className={cn("size-4", className)}
+                {...props}
+              />
+              )
             )
           }
 
