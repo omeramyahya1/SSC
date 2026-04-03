@@ -873,15 +873,15 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                         {applianceError && <Alert variant="destructive"><AlertTitle><AlertCircle className="h-4 w-4" /> Error</AlertTitle><AlertDescription>{applianceError}</AlertDescription></Alert>}
 
                         <ScrollArea className="flex-grow h-[300px] mb-4 rounded-md border">
-                            <Table>
+                            <Table dir={i18n.dir()} className='overflow-x-scroll'>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[150px] font-bold">{t('project_modal.appliance', 'Appliance')}</TableHead>
-                                        <TableHead className="w-[100px] text-center font-bold">{t('project_modal.wattage', 'Wattage (W)')}</TableHead>
-                                        <TableHead className="w-[80px] text-center font-bold">{t('project_modal.qty', 'Qty')}</TableHead>
-                                        <TableHead className="w-[100px] text-center font-bold">{t('project_modal.use_hours_night', 'Night/Battery Hrs')}</TableHead>
-                                        <TableHead className="w-[100px] text-center font-bold">{t('project_modal.power', 'Power (W)')}</TableHead>
-                                        <TableHead className="w-[120px] text-center font-bold">{t('project_modal.energy', 'Energy (Wh/day)')}</TableHead>
+                                        <TableHead className="text-start w-[150px] font-bold">{t('project_modal.appliance', 'Appliance')}</TableHead>
+                                        <TableHead className="text-start w-[100px] font-bold">{t('project_modal.wattage', 'Wattage (W)')}</TableHead>
+                                        <TableHead className="text-start w-[80px] font-bold">{t('project_modal.qty', 'Qty')}</TableHead>
+                                        <TableHead className="text-start w-[100px] font-bold">{t('project_modal.use_hours_night', 'Night/Battery Hrs')}</TableHead>
+                                        <TableHead className="text-start w-[100px] font-bold">{t('project_modal.power', 'Power (W)')}</TableHead>
+                                        <TableHead className="text-start w-[120px] font-bold">{t('project_modal.energy', 'Energy (Wh/day)')}</TableHead>
                                         {!isArchived && <TableHead className="w-[50px]"></TableHead>}
                                     </TableRow>
                                 </TableHeader>

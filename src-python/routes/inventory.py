@@ -27,6 +27,7 @@ def _default_inventory_categories():
             "name": "Inverters",
             "spec_schema": {
                 "inverter_rated_power": "W",
+                "system_voltage_v": "V",
                 "inverter_mppt_min_v": "V",
                 "inverter_mppt_max_v": "V",
                 "output_voltage_v": "V"

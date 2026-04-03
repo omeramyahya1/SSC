@@ -38,6 +38,7 @@ DEFAULT_CATEGORIES = [
             "name": "Inverters",
             "spec_schema": {
                 "inverter_rated_power": "W",
+                "system_voltage_v": "V",
                 "inverter_mppt_min_v": "V",
                 "inverter_mppt_max_v": "V",
                 "output_voltage_v": "V"
@@ -74,11 +75,13 @@ def _random_inverter_specs() -> Dict[str, float]:
     rated = random.choice([1000, 2000, 3000, 5000, 8000, 10000])
     mppt_min = random.choice([80, 100, 120, 150])
     mppt_max = random.choice([450, 500, 550, 600])
-    output_v = random.choice([12, 24, 48])
+    system_v = random.choice([12, 24, 48])
+    output_v = random.choice([110, 220, 230])
     return {
         "inverter_rated_power": rated,
         "inverter_mppt_min_v": mppt_min,
         "inverter_mppt_max_v": mppt_max,
+        "system_voltage_v": system_v,
         "output_voltage_v": output_v,
     }
 
@@ -93,7 +96,7 @@ def _random_battery_specs() -> Dict[str, float]:
         "battery_max_parallel": max_parallel,
         "dod": random.choice([70, 80, 90, 95]),
         "efficiency": random.choice([85, 90, 95, 98]),
-        "battery_type": random.choice(["AGM", "Gel", "Lithium", "Lead Acid"]),
+        "battery_type": random.choice(["lithium", "liquid", "dry"]),
     }
 
 
@@ -117,7 +120,7 @@ def _fill_missing_specs(specs: Dict[str, float], schema: Dict[str, str]) -> Dict
         elif unit_lower == "count":
             filled[key] = random.choice([1, 2, 3, 4, 6, 8])
         elif unit_lower == "type":
-            filled[key] = random.choice(["AGM", "Gel", "Lithium", "Lead Acid"])
+            filled[key] = random.choice(["lithium", "liquid", "dry"])
         else:
             filled[key] = random.choice([1, 5, 10, 20])
     return filled

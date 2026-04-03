@@ -20,14 +20,12 @@ import {
     Zap,
     Battery as BatteryIcon,
     Sun,
-    AlertCircle,
     CheckCircle2,
     Info,
     Edit3,
     ShoppingCart,
     ArrowRight,
     FileText,
-    Settings2
 } from 'lucide-react';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
@@ -522,10 +520,10 @@ function ComponentSlot({
         );
 
         const itemVoltage = safe_float(
-            specs.output_voltage_v ||
+            specs.system_voltage_v ||
             specs.panel_mpp_voltage ||
-            specs.battery_rated_voltage ||
-            specs.voltage
+            specs.battery_rated_voltage
+
         );
 
         const msgs: string[] = [];
@@ -540,7 +538,8 @@ function ComponentSlot({
         }
 
         // 2. Voltage Validation
-        if (requirements.voltage && itemVoltage !== requirements.voltage) {
+        const hasItemVoltage = specs.output_voltage_v || specs.panel_mpp_voltage || specs.battery_rated_voltage || specs.voltage;
+        if (requirements.voltage && hasItemVoltage && itemVoltage !== requirements.voltage) {
             status = 'misaligned';
             color = 'text-orange-600'; // Warning
             msgs.push(t('components.status.voltage_mismatch', 'Voltage mismatch: {{val}}V (Req: {{req}}V)', { val: itemVoltage, req: requirements.voltage }));
