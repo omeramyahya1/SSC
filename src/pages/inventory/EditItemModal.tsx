@@ -125,6 +125,7 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                                         <Select
                                             onValueChange={(value) => handleSpecChange(key, value)}
                                             value={formData.technical_specs[key] || ''}
+                                            dir={i18n.dir()}
                                         >
                                             <SelectTrigger id={`edit-spec-${key}`} className="h-8 text-sm bg-white">
                                                 <SelectValue placeholder={t('inventory.select_battery_type', 'Select type')} />

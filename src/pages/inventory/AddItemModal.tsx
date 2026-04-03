@@ -140,13 +140,13 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="category" className="font-semibold">{t('inventory.col.category', 'Category')} *</Label>
-                        <Select onValueChange={handleCategoryChange} value={formData.category_uuid}>
+                        <Select onValueChange={handleCategoryChange} value={formData.category_uuid} dir={i18n.dir()}>
                             <SelectTrigger id="category">
                                 <SelectValue placeholder={t('inventory.select_category_ph', 'Select category')} />
                             </SelectTrigger>
                             <SelectContent className='bg-white'>
                                 {categories.map(cat => (
-                                    <SelectItem key={cat.uuid} value={cat.uuid}>{cat.name}</SelectItem>
+                                    <SelectItem key={cat.uuid} value={cat.uuid}>{t(`inventory.tabs.${cat.name === 'Solar Panels' ? 'panels' : cat.name.toLocaleLowerCase()}`, `${cat.name}`)}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -255,6 +255,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                                             <Select
                                                 onValueChange={(value) => handleSpecChange(key, value)}
                                                 value={formData.technical_specs[key] || ''}
+                                                dir={i18n.dir()}
                                             >
                                                 <SelectTrigger id={`spec-${key}`} className="h-8 text-sm bg-white">
                                                     <SelectValue placeholder={t('inventory.select_battery_type', 'Select type')} />

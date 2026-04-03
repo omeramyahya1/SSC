@@ -382,7 +382,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
                             <h3 className="font-bold text-lg">{t('components.system_components_table', 'Solar System Components')}</h3>
                             <Button size="sm" onClick={() => { setSelectedSlotCategory(null); setIsInventoryModalOpen(true); }}>
-                                <Plus className="h-4 w-4 me-1" /> {t('components.add_from_inventory', 'Add Item')}
+                                <Plus className="h-4 w-4 " /> {t('components.add_from_inventory', 'Add Item')}
                             </Button>
                         </div>
                         <Table dir={i18n.dir()}>
@@ -536,7 +536,7 @@ function ComponentSlot({
         if (requirements.primaryValue && itemValue < requirements.primaryValue) {
             status = 'misaligned';
             color = 'text-blue-600'; // Info-style
-            msgs.push(t('components.status.spec_below', 'Spec below requirement ({{val}}{{unit}})', { val: itemValue, unit: requirements.primaryUnit }));
+            msgs.push(t('components.status.spec_below', 'Spec below requirement ({{val}} {{unit}})', { val: itemValue, unit: requirements.primaryUnit }));
         }
 
         // 2. Voltage Validation
@@ -645,12 +645,12 @@ function ComponentSlot({
                                             <Info className="h-4 w-4" />
                                         </Button>
                                     </TooltipTrigger>
-                                    <TooltipContent className="bg-white border p-3 shadow-xl">
+                                    <TooltipContent className="bg-white border p-3 shadow-xl w-fit" dir={i18n.dir()}>
                                         <div className="space-y-2 text-xs">
                                             <p className="font-bold border-b pb-1">{t('components.spec_comparison', 'Technical Comparison')}</p>
                                             <div className="grid grid-cols-2 gap-x-4">
                                                 <span className="text-gray-500">{t('components.requirement', 'Requirement')}:</span>
-                                                <span className="font-semibold">{requirements.display}</span>
+                                                <span className="font-semibold" >{requirements.display}</span>
 
                                                 <span className="text-gray-500">{t('components.selected_item', 'Selected Item')}:</span>
                                                 <span className="font-semibold">

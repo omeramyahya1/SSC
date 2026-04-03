@@ -73,7 +73,7 @@ const SortableHeader = ({
 
 export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProps) {
     const { t, i18n } = useTranslation();
-    const { adjustStock, deleteItem } = useInventoryStore();
+    const { deleteItem } = useInventoryStore();
 
     const [showSKU, setShowSKU] = useState(true);
     const [showSpecs, setShowSpecs] = useState(true);
@@ -243,7 +243,7 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
                                 <TableCell className="text-center font-semibold text-primary">{item.sell_price.toLocaleString()} </TableCell>
                                 <TableCell className="text-center">{getStatusBadge(item)}</TableCell>
                                 <TableCell className="text-center">
-                                    <DropdownMenu>
+                                    <DropdownMenu dir={i18n.dir()}>
                                         <DropdownMenuTrigger asChild>
                                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
                                                 <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />

@@ -76,19 +76,6 @@ export default function Inventory() {
         return sorted;
     }, [items, categories, searchQuery, activeTab, sortConfig]);
 
-    const stats = useMemo(() => {
-        const counts = { inStock: 0, lowStock: 0, outOfStock: 0 };
-        filteredAndSortedItems.forEach(item => {
-            if (item.quantity_on_hand === 0) {
-                counts.outOfStock++;
-            } else if (item.quantity_on_hand <= item.low_stock_threshold) {
-                counts.lowStock++;
-            } else {
-                counts.inStock++;
-            }
-        });
-        return counts;
-    }, [filteredAndSortedItems]);
 
     const handleSortChange = (key: SortOption) => {
         let direction: SortDirection = 'asc';

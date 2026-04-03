@@ -99,7 +99,7 @@ export function InventoryHistoryModal({ isOpen }: InventoryHistoryModalProps) {
                             <TableRow>
                                 <TableHead className="text-start font-bold">{t('inventory.col.date', 'Date')}</TableHead>
                                 <TableHead className="text-start font-bold">{t('inventory.col.item', 'Item')}</TableHead>
-                                <TableHead className="text-start font-bold text-center">{t('inventory.col.adjustment', 'Adjustment')}</TableHead>
+                                <TableHead className="text-start font-bold">{t('inventory.col.adjustment', 'Adjustment')}</TableHead>
                                 <TableHead className="text-start font-bold">{t('inventory.col.reason', 'Reason')}</TableHead>
                             </TableRow>
                         </TableHeader>
