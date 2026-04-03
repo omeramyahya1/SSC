@@ -161,7 +161,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                     </div>
 
                     <div className="flex items-center gap-2">
-                         <Select value={statusFilter} onValueChange={setStatusFilter}>
+                         <Select value={statusFilter} onValueChange={setStatusFilter} dir={i18n.dir()}>
                             <SelectTrigger className={`w-[140px] h-10 rounded-xl ${statusFilter === 'all'? 'bg-white' : 'bg-primary text-white'}`}>
                                 <SelectValue placeholder={t('finances.filter_status', 'Status')} />
                             </SelectTrigger>
@@ -173,7 +173,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                             </SelectContent>
                         </Select>
 
-                        <Select value={sortBy} onValueChange={setSortBy}>
+                        <Select value={sortBy} onValueChange={setSortBy} dir={i18n.dir()}>
                             <SelectTrigger className={`w-[140px] h-10 rounded-xl ${sortBy === 'date-desc'? 'bg-white' : 'bg-primary text-white'}`}>
                                 <ArrowUpDown className="h-4 w-4 me-2 opacity-60" />
                                 <SelectValue placeholder={t('common.sort_by', 'Sort By')} />
@@ -195,20 +195,20 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                 <Table>
                     <TableHeader className="bg-gray-50/50">
                         <TableRow>
-                            <TableHead className="w-[80px] font-bold">{t('invoicing.id', 'ID')}</TableHead>
-                            <TableHead className="font-bold">{t('invoicing.customer', 'Customer')}</TableHead>
-                            <TableHead className="font-bold">{t('invoicing.due_date', 'Due Date')}</TableHead>
-                            <TableHead className="font-bold">{t('invoicing.amount', 'Amount')}</TableHead>
-                            <TableHead className="font-bold">{t('invoicing.paid', 'Paid')}</TableHead>
-                            <TableHead className="font-bold">{t('invoicing.remainder', 'Remainder')}</TableHead>
+                            <TableHead className="text-start w-[80px] font-bold">{t('invoicing.id', 'ID')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('invoicing.customer', 'Customer')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('invoicing.due_date', 'Due Date')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('invoicing.amount', 'Amount')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('invoicing.paid', 'Paid')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('invoicing.remainder', 'Remainder')}</TableHead>
                             <TableHead className="text-center font-bold">{t('invoicing.status', 'Status')}</TableHead>
                             <TableHead className="text-end font-bold">{t('invoicing.actions', 'Actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredAndSortedInvoices.map((invoice) => (
-                            <TableRow key={invoice.uuid} className="hover:bg-gray-50/50 transition-colors">
-                                <TableCell className="font-mono font-bold text-primary">
+                            <TableRow key={invoice.uuid} className="text-start hover:bg-gray-50/50 transition-colors">
+                                <TableCell className="font-mono font-bold text-primary text-start">
                                     #{String(invoice.invoice_id).padStart(5, '0')}
                                 </TableCell>
                                 <TableCell className="font-medium">
@@ -230,7 +230,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                     {getStatusBadge(invoice.status)}
                                 </TableCell>
                                 <TableCell className="text-end">
-                                    <DropdownMenu>
+                                    <DropdownMenu dir={i18n.dir()}>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="icon" className="rounded-full">
                                                 <MoreVertical className="h-4 w-4" />

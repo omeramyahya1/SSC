@@ -39,7 +39,7 @@ export function SettingsModal() {
             <div className="flex-grow p-6 space-y-8">
                 <div className="space-y-2">
                     <Label htmlFor="language-select">{t('settings.language', 'Language')}</Label>
-                    <Select onValueChange={handleLanguageChange} defaultValue={i18n.language}>
+                    <Select onValueChange={handleLanguageChange} defaultValue={i18n.language} dir={i18n.dir()}>
                         <SelectTrigger id="language-select" className="w-[240px]">
                             <SelectValue placeholder={t('settings.select_language_placeholder', 'Select language')} />
                         </SelectTrigger>
@@ -49,7 +49,7 @@ export function SettingsModal() {
                         </SelectContent>
                     </Select>
                 </div>
-                
+
                 <div className="absolute bottom-6 end-6">
                     <Button onClick={handleLogout} variant="destructive">
                         {t('dashboard.logout', 'Logout')}

@@ -59,7 +59,7 @@ export function InvoiceEditorModal({ isOpen, onClose, invoiceUuid }: InvoiceEdit
     }, [isOpen, invoiceUuid, projects, fetchProjects]);
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={onClose} >
             <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 overflow-hidden bg-white border-none rounded-2xl shadow-2xl" dir={i18n.dir()}>
                 <DialogHeader>
                     <DialogTitle></DialogTitle>

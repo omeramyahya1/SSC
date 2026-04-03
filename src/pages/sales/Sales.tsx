@@ -69,7 +69,7 @@ export default function Sales() {
 
                     <div className="flex items-center gap-3">
                         {isAdmin && (
-                            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                            <Select value={selectedBranch} onValueChange={setSelectedBranch} dir={i18n.dir()}>
                                 <SelectTrigger className={`h-auto 8 w-fit gap-2 ${selectedBranch !== "all" ? "bg-primary text-white": "bg-white"} `}>
                                     <Building2 className="h-4 w-4 opacity-60" />
                                     <SelectValue placeholder={t('finances.all_branches', 'All Branches')} />
@@ -92,7 +92,7 @@ export default function Sales() {
                 </div>
 
                 {/* Main Tabs */}
-                <Tabs defaultValue="reports" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+                <Tabs defaultValue="reports" value={activeTab} onValueChange={setActiveTab} className="space-y-4" dir={i18n.dir()}>
                     <TabsList className="bg-white border p-1 h-10 w-fit">
                         <TabsTrigger value="reports" className="font-bold px-6 data-[state=active]:bg-primary data-[state=active]:text-white">
                             <LayoutDashboard className="h-4 w-4 me-2" />

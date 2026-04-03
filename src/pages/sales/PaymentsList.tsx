@@ -113,7 +113,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
             {/* Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-grow max-w-4xl">
-                    <div className="flex items-center gap-2 bg-white p-1 rounded-xl border shadow-sm flex-grow">
+                    <div className="flex items-center bg-white p-1 rounded-xl border shadow-sm flex-grow">
                         <div className="flex items-center px-3 text-muted-foreground">
                             <Search className="h-4 w-4" />
                         </div>
@@ -126,7 +126,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <Select value={methodFilter} onValueChange={setMethodFilter}>
+                        <Select value={methodFilter} onValueChange={setMethodFilter} dir={i18n.dir()}>
                             <SelectTrigger className="w-[160px] bg-white h-10 rounded-xl">
                                 <SelectValue placeholder={t('finances.filter_method', 'Payment Method')} />
                             </SelectTrigger>
@@ -138,7 +138,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                             </SelectContent>
                         </Select>
 
-                        <Select value={sortBy} onValueChange={setSortBy}>
+                        <Select value={sortBy} onValueChange={setSortBy} dir={i18n.dir()}>
                             <SelectTrigger className="w-[160px] bg-white h-10 rounded-xl">
                                 <ArrowUpDown className="h-4 w-4 me-2 opacity-60" />
                                 <SelectValue placeholder={t('common.sort_by', 'Sort By')} />
@@ -160,12 +160,12 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                 <Table>
                     <TableHeader className="bg-gray-50/50">
                         <TableRow>
-                            <TableHead className="font-bold">{t('finances.date', 'Date')}</TableHead>
-                            <TableHead className="font-bold">{t('invoicing.id', 'Invoice ID')}</TableHead>
-                            <TableHead className="font-bold">{t('invoicing.customer', 'Customer')}</TableHead>
-                            <TableHead className="text-center font-bold">{t('finances.method', 'Method')}</TableHead>
-                            <TableHead className="font-bold">{t('finances.reference', 'Reference')}</TableHead>
-                            <TableHead className="font-bold">{t('finances.amount', 'Amount')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('finances.date', 'Date')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('invoicing.id', 'Invoice ID')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('invoicing.customer', 'Customer')}</TableHead>
+                            <TableHead className="text-start text-center font-bold">{t('finances.method', 'Method')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('finances.reference', 'Reference')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('finances.amount', 'Amount')}</TableHead>
                             <TableHead className="text-end font-bold">{t('finances.actions', 'Actions')}</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -195,7 +195,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                                     + {payment.amount.toLocaleString()}
                                 </TableCell>
                                 <TableCell className="text-end">
-                                    <DropdownMenu>
+                                    <DropdownMenu dir={i18n.dir()}>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="icon" className="rounded-full">
                                                 <MoreVertical className="h-4 w-4" />

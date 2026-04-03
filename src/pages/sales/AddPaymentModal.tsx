@@ -39,7 +39,7 @@ interface AddPaymentModalProps {
     initialAmount?: number;
 }
 
-export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, initialAmount }: AddPaymentModalProps) {
+export function AddPaymentModal({ isOpen, onClose, initialInvoiceUuid, initialAmount }: AddPaymentModalProps) {
     const { t, i18n } = useTranslation();
     const { invoices, fetchInvoices } = useInvoiceStore();
     const { createPayment } = usePaymentStore();
@@ -202,7 +202,7 @@ export function AddPaymentModal({ isOpen, onClose, orgUuid, initialInvoiceUuid, 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label className="font-bold text-xs  text-muted-foreground">{t('finances.method', 'Payment Method')}</Label>
-                            <Select value={method} onValueChange={setMethod}>
+                            <Select value={method} onValueChange={setMethod} dir={i18n.dir()}>
                                 <SelectTrigger className="border-gray-200 rounded-xl focus:ring-primary">
                                     <SelectValue placeholder={t('finances.choose_method', 'Choose a Payment Method')}/>
                                 </SelectTrigger>

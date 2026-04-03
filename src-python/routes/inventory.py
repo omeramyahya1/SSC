@@ -298,14 +298,14 @@ def get_adjustments_history():
 
     with get_db() as db:
         query = db.query(StockAdjustment).join(InventoryItem, StockAdjustment.item_uuid == InventoryItem.uuid)
-        
+
         if org_uuid:
             query = query.filter(StockAdjustment.organization_uuid == org_uuid)
         elif user_uuid:
             query = query.filter(StockAdjustment.user_uuid == user_uuid)
 
         adjustments = query.order_by(StockAdjustment.created_at.desc()).all()
-        
+
         results = []
         for adj in adjustments:
             d = model_to_dict(adj)
@@ -313,7 +313,7 @@ def get_adjustments_history():
                 d['item_name'] = adj.item.name
                 d['item_sku'] = adj.item.sku
             results.append(d)
-            
+
         return jsonify(results)
 
 
@@ -337,7 +337,7 @@ def add_project_component():
             db.add(new_comp)
             db.commit()
             db.refresh(new_comp)
-            
+
             d = model_to_dict(new_comp, include_relationships=True)
             if new_comp.item:
                 d['item'] = model_to_dict(new_comp.item, include_relationships=True)
