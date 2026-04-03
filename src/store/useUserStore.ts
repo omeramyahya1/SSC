@@ -150,5 +150,5 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
 }));
 
 registerStore(StoreKeys.User, () => {
-  useUserStore.getState().fetchUsers();
+  // Intentionally avoid eager fetch; fetchUsers should be triggered by admin-only views.
 });

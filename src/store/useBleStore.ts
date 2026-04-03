@@ -71,7 +71,7 @@ export interface BleSettingsPayload {
     autonomy_days: number;
     battery_dod: number;
     battery_efficiency: number;
-    battery_type: 'liquid' | 'lithium' | 'dry' | 'other';
+    battery_type: string;
     battery_rated_capacity_ah: number;
     battery_rated_voltage: number;
     battery_max_parallel: number;
