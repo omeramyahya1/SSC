@@ -11,6 +11,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { InventoryTable, SortConfig } from './InventoryTable';
 import { AddItemModal } from './AddItemModal';
+import { InventoryHistoryModal } from './InventoryHistoryModal';
+import { cn } from '@/lib/utils';
 
 export type SortOption = 'name' | 'sku' | 'quantity_on_hand' | 'buy_price' | 'sell_price';
 export type SortDirection = 'asc' | 'desc';
@@ -32,6 +34,7 @@ export default function Inventory() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+    const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
 
     useEffect(() => {
@@ -54,8 +57,8 @@ export default function Inventory() {
         });
 
         const sorted = [...filtered].sort((a, b) => {
-            const aValue = a[sortConfig.key];
-            const bValue = b[sortConfig.key];
+            const aValue = a[sortConfig.key as keyof typeof a];
+            const bValue = b[sortConfig.key as keyof typeof b];
 
             if (aValue === undefined || aValue === null) return 1;
             if (bValue === undefined || bValue === null) return -1;
@@ -64,7 +67,7 @@ export default function Inventory() {
             if (typeof aValue === 'string' && typeof bValue === 'string') {
                 comparison = aValue.localeCompare(bValue);
             } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-                comparison = aValue - bValue;
+                comparison = (aValue as number) - (bValue as number);
             }
 
             return sortConfig.direction === 'asc' ? comparison : -comparison;
@@ -72,6 +75,20 @@ export default function Inventory() {
 
         return sorted;
     }, [items, categories, searchQuery, activeTab, sortConfig]);
+
+    const stats = useMemo(() => {
+        const counts = { inStock: 0, lowStock: 0, outOfStock: 0 };
+        filteredAndSortedItems.forEach(item => {
+            if (item.quantity_on_hand === 0) {
+                counts.outOfStock++;
+            } else if (item.quantity_on_hand <= item.low_stock_threshold) {
+                counts.lowStock++;
+            } else {
+                counts.inStock++;
+            }
+        });
+        return counts;
+    }, [filteredAndSortedItems]);
 
     const handleSortChange = (key: SortOption) => {
         let direction: SortDirection = 'asc';
@@ -119,10 +136,27 @@ export default function Inventory() {
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
                         <h1 className="text-3xl font-bold">{t('inventory.title', 'Inventory')}</h1>
-
+                        <div className="flex items-center gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setIsHistoryModalOpen(true)}
+                                className="h-10 px-4 rounded-xl border-gray-200 font-bold"
+                            >
+                                <img src="/eva-icons (2)/outline/clock.png" alt="history" className="w-5 h-5 opacity-60" />
+                                {t('inventory.view_history', 'View History')}
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={() => setIsAddItemModalOpen(true)}
+                                disabled={isExpired}
+                                className="h-10 px-4 text-white rounded-xl hover:shadow-lg font-bold"
+                            >
+                                <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />
+                                {t('inventory.add_item', 'Add New Item')}
+                            </Button>
+                        </div>
                     </div>
-
-
 
                     <div className='flex flex-row justify-between'>
                         <div className="flex flex-wrap items-center gap-3">
@@ -131,7 +165,7 @@ export default function Inventory() {
                             <img src="/eva-icons (2)/outline/search.png" alt="search" className="w-5 h-5 absolute ltr:left-3 rtl:right-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-60" />
                             <Input
                                 placeholder={t('inventory.search_ph', 'Search by name, SKU, brand...')}
-                                className="bg-white ltr:pl-10 rtl:pr-10 border-gray-200"
+                                className="bg-white ltr:pl-10 rtl:pr-10 border-gray-200 h-10 rounded-xl"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
@@ -152,8 +186,9 @@ export default function Inventory() {
                                 const [key, direction] = value.split('-') as [SortOption, SortDirection];
                                 setSortConfig({ key, direction });
                             }}
+                            dir={i18n.dir()}
                         >
-                            <SelectTrigger className={`w-auto border-gray-200 flex gap-2 ${sortConfig.key !== "name" || sortConfig.direction !== "asc" ? "bg-primary text-white" : "bg-white"}`}>
+                            <SelectTrigger className={`w-auto border-gray-200 h-10 rounded-xl flex gap-2 font-bold ${sortConfig.key !== "name" || sortConfig.direction !== "asc" ? "bg-primary text-white" : "bg-white"}`}>
                                 <img src="/eva-icons (2)/outline/swap.png" alt="sort" className={`w-4 h-4 rotate-90 ${sortConfig.key !== "name" || sortConfig.direction !== "asc" ? "invert" : "opacity-60"}`} />
                                 <SelectValue placeholder={t('dashboard.sort_by', 'Sort by')} />
                             </SelectTrigger>
@@ -170,27 +205,17 @@ export default function Inventory() {
                         </Select>
                     </div>
 
-                        {/* Add New Item */}
-                        <Button
-                            type="button"
-                            onClick={() => setIsAddItemModalOpen(true)}
-                            disabled={isExpired}
-                            className="text-white rounded-lg hover:shadow-lg"
-                        >
-                            <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
-                            <span className='me-2'>{t('inventory.add_item', 'Add New Item')}</span>
-                        </Button>
                     </div>
                 </div>
 
                 {/* Tabs */}
                 <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="" dir={i18n.dir()}>
-                    <TabsList className="bg-white border p-1 h-auto flex-wrap justify-start">
-                        <TabsTrigger value="all" className={`font-bold px-6 ${activeTab == "all"? "text-white bg-primary": ""}`}>{t('inventory.tabs.all', 'All Items')}</TabsTrigger>
-                        <TabsTrigger value="solar panels" className={`font-bold px-6 ${activeTab == "solar panels"? "text-white bg-primary": ""}`}>{t('inventory.tabs.panels', 'Panels')}</TabsTrigger>
-                        <TabsTrigger value="inverters" className={`font-bold px-6 ${activeTab == "inverters"? "text-white bg-primary": ""}`}>{t('inventory.tabs.inverters', 'Inverters')}</TabsTrigger>
-                        <TabsTrigger value="batteries" className={`font-bold px-6 ${activeTab == "batteries"? "text-white bg-primary": ""}`}>{t('inventory.tabs.batteries', 'Batteries')}</TabsTrigger>
-                        <TabsTrigger value="accessories" className={`font-bold px-6 ${activeTab == "accessories"? "text-white bg-primary": ""}`}>{t('inventory.tabs.accessories', 'Accessories')}</TabsTrigger>
+                    <TabsList className="bg-white border p-1 h-auto flex-wrap justify-start rounded-xl">
+                        <TabsTrigger value="all" className={cn("font-bold px-6 h-9 rounded-lg", activeTab == "all"? "text-white bg-primary": "")}>{t('inventory.tabs.all', 'All Items')}</TabsTrigger>
+                        <TabsTrigger value="solar panels" className={cn("font-bold px-6 h-9 rounded-lg", activeTab == "solar panels"? "text-white bg-primary": "")}>{t('inventory.tabs.panels', 'Panels')}</TabsTrigger>
+                        <TabsTrigger value="inverters" className={cn("font-bold px-6 h-9 rounded-lg", activeTab == "inverters"? "text-white bg-primary": "")}>{t('inventory.tabs.inverters', 'Inverters')}</TabsTrigger>
+                        <TabsTrigger value="batteries" className={cn("font-bold px-6 h-9 rounded-lg", activeTab == "batteries"? "text-white bg-primary": "")}>{t('inventory.tabs.batteries', 'Batteries')}</TabsTrigger>
+                        <TabsTrigger value="accessories" className={cn("font-bold px-6 h-9 rounded-lg", activeTab == "accessories"? "text-white bg-primary": "")}>{t('inventory.tabs.accessories', 'Accessories')}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value={activeTab} className="mt-6">
@@ -202,6 +227,10 @@ export default function Inventory() {
             {/* Modals */}
             <Dialog open={isAddItemModalOpen} onOpenChange={setIsAddItemModalOpen}>
                 <AddItemModal onOpenChange={setIsAddItemModalOpen} />
+            </Dialog>
+
+            <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
+                <InventoryHistoryModal isOpen={isHistoryModalOpen} />
             </Dialog>
         </main>
     );

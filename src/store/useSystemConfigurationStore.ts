@@ -1,7 +1,8 @@
 // src/store/useSystemConfigurationStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
-import { BleConfigData } from './useBleStore'; 
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
+import { BleConfigData } from './useBleStore';
 import { useProjectStore, Project } from './useProjectStore';
 
 export interface SystemConfiguration {
@@ -18,6 +19,7 @@ interface SystemConfigurationStore {
     systemConfiguration: SystemConfiguration | null;
     isLoading: boolean;
     error: string | null;
+    lastProjectUuid: string | null;
 
     saveSystemConfiguration: (projectUuid: string, bleResultsData: BleConfigData) => Promise<void>;
     fetchSystemConfiguration: (projectUuid: string) => Promise<void>;
@@ -30,6 +32,7 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
     systemConfiguration: null,
     isLoading: false,
     error: null,
+    lastProjectUuid: null,
 
     saveSystemConfiguration: async (projectUuid, bleResultsData) => {
         set({ isLoading: true, error: null });
@@ -39,16 +42,16 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
             };
             // The backend now returns the full updated Project object
             const { data: updatedProject } = await api.post<Project>(`${resource}/project/${projectUuid}`, payload);
-            
+
             if (!updatedProject.system_config) {
                 throw new Error("API did not return system_config in project update response");
             }
-            
+
             // Extract the system_config from the returned project
             const systemConfigData = updatedProject.system_config;
 
-            set({ systemConfiguration: systemConfigData, isLoading: false });
-            
+            set({ systemConfiguration: systemConfigData, isLoading: false, lastProjectUuid: projectUuid });
+
             // Update the project in the ProjectStore
             useProjectStore.getState().receiveProjectUpdate(updatedProject);
 
@@ -61,27 +64,34 @@ export const useSystemConfigurationStore = create<SystemConfigurationStore>((set
     },
 
     fetchSystemConfiguration: async (projectUuid) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, lastProjectUuid: projectUuid });
         try {
             const { data } = await api.get<SystemConfiguration>(`${resource}/project/${projectUuid}`);
             set({ systemConfiguration: data, isLoading: false });
         } catch (e: any) {
             const is404 = e.response?.status === 404;
             const errorMsg = is404 ? null : (e.response?.data?.message || e.message || "Failed to fetch system configuration");
-            
+
             if (!is404) {
                 console.error("Failed to fetch system configuration:", e);
             }
-            
-            set({ 
-                error: errorMsg, 
-                systemConfiguration: null, 
-                isLoading: false 
+
+            set({
+                error: errorMsg,
+                systemConfiguration: null,
+                isLoading: false
             });
         }
     },
 
     clearSystemConfiguration: () => {
-        set({ systemConfiguration: null, error: null });
+        set({ systemConfiguration: null, error: null, lastProjectUuid: null });
     }
 }));
+
+registerStore(StoreKeys.SystemConfiguration, () => {
+  const { lastProjectUuid, fetchSystemConfiguration } = useSystemConfigurationStore.getState();
+  if (lastProjectUuid) {
+    fetchSystemConfiguration(lastProjectUuid);
+  }
+});

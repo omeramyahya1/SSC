@@ -159,10 +159,11 @@ class InvoiceUpdate(BaseModel):
 
 
 class PaymentCreate(BaseModel):
-    invoice_id: Optional[int] = None
+    invoice_uuid: Optional[str] = None
     amount: Optional[float] = None
     method: Optional[str] = None
     payment_reference: Optional[str] = None
+    payment_date: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -410,6 +411,7 @@ class StockAdjustmentCreate(BaseModel):
     item_uuid: str
     adjustment: int
     organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
     reason: Optional[str] = None
     user_uuid: Optional[str] = None
 

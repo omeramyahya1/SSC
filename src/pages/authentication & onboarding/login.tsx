@@ -142,7 +142,7 @@ export default function LoginScreen() {
         {/* Language Switcher - Absolute Top End Corner */}
         <div className="absolute top-6 end-6 flex items-center gap-3 bg-[var(--color-bg)] ps-3 pe-2 py-1.5 transition-all hover:border-primary/30 font-medium text-sm text-neutral/80">
           {/* Placeholder for local globe icon */}
-          <Select value={i18n.language} onValueChange={toggleLanguage}>
+          <Select value={i18n.language} onValueChange={toggleLanguage} dir={i18n.dir()}>
               <SelectTrigger className="flex items-center gap-4 relative z-10 bg-white">
                 <img src="/eva-icons/fill/png/128/globe-2.png" alt="Language" className="w-5 h-5 opacity-70"
                    onError={(e) => {e.currentTarget.style.backgroundColor='#ccc'; e.currentTarget.style.borderRadius='50%'}}/>

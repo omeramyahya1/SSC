@@ -1,6 +1,7 @@
 // src/store/useSyncLogStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 // --- 1. Define Types ---
 
@@ -115,3 +116,7 @@ export const useSyncLogStore = create<SyncLogStore>((set) => ({
     }
   },
 }));
+
+registerStore(StoreKeys.SyncLog, () => {
+  useSyncLogStore.getState().fetchSyncLogs();
+});

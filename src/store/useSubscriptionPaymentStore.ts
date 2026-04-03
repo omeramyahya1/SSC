@@ -1,6 +1,7 @@
 // src/store/useSubscriptionPaymentStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 // --- 1. Define Types ---
 
@@ -116,3 +117,7 @@ export const useSubscriptionPaymentStore = create<SubscriptionPaymentStore>((set
     }
   },
 }));
+
+registerStore(StoreKeys.SubscriptionPayment, () => {
+  useSubscriptionPaymentStore.getState().fetchSubscriptionPayments();
+});

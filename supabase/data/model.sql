@@ -216,6 +216,7 @@ CREATE TABLE public.payments (
   deleted_at timestamp with time zone,
   is_dirty boolean DEFAULT false,
   payment_reference character varying,
+  payment_date timestamp with time zone,
   CONSTRAINT payments_pkey PRIMARY KEY (id),
   CONSTRAINT payments_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id)
 );

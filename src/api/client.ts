@@ -1,5 +1,8 @@
 // src/api/client.ts
 import axios, { AxiosError } from "axios";
+import { matchRefreshTargets } from "./refreshMap";
+import { scheduleRefresh } from "./refreshQueue";
+import { refreshStores } from "./storeRegistry";
 
 const api = axios.create({
   baseURL: "http://127.0.0.1:5000/", // Flask backend
@@ -21,7 +24,29 @@ api.interceptors.request.use(
 
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = response.config.method?.toUpperCase() || "";
+    if (method && method !== "GET") {
+      const rawUrl = response.config.url || "";
+      const baseURL = response.config.baseURL || api.defaults.baseURL || "http://localhost";
+      let path = "";
+
+      try {
+        path = new URL(rawUrl, baseURL).pathname;
+      } catch {
+        path = rawUrl.split("?")[0] || "";
+      }
+
+      if (path) {
+        const targets = matchRefreshTargets(method, path);
+        if (targets.length) {
+          scheduleRefresh(targets, refreshStores);
+        }
+      }
+    }
+
+    return response;
+  },
   (error: AxiosError) => {
     if (!error.response) {
       console.error("Network error or backend down");
@@ -43,4 +68,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-

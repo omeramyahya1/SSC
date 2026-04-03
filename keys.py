@@ -87,7 +87,8 @@ def main() -> int:
     if missing_in_json:
         print("Keys missing from both JSON files:")
         for k in missing_in_json:
-            print(k)
+            if k != "finances.methods.":
+                print(k)
     else:
         print("No keys missing from both JSON files.")
 
@@ -95,7 +96,8 @@ def main() -> int:
     print("Keys missing from EN JSON:")
     if missing_in_en:
         for k in missing_in_en:
-            print(k)
+            if k != "finances.methods.":
+                print(k)
     else:
         print("(none)")
 
@@ -103,7 +105,8 @@ def main() -> int:
     print("Keys missing from AR JSON:")
     if missing_in_ar:
         for k in missing_in_ar:
-            print(k)
+            if k != "finances.methods.":
+                print(k)
     else:
         print("(none)")
 
@@ -112,3 +115,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+    # pass

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 export interface InventoryCategory {
     uuid: string;
@@ -40,13 +41,14 @@ interface InventoryState {
     categories: InventoryCategory[];
     isLoading: boolean;
     error: string | null;
-    
+
+    refreshInventory: () => Promise<void>;
     fetchCategories: () => Promise<void>;
     fetchItems: () => Promise<void>;
     addItem: (item: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     updateItem: (uuid: string, updates: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     deleteItem: (uuid: string) => Promise<void>;
-    adjustStock: (itemUuid: string, adjustment: number, reason: string) => Promise<void>;
+    adjustStock: (itemUuid: string, adjustment: number, reason: string, organization_uuid: string, branch_uuid: string | undefined, user_uuid: string) => Promise<void>;
 }
 
 export const useInventoryStore = create<InventoryState>((set, get) => ({
@@ -54,6 +56,23 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     categories: [],
     isLoading: false,
     error: null,
+
+    refreshInventory: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const [categoriesRes, itemsRes] = await Promise.all([
+                api.get<InventoryCategory[]>('/inventory/categories'),
+                api.get<InventoryItem[]>('/inventory/items'),
+            ]);
+            set({
+                categories: categoriesRes.data,
+                items: itemsRes.data,
+                isLoading: false,
+            });
+        } catch (e: any) {
+            set({ error: e.message || "Failed to refresh inventory", isLoading: false });
+        }
+    },
 
     fetchCategories: async () => {
         set({ isLoading: true, error: null });
@@ -119,12 +138,15 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         }
     },
 
-    adjustStock: async (itemUuid, adjustment, reason) => {
+    adjustStock: async (itemUuid, adjustment, reason, organization_uuid, branch_uuid, user_uuid) => {
         try {
             await api.post('/inventory/adjustments', {
                 item_uuid: itemUuid,
                 adjustment,
                 reason,
+                organization_uuid,
+                ...(branch_uuid !== undefined ? { branch_uuid } : {}),
+                user_uuid,
             });
             // Update local quantity
             set((state) => ({
@@ -138,3 +160,8 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         }
     },
 }));
+
+registerStore(StoreKeys.Inventory, () => {
+  const { refreshInventory } = useInventoryStore.getState();
+  refreshInventory();
+});

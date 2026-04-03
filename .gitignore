@@ -38,6 +38,7 @@ src-python/seed_db.py
 src-python/ble/dataset/*.py
 src-python/ble/test.py
 src-python/alembic/versions/
+keys.py
 
 
 .gemini/

@@ -1,6 +1,7 @@
 // src/store/useProjectStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 import { NewProjectData, QuickCalcConvertedData } from '@/pages/dashboard/CreateProjectModal';
 import { SystemConfiguration } from './useSystemConfigurationStore';
 import { ProjectAppliance } from './useApplianceStore';
@@ -317,3 +318,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }));
   },
 }));
+
+registerStore(StoreKeys.Project, () => {
+  useProjectStore.getState().fetchProjects();
+});

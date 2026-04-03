@@ -695,7 +695,7 @@ const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading, calculatedPric
     const { accountType } = formData.stage2;
     const data = formData.stage3;
 
-    const handlePlanSelect = (plan: string) => {
+    const handlePlanSelect = (plan: any) => {
         updateFormData('stage3', { plan });
         setValid(true);
     };
@@ -893,7 +893,7 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
         <div className="space-y-1.5">
            <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.state', 'State')}</Label>
            <SearchableSelect items={uniqueStates.map(s => ({ value: s.value, label: isArabic ? s.label_ar : s.label_en }))} value={data.locationState}
-               onValueChange={(val) => updateFormData('stage4', {locationState: val, locationCity: '', latitude: '', longitude: ''})} placeholder={t('registration.select_state', 'Select state')} />
+               onValueChange={(val: string) => updateFormData('stage4', {locationState: val, locationCity: '', latitude: '', longitude: ''})} placeholder={t('registration.select_state', 'Select state')} />
         </div>
 
          <div className="space-y-1.5">
@@ -1317,8 +1317,8 @@ const Stage8 = () => {
         try {
             const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
 
-            if (latestAuth && latestAuth.user_id) {
-                const userId = latestAuth.user_id;
+            if (latestAuth && latestAuth.user_uuid) {
+                const userId = latestAuth.user_uuid;
                 // Fetch fresh data post-sync
                 await useUserStore.getState().fetchUser(userId); // force refresh
                 await useApplicationSettingsStore.getState().fetchSettings(); // force refresh

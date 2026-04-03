@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '@/api/client';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 import { User } from './useUserStore'; // Import User type from useUserStore
 
 // --- 1. Define Types ---
@@ -210,3 +211,7 @@ export const useAuthenticationStore = create<AuthenticationStore>()(persist((set
     }
   }
 }));
+
+registerStore(StoreKeys.Authentication, () => {
+  useAuthenticationStore.getState().fetchAuthentications();
+});

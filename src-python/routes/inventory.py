@@ -288,6 +288,58 @@ def get_item_adjustments(item_uuid):
         adjustments = db.query(StockAdjustment).filter(StockAdjustment.item_uuid == item_uuid).all()
         return jsonify([model_to_dict(a) for a in adjustments])
 
+@inventory_bp.route('/adjustments/history', methods=['GET'])
+def get_adjustments_history():
+    """
+    Get global stock adjustment history.
+    """
+    org_uuid = request.args.get('org_uuid')
+    user_uuid = request.args.get('user_uuid')
+
+    with get_db() as db:
+        auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+        if not current_user:
+            return jsonify({"error": "Authenticated user not found in user table."}), 404
+
+        if org_uuid and user_uuid:
+            return jsonify({"error": "Provide either org_uuid or user_uuid, not both."}), 400
+
+        if org_uuid:
+            if current_user.organization_uuid != org_uuid:
+                return jsonify({"error": "Not authorized to view this organization."}), 403
+        elif user_uuid:
+            if current_user.uuid != user_uuid:
+                return jsonify({"error": "Not authorized to view this user."}), 403
+        else:
+            # Default to current user's org if available, otherwise their user uuid
+            org_uuid = current_user.organization_uuid
+            if not org_uuid:
+                user_uuid = current_user.uuid
+
+        query = db.query(StockAdjustment).join(InventoryItem, StockAdjustment.item_uuid == InventoryItem.uuid)
+        query = query.filter(StockAdjustment.deleted_at == None, InventoryItem.deleted_at == None)
+
+        if org_uuid:
+            query = query.filter(StockAdjustment.organization_uuid == org_uuid)
+        elif user_uuid:
+            query = query.filter(StockAdjustment.user_uuid == user_uuid)
+
+        adjustments = query.order_by(StockAdjustment.created_at.desc()).all()
+
+        results = []
+        for adj in adjustments:
+            d = model_to_dict(adj)
+            if adj.item:
+                d['item_name'] = adj.item.name
+                d['item_sku'] = adj.item.sku
+            results.append(d)
+
+        return jsonify(results)
+
 
 # --- Project Components ---
 
@@ -309,7 +361,7 @@ def add_project_component():
             db.add(new_comp)
             db.commit()
             db.refresh(new_comp)
-            
+
             d = model_to_dict(new_comp, include_relationships=True)
             if new_comp.item:
                 d['item'] = model_to_dict(new_comp.item, include_relationships=True)

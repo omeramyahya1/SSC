@@ -7,14 +7,14 @@ import ForgotPassword from "./pages/authentication & onboarding/forgetPassword";
 import MainContent from "./pages/MainContent";
 import ChangePassword from "./pages/authentication & onboarding/changePassword";
 import Help from "./pages/Help";
-import Sales from "./pages/Sales";
+import ContactSales from "./pages/ContactSales";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
 import { Dashboard } from "./pages/dashboard/Dashboard";
 import CustomersPage from "./pages/customers/Customers";
 import Inventory from "./pages/inventory/Inventory";
-import InvoicesFinance from "./pages/invoices & finances/InvoicesFinance";
+import Sales from "./pages/sales/Sales"
 import TeamOrganization from "./pages/team & organization/TeamOrganization";
 
 function App() {
@@ -80,7 +80,7 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="customers" element={<CustomersPage />} />
             <Route path="inventory" element={<Inventory />} />
-            <Route path="invoices" element={<InvoicesFinance />} />
+            <Route path="sales" element={<Sales />} />
             <Route path="team" element={<TeamOrganization />} />
           </Route>
           <Route path="/help" element={<Help />} />
@@ -94,7 +94,7 @@ function App() {
           <Route path="/forgotpassword" element={<ForgotPassword />} />
           <Route path="/change_password" element={<ChangePassword />} />
           <Route path="/help" element={<Help />} />
-          <Route path="/sales" element={<Sales />} />
+          <Route path="/contact_sales" element={<ContactSales />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </>
       )}

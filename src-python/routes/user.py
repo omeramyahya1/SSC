@@ -323,7 +323,11 @@ def register_user():
 @user_bp.route("/<string:user_uuid>", methods=['GET'])
 def get_user(user_uuid):
     with get_db() as db:
-        item = db.query(User).filter(User.uuid == user_uuid).first()
+        try:
+            id = int(user_uuid)
+            item = db.query(User).filter(User.user_id == id).first()
+        except:
+            item = db.query(User).filter(User.uuid == user_uuid).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))

@@ -4,44 +4,82 @@ from models import Invoice, Payment, InventoryItem, ProjectComponent, StockAdjus
 from datetime import datetime
 from typing import Optional
 
-def calculate_dashboard_stats(db: Session, organization_uuid: str, branch_uuid: Optional[str] = None):
+def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = None, branch_uuid: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, user_uuid: Optional[str] = None):
     """
-    Calculate Finance Dashboard statistics.
+    Calculate Finance Dashboard statistics with optional date filtering.
     """
-    # 1. Aggregate Total Revenue (Sum of all payments)
+    # Base filters for revenue and invoices
+    def apply_filters(query, model):
+        if organization_uuid:
+            query = query.filter(Project.organization_uuid == organization_uuid)
+        elif user_uuid:
+            query = query.filter(Project.user_uuid == user_uuid)
+
+        if branch_uuid:
+            query = query.filter(Project.branch_uuid == branch_uuid)
+
+        if model == Payment:
+            if start_date:
+                query = query.filter(Payment.created_at >= datetime.fromisoformat(start_date))
+            if end_date:
+                query = query.filter(Payment.created_at <= datetime.fromisoformat(end_date))
+        elif model == Invoice:
+            if start_date:
+                query = query.filter(Invoice.issued_at >= datetime.fromisoformat(start_date))
+            if end_date:
+                query = query.filter(Invoice.issued_at <= datetime.fromisoformat(end_date))
+        return query
+
+    # 1. Aggregate Total Revenue (Sum of all payments within range)
     revenue_query = db.query(func.sum(Payment.amount)) \
         .join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
-        .join(Project, Invoice.project_uuid == Project.uuid) \
-        .filter(Invoice.organization_uuid == organization_uuid)
+        .join(Project, Invoice.project_uuid == Project.uuid)
 
-    if branch_uuid:
-        revenue_query = revenue_query.filter(Project.branch_uuid == branch_uuid)
-
+    revenue_query = apply_filters(revenue_query, Payment)
     total_revenue = revenue_query.scalar() or 0.0
 
-    # 2. Outstanding Invoices (Total Invoice Amount - Total Paid)
+    # 2. Total Invoices Amount (Sum of all invoices issued within range)
     invoice_total_query = db.query(func.sum(Invoice.amount)) \
-        .filter(Invoice.organization_uuid == organization_uuid)
+        .join(Project, Invoice.project_uuid == Project.uuid) \
+        .filter(Invoice.issued_at != None)
 
-    if branch_uuid:
-        invoice_total_query = invoice_total_query.filter(Invoice.branch_uuid == branch_uuid)
-
+    invoice_total_query = apply_filters(invoice_total_query, Invoice)
     total_invoice_amount = invoice_total_query.scalar() or 0.0
-    outstanding_invoices = total_invoice_amount - total_revenue
+
+    outstanding_invoices = float(total_invoice_amount) - float(total_revenue)
 
     # 3. Inventory Value (Asset Value: Sum of buy_price * quantity_on_hand)
-    inventory_query = db.query(func.sum(InventoryItem.buy_price * InventoryItem.quantity_on_hand)) \
-        .filter(InventoryItem.organization_uuid == organization_uuid)
+    inventory_query = db.query(func.sum(InventoryItem.buy_price * InventoryItem.quantity_on_hand))
+    if organization_uuid:
+        inventory_query = inventory_query.filter(InventoryItem.organization_uuid == organization_uuid)
+    elif user_uuid:
+        # Inventory items don't have user_uuid directly, but usually tied to Org or NULL for single user
+        # We'll assume NULL org_uuid means it belongs to the standalone user's data
+        inventory_query = inventory_query.filter(InventoryItem.organization_uuid == None)
 
     if branch_uuid:
         inventory_query = inventory_query.filter(InventoryItem.branch_uuid == branch_uuid)
 
     inventory_value = inventory_query.scalar() or 0.0
 
+    # 4. Revenue Trend (Grouped by date)
+    # Using SQLite date function for trend
+    trend_query = db.query(
+        func.date(Payment.created_at).label('date'),
+        func.sum(Payment.amount).label('revenue')
+    ).join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
+     .join(Project, Invoice.project_uuid == Project.uuid)
+
+    trend_query = apply_filters(trend_query, Payment)
+    trend_results = trend_query.group_by(func.date(Payment.created_at)).order_by(func.date(Payment.created_at)).all()
+
+    revenue_trend = [{"date": r.date, "revenue": float(r.revenue)} for r in trend_results]
+
     return {
         "total_revenue": float(total_revenue),
-        "outstanding_invoices": float(outstanding_invoices),
-        "inventory_value": float(inventory_value)
+        "outstanding_invoices": float(max(0, outstanding_invoices)),
+        "inventory_value": float(inventory_value),
+        "revenue_trend": revenue_trend
     }
 
 def execute_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
@@ -76,7 +114,40 @@ def execute_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
             branch_uuid=item.branch_uuid,
             item_uuid=item.uuid,
             adjustment=-component.quantity,
-            reason=f"Deduction for Invoice {invoice.invoice_id}",
+            reason=f"Invoice {invoice.invoice_id}",
+            user_uuid=user_uuid,
+            is_dirty=True
+        )
+        db.add(adjustment)
+
+def reverse_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
+    """
+    Reverses stock deductions for a deleted or voided invoice.
+    Adds back quantities to InventoryItem and creates 'Reversal' StockAdjustment records.
+    """
+    invoice = db.query(Invoice).filter(Invoice.uuid == invoice_uuid).first()
+    if not invoice:
+        return
+
+    # Get components associated with the project
+    components = db.query(ProjectComponent).filter(ProjectComponent.project_uuid == invoice.project_uuid).all()
+
+    for component in components:
+        item = db.query(InventoryItem).filter(InventoryItem.uuid == component.item_uuid).with_for_update().first()
+        if not item:
+            continue
+
+        # Add back stock
+        item.quantity_on_hand += component.quantity
+        item.is_dirty = True
+
+        # Create Reversal StockAdjustment record
+        adjustment = StockAdjustment(
+            organization_uuid=item.organization_uuid,
+            branch_uuid=item.branch_uuid,
+            item_uuid=item.uuid,
+            adjustment=component.quantity,
+            reason=f"Reversal for Deleted Invoice {invoice.invoice_id}",
             user_uuid=user_uuid,
             is_dirty=True
         )
@@ -144,7 +215,7 @@ def apply_payment_to_invoice(db: Session, invoice_uuid: str):
     # Calculate total paid
     total_paid = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == invoice_uuid).scalar() or 0.0
 
-    if total_paid >= invoice.amount:
+    if total_paid >= float(invoice.amount):
         invoice.status = "paid"
     elif total_paid > 0:
         invoice.status = "partial"
