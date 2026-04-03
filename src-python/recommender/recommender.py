@@ -50,7 +50,7 @@ def generate_recommendations(db: Session, ble_results: dict):
         for inv in inverters:
             specs = inv.technical_specs or {}
             inv_power = first_spec_value(specs, ["inverter_rated_power", "power_rating_w"])
-            inv_voltage = first_spec_value(specs, ["system_voltage_v", "voltage"])
+            inv_voltage = first_spec_value(specs, ["output_voltage_v", "system_voltage_v", "voltage"])
 
             # Check DC voltage compatibility and power
             if inv_voltage == dc_system_voltage and inv_power >= required_inverter_power:

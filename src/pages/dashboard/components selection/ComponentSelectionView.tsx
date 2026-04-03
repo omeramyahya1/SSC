@@ -600,33 +600,6 @@ function ComponentSlot({
                 <div className="flex-grow">
                     <div className="flex items-center justify-between">
                         <h4 className="font-bold">{title}</h4>
-                        {component && (
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6">
-                                            <Info className="h-4 w-4 text-gray-400" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="bg-white border p-3 shadow-xl">
-                                        <div className="space-y-2 text-xs">
-                                            <p className="font-bold border-b pb-1">{t('components.spec_comparison', 'Technical Comparison')}</p>
-                                            <div className="grid grid-cols-2 gap-x-4">
-                                                <span className="text-gray-500">{t('components.requirement', 'Requirement')}:</span>
-                                                <span className="font-semibold">{requirements.display}</span>
-
-                                                <span className="text-gray-500">{t('components.selected_item', 'Selected Item')}:</span>
-                                                <span className="font-semibold">
-                                                    {statusInfo.details?.itemValue}{requirements.primaryUnit}
-                                                    {statusInfo.details?.itemVoltage ? `, ${statusInfo.details.itemVoltage}V` : ''}
-                                                    {` x ${statusInfo.details?.itemQty}`}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        )}
                     </div>
                     <p className="text-[10px] text-muted-foreground text-semantic-error font-bold uppercase">{t('components.required', 'Required')}: {requirements.display}</p>
                 </div>
@@ -661,10 +634,36 @@ function ComponentSlot({
                             </div>
                         </div>
 
-                        <div className={cn("flex items-start gap-1.5 p-2 rounded text-[10px] font-bold leading-tight",
+                        <div className={cn("flex items-center gap-1.5 p-2 rounded text-[11px] content-start font-bold leading-tight",
                             statusInfo.status === 'fulfilled' ? "bg-green-50" : statusInfo.status === 'over' ? "bg-blue-50" : statusInfo.status === 'misaligned' ? (statusInfo.color.includes('orange') ? "bg-orange-50" : "bg-blue-50") : "bg-red-50"
                         )}>
-                            {statusInfo.status === 'fulfilled' ? <CheckCircle2 className="h-3 w-3 mt-0.5" /> : <AlertCircle className="h-3 w-3 mt-0.5" />}
+                            {statusInfo.status === 'fulfilled' ? <CheckCircle2 className="h-4 w-4 mt-0.5" /> : component && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                                            <Info className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-white border p-3 shadow-xl">
+                                        <div className="space-y-2 text-xs">
+                                            <p className="font-bold border-b pb-1">{t('components.spec_comparison', 'Technical Comparison')}</p>
+                                            <div className="grid grid-cols-2 gap-x-4">
+                                                <span className="text-gray-500">{t('components.requirement', 'Requirement')}:</span>
+                                                <span className="font-semibold">{requirements.display}</span>
+
+                                                <span className="text-gray-500">{t('components.selected_item', 'Selected Item')}:</span>
+                                                <span className="font-semibold">
+                                                    {statusInfo.details?.itemValue}{requirements.primaryUnit}
+                                                    {statusInfo.details?.itemVoltage ? `, ${statusInfo.details.itemVoltage}V` : ''}
+                                                    {` x ${statusInfo.details?.itemQty}`}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
                             <span className={statusInfo.color}>{statusInfo.msg}</span>
                         </div>
 
