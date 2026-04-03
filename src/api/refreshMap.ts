@@ -23,7 +23,7 @@ export const refreshRules: RefreshRule[] = [
   { methods: mutationMethods, pattern: /^\/subscriptions(\/|$)/, stores: [StoreKeys.Subscription] },
   { methods: mutationMethods, pattern: /^\/subscription_payments(\/|$)/, stores: [StoreKeys.SubscriptionPayment, StoreKeys.Subscription] },
   { methods: mutationMethods, pattern: /^\/sync_logs(\/|$)/, stores: [StoreKeys.SyncLog] },
-  { methods: mutationMethods, pattern: /^\/application_settingss(\/|$)/, stores: [StoreKeys.ApplicationSettings] },
+  { methods: mutationMethods, pattern: /^\/application_settings(\/|$)/, stores: [StoreKeys.ApplicationSettings] },
   { methods: mutationMethods, pattern: /^\/invoices(\/|$)/, stores: [StoreKeys.Invoice] },
   { methods: mutationMethods, pattern: /^\/finances\/invoices(\/|$)/, stores: [StoreKeys.Invoice, StoreKeys.Inventory] },
   { methods: mutationMethods, pattern: /^\/finances\/payments(\/|$)/, stores: [StoreKeys.Payment, StoreKeys.Invoice] },
