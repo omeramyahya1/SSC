@@ -81,8 +81,15 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
     const formatSpecs = (specs: Record<string, any>) => {
         if (!specs) return 'N/A';
         return Object.entries(specs)
-            .map(([key, value]) => `${key.replaceAll('_', " ")}: ${value}`)
-            .join('|');
+            .map(([key, value]) => {
+                const label = key
+                    .replace(/_/g, " ")
+                    .split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                    .join(' ');
+                return `${label}: ${value}`;
+            })
+            .join(' | ');
     };
 
     return (

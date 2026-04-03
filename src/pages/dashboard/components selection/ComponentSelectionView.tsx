@@ -26,7 +26,8 @@ import {
     Edit3,
     ShoppingCart,
     ArrowRight,
-    FileText
+    FileText,
+    Settings2
 } from 'lucide-react';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
@@ -35,6 +36,12 @@ import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ComponentSelectionViewProps {
     projectUuid: string;
@@ -322,10 +329,13 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         <ComponentSlot
                             title={t('components.inverter', 'Inverter')}
                             icon={<Zap className="h-6 w-6 text-yellow-500" />}
-                            requirement={reqInverter ? `${reqInverter.recommended_rating} W` + `, ${reqInverter.output_voltage_v} V` : 'N/A'}
-                            requirementValue={reqInverter?.recommended_rating}
-                            requirementQuantity={reqInverter?.quantity}
-                            requirementUnit="W"
+                            requirements={{
+                                display: reqInverter ? `${reqInverter.recommended_rating} W` + `, ${reqInverter.output_voltage_v} V` : 'N/A',
+                                primaryValue: reqInverter?.recommended_rating,
+                                primaryUnit: 'W',
+                                voltage: reqInverter?.output_voltage_v,
+                                quantity: reqInverter?.quantity
+                            }}
                             component={slotInverter}
                             quantityDrafts={quantityDrafts}
                             onDraftChange={handleDraftChange}
@@ -336,10 +346,13 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         <ComponentSlot
                             title={t('components.battery_bank', 'Battery Bank')}
                             icon={<BatteryIcon className="h-6 w-6 text-green-500" />}
-                            requirement={reqBattery ? `${reqBattery.capacity_per_unit_ah} Ah` + ` x ${reqBattery.quantity}` : 'N/A'}
-                            requirementValue={reqBattery?.capacity_per_unit_ah}
-                            requirementQuantity={reqBattery?.quantity}
-                            requirementUnit="Ah"
+                            requirements={{
+                                display: reqBattery ? `${reqBattery.capacity_per_unit_ah} Ah` + ` x ${reqBattery.quantity}` : 'N/A',
+                                primaryValue: reqBattery?.capacity_per_unit_ah,
+                                primaryUnit: 'Ah',
+                                voltage: reqBattery?.voltage_per_unit_v, // Per unit voltage
+                                quantity: reqBattery?.quantity
+                            }}
                             component={slotBattery}
                             quantityDrafts={quantityDrafts}
                             onDraftChange={handleDraftChange}
@@ -350,10 +363,12 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         <ComponentSlot
                             title={t('components.solar_array', 'Solar Array')}
                             icon={<Sun className="h-6 w-6 text-orange-500" />}
-                            requirement={reqPanels ? `${reqPanels.power_rating_w} W` + ` x ${reqPanels.quantity}` : 'N/A'}
-                            requirementValue={reqPanels?.power_rating_w}
-                            requirementQuantity={reqPanels?.quantity}
-                            requirementUnit="W"
+                            requirements={{
+                                display: reqPanels ? `${reqPanels.power_rating_w} W` + ` x ${reqPanels.quantity}` : 'N/A',
+                                primaryValue: reqPanels?.power_rating_w,
+                                primaryUnit: 'W',
+                                quantity: reqPanels?.quantity
+                            }}
                             component={slotPanels}
                             quantityDrafts={quantityDrafts}
                             onDraftChange={handleDraftChange}
@@ -454,10 +469,14 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
 interface ComponentSlotProps {
     title: string;
     icon: React.ReactNode;
-    requirement: string;
-    requirementValue?: number;
-    requirementQuantity?: number;
-    requirementUnit?: string;
+    requirements: {
+        display: string;
+        primaryValue?: number;
+        primaryUnit?: string;
+        voltage?: number;
+        quantity?: number;
+        type?: string;
+    };
     component?: ProjectComponent;
     quantityDrafts: Record<string, string>;
     onDraftChange: (uuid: string, value: string) => void;
@@ -469,10 +488,7 @@ interface ComponentSlotProps {
 function ComponentSlot({
     title,
     icon,
-    requirement,
-    requirementValue,
-    requirementQuantity,
-    requirementUnit,
+    requirements,
     component,
     quantityDrafts,
     onDraftChange,
@@ -482,7 +498,6 @@ function ComponentSlot({
 }: ComponentSlotProps) {
     const { t, i18n } = useTranslation();
 
-    // Logic to determine fulfillment status
     const isUnderstocked = component?.item && component.item.quantity_on_hand < component.quantity;
 
     const safe_float = (val: any) => {
@@ -490,7 +505,6 @@ function ComponentSlot({
         return isNaN(parsed) ? 0 : parsed;
     };
 
-    // Spec and Quantity validation
     const getStatus = () => {
         if (!component) return {
             status: 'empty',
@@ -507,32 +521,39 @@ function ComponentSlot({
             specs.capacity_ah
         );
 
+        const itemVoltage = safe_float(
+            specs.output_voltage_v ||
+            specs.panel_mpp_voltage ||
+            specs.battery_rated_voltage ||
+            specs.voltage
+        );
+
         const msgs: string[] = [];
         let status: 'fulfilled' | 'misaligned' | 'understocked' | 'over' = 'fulfilled';
         let color = 'text-green-600';
 
-        // 1. Check Technical Specs
-        if (requirementValue && itemValue < requirementValue) {
+        // 1. Technical Specs (Power/Capacity)
+        if (requirements.primaryValue && itemValue < requirements.primaryValue) {
             status = 'misaligned';
-            color = 'text-orange-600';
-            msgs.push(t('components.status.spec_below', 'Spec below requirement ({{val}}{{unit}})', { val: itemValue, unit: requirementUnit }));
-        } else if (requirementValue && itemValue > requirementValue * 1.5) {
-            // Significant over-spec (50%+)
-            if (status === 'fulfilled') status = 'over';
-            msgs.push(t('components.status.spec_over', 'Spec exceeds requirement ({{val}}{{unit}})', { val: itemValue, unit: requirementUnit }));
+            color = 'text-blue-600'; // Info-style
+            msgs.push(t('components.status.spec_below', 'Spec below requirement ({{val}}{{unit}})', { val: itemValue, unit: requirements.primaryUnit }));
         }
 
-        // 2. Check Quantity
-        if (requirementQuantity && component.quantity < requirementQuantity) {
+        // 2. Voltage Validation
+        if (requirements.voltage && itemVoltage !== requirements.voltage) {
             status = 'misaligned';
-            color = 'text-orange-600';
-            msgs.push(t('components.status.qty_below', 'Quantity below requirement ({{qty}}/{{req}})', { qty: component.quantity, req: requirementQuantity }));
-        } else if (requirementQuantity && component.quantity > requirementQuantity) {
-            if (status === 'fulfilled' || status === 'over') status = 'over';
-            msgs.push(t('components.status.qty_over', 'Quantity exceeds requirement ({{qty}}/{{req}})', { qty: component.quantity, req: requirementQuantity }));
+            color = 'text-orange-600'; // Warning
+            msgs.push(t('components.status.voltage_mismatch', 'Voltage mismatch: {{val}}V (Req: {{req}}V)', { val: itemVoltage, req: requirements.voltage }));
         }
 
-        // 3. Check Stock
+        // 3. Quantity
+        if (requirements.quantity && component.quantity < requirements.quantity) {
+            status = 'misaligned';
+            color = 'text-blue-600';
+            msgs.push(t('components.status.qty_below', 'Quantity below requirement ({{qty}}/{{req}})', { qty: component.quantity, req: requirements.quantity }));
+        }
+
+        // 4. Stock
         if (isUnderstocked) {
             status = 'understocked';
             color = 'text-red-600';
@@ -550,7 +571,12 @@ function ComponentSlot({
         return {
             status,
             msg: msgs.join(' | '),
-            color
+            color,
+            details: {
+                itemValue,
+                itemVoltage,
+                itemQty: component.quantity
+            }
         };
     };
 
@@ -572,8 +598,37 @@ function ComponentSlot({
             <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-gray-50 rounded-lg">{icon}</div>
                 <div className="flex-grow">
-                    <h4 className="font-bold">{title}</h4>
-                    <p className="text-[10px] text-muted-foreground text-semantic-error font-bold uppercase">{t('components.required', 'Required')}: {requirement}</p>
+                    <div className="flex items-center justify-between">
+                        <h4 className="font-bold">{title}</h4>
+                        {component && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6">
+                                            <Info className="h-4 w-4 text-gray-400" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="bg-white border p-3 shadow-xl">
+                                        <div className="space-y-2 text-xs">
+                                            <p className="font-bold border-b pb-1">{t('components.spec_comparison', 'Technical Comparison')}</p>
+                                            <div className="grid grid-cols-2 gap-x-4">
+                                                <span className="text-gray-500">{t('components.requirement', 'Requirement')}:</span>
+                                                <span className="font-semibold">{requirements.display}</span>
+
+                                                <span className="text-gray-500">{t('components.selected_item', 'Selected Item')}:</span>
+                                                <span className="font-semibold">
+                                                    {statusInfo.details?.itemValue}{requirements.primaryUnit}
+                                                    {statusInfo.details?.itemVoltage ? `, ${statusInfo.details.itemVoltage}V` : ''}
+                                                    {` x ${statusInfo.details?.itemQty}`}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground text-semantic-error font-bold uppercase">{t('components.required', 'Required')}: {requirements.display}</p>
                 </div>
             </div>
 
@@ -607,7 +662,7 @@ function ComponentSlot({
                         </div>
 
                         <div className={cn("flex items-start gap-1.5 p-2 rounded text-[10px] font-bold leading-tight",
-                            statusInfo.status === 'fulfilled' ? "bg-green-50" : statusInfo.status === 'over' ? "bg-blue-50" : statusInfo.status === 'misaligned' ? "bg-orange-50" : "bg-red-50"
+                            statusInfo.status === 'fulfilled' ? "bg-green-50" : statusInfo.status === 'over' ? "bg-blue-50" : statusInfo.status === 'misaligned' ? (statusInfo.color.includes('orange') ? "bg-orange-50" : "bg-blue-50") : "bg-red-50"
                         )}>
                             {statusInfo.status === 'fulfilled' ? <CheckCircle2 className="h-3 w-3 mt-0.5" /> : <AlertCircle className="h-3 w-3 mt-0.5" />}
                             <span className={statusInfo.color}>{statusInfo.msg}</span>

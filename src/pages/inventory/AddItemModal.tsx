@@ -251,13 +251,29 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
 
                                                                                             ({unit})
                                         </Label>
-                                        <Input
-                                            id={`spec-${key}`}
-                                            type="number"
-                                            className="h-8 text-sm bg-white"
-                                            value={formData.technical_specs[key] || ''}
-                                            onChange={e => handleSpecChange(key, e.target.value)}
-                                        />
+                                        {key === 'battery_type' ? (
+                                            <Select
+                                                onValueChange={(value) => handleSpecChange(key, value)}
+                                                value={formData.technical_specs[key] || ''}
+                                            >
+                                                <SelectTrigger id={`spec-${key}`} className="h-8 text-sm bg-white">
+                                                    <SelectValue placeholder={t('inventory.select_battery_type', 'Select type')} />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-white">
+                                                    <SelectItem value="lithium">{t('project_modal.battery_type.lithium', 'Lithium-ion')}</SelectItem>
+                                                    <SelectItem value="liquid">{t('project_modal.battery_type.liquid', 'Lead-Acid (Liquid)')}</SelectItem>
+                                                    <SelectItem value="dry">{t('project_modal.battery_type.dry', 'Lead-Acid (AGM/Gel)')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <Input
+                                                id={`spec-${key}`}
+                                                type="number"
+                                                className="h-8 text-sm bg-white"
+                                                value={formData.technical_specs[key] || ''}
+                                                onChange={e => handleSpecChange(key, e.target.value)}
+                                            />
+                                        )}
                                     </div>
                                 ))}
                             </div>

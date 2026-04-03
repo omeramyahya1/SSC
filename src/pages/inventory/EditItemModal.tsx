@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
 import { toast } from "react-hot-toast";
 
@@ -120,13 +121,29 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                                     <Label htmlFor={`edit-spec-${key}`} className="text-xs">
                                         {unit ? `${formatSpecLabel(key)} (${unit})` : formatSpecLabel(key)}
                                     </Label>
-                                    <Input
-                                        id={`edit-spec-${key}`}
-                                        type="number"
-                                        className="h-8 text-sm"
-                                        value={formData.technical_specs[key] ?? ''}
-                                        onChange={e => handleSpecChange(key, e.target.value)}
-                                    />
+                                    {key === 'battery_type' ? (
+                                        <Select
+                                            onValueChange={(value) => handleSpecChange(key, value)}
+                                            value={formData.technical_specs[key] || ''}
+                                        >
+                                            <SelectTrigger id={`edit-spec-${key}`} className="h-8 text-sm bg-white">
+                                                <SelectValue placeholder={t('inventory.select_battery_type', 'Select type')} />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-white">
+                                                <SelectItem value="lithium">{t('project_modal.battery_type.lithium', 'Lithium-ion')}</SelectItem>
+                                                <SelectItem value="liquid">{t('project_modal.battery_type.liquid', 'Lead-Acid (Liquid)')}</SelectItem>
+                                                <SelectItem value="dry">{t('project_modal.battery_type.dry', 'Lead-Acid (AGM/Gel)')}</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <Input
+                                            id={`edit-spec-${key}`}
+                                            type="number"
+                                            className="h-8 text-sm"
+                                            value={formData.technical_specs[key] ?? ''}
+                                            onChange={e => handleSpecChange(key, e.target.value)}
+                                        />
+                                    )}
                                 </div>
                             ))}
                         </div>

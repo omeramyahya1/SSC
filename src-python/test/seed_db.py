@@ -28,33 +28,36 @@ from models import InventoryCategory, InventoryItem
 
 DEFAULT_CATEGORIES = [
     {
-        "name": "Solar Panels",
-        "spec_schema": {
-            "panel_rated_power": "W",
-            "panel_mpp_voltage": "V",
+            "name": "Solar Panels",
+            "spec_schema": {
+                "panel_rated_power": "W",
+                "panel_mpp_voltage": "V"
+            }
         },
-    },
-    {
-        "name": "Inverters",
-        "spec_schema": {
-            "inverter_rated_power": "W",
-            "inverter_mppt_min_v": "V",
-            "inverter_mppt_max_v": "V",
-            "system_voltage_v": "V",
+        {
+            "name": "Inverters",
+            "spec_schema": {
+                "inverter_rated_power": "W",
+                "inverter_mppt_min_v": "V",
+                "inverter_mppt_max_v": "V",
+                "output_voltage_v": "V"
+            }
         },
-    },
-    {
-        "name": "Batteries",
-        "spec_schema": {
-            "battery_rated_capacity_ah": "Ah",
-            "battery_rated_voltage": "V",
-            "battery_max_parallel": "count",
+        {
+            "name": "Batteries",
+            "spec_schema": {
+                "battery_rated_capacity_ah": "Ah",
+                "battery_rated_voltage": "V",
+                "battery_max_parallel": "count",
+                "dod": "%",
+                "efficiency": "%",
+                "battery_type": "type"
+            }
         },
-    },
-    {
-        "name": "Accessories",
-        "spec_schema": {},
-    },
+        {
+            "name": "Accessories",
+            "spec_schema": {}
+        }
 ]
 
 
@@ -71,12 +74,12 @@ def _random_inverter_specs() -> Dict[str, float]:
     rated = random.choice([1000, 2000, 3000, 5000, 8000, 10000])
     mppt_min = random.choice([80, 100, 120, 150])
     mppt_max = random.choice([450, 500, 550, 600])
-    system_v = random.choice([12, 24, 48])
+    output_v = random.choice([12, 24, 48])
     return {
         "inverter_rated_power": rated,
         "inverter_mppt_min_v": mppt_min,
         "inverter_mppt_max_v": mppt_max,
-        "system_voltage_v": system_v,
+        "output_voltage_v": output_v,
     }
 
 
@@ -88,22 +91,47 @@ def _random_battery_specs() -> Dict[str, float]:
         "battery_rated_capacity_ah": capacity,
         "battery_rated_voltage": voltage,
         "battery_max_parallel": max_parallel,
+        "dod": random.choice([70, 80, 90, 95]),
+        "efficiency": random.choice([85, 90, 95, 98]),
+        "battery_type": random.choice(["AGM", "Gel", "Lithium", "Lead Acid"]),
     }
 
 
 def _random_accessory_specs() -> Dict[str, float]:
     return {}
 
+def _fill_missing_specs(specs: Dict[str, float], schema: Dict[str, str]) -> Dict[str, float]:
+    filled = dict(specs)
+    for key, unit in (schema or {}).items():
+        if key in filled:
+            continue
+        unit_lower = str(unit).strip().lower()
+        if unit_lower == "w":
+            filled[key] = random.choice([50, 100, 250, 500, 1000, 2000, 5000])
+        elif unit_lower == "v":
+            filled[key] = random.choice([12, 24, 48, 120, 240, 400, 600])
+        elif unit_lower == "ah":
+            filled[key] = random.choice([50, 100, 150, 200, 250, 300])
+        elif unit_lower == "%":
+            filled[key] = random.choice([70, 80, 85, 90, 95, 98])
+        elif unit_lower == "count":
+            filled[key] = random.choice([1, 2, 3, 4, 6, 8])
+        elif unit_lower == "type":
+            filled[key] = random.choice(["AGM", "Gel", "Lithium", "Lead Acid"])
+        else:
+            filled[key] = random.choice([1, 5, 10, 20])
+    return filled
 
-def _category_specs_by_name(name: str) -> Dict[str, float]:
+
+def _category_specs_by_name(name: str, schema: Dict[str, str]) -> Dict[str, float]:
     name_lower = name.strip().lower()
     if "panel" in name_lower:
-        return _random_panel_specs()
+        return _fill_missing_specs(_random_panel_specs(), schema)
     if "inverter" in name_lower:
-        return _random_inverter_specs()
+        return _fill_missing_specs(_random_inverter_specs(), schema)
     if "batter" in name_lower:
-        return _random_battery_specs()
-    return _random_accessory_specs()
+        return _fill_missing_specs(_random_battery_specs(), schema)
+    return _fill_missing_specs(_random_accessory_specs(), schema)
 
 
 def _unique_sku(existing: set, prefix: str) -> str:
@@ -194,7 +222,10 @@ def seed_inventory(
                     brand=brand,
                     model=model,
                     category_uuid=category.uuid,
-                    technical_specs=_category_specs_by_name(category.name),
+                    technical_specs=_category_specs_by_name(
+                        category.name,
+                        category.spec_schema or {},
+                    ),
                     quantity_on_hand=random.randint(0, 250),
                     low_stock_threshold=random.randint(5, 25),
                     buy_price=buy_price,
@@ -221,8 +252,8 @@ def main() -> None:
     seed_inventory(
         items_per_category=args.items_per_category,
         seed=args.seed,
-        organization_uuid=args.organization_uuid,
-        branch_uuid=args.branch_uuid,
+        organization_uuid="6c12fe90-ec6c-4661-8168-2431816dd448",
+        branch_uuid="a73148e7-7ac7-4529-a9fd-965c0cfe5c37",
         clear=args.clear,
     )
 
