@@ -41,13 +41,13 @@ interface InventoryState {
     categories: InventoryCategory[];
     isLoading: boolean;
     error: string | null;
-    
+
     fetchCategories: () => Promise<void>;
     fetchItems: () => Promise<void>;
     addItem: (item: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     updateItem: (uuid: string, updates: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     deleteItem: (uuid: string) => Promise<void>;
-    adjustStock: (itemUuid: string, adjustment: number, reason: string) => Promise<void>;
+    adjustStock: (itemUuid: string, adjustment: number, reason: string, organization_uuid: string, branch_uuid: string, user_uuid: string) => Promise<void>;
 }
 
 export const useInventoryStore = create<InventoryState>((set, get) => ({
@@ -120,12 +120,15 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         }
     },
 
-    adjustStock: async (itemUuid, adjustment, reason) => {
+    adjustStock: async (itemUuid, adjustment, reason, organization_uuid, branch_uuid, user_uuid) => {
         try {
             await api.post('/inventory/adjustments', {
                 item_uuid: itemUuid,
                 adjustment,
                 reason,
+                organization_uuid:organization_uuid,
+                branch_uuid: branch_uuid,
+                user_uuid: user_uuid
             });
             // Update local quantity
             set((state) => ({

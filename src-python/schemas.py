@@ -411,6 +411,7 @@ class StockAdjustmentCreate(BaseModel):
     item_uuid: str
     adjustment: int
     organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
     reason: Optional[str] = None
     user_uuid: Optional[str] = None
 

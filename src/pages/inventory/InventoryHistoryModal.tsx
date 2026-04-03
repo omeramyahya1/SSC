@@ -45,7 +45,7 @@ export function InventoryHistoryModal({ isOpen }: InventoryHistoryModalProps) {
             setIsLoading(true);
             try {
                 const params = {
-                    org_uuid: undefined, // currentUser?.organization_uuid,
+                    org_uuid:  currentUser?.organization_uuid,
                     user_uuid: !currentUser?.organization_uuid ? currentUser?.uuid : undefined,
                 };
                 const { data } = await api.get('/inventory/adjustments/history', { params });

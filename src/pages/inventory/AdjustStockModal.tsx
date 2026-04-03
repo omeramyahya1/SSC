@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InventoryItem, useInventoryStore } from '@/store/useInventoryStore';
 import { toast } from "react-hot-toast";
+import { useUserStore } from '@/store/useUserStore';
 
 interface AdjustStockModalProps {
     item: InventoryItem;
@@ -15,6 +16,7 @@ interface AdjustStockModalProps {
 export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) {
     const { t, i18n } = useTranslation();
     const { adjustStock } = useInventoryStore();
+    const { currentUser } = useUserStore();
 
     const [adjustment, setAdjustment] = useState<number>(0);
     const [reason, setReason] = useState('');
@@ -36,7 +38,7 @@ export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) 
 
         setIsSubmitting(true);
         try {
-            await adjustStock(item.uuid, adjustment, reason);
+            await adjustStock(item.uuid, adjustment, reason, String(currentUser?.organization_uuid), String(currentUser?.branch_uuid), String(currentUser?.uuid));
             toast.success(t('inventory.adjust_success', 'Stock adjusted successfully'));
             onOpenChange(false);
         } catch (error: any) {
