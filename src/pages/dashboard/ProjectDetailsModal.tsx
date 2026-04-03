@@ -73,7 +73,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
 
     useEffect(() => {
         if (project && !isEditing) {
-            const [state] = project.project_location?.split(', ').map(p => p.trim())[1] || [''];
+            const state = project.project_location?.split(', ').map(p => p.trim())[1] || '';
             setEditData({
                 full_name: project.customer?.full_name ?? '',
                 email: project.customer?.email ?? '',
@@ -123,7 +123,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
     const handleCancel = () => {
         setIsEditing(false);
         if (project) {
-             const [state] = project.project_location?.split(', ').map(p => p.trim())[1] || [''];
+             const state = project.project_location?.split(', ').map(p => p.trim())[1] || '';
             setEditData({
                 full_name: project.customer?.full_name ?? '',
                 email: project.customer?.email ?? '',

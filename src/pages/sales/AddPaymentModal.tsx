@@ -46,7 +46,7 @@ export function AddPaymentModal({ isOpen, onClose, initialInvoiceUuid, initialAm
 
     const [selectedInvoiceUuid, setSelectedInvoiceUuid] = useState<string>('');
     const [amount, setAmount] = useState('');
-    const [method, setMethod] = useState('cash');
+    const [method, setMethod] = useState('Cash');
     const [reference, setReference] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
@@ -97,7 +97,7 @@ export function AddPaymentModal({ isOpen, onClose, initialInvoiceUuid, initialAm
             // Reset state
             setSelectedInvoiceUuid('');
             setAmount('');
-            setMethod('cash');
+            setMethod('Cash');
             setReference('');
             setPaymentDate(new Date());
         } catch (error) {
