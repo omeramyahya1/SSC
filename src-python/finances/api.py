@@ -6,7 +6,7 @@ from finances.finances import (
     apply_payment_to_invoice
 )
 from models import Payment, Invoice, Project
-from schemas import PaymentCreate, FinanceStatsSchema
+from schemas import PaymentCreate
 from pydantic import ValidationError
 from serializer import model_to_dict
 import logging
@@ -70,16 +70,20 @@ def get_payments(db):
     if invoice_uuid:
         query = query.filter(Payment.invoice_uuid == invoice_uuid)
 
-    payments = query.order_by(Payment.created_at.desc()).all()
+    from sqlalchemy.orm import joinedload
+    payments = query.options(
+        joinedload(Payment.invoice).joinedload(Invoice.project).joinedload(Project.customer)
+    ).order_by(Payment.created_at.desc()).all()
+
     results = []
     for p in payments:
         d = model_to_dict(p)
         # Add basic invoice/project info for UI context
-        inv = db.query(Invoice).filter(Invoice.uuid == p.invoice_uuid).first()
-        if inv:
+        if p.invoice:
+            inv = p.invoice
             d['invoice_id'] = inv.invoice_id
-            proj = db.query(Project).filter(Project.uuid == inv.project_uuid).first()
-            if proj:
+            if inv.project:
+                proj = inv.project
                 d['project_name'] = proj.customer.full_name if proj.customer else "N/A"
                 d['customer_name'] = proj.customer.full_name if proj.customer else "N/A"
         results.append(d)

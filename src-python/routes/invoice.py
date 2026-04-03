@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
+from sqlalchemy import func
 from utils import get_db
-from models import Invoice, Project
+from models import Invoice, Project, Customer, Payment
 from finances.finances import reverse_stock_deduction
 from schemas import InvoiceCreate, InvoiceUpdate
 from serializer import model_to_dict
@@ -54,9 +55,6 @@ def update_invoice(uuid):
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))
-
-from models import Invoice, Project, Customer, Payment
-from sqlalchemy import func
 
 @invoice_bp.route('/', methods=['GET'])
 def get_all_invoices():
