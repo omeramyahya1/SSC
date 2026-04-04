@@ -12,7 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { SidebarClose, SidebarIcon, SidebarOpen } from 'lucide-react';
+import { SidebarClose, SidebarOpen } from 'lucide-react';
 
 const SidebarItem = ({ icon, text, children, to, onClick, isSelected }: { icon: string, text: string, to?: string, onClick?: () => void, children?: React.ReactNode, isSelected?: boolean }) => {
     const { i18n } = useTranslation();
