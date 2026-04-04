@@ -32,7 +32,7 @@ import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
 import { InventorySelectorModal } from './InventorySelectorModal';
 import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import {
     Tooltip,
@@ -322,7 +322,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         !currentInvoice?.issued_at &&  (
                              <div className="h-10 px-4 flex items-center bg-green-600 text-white rounded-lg font-bold shadow-sm">
                                 <ShoppingCart className="me-2 h-5 w-5" />
-                                {totalCost.toLocaleString()}
+                                {formatCurrency(totalCost)}
                             </div>
                         )
                     }
@@ -450,10 +450,10 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                {(c.price_at_sale || 0).toLocaleString()}
+                                                {formatCurrency(c.price_at_sale || 0)}
                                             </TableCell>
                                             <TableCell className="text-right font-bold">
-                                                {((c.price_at_sale || 0) * c.quantity).toLocaleString()}
+                                                {formatCurrency((c.price_at_sale || 0) * c.quantity)}
                                             </TableCell>
                                             <TableCell>
                                                 {
@@ -659,7 +659,7 @@ function ComponentSlot({
                                     />
                                 </div>
                                 <div className="text-sm font-bold text-blue-700">
-                                    {((component.price_at_sale || 0) * component.quantity).toLocaleString()}
+                                    {formatCurrency((component.price_at_sale || 0) * component.quantity)}
                                 </div>
                             </div>
                         </div>

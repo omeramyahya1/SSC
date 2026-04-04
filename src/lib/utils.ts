@@ -9,13 +9,13 @@ export function cn(...inputs: ClassValue[]) {
 export function formatCurrency(amount: number | undefined | null) {
   if (amount === undefined || amount === null) return '0';
   const language = i18n.language || 'en';
-  
-  const formattedAmount = new Intl.NumberFormat(language === 'ar' ? 'ar-SD' : 'en-US', {
+
+  const formattedAmount = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
 
   const symbol = i18n.t('currency.sdg', { defaultValue: language === 'ar' ? 'ج' : 'SDG' });
-  
+
   return `${formattedAmount} ${symbol}`;
 }

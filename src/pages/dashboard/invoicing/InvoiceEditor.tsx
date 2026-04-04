@@ -40,7 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from '@/components/ui/dialog';
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from 'react-hot-toast';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { useLocationData } from '@/hooks/useLocationData';
 import { useInvoiceStore, InvoiceDetails } from '@/store/useInvoiceStore';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
@@ -436,7 +436,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                             <div className='flex flex-col items-center'>
                                                 {
                                                     isIssued ? (
-                                                        <span className='font-bold'>{c.price_at_sale || 0}</span>
+                                                        <span className='font-bold'>{formatCurrency(c.price_at_sale)}</span>
                                                     ) : (
                                                         <Input
                                                             type="number"
@@ -468,7 +468,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
 
                                         </TableCell>
                                         <TableCell className="text-end font-bold">
-                                            {((c.price_at_sale || 0) * c.quantity).toLocaleString()}
+                                            {formatCurrency((c.price_at_sale || 0) * c.quantity)}
                                         </TableCell>
                                         {!isIssued && (
                                             <TableCell>
@@ -481,7 +481,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                 ))}
                                 <TableRow className="bg-gray-50/50">
                                     <TableCell colSpan={3} className="text-end font-semibold">{t('invoicing.subtotal', 'Subtotal')}</TableCell>
-                                    <TableCell className="text-end font-bold">{subtotal.toLocaleString()}</TableCell>
+                                    <TableCell className="text-end font-bold">{formatCurrency(subtotal)}</TableCell>
                                     {!isIssued && <TableCell />}
                                 </TableRow>
                             </TableBody>
@@ -585,25 +585,25 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                             <div className="space-y-4 mb-8 text-primary">
                                 <div className="flex justify-between text-base">
                                     <span className="font-medium">{t('invoicing.subtotal', 'Subtotal')}</span>
-                                    <span className="font-bold">{subtotal.toLocaleString()}</span>
+                                    <span className="font-bold">{formatCurrency(subtotal)}</span>
                                 </div>
                                 <div className="flex justify-between text-base">
                                     <span className="font-medium">{t('invoicing.shipping_fee', 'Shipping')}</span>
-                                        <span className="font-bold">+ {shippingFee.toLocaleString()}</span>
+                                        <span className="font-bold">+ {formatCurrency(shippingFee)}</span>
                                     </div>
                                     <div className="flex justify-between text-base">
                                         <span className="font-medium">{t('invoicing.installation_fee', 'Installation')}</span>
-                                        <span className="font-bold">+ {installationFee.toLocaleString()}</span>
+                                        <span className="font-bold">+ {formatCurrency(installationFee)}</span>
                                     </div>
 
                                     <div className="flex justify-between text-base text-red-600">
                                         <span className="font-medium">{t('invoicing.discount', 'Discount')}</span>
-                                        <span className="font-bold">- {discountAmount.toLocaleString()}</span>
+                                        <span className="font-bold">- {formatCurrency(discountAmount)}</span>
                                     </div>
 
                                 <div className="pt-6 border-t border-primary-gray flex justify-between text-3xl font-black text-primary">
                                     <span>Total</span>
-                                    <span>{grandTotal.toLocaleString()}</span>
+                                    <span>{formatCurrency(grandTotal)}</span>
                                 </div>
                             </div>
 

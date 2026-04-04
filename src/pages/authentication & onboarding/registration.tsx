@@ -35,7 +35,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Check, ChevronsUpDown, X, AlertCircle } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 import { useRegistrationStore, RegistrationState } from '@/store/useRegistrationStore';
 import api from '@/api/client';
 import { supabase } from '@/lib/supabaseClient';
@@ -708,7 +708,7 @@ const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading, calculatedPric
     const selectedCardClasses = "border-primary shadow-md bg-white";
     const unselectedCardClasses = "border-primary-gray/1 hover:border-primary/50";
 
-    const priceDisplay = calculatedPrice > 0 ? `${calculatedPrice.toLocaleString()} ${t('currency.sdg', 'SDG')}` : t('plans.free', 'Free');
+    const priceDisplay = calculatedPrice > 0 ? formatCurrency(calculatedPrice) : t('plans.free', 'Free');
 
     // ... Refactored JSX to use calculatedPrice
     if (accountType === 'Enterprise') {
@@ -939,7 +939,7 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
     const toggleTerms = (checked: boolean) => updateFormData('stage5', { acceptedTerms: checked });
     const toggleProcessing = (checked: boolean) => updateFormData('stage5', { acceptedProcessing: checked });
 
-    const priceDisplay = calculatedPrice > 0 ? `${calculatedPrice.toLocaleString()} ${t('currency.sdg', 'SDG')}` : t('plans.free', 'Free');
+    const priceDisplay = calculatedPrice > 0 ? formatCurrency(calculatedPrice) : t('plans.free', 'Free');
 
     // ... same as before but using calculatedPrice
     return (
@@ -1119,10 +1119,10 @@ const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData, pricingIsLoadin
 
     const priceDisplay = data.discountApplied && data.discountPercent && data.discountPercent > 0 ? (
         <div className="flex items-center justify-center gap-2">
-           <span className="line-through text-2xl text-neutral/40 rotate-[-10deg]">{initialPrice.toLocaleString()} {t('currency.sdg', 'SDG')}</span>
-           <span>{calculatedPrice.toLocaleString()} {t('currency.sdg', 'SDG')}</span>
+           <span className="line-through text-2xl text-neutral/40 rotate-[-10deg]">{formatCurrency(initialPrice)}</span>
+           <span>{formatCurrency(calculatedPrice)}</span>
         </div>
-    ) : `${calculatedPrice.toLocaleString()} ${t('currency.sdg', 'SDG')}`;
+    ) : formatCurrency(calculatedPrice);
 
     return (
       <div className="space-y-4 w-full mx-auto md:mx-0">

@@ -22,7 +22,7 @@ import { useLocationData } from '@/hooks/useLocationData';
 import { useApplianceStore, ProjectAppliance } from '@/store/useApplianceStore';
 import { useBleStore } from '@/store/useBleStore';
 import { Project } from "@/store/useProjectStore";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ShoppingCart, Eye, FileText } from 'lucide-react';
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';

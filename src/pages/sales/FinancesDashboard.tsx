@@ -29,7 +29,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
 import { useUserStore } from '@/store/useUserStore';
 
@@ -196,7 +196,7 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                         </div>
                     </div>
                     <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('finances.total_revenue', 'Total Revenue')}</p>
-                    <h3 className="text-3xl font-black">{stats?.total_revenue.toLocaleString()}</h3>
+                    <h3 className="text-3xl font-black">{formatCurrency(stats?.total_revenue)}</h3>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-2">
@@ -206,7 +206,7 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                         </div>
                     </div>
                     <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('finances.outstanding', 'Outstanding Invoices')}</p>
-                    <h3 className="text-3xl font-black">{stats?.outstanding_invoices.toLocaleString()}</h3>
+                    <h3 className="text-3xl font-black">{formatCurrency(stats?.outstanding_invoices)}</h3>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-2">
@@ -216,7 +216,7 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                         </div>
                     </div>
                     <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">{t('finances.inventory_value', 'Inventory Asset Value')}</p>
-                    <h3 className="text-3xl font-black">{stats?.inventory_value.toLocaleString()}</h3>
+                    <h3 className="text-3xl font-black">{formatCurrency(stats?.inventory_value)}</h3>
                 </div>
             </div>
 
@@ -294,7 +294,7 @@ export function FinancesDashboard({ filterParams }: FinancesDashboardProps) {
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                                     <span className="text-sm font-bold text-muted-foreground">{item.name}</span>
                                 </div>
-                                <span className="text-sm font-black">{item.value.toLocaleString()}</span>
+                                <span className="text-sm font-black">{formatCurrency(item.value)}</span>
                             </div>
                         ))}
                     </div>
