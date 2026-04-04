@@ -52,6 +52,12 @@ function ProjectInfo({ project, onUpdate, isReadOnly, issued }: ProjectInfoProps
     const [cities, setCities] = useState<{ value: string; label: string; }[]>([]);
     const [selectedState, setSelectedState] = useState('');
 
+    useEffect(() => {
+        if (issued) {
+            setIsEditing(false);
+        }
+    }, [issued]);
+
     const formatProjectLocation = (location: string | null) => {
         if (!location) return { city: 'N/A', state: 'N/A', full: 'N/A' };
         const [city, state] = location.split(',').map(s => s.trim());
@@ -111,7 +117,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly, issued }: ProjectInfoProps
     };
 
     const handleSave = async () => {
-        if (!project) return;
+        if (issued || !project) return;
         try {
             const updatedProject = await updateProject(project.uuid, editData);
             onUpdate(updatedProject); // Pass the updated project back to the parent
@@ -244,19 +250,23 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
     const {
         currentInvoice,
         fetchInvoiceByProject,
+        setCurrentInvoice,
     } = useInvoiceStore();
 
     useEffect(() => {
         setProject(projectProp);
         setCurrentView('config');
         setIsEditingAppliances(false);
+        setCurrentInvoice(null);
         if (projectProp?.uuid) {
             fetchInvoiceByProject(projectProp.uuid);
         }
-    }, [projectProp, fetchInvoiceByProject]);
+    }, [projectProp, fetchInvoiceByProject, setCurrentInvoice]);
 
     const isArchived = project?.status === 'archived';
-    const isInvoiceIssued = !!currentInvoice?.issued_at;
+    const localInvoice =
+        currentInvoice?.project_uuid === projectProp?.uuid ? currentInvoice : undefined;
+    const isInvoiceIssued = !!localInvoice?.issued_at;
 
     // Appliance Store
     const {
@@ -598,7 +608,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
             <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
                 <InvoiceEditor
                     project={project}
-                    onBack={() => setCurrentView('components')}
+                    onBack={() => setCurrentView(currentInvoice?.issued_at && true ? 'config' : 'components')}
                 />
             </DialogContent>
         );

@@ -430,7 +430,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                                                 <div className="flex items-center justify-center gap-2">
                                                     {
                                                         currentInvoice?.issued_at ? (
-                                                            <span>{quantityDrafts[c.uuid] ?? String(c.quantity ?? 1)}</span>
+                                                            <span>{c.quantity ?? 1}</span>
                                                         ) : (
                                                             <Input
                                                                 type="number"
