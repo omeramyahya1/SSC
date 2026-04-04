@@ -212,11 +212,14 @@ def apply_payment_to_invoice(db: Session, invoice_uuid: str):
     if not invoice:
         raise ValueError("Invoice not found")
 
+    project = db.query(Project).filter(Project.uuid == invoice.project_uuid)
+
     # Calculate total paid
     total_paid = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == invoice_uuid).scalar() or 0.0
 
     if total_paid >= float(invoice.amount):
         invoice.status = "paid"
+        project.status = 'done'
     elif total_paid > 0:
         invoice.status = "partial"
     else:
