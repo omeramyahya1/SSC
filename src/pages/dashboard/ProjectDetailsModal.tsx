@@ -1088,7 +1088,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                 className="w-full group-[]: bg-green-100 text-green-800 border border-green-200 hover:bg-green-600 hover:text-white"
             >
                 <FileText className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} />
-                {t('project_modal.view_invoice', 'View Invoice')}
+                {t('components.view_invoice', 'View Invoice')}
             </Button>
         ) : (
             /* CASE 2: Invoice is NOT issued - Show Save and Proceed buttons */
