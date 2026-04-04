@@ -23,13 +23,15 @@ import { useApplianceStore, ProjectAppliance } from '@/store/useApplianceStore';
 import { useBleStore } from '@/store/useBleStore';
 import { Project } from "@/store/useProjectStore";
 import { cn } from "@/lib/utils";
-import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ShoppingCart } from 'lucide-react';
+import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ShoppingCart, Eye, FileText } from 'lucide-react';
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
+import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { toast } from 'react-hot-toast';
 import { ComponentSelectionView } from './components selection/ComponentSelectionView';
 import { InvoiceEditor } from './invoicing/InvoiceEditor';
+
 
 // --- Helper Components ---
 
@@ -37,9 +39,10 @@ interface ProjectInfoProps {
     project: Project;
     onUpdate: (project: Project) => void;
     isReadOnly?: boolean;
+    issued: boolean;
 }
 
-function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
+function ProjectInfo({ project, onUpdate, isReadOnly, issued }: ProjectInfoProps) {
     const { t, i18n } = useTranslation();
     const { updateProject } = useProjectStore();
     const { states, getCitiesByState, getClimateDataForCity } = useLocationData();
@@ -48,6 +51,12 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
     const [editData, setEditData] = useState<ProjectUpdatePayload>({});
     const [cities, setCities] = useState<{ value: string; label: string; }[]>([]);
     const [selectedState, setSelectedState] = useState('');
+
+    useEffect(() => {
+        if (issued) {
+            setIsEditing(false);
+        }
+    }, [issued]);
 
     const formatProjectLocation = (location: string | null) => {
         if (!location) return { city: 'N/A', state: 'N/A', full: 'N/A' };
@@ -108,7 +117,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
     };
 
     const handleSave = async () => {
-        if (!project) return;
+        if (issued || !project) return;
         try {
             const updatedProject = await updateProject(project.uuid, editData);
             onUpdate(updatedProject); // Pass the updated project back to the parent
@@ -149,7 +158,7 @@ function ProjectInfo({ project, onUpdate, isReadOnly }: ProjectInfoProps) {
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
-                    ) : (
+                    ) : !issued && (
                         <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} className="h-7 w-7">
                             <Pencil className="h-4 w-4" />
                         </Button>
@@ -236,13 +245,28 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
     const [project, setProject] = useState<Project | null>(projectProp);
     const { updateProjectStatus } = useProjectStore();
     const [currentView, setCurrentView] = useState<'config' | 'components' | 'invoicing'>('config');
+    const [isEditingAppliances, setIsEditingAppliances] = useState(false);
+
+    const {
+        currentInvoice,
+        fetchInvoiceByProject,
+        setCurrentInvoice,
+    } = useInvoiceStore();
 
     useEffect(() => {
         setProject(projectProp);
         setCurrentView('config');
-    }, [projectProp]);
+        setIsEditingAppliances(false);
+        setCurrentInvoice(null);
+        if (projectProp?.uuid) {
+            fetchInvoiceByProject(projectProp.uuid);
+        }
+    }, [projectProp, fetchInvoiceByProject, setCurrentInvoice]);
 
     const isArchived = project?.status === 'archived';
+    const localInvoice =
+        currentInvoice?.project_uuid === projectProp?.uuid ? currentInvoice : undefined;
+    const isInvoiceIssued = !!localInvoice?.issued_at;
 
     // Appliance Store
     const {
@@ -584,7 +608,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
             <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
                 <InvoiceEditor
                     project={project}
-                    onBack={() => setCurrentView('components')}
+                    onBack={() => setCurrentView(currentInvoice?.issued_at && true ? 'config' : 'components')}
                 />
             </DialogContent>
         );
@@ -622,219 +646,221 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                     {/* Customer Info & Location */}
                     <div>
                         <h3 className="text-xl font-bold mb-4">{t('project_modal.customer_info_location', 'Customer Info & Location')}</h3>
-                        <ProjectInfo project={project} onUpdate={setProject} isReadOnly={isArchived} />
+                        <ProjectInfo project={project} onUpdate={setProject} isReadOnly={isArchived} issued={Boolean(currentInvoice?.issued_at  && true)} />
                     </div>
 
                      {/* System Design Parameters */}
-                    <div>
-                        <Accordion type="single" collapsible defaultValue="ble-settings">
-                            <AccordionItem value="ble-settings">
-                                <AccordionTrigger className="text-xl font-bold flex flex-row justify-between w-full">
-                                    {t('project_modal.design_parameters', 'System Design Parameters')}
-                                </AccordionTrigger>
-                                <AccordionContent>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 pt-4">
-                                        {/* --- Inverter --- */}
-                                        <div className="space-y-3 p-3 bg-gray-50 rounded-md border">
-                                            <h4 className='font-semibold text-gray-700'>{t('project_modal.inverter', 'Inverter')}</h4>
-                                            <SettingsInput
-                                                label={t('ble.inverter.efficiency_label', 'Efficiency (%)')}
-                                                value={bleSettings.inverter_efficiency * 100}
-                                                onChange={v => handleBleSettingChange('inverter_efficiency', Number(v) / 100)}
-                                                step={1} min={0} max={100}
-                                                error={bleSettingsErrors.inverter_efficiency}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.inverter.safety_factor_label', 'Safety Factor (%)')}
-                                                value={bleSettings.safety_factor * 100}
-                                                onChange={v => handleBleSettingChange('safety_factor', Number(v) / 100)}
-                                                step={1} min={1}
-                                                error={bleSettingsErrors.safety_factor}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.inverter.rated_power_label', 'Rated Power (W)')}
-                                                value={bleSettings.inverter_rated_power}
-                                                onChange={v => handleBleSettingChange('inverter_rated_power', v)}
-                                                step={100} min={1}
-                                                error={bleSettingsErrors.inverter_rated_power}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.inverter.mppt_min_v_label', 'MPPT Min Voltage (V)')}
-                                                value={bleSettings.inverter_mppt_min_v}
-                                                onChange={v => handleBleSettingChange('inverter_mppt_min_v', v)}
-                                                step={1} min={1}
-                                                error={bleSettingsErrors.inverter_mppt_min_v}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.inverter.mppt_max_v_label', 'MPPT Max Voltage (V)')}
-                                                value={bleSettings.inverter_mppt_max_v}
-                                                onChange={v => handleBleSettingChange('inverter_mppt_max_v', v)}
-                                                step={1} min={1}
-                                                error={bleSettingsErrors.inverter_mppt_max_v}
-                                                disabled={isArchived}
-                                            />
-                                        </div>
-
-                                        {/* --- Battery --- */}
-                                        <div className="space-y-3 p-3 bg-gray-50 rounded-md border">
-                                            <h4 className='font-semibold text-gray-700'>{t('project_modal.battery_bank', 'Battery Bank')}</h4>
-                                            <div>
-                                                <Label className="text-xs font-medium text-gray-600">{t('project_modal.battery_type_label', 'Battery Type')}</Label>
-                                                <Select
-                                                    dir={i18n.dir()}
-                                                    value={bleSettings.battery_type}
-                                                    onValueChange={(v: 'liquid' | 'lithium' | 'dry' | 'other') => {
-                                                        if (isArchived) return;
-                                                        const newDod = v === 'lithium' ? 0.9 : 0.6;
-                                                        setBleSettings(s => ({...s, battery_type: v, battery_dod: newDod}));
-                                                        setBleSettingsErrors(prev => ({...prev, battery_type: null, battery_dod: null}));
-                                                    }}
-                                                    disabled={isArchived}
-                                                >
-                                                    <SelectTrigger><SelectValue/></SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="liquid">{t('project_modal.battery_type.liquid', 'Lead-Acid (Liquid)')}</SelectItem>
-                                                        <SelectItem value="dry">{t('project_modal.battery_type.dry', 'Lead-Acid (AGM/Gel)')}</SelectItem>
-                                                        <SelectItem value="lithium">{t('project_modal.battery_type.lithium', 'Lithium-ion')}</SelectItem>
-                                                        <SelectItem value="other">{t('project_modal.battery_type.other', 'Other')}</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <SettingsInput
-                                                label={t('ble.battery_bank.dod_label', 'Depth of Discharge (DoD %)')}
-                                                value={bleSettings.battery_dod * 100}
-                                                onChange={v => handleBleSettingChange('battery_dod', Number(v) / 100)}
-                                                step={1} min={0} max={100}
-                                                error={bleSettingsErrors.battery_dod}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.battery_bank.efficiency_label', 'Efficiency (%)')}
-                                                value={bleSettings.battery_efficiency * 100}
-                                                onChange={v => handleBleSettingChange('battery_efficiency', Number(v) / 100)}
-                                                step={1} min={0} max={100}
-                                                error={bleSettingsErrors.battery_efficiency}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.battery_bank.capacity_per_unit_label', 'Capacity per Unit (Ah)')}
-                                                value={bleSettings.battery_rated_capacity_ah}
-                                                onChange={v => handleBleSettingChange('battery_rated_capacity_ah', v)}
-                                                step={10} min={1}
-                                                error={bleSettingsErrors.battery_rated_capacity_ah}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.battery_bank.voltage_per_unit_label', 'Voltage per Unit (V)')}
-                                                value={bleSettings.battery_rated_voltage}
-                                                onChange={v => handleBleSettingChange('battery_rated_voltage', v)}
-                                                step={1} min={1}
-                                                error={bleSettingsErrors.battery_rated_voltage}
-                                                disabled={isArchived}
-                                            />
-                                             <SettingsInput
-                                                label={t('ble.battery_bank.max_parallel_units_label', 'Max Parallel Units')}
-                                                value={bleSettings.battery_max_parallel}
-                                                onChange={v => handleBleSettingChange('battery_max_parallel', v)}
-                                                step={1} min={1}
-                                                error={bleSettingsErrors.battery_max_parallel}
-                                                disabled={isArchived}
-                                            />
-                                             <SettingsInput
-                                                label={t('ble.battery_bank.autonomy_days_label', 'Days of Autonomy')}
-                                                value={bleSettings.autonomy_days}
-                                                onChange={v => handleBleSettingChange('autonomy_days', v)}
-                                                step={1} min={1}
-                                                error={bleSettingsErrors.autonomy_days}
-                                                disabled={isArchived}
-                                            />
-                                        </div>
-
-                                        {/* --- Panels --- */}
-                                        <div className="space-y-3 p-3 bg-gray-50 rounded-md border">
-                                             <h4 className='font-semibold text-gray-700'>{t('project_modal.solar_array', 'Solar Array')}</h4>
-                                             <SettingsInput
-                                                label={t('ble.solar_panels.panel_power_label', 'Panel Power (W)')}
-                                                value={bleSettings.panel_rated_power}
-                                                onChange={v => handleBleSettingChange('panel_rated_power', v)}
-                                                step={10} min={1}
-                                                error={bleSettingsErrors.panel_rated_power}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.solar_panels.panel_mpp_voltage_label', 'Panel MPP Voltage (V)')}
-                                                value={bleSettings.panel_mpp_voltage}
-                                                onChange={v => handleBleSettingChange('panel_mpp_voltage', v)}
-                                                step={0.1} min={1}
-                                                error={bleSettingsErrors.panel_mpp_voltage}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.solar_panels.system_losses_label', 'System Losses (%)')}
-                                                value={bleSettings.system_losses * 100}
-                                                onChange={v => handleBleSettingChange('system_losses', Number(v) / 100)}
-                                                step={1} min={0} max={100}
-                                                error={bleSettingsErrors.system_losses}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.solar_panels.temp_coefficient_power_label', 'Temp Coefficient Power')}
-                                                value={bleSettings.temp_coefficient_power}
-                                                onChange={v => handleBleSettingChange('temp_coefficient_power', v)}
-                                                step={0.001} min={-1} max={0}
-                                                error={bleSettingsErrors.temp_coefficient_power}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.solar_panels.noct_label', 'NOCT (°C)')}
-                                                value={bleSettings.noct}
-                                                onChange={v => handleBleSettingChange('noct', v)}
-                                                step={1} min={0}
-                                                error={bleSettingsErrors.noct}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.solar_panels.stc_temp_label', 'STC Temp (°C)')}
-                                                value={bleSettings.stc_temp}
-                                                onChange={v => handleBleSettingChange('stc_temp', v)}
-                                                step={1} min={0}
-                                                error={bleSettingsErrors.stc_temp}
-                                                disabled={isArchived}
-                                            />
-                                            <SettingsInput
-                                                label={t('ble.solar_panels.reference_irradiance_label', 'Reference Irradiance (W/m²)')}
-                                                value={bleSettings.reference_irradiance}
-                                                onChange={v => handleBleSettingChange('reference_irradiance', v)}
-                                                step={1} min={1}
-                                                error={bleSettingsErrors.reference_irradiance}
-                                                disabled={isArchived}
-                                            />
-                                            <div className={cn("flex items-center", i18n.dir() === 'rtl' ? 'space-x-reverse space-x-2' : 'space-x-2')}>
-                                                <Switch
-                                                    id="calculate-temp-derating"
-                                                    checked={bleSettings.calculate_temp_derating}
-                                                    onCheckedChange={checked => handleBleSettingChange('calculate_temp_derating', checked)}
-                                                    dir={i18n.dir()}
+                    {!isInvoiceIssued && (
+                        <div>
+                            <Accordion type="single" collapsible defaultValue="ble-settings">
+                                <AccordionItem value="ble-settings">
+                                    <AccordionTrigger className="text-xl font-bold flex flex-row justify-between w-full">
+                                        {t('project_modal.design_parameters', 'System Design Parameters')}
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 pt-4">
+                                            {/* --- Inverter --- */}
+                                            <div className="space-y-3 p-3 bg-gray-50 rounded-md border">
+                                                <h4 className='font-semibold text-gray-700'>{t('project_modal.inverter', 'Inverter')}</h4>
+                                                <SettingsInput
+                                                    label={t('ble.inverter.efficiency_label', 'Efficiency (%)')}
+                                                    value={bleSettings.inverter_efficiency * 100}
+                                                    onChange={v => handleBleSettingChange('inverter_efficiency', Number(v) / 100)}
+                                                    step={1} min={0} max={100}
+                                                    error={bleSettingsErrors.inverter_efficiency}
                                                     disabled={isArchived}
                                                 />
-                                                <Label htmlFor="calculate-temp-derating" className="text-xs font-medium text-gray-600">{t('project_modal.calculate_temp_derating_label', 'Calculate Temp Derating')}</Label>
+                                                <SettingsInput
+                                                    label={t('ble.inverter.safety_factor_label', 'Safety Factor (%)')}
+                                                    value={bleSettings.safety_factor * 100}
+                                                    onChange={v => handleBleSettingChange('safety_factor', Number(v) / 100)}
+                                                    step={1} min={1}
+                                                    error={bleSettingsErrors.safety_factor}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.inverter.rated_power_label', 'Rated Power (W)')}
+                                                    value={bleSettings.inverter_rated_power}
+                                                    onChange={v => handleBleSettingChange('inverter_rated_power', v)}
+                                                    step={100} min={1}
+                                                    error={bleSettingsErrors.inverter_rated_power}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.inverter.mppt_min_v_label', 'MPPT Min Voltage (V)')}
+                                                    value={bleSettings.inverter_mppt_min_v}
+                                                    onChange={v => handleBleSettingChange('inverter_mppt_min_v', v)}
+                                                    step={1} min={1}
+                                                    error={bleSettingsErrors.inverter_mppt_min_v}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.inverter.mppt_max_v_label', 'MPPT Max Voltage (V)')}
+                                                    value={bleSettings.inverter_mppt_max_v}
+                                                    onChange={v => handleBleSettingChange('inverter_mppt_max_v', v)}
+                                                    step={1} min={1}
+                                                    error={bleSettingsErrors.inverter_mppt_max_v}
+                                                    disabled={isArchived}
+                                                />
+                                            </div>
+
+                                            {/* --- Battery --- */}
+                                            <div className="space-y-3 p-3 bg-gray-50 rounded-md border">
+                                                <h4 className='font-semibold text-gray-700'>{t('project_modal.battery_bank', 'Battery Bank')}</h4>
+                                                <div>
+                                                    <Label className="text-xs font-medium text-gray-600">{t('project_modal.battery_type_label', 'Battery Type')}</Label>
+                                                    <Select
+                                                        dir={i18n.dir()}
+                                                        value={bleSettings.battery_type}
+                                                        onValueChange={(v: 'liquid' | 'lithium' | 'dry' | 'other') => {
+                                                            if (isArchived) return;
+                                                            const newDod = v === 'lithium' ? 0.9 : 0.6;
+                                                            setBleSettings(s => ({...s, battery_type: v, battery_dod: newDod}));
+                                                            setBleSettingsErrors(prev => ({...prev, battery_type: null, battery_dod: null}));
+                                                        }}
+                                                        disabled={isArchived}
+                                                    >
+                                                        <SelectTrigger><SelectValue/></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="liquid">{t('project_modal.battery_type.liquid', 'Lead-Acid (Liquid)')}</SelectItem>
+                                                            <SelectItem value="dry">{t('project_modal.battery_type.dry', 'Lead-Acid (AGM/Gel)')}</SelectItem>
+                                                            <SelectItem value="lithium">{t('project_modal.battery_type.lithium', 'Lithium-ion')}</SelectItem>
+                                                            <SelectItem value="other">{t('project_modal.battery_type.other', 'Other')}</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <SettingsInput
+                                                    label={t('ble.battery_bank.dod_label', 'Depth of Discharge (DoD %)')}
+                                                    value={bleSettings.battery_dod * 100}
+                                                    onChange={v => handleBleSettingChange('battery_dod', Number(v) / 100)}
+                                                    step={1} min={0} max={100}
+                                                    error={bleSettingsErrors.battery_dod}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.battery_bank.efficiency_label', 'Efficiency (%)')}
+                                                    value={bleSettings.battery_efficiency * 100}
+                                                    onChange={v => handleBleSettingChange('battery_efficiency', Number(v) / 100)}
+                                                    step={1} min={0} max={100}
+                                                    error={bleSettingsErrors.battery_efficiency}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.battery_bank.capacity_per_unit_label', 'Capacity per Unit (Ah)')}
+                                                    value={bleSettings.battery_rated_capacity_ah}
+                                                    onChange={v => handleBleSettingChange('battery_rated_capacity_ah', v)}
+                                                    step={10} min={1}
+                                                    error={bleSettingsErrors.battery_rated_capacity_ah}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.battery_bank.voltage_per_unit_label', 'Voltage per Unit (V)')}
+                                                    value={bleSettings.battery_rated_voltage}
+                                                    onChange={v => handleBleSettingChange('battery_rated_voltage', v)}
+                                                    step={1} min={1}
+                                                    error={bleSettingsErrors.battery_rated_voltage}
+                                                    disabled={isArchived}
+                                                />
+                                                 <SettingsInput
+                                                    label={t('ble.battery_bank.max_parallel_units_label', 'Max Parallel Units')}
+                                                    value={bleSettings.battery_max_parallel}
+                                                    onChange={v => handleBleSettingChange('battery_max_parallel', v)}
+                                                    step={1} min={1}
+                                                    error={bleSettingsErrors.battery_max_parallel}
+                                                    disabled={isArchived}
+                                                />
+                                                 <SettingsInput
+                                                    label={t('ble.battery_bank.autonomy_days_label', 'Days of Autonomy')}
+                                                    value={bleSettings.autonomy_days}
+                                                    onChange={v => handleBleSettingChange('autonomy_days', v)}
+                                                    step={1} min={1}
+                                                    error={bleSettingsErrors.autonomy_days}
+                                                    disabled={isArchived}
+                                                />
+                                            </div>
+
+                                            {/* --- Panels --- */}
+                                            <div className="space-y-3 p-3 bg-gray-50 rounded-md border">
+                                                 <h4 className='font-semibold text-gray-700'>{t('project_modal.solar_array', 'Solar Array')}</h4>
+                                                 <SettingsInput
+                                                    label={t('ble.solar_panels.panel_power_label', 'Panel Power (W)')}
+                                                    value={bleSettings.panel_rated_power}
+                                                    onChange={v => handleBleSettingChange('panel_rated_power', v)}
+                                                    step={10} min={1}
+                                                    error={bleSettingsErrors.panel_rated_power}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.solar_panels.panel_mpp_voltage_label', 'Panel MPP Voltage (V)')}
+                                                    value={bleSettings.panel_mpp_voltage}
+                                                    onChange={v => handleBleSettingChange('panel_mpp_voltage', v)}
+                                                    step={0.1} min={1}
+                                                    error={bleSettingsErrors.panel_mpp_voltage}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.solar_panels.system_losses_label', 'System Losses (%)')}
+                                                    value={bleSettings.system_losses * 100}
+                                                    onChange={v => handleBleSettingChange('system_losses', Number(v) / 100)}
+                                                    step={1} min={0} max={100}
+                                                    error={bleSettingsErrors.system_losses}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.solar_panels.temp_coefficient_power_label', 'Temp Coefficient Power')}
+                                                    value={bleSettings.temp_coefficient_power}
+                                                    onChange={v => handleBleSettingChange('temp_coefficient_power', v)}
+                                                    step={0.001} min={-1} max={0}
+                                                    error={bleSettingsErrors.temp_coefficient_power}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.solar_panels.noct_label', 'NOCT (°C)')}
+                                                    value={bleSettings.noct}
+                                                    onChange={v => handleBleSettingChange('noct', v)}
+                                                    step={1} min={0}
+                                                    error={bleSettingsErrors.noct}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.solar_panels.stc_temp_label', 'STC Temp (°C)')}
+                                                    value={bleSettings.stc_temp}
+                                                    onChange={v => handleBleSettingChange('stc_temp', v)}
+                                                    step={1} min={0}
+                                                    error={bleSettingsErrors.stc_temp}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.solar_panels.reference_irradiance_label', 'Reference Irradiance (W/m²)')}
+                                                    value={bleSettings.reference_irradiance}
+                                                    onChange={v => handleBleSettingChange('reference_irradiance', v)}
+                                                    step={1} min={1}
+                                                    error={bleSettingsErrors.reference_irradiance}
+                                                    disabled={isArchived}
+                                                />
+                                                <div className={cn("flex items-center", i18n.dir() === 'rtl' ? 'space-x-reverse space-x-2' : 'space-x-2')}>
+                                                    <Switch
+                                                        id="calculate-temp-derating"
+                                                        checked={bleSettings.calculate_temp_derating}
+                                                        onCheckedChange={checked => handleBleSettingChange('calculate_temp_derating', checked)}
+                                                        dir={i18n.dir()}
+                                                        disabled={isArchived}
+                                                    />
+                                                    <Label htmlFor="calculate-temp-derating" className="text-xs font-medium text-gray-600">{t('project_modal.calculate_temp_derating_label', 'Calculate Temp Derating')}</Label>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        </Accordion>
-                    </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                        </div>
+                    )}
 
                     <div>
                         <h3 className="text-xl font-bold mb-4">{t('project_modal.appliances_breakdown', 'Appliances Breakdown')}</h3>
 
                         {/* Custom Appliance Input Form */}
-                        {!isArchived && (
+                        {(!isArchived && (!isInvoiceIssued || isEditingAppliances)) && (
                             <div className="grid grid-cols-12 gap-2 p-3 mb-4 border rounded-lg bg-gray-50">
                                 <div className="col-span-7">
                                     <Label htmlFor='appliance-name' className='text-xs text-gray-500 font-semibold'>{t('project_modal.appliance_name_label', 'Appliance Name')}</Label>
@@ -882,7 +908,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                         <TableHead className="text-start w-[100px] font-bold">{t('project_modal.use_hours_night', 'Night/Battery Hrs')}</TableHead>
                                         <TableHead className="text-start w-[100px] font-bold">{t('project_modal.power', 'Power (W)')}</TableHead>
                                         <TableHead className="text-start w-[120px] font-bold">{t('project_modal.energy', 'Energy (Wh/day)')}</TableHead>
-                                        {!isArchived && <TableHead className="w-[50px]"></TableHead>}
+                                        {!isArchived && (!isInvoiceIssued || isEditingAppliances) && <TableHead className="w-[50px]"></TableHead>}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -890,44 +916,56 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                         <TableRow key={app.appliance_id}>
                                             <TableCell className="font-medium">{app.appliance_name}</TableCell>
                                             <TableCell>
-                                                <div className='flex flex-col'>
-                                                    <Input
-                                                        type="number"
-                                                        value={app.wattage}
-                                                        onChange={(e) => handleUpdateAppliance(app.appliance_id, { wattage: parseFloat(e.target.value) || 0 })}
-                                                        className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.wattage && "border-red-500")}
-                                                        disabled={isArchived}
-                                                    />
-                                                    {applianceInputErrors[app.appliance_id]?.wattage && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.wattage}</p>}
-                                                </div>
+                                                {(!isInvoiceIssued || isEditingAppliances) ? (
+                                                    <div className='flex flex-col'>
+                                                        <Input
+                                                            type="number"
+                                                            value={app.wattage}
+                                                            onChange={(e) => handleUpdateAppliance(app.appliance_id, { wattage: parseFloat(e.target.value) || 0 })}
+                                                            className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.wattage && "border-red-500")}
+                                                            disabled={isArchived}
+                                                        />
+                                                        {applianceInputErrors[app.appliance_id]?.wattage && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.wattage}</p>}
+                                                    </div>
+                                                ) : (
+                                                    <span className="block">{app.wattage}</span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
-                                                <div className='flex flex-col'>
-                                                    <Input
-                                                        type="number"
-                                                        value={app.qty}
-                                                        onChange={(e) => handleUpdateAppliance(app.appliance_id, { qty: parseInt(e.target.value) || 0 })}
-                                                        className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.qty && "border-red-500")}
-                                                        disabled={isArchived}
-                                                    />
-                                                    {applianceInputErrors[app.appliance_id]?.qty && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.qty}</p>}
-                                                </div>
+                                                {(!isInvoiceIssued || isEditingAppliances) ? (
+                                                    <div className='flex flex-col'>
+                                                        <Input
+                                                            type="number"
+                                                            value={app.qty}
+                                                            onChange={(e) => handleUpdateAppliance(app.appliance_id, { qty: parseInt(e.target.value) || 0 })}
+                                                            className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.qty && "border-red-500")}
+                                                            disabled={isArchived}
+                                                        />
+                                                        {applianceInputErrors[app.appliance_id]?.qty && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.qty}</p>}
+                                                    </div>
+                                                ) : (
+                                                    <span className="block">{app.qty}</span>
+                                                )}
                                             </TableCell>
                                             <TableCell>
-                                                <div className='flex flex-col'>
-                                                <Input
-                                                    type="number"
-                                                    value={app.use_hours_night}
-                                                    onChange={(e) => handleUpdateAppliance(app.appliance_id, { use_hours_night: parseFloat(e.target.value) || 0 })}
-                                                    className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.use_hours_night && "border-red-500")}
-                                                    disabled={isArchived}
-                                                />
-                                                {applianceInputErrors[app.appliance_id]?.use_hours_night && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.use_hours_night}</p>}
-                                                </div>
+                                                {(!isInvoiceIssued || isEditingAppliances) ? (
+                                                    <div className='flex flex-col'>
+                                                        <Input
+                                                            type="number"
+                                                            value={app.use_hours_night}
+                                                            onChange={(e) => handleUpdateAppliance(app.appliance_id, { use_hours_night: parseFloat(e.target.value) || 0 })}
+                                                            className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.use_hours_night && "border-red-500")}
+                                                            disabled={isArchived}
+                                                        />
+                                                        {applianceInputErrors[app.appliance_id]?.use_hours_night && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.use_hours_night}</p>}
+                                                    </div>
+                                                ) : (
+                                                    <span className="block">{app.use_hours_night}</span>
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-center">{calculateApplianceMetrics(app).power}</TableCell>
                                             <TableCell className="text-center">{calculateApplianceMetrics(app).energy}</TableCell>
-                                            {!isArchived && (
+                                            {!isArchived && (!isInvoiceIssued || isEditingAppliances) && (
                                                 <TableCell>
                                                     <Button variant="ghost" size="icon" onClick={() => removeApplianceFromProject(app.appliance_id)}>
                                                         <MinusIcon className="h-4 w-4 text-red-500" />
@@ -947,14 +985,16 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                     </div>
 
                     {!isArchived && (
-                        <Button
-                            onClick={handleRunCalculation}
-                            disabled={isBleLoading || hasBleSettingsErrors || hasApplianceInputErrors}
-                            className="w-full mt-auto text-white"
-                        >
-                            {isBleLoading ? <Spinner className="" /> : <Calculator className="h-4 w-4 " />}
-                            {t('project_modal.calculate', 'Calculate')}
-                        </Button>
+                        !isInvoiceIssued && (
+                            <Button
+                                onClick={handleRunCalculation}
+                                disabled={isBleLoading || hasBleSettingsErrors || hasApplianceInputErrors}
+                                className="w-full mt-auto text-white"
+                            >
+                                {isBleLoading ? <Spinner className="" /> : <Calculator className="h-4 w-4 " />}
+                                {t('project_modal.calculate', 'Calculate')}
+                            </Button>
+                        )
                     )}
                 </div>
 
@@ -1050,29 +1090,43 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                 </AccordionItem>
                             </Accordion>
                             {!isArchived && (
-                                <div className="flex flex-col gap-2 mt-4" dir={i18n.dir()}>
-                                    <Button
-                                        onClick={handleSaveConfiguration}
-                                        disabled={!bleResults?.data || !proceed}
-                                        className="w-full text-white"
-                                    >
-                                        <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : '')} />
-                                        {t('project_modal.save_config', 'Save Configuration')}
-                                    </Button>
+    <div className="flex flex-col gap-2 mt-4" dir={i18n.dir()}>
+        {isInvoiceIssued ? (
+            /* CASE 1: Invoice IS issued - Show ONLY View Invoice */
+            <Button
+                onClick={() => setCurrentView('invoicing')}
+                className="w-full group-[]: bg-green-100 text-green-800 border border-green-200 hover:bg-green-600 hover:text-white"
+            >
+                <FileText className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} />
+                {t('components.view_invoice', 'View Invoice')}
+            </Button>
+        ) : (
+            /* CASE 2: Invoice is NOT issued - Show Save and Proceed buttons */
+            <>
+                <Button
+                    onClick={handleSaveConfiguration}
+                    disabled={!bleResults?.data || !proceed}
+                    className="w-full text-white"
+                >
+                    <Save className={cn("h-4 w-4", i18n.dir() === 'rtl' ? 'ml-2' : 'mr-2')} />
+                    {t('project_modal.save_config', 'Save Configuration')}
+                </Button>
 
-                                    {displayResults && (
-                                        <Button
-                                            variant="outline"
-                                            className="w-full group border-primary text-primary hover:bg-primary hover:text-white font-bold"
-                                            onClick={handleProceedToSelection}
-                                            disabled={proceed}
-                                        >
-                                            <ShoppingCart className="h-4 w-4" />
-                                            {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
-                                        </Button>
-                                    )}
-                                </div>
-                            )}
+                {displayResults && (
+                    <Button
+                        variant="outline"
+                        className="w-full group border-primary text-primary hover:bg-primary hover:text-white font-bold"
+                        onClick={handleProceedToSelection}
+                        disabled={proceed} // Removed redundant isInvoiceIssued check as it's handled by the parent
+                    >
+                        <ShoppingCart className="h-4 w-4" />
+                        {t('project_modal.proceed_to_selection', 'Proceed to Selection')}
+                    </Button>
+                )}
+            </>
+        )}
+    </div>
+)}
                         </ScrollArea>
                     )}
                 </div>

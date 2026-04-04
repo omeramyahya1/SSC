@@ -212,19 +212,28 @@ def apply_payment_to_invoice(db: Session, invoice_uuid: str):
     if not invoice:
         raise ValueError("Invoice not found")
 
+    project = db.query(Project).filter(Project.uuid == invoice.project_uuid).first()
+    if not project:
+        raise ValueError("Project not found")
+
     # Calculate total paid
     total_paid = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == invoice_uuid).scalar() or 0.0
 
     if total_paid >= float(invoice.amount):
         invoice.status = "paid"
+        project.status = 'done'
     elif total_paid > 0:
         invoice.status = "partial"
+        if project.status == "done":
+            project.status = "execution"  # or your agreed non-terminal status
     else:
         # If it was issued, it stays as is or pending
         if invoice.issued_at:
              invoice.status = "pending" # Or keep current if we don't want to revert issued state
         else:
              invoice.status = "pending"
+        if project.status == "done":
+            project.status = "execution"  # align with business state machine
 
     invoice.is_dirty = True
     return invoice.status

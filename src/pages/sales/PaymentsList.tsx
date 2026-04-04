@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePaymentStore, Payment } from '@/store/usePaymentStore';
 import { Spinner } from '@/components/ui/spinner';
+import { formatCurrency } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import {
@@ -192,7 +193,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                                     {payment.payment_reference || '—'}
                                 </TableCell>
                                 <TableCell className="font-black text-green-600">
-                                    + {payment.amount.toLocaleString()}
+                                    + {formatCurrency(payment.amount)}
                                 </TableCell>
                                 <TableCell className="text-end">
                                     <DropdownMenu dir={i18n.dir()}>

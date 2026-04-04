@@ -18,7 +18,7 @@ import {
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { InventoryItem, useInventoryStore } from '@/store/useInventoryStore';
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Dialog } from "@/components/ui/dialog";
 import {
     AlertDialog,
@@ -239,8 +239,8 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
 
                                     </div>
                                 </TableCell>
-                                <TableCell className="text-center font-semibold">{item.buy_price.toLocaleString()} </TableCell>
-                                <TableCell className="text-center font-semibold text-primary">{item.sell_price.toLocaleString()} </TableCell>
+                                <TableCell className="text-center font-semibold">{formatCurrency(item.buy_price)}</TableCell>
+                                <TableCell className="text-center font-semibold text-primary">{formatCurrency(item.sell_price)}</TableCell>
                                 <TableCell className="text-center">{getStatusBadge(item)}</TableCell>
                                 <TableCell className="text-center">
                                     <DropdownMenu dir={i18n.dir()}>

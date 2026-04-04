@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { useInvoiceStore, Invoice } from '@/store/useInvoiceStore';
 import { useUserStore } from '@/store/useUserStore';
 import { Spinner } from '@/components/ui/spinner';
+import { formatCurrency } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { InvoiceEditorModal } from './InvoiceEditorModal';
@@ -218,13 +219,13 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                     { (invoice as any).due_date ? format(new Date((invoice as any).due_date), 'dd/MM/yyyy') : '—'}
                                 </TableCell>
                                 <TableCell className="font-black text-gray-900">
-                                    {invoice.amount?.toLocaleString('en-US')}
+                                    {formatCurrency(invoice.amount)}
                                 </TableCell>
                                 <TableCell className="font-bold text-green-600">
-                                    {(invoice as any).paid_amount?.toLocaleString('en-US') || '0'}
+                                    {formatCurrency((invoice as any).paid_amount)}
                                 </TableCell>
                                 <TableCell className={`font-black ${(invoice as any).remainder > 0 ? `text-red-500` : `text-green-600`}`}>
-                                    {(invoice as any).remainder?.toLocaleString('en-US') || '0'}
+                                    {formatCurrency((invoice as any).remainder)}
                                 </TableCell>
                                 <TableCell className='text-center'>
                                     {getStatusBadge(invoice.status)}

@@ -13,7 +13,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
 import { Search, Package, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 
 interface InventorySelectorModalProps {
     categoryName?: string; // e.g., "Inverter", "Battery", "Panel"
@@ -167,7 +167,7 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-right font-bold">
-                                        {item.sell_price ? `${item.sell_price.toLocaleString()} ` : 'N/A'}
+                                        {item.sell_price ? formatCurrency(item.sell_price) : 'N/A'}
                                     </TableCell>
                                     <TableCell className='text-center'>
                                         {selectedItemUuid === item.uuid && <Check className='h-5 w-5 text-blue-600 mx-auto' />}
