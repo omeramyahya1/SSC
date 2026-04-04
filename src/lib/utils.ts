@@ -15,7 +15,7 @@ export function formatCurrency(amount: number | undefined | null) {
     maximumFractionDigits: 2,
   }).format(amount);
 
-  const symbol = i18n.t('currency.sdg', { defaultValue: language === 'ar' ? 'ج' : 'SDG' });
+const symbol = i18n.t('currency.sdg', { defaultValue: language === 'ar' ? 'ج.س.' : 'SDG' });
 
   return `${formattedAmount} ${symbol}`;
 }
