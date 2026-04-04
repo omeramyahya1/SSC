@@ -281,20 +281,25 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Button
-                        variant="outline"
-                        onClick={handleGenerateRecommendations}
-                        disabled={isGenerating || !bleResults}
-                        className="h-10 rounded-lg group hover:shadow-lg hover:text-white bg-white hover:bg-primary border shadow-sm"
-                    >
-                        {isGenerating ? <Spinner className=" h-4 w-4 group-hover:invert" /> : <img src="eva-icons (2)/outline/bulb.png" className=" h-5 w-5 group-hover:invert" />}
-                        {t('components.auto_select', 'Auto-Select')}
-                    </Button>
+                    {
+                        !currentInvoice?.issued_at && (
+                            <Button
+                                variant="outline"
+                                onClick={handleGenerateRecommendations}
+                                disabled={isGenerating || !bleResults}
+                                className="h-10 rounded-lg group hover:shadow-lg hover:text-white bg-white hover:bg-primary border shadow-sm"
+                            >
+                                {isGenerating ? <Spinner className=" h-4 w-4 group-hover:invert" /> : <img src="eva-icons (2)/outline/bulb.png" className=" h-5 w-5 group-hover:invert" />}
+                                {t('components.auto_select', 'Auto-Select')}
+                            </Button>
+                        )
+                    }
+
                     <Button
                         variant="default"
                         onClick={onCheckout}
                         disabled={components.length === 0}
-                        className="h-10 rounded-lg bg-primary hover:bg-blue-700 text-white font-bold shadow-sm"
+                        className={`h-10 rounded-lg ${currentInvoice?.issued_at ? 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-600 hover:text-white' : 'bg-primary text-white'} font-bold shadow-sm`}
                     >
                         {
                             currentInvoice?.issued_at ? (
@@ -313,17 +318,24 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         }
 
                     </Button>
-                    <div className="h-10 px-4 flex items-center bg-green-600 text-white rounded-lg font-bold shadow-sm">
-                        <ShoppingCart className="me-2 h-5 w-5" />
-                        {totalCost.toLocaleString()}
-                    </div>
+                    {
+                        !currentInvoice?.issued_at &&  (
+                             <div className="h-10 px-4 flex items-center bg-green-600 text-white rounded-lg font-bold shadow-sm">
+                                <ShoppingCart className="me-2 h-5 w-5" />
+                                {totalCost.toLocaleString()}
+                            </div>
+                        )
+                    }
+
                 </div>
             </div>
 
             <ScrollArea className="flex-grow p-6">
                 <div className="max-w-5xl mx-auto space-y-8">
                     {/* Primary Slots */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {
+                        !currentInvoice?.issued_at && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <ComponentSlot
                             title={t('components.inverter', 'Inverter')}
                             icon={<Zap className="h-6 w-6 text-yellow-500" />}
@@ -375,13 +387,20 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                             onRemove={handleRemove}
                         />
                     </div>
+                        )
+                    }
                     {/* All Components Table */}
                     <div className="bg-white rounded-xl border shadow-sm overflow-hidden" dir={i18n.dir()}>
                         <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
                             <h3 className="font-bold text-lg">{t('components.system_components_table', 'Solar System Components')}</h3>
-                            <Button size="sm" onClick={() => { setSelectedSlotCategory(null); setIsInventoryModalOpen(true); }}>
-                                <Plus className="h-4 w-4 " /> {t('components.add_from_inventory', 'Add Item')}
-                            </Button>
+                            {
+                                !currentInvoice?.issued_at && (
+                                    <Button size="sm" onClick={() => { setSelectedSlotCategory(null); setIsInventoryModalOpen(true); }}>
+                                        <Plus className="h-4 w-4 " /> {t('components.add_from_inventory', 'Add Item')}
+                                    </Button>
+                                )
+                            }
+
                         </div>
                         <Table dir={i18n.dir()}>
                             <TableHeader>
@@ -409,18 +428,25 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <Input
-                                                        type="number"
-                                                        className="w-20 text-center h-8"
-                                                        value={quantityDrafts[c.uuid] ?? String(c.quantity ?? 1)}
-                                                        onChange={(e) => handleDraftChange(c.uuid, e.target.value)}
-                                                        onBlur={() => handleDraftCommit(c.uuid)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                (e.currentTarget as HTMLInputElement).blur();
-                                                            }
-                                                        }}
-                                                    />
+                                                    {
+                                                        currentInvoice?.issued_at ? (
+                                                            <span>{quantityDrafts[c.uuid] ?? String(c.quantity ?? 1)}</span>
+                                                        ) : (
+                                                            <Input
+                                                                type="number"
+                                                                className="w-20 text-center h-8"
+                                                                value={quantityDrafts[c.uuid] ?? String(c.quantity ?? 1)}
+                                                                onChange={(e) => handleDraftChange(c.uuid, e.target.value)}
+                                                                onBlur={() => handleDraftCommit(c.uuid)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        (e.currentTarget as HTMLInputElement).blur();
+                                                                    }
+                                                                }}
+                                                            />
+                                                        )
+                                                    }
+
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -430,9 +456,14 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                                                 {((c.price_at_sale || 0) * c.quantity).toLocaleString()}
                                             </TableCell>
                                             <TableCell>
-                                                <Button variant="ghost" size="icon" onClick={() => handleRemove(c.uuid)}>
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                                </Button>
+                                                {
+                                                    !currentInvoice?.issued_at && (
+                                                        <Button variant="ghost" size="icon" onClick={() => handleRemove(c.uuid)}>
+                                                            <Trash2 className="h-4 w-4 text-red-500" />
+                                                        </Button>
+                                                    )
+                                                }
+
                                             </TableCell>
                                         </TableRow>
                                     ))
