@@ -2,6 +2,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from models import Invoice, Payment, InventoryItem, ProjectComponent, StockAdjustment, Project
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
 
 def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = None, branch_uuid: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, user_uuid: Optional[str] = None):
@@ -184,12 +185,21 @@ def confirm_and_issue_invoice(db: Session, invoice_uuid: str, user_uuid: str):
     if invoice.status != "pending":
         return {"error": "Only pending invoices can be confirmed"}, 400
 
+    project = db.query(Project).filter(Project.uuid == invoice.project_uuid).first()
+    if not project:
+        return {"error": "Project not found"}, 404
+
     # 1. Snapshot prices to lock data integrity
     snapshot_project_components(db, invoice.project_uuid)
 
     # 2. Update Invoice Status/Date
     invoice.issued_at = datetime.utcnow()
+    invoice.status = "pending"
     invoice.is_dirty = True
+
+    # 3. Update Project Status
+    project.status = 'done'
+    project.is_dirty = True
 
     # 3. Trigger Stock Deduction (Defaulting to ON_ISSUE as per current requirements)
     try:
@@ -216,16 +226,20 @@ def apply_payment_to_invoice(db: Session, invoice_uuid: str):
     if not project:
         raise ValueError("Project not found")
 
-    # Calculate total paid
-    total_paid = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == invoice_uuid).scalar() or 0.0
+    # Calculate total paid with Decimal-safe arithmetic
+    total_paid_raw = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == invoice_uuid).scalar()
+    total_paid = Decimal(str(total_paid_raw or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    invoice_amount = Decimal(str(invoice.amount or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    if total_paid >= float(invoice.amount):
+    if total_paid >= invoice_amount:
         invoice.status = "paid"
         project.status = 'done'
-    elif total_paid > 0:
+        project.is_dirty = True
+    elif total_paid > 0 and total_paid < invoice_amount:
         invoice.status = "partial"
         if project.status == "done":
             project.status = "execution"  # or your agreed non-terminal status
+            project.is_dirty = True
     else:
         # If it was issued, it stays as is or pending
         if invoice.issued_at:
@@ -234,6 +248,7 @@ def apply_payment_to_invoice(db: Session, invoice_uuid: str):
              invoice.status = "pending"
         if project.status == "done":
             project.status = "execution"  # align with business state machine
+            project.is_dirty = True
 
     invoice.is_dirty = True
     return invoice.status

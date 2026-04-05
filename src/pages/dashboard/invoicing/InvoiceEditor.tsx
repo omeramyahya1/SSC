@@ -79,7 +79,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     // Local-only state for fees/discount/date/terms
-    const [dueDate, setDueDate] = useState<Date | null>(addDays(new Date(), 7));
+    const [dueDate, setDueDate] = useState<Date | null>(new Date());
     const [shippingFeeInput, setShippingFeeInput] = useState('0');
     const [installationFeeInput, setInstallationFeeInput] = useState('0');
     const [discountPercentInput, setDiscountPercentInput] = useState('0');
@@ -95,7 +95,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                 setShippingFeeInput(String(details.shipping_fee ?? 0));
                 setInstallationFeeInput(String(details.installation_fee ?? 0));
                 setDiscountPercentInput(String(details.discount_percent ?? 0));
-                setDueDate(details.due_date ? new Date(details.due_date) : addDays(new Date(), 7));
+                setDueDate(details.due_date ? new Date(details.due_date) : new Date());
                 setCustomTermsEnabled(!!details.enable_custom_terms);
                 setCustomTerms(details.terms_and_conditions || '');
                 return;
@@ -108,7 +108,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                     discount_percent: 0,
                     enable_custom_terms: false,
                     terms_and_conditions: '',
-                    due_date: addDays(new Date(), 7).toISOString()
+                    due_date: new Date().toISOString()
                 };
                 setShippingFeeInput('0');
                 setInstallationFeeInput('0');

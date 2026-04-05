@@ -210,7 +210,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                         {filteredAndSortedInvoices.map((invoice) => (
                             <TableRow key={invoice.uuid} className="text-start hover:bg-gray-50/50 transition-colors">
                                 <TableCell className="font-mono font-bold text-primary text-start">
-                                    #{String(invoice.invoice_id).padStart(5, '0')}
+                                    # {String(invoice.invoice_id).padStart(5, '0')}
                                 </TableCell>
                                 <TableCell className="font-medium">
                                     {invoice.customer_name || 'N/A'}

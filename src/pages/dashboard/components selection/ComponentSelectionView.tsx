@@ -18,7 +18,7 @@ import {
     Trash2,
     ArrowLeft,
     Zap,
-    Battery as BatteryIcon,
+    Battery as BatteryCharging,
     Sun,
     CheckCircle2,
     Info,
@@ -355,7 +355,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                         />
                         <ComponentSlot
                             title={t('components.battery_bank', 'Battery Bank')}
-                            icon={<BatteryIcon className="h-6 w-6 text-green-500" />}
+                            icon={<BatteryCharging className="h-6 w-6 text-green-500" />}
                             requirements={{
                                 display: reqBattery ? `${reqBattery.capacity_per_unit_ah} Ah` + ` x ${reqBattery.quantity}` : 'N/A',
                                 primaryValue: reqBattery?.capacity_per_unit_ah,

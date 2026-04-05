@@ -23,7 +23,7 @@ import { useApplianceStore, ProjectAppliance } from '@/store/useApplianceStore';
 import { useBleStore } from '@/store/useBleStore';
 import { Project } from "@/store/useProjectStore";
 import { cn } from "@/lib/utils";
-import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ShoppingCart, Eye, FileText } from 'lucide-react';
+import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ShoppingCart, FileText, User, Sliders, Sheet } from 'lucide-react';
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
@@ -31,6 +31,12 @@ import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { toast } from 'react-hot-toast';
 import { ComponentSelectionView } from './components selection/ComponentSelectionView';
 import { InvoiceEditor } from './invoicing/InvoiceEditor';
+import {
+    Zap,
+    BatteryCharging,
+    Sun,
+    Info
+ } from 'lucide-react';
 
 
 // --- Helper Components ---
@@ -379,7 +385,6 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
             case 'safety_factor':
                 if (value < 1) error = t('common.must_be_1_or_greater', 'Must be 1 or greater');
                 break;
-            case 'autonomy_days':
             case 'battery_rated_capacity_ah':
             case 'battery_rated_voltage':
             case 'battery_max_parallel':
@@ -522,6 +527,16 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         }
     };
 
+    useEffect(() => {
+        if (isArchived) return;
+        if (bleSettings.autonomy_days !== 0) return;
+        projectAppliances.forEach((app) => {
+            if (app.use_hours_night !== 0) {
+                handleUpdateAppliance(app.appliance_id, { use_hours_night: 0 });
+            }
+        });
+    }, [bleSettings.autonomy_days, projectAppliances, handleUpdateAppliance, isArchived]);
+
     const totalEnergy = useMemo(() => projectAppliances.reduce((sum, app) => sum + calculateApplianceMetrics(app).energy, 0), [projectAppliances]);
     const totalPower = useMemo(() => projectAppliances.reduce((sum, app) => sum + calculateApplianceMetrics(app).power, 0), [projectAppliances]);
 
@@ -645,7 +660,10 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                 <div className="flex flex-col p-6 overflow-y-auto border-e gap-6">
                     {/* Customer Info & Location */}
                     <div>
-                        <h3 className="text-xl font-bold mb-4">{t('project_modal.customer_info_location', 'Customer Info & Location')}</h3>
+                        <h3 className="flex flex-row gap-2 text-xl font-bold mb-4">
+                            <User className='text-primary'/>
+                            <span>{t('project_modal.customer_info_location', 'Customer Info & Location')}</span>
+                        </h3>
                         <ProjectInfo project={project} onUpdate={setProject} isReadOnly={isArchived} issued={Boolean(currentInvoice?.issued_at  && true)} />
                     </div>
 
@@ -654,14 +672,25 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                         <div>
                             <Accordion type="single" collapsible defaultValue="ble-settings">
                                 <AccordionItem value="ble-settings">
-                                    <AccordionTrigger className="text-xl font-bold flex flex-row justify-between w-full">
-                                        {t('project_modal.design_parameters', 'System Design Parameters')}
+                                    <AccordionTrigger className="text-xl font-bold flex flex-row w-full">
+                                        <Sliders className='text-primary' />
+                                        <span>
+                                            {t('project_modal.design_parameters', 'System Design Parameters')}
+                                        </span>
                                     </AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 pt-4">
                                             {/* --- Inverter --- */}
                                             <div className="space-y-3 p-3 bg-gray-50 rounded-md border">
                                                 <h4 className='font-semibold text-gray-700'>{t('project_modal.inverter', 'Inverter')}</h4>
+                                                <SettingsInput
+                                                    label={t('ble.inverter.rated_power_label', 'Rated Power (W)')}
+                                                    value={bleSettings.inverter_rated_power}
+                                                    onChange={v => handleBleSettingChange('inverter_rated_power', v)}
+                                                    step={100} min={1}
+                                                    error={bleSettingsErrors.inverter_rated_power}
+                                                    disabled={isArchived}
+                                                />
                                                 <SettingsInput
                                                     label={t('ble.inverter.efficiency_label', 'Efficiency (%)')}
                                                     value={bleSettings.inverter_efficiency * 100}
@@ -676,14 +705,6 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                                     onChange={v => handleBleSettingChange('safety_factor', Number(v) / 100)}
                                                     step={1} min={1}
                                                     error={bleSettingsErrors.safety_factor}
-                                                    disabled={isArchived}
-                                                />
-                                                <SettingsInput
-                                                    label={t('ble.inverter.rated_power_label', 'Rated Power (W)')}
-                                                    value={bleSettings.inverter_rated_power}
-                                                    onChange={v => handleBleSettingChange('inverter_rated_power', v)}
-                                                    step={100} min={1}
-                                                    error={bleSettingsErrors.inverter_rated_power}
                                                     disabled={isArchived}
                                                 />
                                                 <SettingsInput
@@ -730,22 +751,6 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                                     </Select>
                                                 </div>
                                                 <SettingsInput
-                                                    label={t('ble.battery_bank.dod_label', 'Depth of Discharge (DoD %)')}
-                                                    value={bleSettings.battery_dod * 100}
-                                                    onChange={v => handleBleSettingChange('battery_dod', Number(v) / 100)}
-                                                    step={1} min={0} max={100}
-                                                    error={bleSettingsErrors.battery_dod}
-                                                    disabled={isArchived}
-                                                />
-                                                <SettingsInput
-                                                    label={t('ble.battery_bank.efficiency_label', 'Efficiency (%)')}
-                                                    value={bleSettings.battery_efficiency * 100}
-                                                    onChange={v => handleBleSettingChange('battery_efficiency', Number(v) / 100)}
-                                                    step={1} min={0} max={100}
-                                                    error={bleSettingsErrors.battery_efficiency}
-                                                    disabled={isArchived}
-                                                />
-                                                <SettingsInput
                                                     label={t('ble.battery_bank.capacity_per_unit_label', 'Capacity per Unit (Ah)')}
                                                     value={bleSettings.battery_rated_capacity_ah}
                                                     onChange={v => handleBleSettingChange('battery_rated_capacity_ah', v)}
@@ -761,6 +766,22 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                                     error={bleSettingsErrors.battery_rated_voltage}
                                                     disabled={isArchived}
                                                 />
+                                                <SettingsInput
+                                                    label={t('ble.battery_bank.dod_label', 'Depth of Discharge (DoD %)')}
+                                                    value={bleSettings.battery_dod * 100}
+                                                    onChange={v => handleBleSettingChange('battery_dod', Number(v) / 100)}
+                                                    step={1} min={0} max={100}
+                                                    error={bleSettingsErrors.battery_dod}
+                                                    disabled={isArchived}
+                                                />
+                                                <SettingsInput
+                                                    label={t('ble.battery_bank.efficiency_label', 'Efficiency (%)')}
+                                                    value={bleSettings.battery_efficiency * 100}
+                                                    onChange={v => handleBleSettingChange('battery_efficiency', Number(v) / 100)}
+                                                    step={1} min={0} max={100}
+                                                    error={bleSettingsErrors.battery_efficiency}
+                                                    disabled={isArchived}
+                                                />
                                                  <SettingsInput
                                                     label={t('ble.battery_bank.max_parallel_units_label', 'Max Parallel Units')}
                                                     value={bleSettings.battery_max_parallel}
@@ -773,7 +794,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                                     label={t('ble.battery_bank.autonomy_days_label', 'Days of Autonomy')}
                                                     value={bleSettings.autonomy_days}
                                                     onChange={v => handleBleSettingChange('autonomy_days', v)}
-                                                    step={1} min={1}
+                                                    step={1} min={0}
                                                     error={bleSettingsErrors.autonomy_days}
                                                     disabled={isArchived}
                                                 />
@@ -857,7 +878,12 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                     )}
 
                     <div>
-                        <h3 className="text-xl font-bold mb-4">{t('project_modal.appliances_breakdown', 'Appliances Breakdown')}</h3>
+                        <h3 className="flex flex-row gap-2 text-xl font-bold mb-4">
+                            <Sheet className='text-primary'/>
+                            <span>
+                                {t('project_modal.appliances_breakdown', 'Appliances Breakdown')}
+                            </span>
+                        </h3>
 
                         {/* Custom Appliance Input Form */}
                         {(!isArchived && (!isInvoiceIssued || isEditingAppliances)) && (
@@ -952,10 +978,10 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                                     <div className='flex flex-col'>
                                                         <Input
                                                             type="number"
-                                                            value={app.use_hours_night}
+                                                            value={bleSettings.autonomy_days === 0 ? 0 : app.use_hours_night}
                                                             onChange={(e) => handleUpdateAppliance(app.appliance_id, { use_hours_night: parseFloat(e.target.value) || 0 })}
                                                             className={cn("w-full text-center p-1 h-8", applianceInputErrors[app.appliance_id]?.use_hours_night && "border-red-500")}
-                                                            disabled={isArchived}
+                                                            disabled={isArchived || bleSettings.autonomy_days === 0}
                                                         />
                                                         {applianceInputErrors[app.appliance_id]?.use_hours_night && <p className="text-red-500 text-xs mt-1">{applianceInputErrors[app.appliance_id]?.use_hours_night}</p>}
                                                     </div>
@@ -1027,11 +1053,14 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                         </div>
                     )}
 
-                    {!resultsError && displayResults && (
+                    {!resultsError && displayResults && !isResultsLoading && (
                         <ScrollArea className="flex-grow">
                             <Accordion type="multiple" defaultValue={['metadata', 'solar_panels', 'inverter', 'battery_bank']} className="w-full">
                                 <AccordionItem value="metadata">
-                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.metadata_accordion_title', 'Metadata')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>
+                                        <Info className="h-4 w-4" />
+                                        <span>{t('project_modal.metadata_accordion_title', 'Metadata')}</span>
+                                    </AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.metadata.peak_sun_hours', 'Peak Sun Hours')} value={displayResults.metadata.peak_sun_hours} />
@@ -1044,7 +1073,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="solar_panels">
-                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.solar_panels', 'Solar Panels')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}><Sun className="h-6 w-6 text-orange-500" /><span>{t('project_modal.solar_panels', 'Solar Panels')}</span></AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.solar_panels.power_rating', 'Power Rating')} value={displayResults.solar_panels.power_rating_w} formatter={formatPowerValue} />
@@ -1058,7 +1087,10 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="inverter">
-                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.inverter', 'Inverter')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full justify-start', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>
+                                        <Zap className="h-6 w-6 text-yellow-500" />
+                                        <span>{t('project_modal.inverter', 'Inverter')}</span>
+                                    </AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.inverter.power_rating', 'Power Rating')} value={displayResults.inverter.power_rating_w} formatter={formatPowerValue} />
@@ -1072,7 +1104,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="battery_bank">
-                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.battery_bank', 'Battery Bank')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}><BatteryCharging className="h-6 w-6 text-green-500 static" /><span>{t('project_modal.battery_bank', 'Battery Bank')}</span></AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.battery_bank.battery_type', 'Battery Type')} value={displayResults.battery_bank.battery_type} />
@@ -1157,7 +1189,7 @@ const SettingsInput = ({ label, value, onChange, step = 1, min = -Infinity, max 
                         type="number"
                         value={value as number}
                         onChange={e => onChange(parseFloat(e.target.value) || 0)}
-                        className={cn("h-9", error && "border-red-500")}
+                        className={cn("h-9 bg-white", error && "border-red-500")}
                         step={step}
                         min={min}
                         max={max}
