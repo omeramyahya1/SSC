@@ -79,7 +79,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     // Local-only state for fees/discount/date/terms
-    const [dueDate, setDueDate] = useState<Date | null>(addDays(new Date(), 7));
+    const [dueDate, setDueDate] = useState<Date | null>(new Date());
     const [shippingFeeInput, setShippingFeeInput] = useState('0');
     const [installationFeeInput, setInstallationFeeInput] = useState('0');
     const [discountPercentInput, setDiscountPercentInput] = useState('0');

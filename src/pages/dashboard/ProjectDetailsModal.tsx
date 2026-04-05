@@ -23,7 +23,7 @@ import { useApplianceStore, ProjectAppliance } from '@/store/useApplianceStore';
 import { useBleStore } from '@/store/useBleStore';
 import { Project } from "@/store/useProjectStore";
 import { cn } from "@/lib/utils";
-import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ShoppingCart, Eye, FileText, User, Sliders, Sheet } from 'lucide-react';
+import { Pencil, X, Save, PlusIcon, MinusIcon, Calculator, AlertCircle, ShoppingCart, FileText, User, Sliders, Sheet } from 'lucide-react';
 import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
@@ -526,6 +526,16 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
             // Optionally show an error to the user
         }
     };
+
+    useEffect(() => {
+        if (isArchived) return;
+        if (bleSettings.autonomy_days !== 0) return;
+        projectAppliances.forEach((app) => {
+            if (app.use_hours_night !== 0) {
+                handleUpdateAppliance(app.appliance_id, { use_hours_night: 0 });
+            }
+        });
+    }, [bleSettings.autonomy_days, projectAppliances, handleUpdateAppliance, isArchived]);
 
     const totalEnergy = useMemo(() => projectAppliances.reduce((sum, app) => sum + calculateApplianceMetrics(app).energy, 0), [projectAppliances]);
     const totalPower = useMemo(() => projectAppliances.reduce((sum, app) => sum + calculateApplianceMetrics(app).power, 0), [projectAppliances]);
@@ -1193,7 +1203,7 @@ const SettingsInput = ({ label, value, onChange, step = 1, min = -Infinity, max 
                     onCheckedChange={onChange}
                     className="mt-2"
                     dir={i18n.dir()}
-                    disabled={true}
+                    disabled={disabled}
                 />
             )}
         </div>
