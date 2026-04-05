@@ -187,7 +187,7 @@ def confirm_and_issue_invoice(db: Session, invoice_uuid: str, user_uuid: str):
 
     project = db.query(Project).filter(Project.uuid == invoice.project_uuid).first()
     if not project:
-        return {"error": "Invoice not found"}, 404
+        return {"error": "Project not found"}, 404
 
     # 1. Snapshot prices to lock data integrity
     snapshot_project_components(db, invoice.project_uuid)
