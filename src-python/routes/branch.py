@@ -53,15 +53,24 @@ def delete_branch(item_id):
         db.commit()
         return jsonify({"message": "Branch and related data deactivated successfully"}), 200
 
+@branch_bp.route('/<string:item_id>', methods=['PUT'])
+def update_branch(item_id):
+    with get_db() as db:
+        item = db.query(Organization).filter(Organization.organization_id == item_id).first()
+        if not item:
+            return jsonify({"error": "Not found"}), 404
+
+        try:
             validated_data = BranchUpdate(**request.json)
         except ValidationError as e:
             return jsonify({"errors": e.errors()}), 400
+
 
         # Use exclude_unset=True to only update fields that were actually provided
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))
@@ -80,12 +89,3 @@ def get_branch(item_id):
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@branch_bp.route('/<int:item_id>', methods=['DELETE'])
-def delete_branch(item_id):
-    with get_db() as db:
-        item = db.query(Branch).filter(Branch.branch_id == item_id).first()
-        if not item:
-            return jsonify({"error": "Not found"}), 404
-        db.delete(item)
-        db.commit()
-        return jsonify({"message": "Deleted successfully"}), 200
