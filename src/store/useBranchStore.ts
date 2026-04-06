@@ -48,7 +48,7 @@ export const useBranchStore = create<BranchStore>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<Branch[]>(resource);
-      set({ branches: data, isLoading: false });
+      set({ branches: data.filter(b => !b.deleted_at), isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch branches";
       set({ error: errorMsg, isLoading: false });

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '@/api/client';
 import { registerStore, StoreKeys } from '@/api/storeRegistry';
+import toast from 'react-hot-toast';
 
 // --- 1. Define Types ---
 
@@ -15,7 +16,7 @@ export interface User {
     is_dirty: boolean;
     email: string;
     business_name?: string;
-    account_type: "enterprise" | "standard";
+    account_type: "enterprise" | "standard" | "enterprise_tier1" | "enterprise_tier2";
     location?: string;
     business_logo?: any;
     business_email?: string;
@@ -26,7 +27,8 @@ export interface User {
     branch_id?: number;
     branch_location?: string;
     branch_uuid?: string;
-    role?: "admin" | "employee";
+    role?: "admin" | "employee" | "user";
+    deleted_at?: string;
 }
 
 export type NewUserData = Omit<User, 'user_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
@@ -42,8 +44,10 @@ export interface UserStore {
   isLoading: boolean;
   error: string | null;
   fetchUsers: () => Promise<void>;
+  fetchEmployees: (orgUuid: string) => Promise<void>;
   fetchUser: (id: string) => Promise<void>;
   createUser: (data: NewUserData) => Promise<User | undefined>;
+  createEmployee: (data: any) => Promise<User | undefined>;
   updateUser: (id: number, data: Partial<NewUserData>) => Promise<User | undefined>;
   deleteUser: (id: number) => Promise<void>;
   setCurrentUser: (user: User | null) => void;
@@ -67,9 +71,23 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<User[]>(resource);
-      set({ users: data, isLoading: false });
+      set({ users: data.filter(u => !u.deleted_at), isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch users";
+      set({ error: errorMsg, isLoading: false });
+      console.error(errorMsg, e);
+    }
+  },
+
+  fetchEmployees: async (orgUuid) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.get<User[]>(resource);
+      // Filter locally for now, or we could add a backend filter
+      const employees = data.filter(u => u.organization_uuid === orgUuid && !u.deleted_at);
+      set({ users: employees, isLoading: false });
+    } catch (e: any) {
+      const errorMsg = e.message || "Failed to fetch employees";
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
     }
@@ -100,6 +118,21 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     } catch (e: any) {
       const errorMsg = e.message || "Failed to create user";
       set({ error: errorMsg, isLoading: false });
+      console.error(errorMsg, e);
+      return undefined;
+    }
+  },
+
+  createEmployee: async (employeeData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.post<User>(`${resource}/employee`, employeeData);
+      set((state) => ({ users: [...state.users, data], isLoading: false }));
+      return data;
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.error || "Failed to create employee";
+      set({ error: errorMsg, isLoading: false });
+      toast.error(errorMsg);
       console.error(errorMsg, e);
       return undefined;
     }
