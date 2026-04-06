@@ -99,16 +99,6 @@ const toTitleCase = (str: string) => {
   );
 };
 
-const dummyAsyncCheck = async (_field: string, value: string): Promise<boolean> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Mock logic: fail if value contains "fail"
-      if (value.toLowerCase().includes('fail')) resolve(false);
-      else resolve(true);
-    }, 1000); // 1s delay
-  });
-};
-
 const areStage4FieldsFilled = (data: RegistrationState['stage4']) => {
   return data.businessName.trim() !== '' && data.locationState !== '' && data.locationCity !== '';
 };
@@ -689,7 +679,7 @@ const Stage2 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 };
 
 // --- STAGE 3: Plan Selection ---
-const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading, calculatedPrice }: { setValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
+const Stage3 = ({ setValid, pricingIsLoading, calculatedPrice }: { setValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
     const { t } = useTranslation();
     const { formData, updateFormData } = useRegistrationStore();
     const { accountType } = formData.stage2;
@@ -998,7 +988,7 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
 };
 
 // ... STAGE 6, 7 are similar, just wiring to Zustand and using file-to-base64
-const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData, pricingIsLoading }: { setValid: (v: boolean) => void, calculatedPrice: number, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean }) => {
+const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData }: { setValid: (v: boolean) => void, calculatedPrice: number, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean }) => {
     const { t } = useTranslation();
     const { formData, updateFormData } = useRegistrationStore();
     const data = formData.stage6;
@@ -1458,7 +1448,6 @@ const LanguageSelector = ({ selectedLang, onChangeLang }: { selectedLang: string
 const SearchableSelect = ({ items, value, onValueChange, placeholder, disabled }: any) => {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false)
-    const [inputValue, setInputValue] = useState("")
 
     const selectedLabel = items.find((item: any) => item.value === value)?.label
 
