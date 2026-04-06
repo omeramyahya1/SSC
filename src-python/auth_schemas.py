@@ -10,6 +10,11 @@ class Stage1Payload(BaseModel):
     password: str
     confirmPassword: str
 
+class Stage3Payload(BaseModel):
+    plan: Optional[str] = None
+    employees: Optional[int] = 1
+    tier1Duration: Optional[str] = None
+
 class Stage4Payload(BaseModel):
     businessName: Optional[str] = None
     locationState: Optional[str] = None
@@ -34,6 +39,7 @@ class RegistrationPayload(BaseModel):
     plan_type: str
     amount: float
     language: str
+    stage3: Optional[Stage3Payload] = None
     stage4: Stage4Payload
     stage6: Stage6Payload
     stage7: Stage7Payload

@@ -37,6 +37,7 @@ class Organization(Base, TimestampDirtyMixin):
     organization_id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     plan_type = Column(String)
+    emp_count = Column(Integer, default=0)
 
     # Relationships
     branches = relationship("Branch", back_populates="organization")
