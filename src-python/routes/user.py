@@ -179,7 +179,7 @@ def register_user():
             emp_count = payload.stage3.employees
         elif 'enterprise' in payload.account_type:
              # Default for enterprise if not specified (though it should be)
-             emp_count = 5 
+             emp_count = 5
 
         # Handle Enterprise Account specific logic
         if 'enterprise' in payload.account_type:
@@ -357,13 +357,13 @@ def get_all_users():
 def create_employee():
     data = request.json
     org_uuid = data.get('organization_uuid')
-    
+
     with get_db() as db:
         # Check employee count
         org = db.query(Organization).filter(Organization.uuid == org_uuid).first()
         if not org:
             return jsonify({"error": "Organization not found"}), 404
-        
+
         current_emp_count = db.query(User).filter(User.organization_uuid == org_uuid, User.deleted_at == None).count()
         if current_emp_count >= org.emp_count:
             return jsonify({"error": "Employee limit reached for this organization"}), 400
@@ -374,7 +374,7 @@ def create_employee():
         hashed_pw = hash_password(temp_password, salt)
         new_user_uuid = str(uuid.uuid4())
         auth_uuid = str(uuid.uuid4())
-        
+
         # Call Supabase RPC register_employee
         try:
             service_client = get_service_role_client()
@@ -404,11 +404,11 @@ def create_employee():
             organization_uuid=org_uuid,
             branch_uuid=data.get('branch_uuid'),
             status='trial', # Initial status before first login
-            account_type='enterprise_tier1', 
+            account_type='enterprise_tier1',
             is_dirty=False # Cloud record already created
         )
         db.add(new_user)
-        
+
         new_auth = Authentication(
             uuid=auth_uuid,
             user_uuid=new_user_uuid,
@@ -417,7 +417,7 @@ def create_employee():
             is_dirty=False
         )
         db.add(new_auth)
-        
+
         new_settings = ApplicationSettings(
             uuid=str(uuid.uuid4()),
             user_uuid=new_user_uuid,
@@ -457,22 +457,22 @@ def delete_user(user_id):
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user:
             return jsonify({"error": "Not found"}), 404
-        
+
         now = datetime.utcnow()
         user.deleted_at = now
         user.is_dirty = True
-        
+
         # Cascading soft delete
         # This is a simplified version. Ideally, we should iterate through all related tables.
         # Customers, Projects, Invoices, etc.
         from models import Customer, Project, Invoice, Payment, Document, ProjectComponent, StockAdjustment, InventoryItem
-        
+
         db.query(Customer).filter(Customer.user_uuid == user.uuid).update({Customer.deleted_at: now, Customer.is_dirty: True}, synchronize_session=False)
         db.query(Project).filter(Project.user_uuid == user.uuid).update({Project.deleted_at: now, Project.is_dirty: True}, synchronize_session=False)
         db.query(Invoice).filter(Invoice.user_uuid == user.uuid).update({Invoice.deleted_at: now, Invoice.is_dirty: True}, synchronize_session=False)
         # Note: Payments and other nested items are usually linked to Invoices or Projects.
         # For simplicity, we assume if the parent is deleted, they are effectively deleted.
         # But per requirements: "all realted tables: projects, invoices, inventory items, etc."
-        
+
         db.commit()
         return jsonify({"message": "User deactivated successfully"}), 200

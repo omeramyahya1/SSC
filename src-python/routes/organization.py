@@ -30,7 +30,7 @@ def update_organization(item_id):
         item = db.query(Organization).filter(Organization.organization_id == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
         try:
             # Validate request data
             validated_data = OrganizationUpdate(**request.json)
@@ -41,7 +41,7 @@ def update_organization(item_id):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))
@@ -52,10 +52,14 @@ def get_all_organization():
         items = db.query(Organization).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@organization_bp.route('/<int:item_id>', methods=['GET'])
+@organization_bp.route('/<string:item_id>', methods=['GET'])
 def get_organization(item_id):
     with get_db() as db:
-        item = db.query(Organization).filter(Organization.organization_id == item_id).first()
+        try:
+            id = int(item_id)
+            item = db.query(Organization).filter(Organization.organization_id == item_id).first()
+        except:
+            item = db.query(Organization).filter(Organization.uuid == item_id).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))

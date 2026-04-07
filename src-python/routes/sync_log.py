@@ -114,7 +114,7 @@ def _map_document_to_payload(record: models.Document):
     return payload
 
 def _map_subscription_payment_to_payload(record: models.SubscriptionPayment):
-    payload = {**_map_common_fields(record), "subscription_id": record.subscription_uuid, "amount": record.amount, "payment_method": record.payment_method, "trx_no": record.trx_no, "status": record.status}
+    payload = {**_map_common_fields(record), "subscription_id": record.subscription_uuid, "amount": float(record.amount), "payment_method": record.payment_method, "trx_no": record.trx_no, "status": record.status}
     if record.trx_screenshot:
         path = f"payment_screenshots/{record.uuid}.png"
         payload["trx_screenshot"] = upload_blob(record.trx_screenshot, "SSC", path)
