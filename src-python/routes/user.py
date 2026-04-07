@@ -179,7 +179,7 @@ def register_user():
             emp_count = payload.stage3.employees
         elif 'enterprise' in payload.account_type:
              # Default for enterprise if not specified (though it should be)
-             emp_count = 5
+             emp_count = 0
 
         # Handle Enterprise Account specific logic
         if 'enterprise' in payload.account_type:
