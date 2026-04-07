@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
-import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,7 +22,6 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
     const [formData, setFormData] = useState({
         username: '',
         email: '',
-        password: '',
         role: 'employee',
         branch_uuid: '',
         organization_uuid: organizationUuid
@@ -32,7 +31,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.username || !formData.email || !formData.password) return;
+        if (!formData.username || !formData.email) return;
 
         setIsSubmitting(true);
         try {
@@ -74,16 +73,6 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                             value={formData.email}
                             onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                             placeholder="john@example.com"
-                            required
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="password" className="font-semibold">{t('common.password', 'Password')} *</Label>
-                        <Input
-                            id="password"
-                            type="password"
-                            value={formData.password}
-                            onChange={e => setFormData(prev => ({ ...prev, password: e.target.value }))}
                             required
                         />
                     </div>

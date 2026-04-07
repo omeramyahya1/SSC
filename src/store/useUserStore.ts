@@ -27,7 +27,7 @@ export interface User {
     branch_id?: number;
     branch_location?: string;
     branch_uuid?: string;
-    role?: "admin" | "employee" | "user";
+    role: "admin" | "employee" | "user";
     deleted_at?: string;
 }
 

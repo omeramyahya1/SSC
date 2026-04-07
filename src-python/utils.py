@@ -6,7 +6,14 @@ from contextlib import contextmanager
 from db_setup import SessionLocal
 import hashlib
 import os
+import string
+import secrets
 from datetime import datetime, timedelta, timezone
+
+def generate_temp_password(length=6):
+    """Generates a random alphanumeric temporary password."""
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 # Context manager to get a database session
 

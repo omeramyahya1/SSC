@@ -34,7 +34,7 @@ export default function TeamOrganization() {
   const [isAddBranchOpen, setIsAddBranchOpen] = useState(false);
   const [isEditBranchOpen, setIsEditBranchOpen] = useState(false);
   const [branchToEdit, setBranchToEdit] = useState<Branch | null>(null);
-  
+
   const [employeeToDelete, setEmployeeToDelete] = useState<User | null>(null);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
 
@@ -102,8 +102,8 @@ export default function TeamOrganization() {
             </TabsList>
 
             <TabsContent value="employees">
-                <EmployeesTab 
-                    employees={users} 
+                <EmployeesTab
+                    employees={users}
                     maxEmployees={maxEmployees}
                     onAddEmployee={() => setIsAddEmployeeOpen(true)}
                     onDeactivateEmployee={setEmployeeToDelete}
@@ -111,8 +111,8 @@ export default function TeamOrganization() {
             </TabsContent>
 
             <TabsContent value="branches">
-                <BranchesTab 
-                    branches={branches.filter(b => b.organization_uuid === currentUser.organization_uuid)} 
+                <BranchesTab
+                    branches={branches.filter(b => b.organization_uuid === currentUser.organization_uuid)}
                     isLimitReached={isLimitReached}
                     onAddBranch={() => setIsAddBranchOpen(true)}
                     onEditBranch={(branch) => {
@@ -127,24 +127,24 @@ export default function TeamOrganization() {
 
       {/* Modals */}
       <Dialog open={isAddEmployeeOpen} onOpenChange={setIsAddEmployeeOpen}>
-        <AddEmployeeModal 
-            onOpenChange={setIsAddEmployeeOpen} 
-            organizationUuid={currentUser.organization_uuid!} 
+        <AddEmployeeModal
+            onOpenChange={setIsAddEmployeeOpen}
+            organizationUuid={currentUser.organization_uuid!}
         />
       </Dialog>
 
       <Dialog open={isAddBranchOpen} onOpenChange={setIsAddBranchOpen}>
-        <AddBranchModal 
-            onOpenChange={setIsAddBranchOpen} 
-            organizationUuid={currentUser.organization_uuid!} 
+        <AddBranchModal
+            onOpenChange={setIsAddBranchOpen}
+            organizationUuid={currentUser.organization_uuid!}
         />
       </Dialog>
 
       <Dialog open={isEditBranchOpen} onOpenChange={setIsEditBranchOpen}>
         {branchToEdit && (
-            <EditBranchModal 
-                branch={branchToEdit} 
-                onOpenChange={setIsEditBranchOpen} 
+            <EditBranchModal
+                branch={branchToEdit}
+                onOpenChange={setIsEditBranchOpen}
             />
         )}
       </Dialog>
@@ -160,7 +160,7 @@ export default function TeamOrganization() {
             </AlertDialogHeader>
             <AlertDialogFooter className="gap-2">
                 <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
-                <HoldToConfirmButton 
+                <HoldToConfirmButton
                     onConfirm={handleDeactivateEmployee}
                     variant="destructive"
                     className="w-auto px-8"
@@ -182,7 +182,7 @@ export default function TeamOrganization() {
             </AlertDialogHeader>
             <AlertDialogFooter className="gap-2">
                 <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
-                <HoldToConfirmButton 
+                <HoldToConfirmButton
                     onConfirm={handleDeleteBranch}
                     variant="destructive"
                     className="w-auto px-8"
