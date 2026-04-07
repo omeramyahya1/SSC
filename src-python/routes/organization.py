@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db
+from utils import get_db, get_by_id_or_uuid
 from models import Organization
 from schemas import OrganizationCreate, OrganizationUpdate
 from serializer import model_to_dict
@@ -24,10 +24,10 @@ def create_organization():
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
 
-@organization_bp.route('/<int:item_id>', methods=['PUT'])
+@organization_bp.route('/<string:item_id>', methods=['PUT'])
 def update_organization(item_id):
     with get_db() as db:
-        item = db.query(Organization).filter(Organization.organization_id == item_id).first()
+        item = get_by_id_or_uuid(db, Organization, Organization.organization_id, Organization.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
 
@@ -55,19 +55,15 @@ def get_all_organization():
 @organization_bp.route('/<string:item_id>', methods=['GET'])
 def get_organization(item_id):
     with get_db() as db:
-        try:
-            id = int(item_id)
-            item = db.query(Organization).filter(Organization.organization_id == item_id).first()
-        except:
-            item = db.query(Organization).filter(Organization.uuid == item_id).first()
+        item = get_by_id_or_uuid(db, Organization, Organization.organization_id, Organization.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@organization_bp.route('/<int:item_id>', methods=['DELETE'])
+@organization_bp.route('/<string:item_id>', methods=['DELETE'])
 def delete_organization(item_id):
     with get_db() as db:
-        item = db.query(Organization).filter(Organization.organization_id == item_id).first()
+        item = get_by_id_or_uuid(db, Organization, Organization.organization_id, Organization.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         db.delete(item)

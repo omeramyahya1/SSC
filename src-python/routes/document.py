@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db
+from utils import get_db, get_by_id_or_uuid
 from models import Document
 from schemas import DocumentCreate, DocumentUpdate
 from serializer import model_to_dict
@@ -24,10 +24,10 @@ def create_document():
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
 
-@document_bp.route('/<int:item_id>', methods=['PUT'])
+@document_bp.route('/<string:item_id>', methods=['PUT'])
 def update_document(item_id):
     with get_db() as db:
-        item = db.query(Document).filter(Document.doc_id == item_id).first()
+        item = get_by_id_or_uuid(db, Document, Document.doc_id, Document.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
             
@@ -52,18 +52,18 @@ def get_all_document():
         items = db.query(Document).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@document_bp.route('/<int:item_id>', methods=['GET'])
+@document_bp.route('/<string:item_id>', methods=['GET'])
 def get_document(item_id):
     with get_db() as db:
-        item = db.query(Document).filter(Document.doc_id == item_id).first()
+        item = get_by_id_or_uuid(db, Document, Document.doc_id, Document.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@document_bp.route('/<int:item_id>', methods=['DELETE'])
+@document_bp.route('/<string:item_id>', methods=['DELETE'])
 def delete_document(item_id):
     with get_db() as db:
-        item = db.query(Document).filter(Document.doc_id == item_id).first()
+        item = get_by_id_or_uuid(db, Document, Document.doc_id, Document.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         db.delete(item)

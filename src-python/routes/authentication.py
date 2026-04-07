@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, generate_salt, hash_password, verify_password
+from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, verify_password
 from models import Authentication, User, Subscription # Import User model
 from schemas import AuthenticationCreate, AuthenticationUpdate
 from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication # Import new schemas
@@ -318,10 +318,10 @@ def logout_user():
 
         return jsonify({"message": "Logout successful"}), 200
 
-@authentication_bp.route('/<int:item_id>', methods=['PUT'])
+@authentication_bp.route('/<string:item_id>', methods=['PUT'])
 def update_authentication(item_id):
     with get_db() as db:
-        item = db.query(Authentication).filter(Authentication.auth_id == item_id).first()
+        item = get_by_id_or_uuid(db, Authentication, Authentication.auth_id, Authentication.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
 
@@ -346,10 +346,10 @@ def get_all_authentication():
         items = db.query(Authentication).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@authentication_bp.route('/<int:item_id>', methods=['GET'])
+@authentication_bp.route('/<string:item_id>', methods=['GET'])
 def get_authentication(item_id):
     with get_db() as db:
-        item = db.query(Authentication).filter(Authentication.auth_id == item_id).first()
+        item = get_by_id_or_uuid(db, Authentication, Authentication.auth_id, Authentication.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
@@ -364,10 +364,10 @@ def get_latest_authentication():
         return jsonify(model_to_dict(latest_auth))
 
 
-@authentication_bp.route('/<int:item_id>', methods=['DELETE'])
+@authentication_bp.route('/<string:item_id>', methods=['DELETE'])
 def delete_authentication(item_id):
     with get_db() as db:
-        item = db.query(Authentication).filter(Authentication.auth_id == item_id).first()
+        item = get_by_id_or_uuid(db, Authentication, Authentication.auth_id, Authentication.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         db.delete(item)

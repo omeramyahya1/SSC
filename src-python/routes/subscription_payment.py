@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db
+from utils import get_db, get_by_id_or_uuid
 from models import SubscriptionPayment
 from schemas import SubscriptionPaymentCreate, SubscriptionPaymentUpdate
 from serializer import model_to_dict
@@ -24,10 +24,10 @@ def create_subscription_payment():
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
 
-@subscription_payment_bp.route('/<int:item_id>', methods=['PUT'])
+@subscription_payment_bp.route('/<string:item_id>', methods=['PUT'])
 def update_subscription_payment(item_id):
     with get_db() as db:
-        item = db.query(SubscriptionPayment).filter(SubscriptionPayment.payment_id == item_id).first()
+        item = get_by_id_or_uuid(db, SubscriptionPayment, SubscriptionPayment.payment_id, SubscriptionPayment.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
             
@@ -52,18 +52,18 @@ def get_all_subscription_payment():
         items = db.query(SubscriptionPayment).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@subscription_payment_bp.route('/<int:item_id>', methods=['GET'])
+@subscription_payment_bp.route('/<string:item_id>', methods=['GET'])
 def get_subscription_payment(item_id):
     with get_db() as db:
-        item = db.query(SubscriptionPayment).filter(SubscriptionPayment.payment_id == item_id).first()
+        item = get_by_id_or_uuid(db, SubscriptionPayment, SubscriptionPayment.payment_id, SubscriptionPayment.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@subscription_payment_bp.route('/<int:item_id>', methods=['DELETE'])
+@subscription_payment_bp.route('/<string:item_id>', methods=['DELETE'])
 def delete_subscription_payment(item_id):
     with get_db() as db:
-        item = db.query(SubscriptionPayment).filter(SubscriptionPayment.payment_id == item_id).first()
+        item = get_by_id_or_uuid(db, SubscriptionPayment, SubscriptionPayment.payment_id, SubscriptionPayment.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         db.delete(item)
