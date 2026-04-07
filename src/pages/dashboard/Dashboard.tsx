@@ -276,7 +276,7 @@ export function Dashboard() {
                     <div className="flex flex-col gap-4 mb-6">
                         <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center justify-between w-full">
-                                <h1 className="text-3xl font-bold">
+                                <h1 className="text-primary text-3xl font-bold">
                                     {currentView === 'active' ? t('dashboard.projects', 'Projects') :
                                      currentView === 'trash' ? t('dashboard.trash', 'Trash') :
                                      t('dashboard.archive', 'Archive')}

@@ -86,9 +86,9 @@ export default function TeamOrganization() {
   return (
     <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
       <div className="p-6 space-y-6">
-        <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold">{t('team.title', 'Team & Organization')}</h1>
-            <p className="text-muted-foreground">{currentOrganization?.name || ''}</p>
+        <div className="flex flex-row gap-2 align-middle items-center">
+            <h1 className="text-primary text-3xl font-bold">{t('team.title', 'Team & Organization')}</h1>
+            <span className="text-muted-foreground">({currentOrganization?.name || ''})</span>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

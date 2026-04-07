@@ -128,7 +128,7 @@ export default function CustomersPage() {
                 {/* Header & Toolbar */}
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
-                        <h1 className="text-3xl font-bold">{t('customers.title', 'Customers')}</h1>
+                        <h1 className="text-primary text-3xl font-bold">{t('customers.title', 'Customers')}</h1>
                     </div>
 
                     <div className="flex flex-row justify-between items-center gap-4">

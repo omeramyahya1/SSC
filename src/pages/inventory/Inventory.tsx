@@ -122,7 +122,7 @@ export default function Inventory() {
                 {/* Header & Toolbar */}
                 <div className="flex flex-col gap-4">
                     <div className="flex items-center justify-between">
-                        <h1 className="text-3xl font-bold">{t('inventory.title', 'Inventory')}</h1>
+                        <h1 className="text-primary text-3xl font-bold">{t('inventory.title', 'Inventory')}</h1>
                         <div className="flex items-center gap-3">
                             <Button
                                 type="button"

@@ -64,7 +64,7 @@ export default function Sales() {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold">{t('sales.title', 'Sales')}</h1>
+                        <h1 className="text-primary text-3xl font-bold">{t('sales.title', 'Sales')}</h1>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -93,7 +93,7 @@ export default function Sales() {
 
                 {/* Main Tabs */}
                 <Tabs defaultValue="reports" value={activeTab} onValueChange={setActiveTab} className="space-y-4" dir={i18n.dir()}>
-                    <TabsList className="bg-white border p-1 h-10 w-fit">
+                    <TabsList className="bg-white border p-1 h-auto w-fit">
                         <TabsTrigger value="reports" className="font-bold px-6 data-[state=active]:bg-primary data-[state=active]:text-white">
                             <LayoutDashboard className="h-4 w-4 me-2" />
                             {t('finances.tabs.reports', 'Reports')}
