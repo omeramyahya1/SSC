@@ -52,10 +52,10 @@ export function BranchesTab({ branches, isLimitReached, onAddBranch, onEditBranc
 
                 <Button
                     onClick={onAddBranch}
-                    disabled={isLimitReached}
+                    // disabled={isLimitReached}
                     className="text-white w-full md:w-auto"
                 >
-                    <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
+                    <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />
                     {t('team.add_branch', 'Add Branch')}
                 </Button>
             </div>
@@ -89,17 +89,17 @@ export function BranchesTab({ branches, isLimitReached, onAddBranch, onEditBranc
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="bg-white">
                                         <DropdownMenuItem
-                                            className="cursor-pointer"
+                                            className="cursor-pointer rounded-lg hover:bg-gray-100"
                                             onClick={() => onEditBranch(branch)}
                                         >
                                             <img src="/eva-icons (2)/outline/edit.png" alt="edit" className="w-4 h-4 me-2 opacity-70" />
                                             {t('common.edit', 'Edit Details')}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
-                                            className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                            className="group rounded-lg text-red-700 cursor-pointer hover:text-white  hover:bg-red-500"
                                             onClick={() => onDeleteBranch(branch)}
                                         >
-                                            <img src="/eva-icons (2)/outline/trash-2.png" alt="delete" className="w-4 h-4 me-2 opacity-70" />
+                                            <img src="/eva-icons (2)/outline/trash-2.png" alt="delete" className="w-4 h-4 me-2 opacity-70 group-hover:invert" />
                                             {t('common.delete', 'Delete')}
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>

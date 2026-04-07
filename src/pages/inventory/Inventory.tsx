@@ -128,7 +128,7 @@ export default function Inventory() {
                                 type="button"
                                 variant="outline"
                                 onClick={() => setIsHistoryModalOpen(true)}
-                                className="h-10 px-4 rounded-xl border-gray-200 font-bold"
+                                className="h-auto px-4 border-gray-200 font-bold"
                             >
                                 <img src="/eva-icons (2)/outline/clock.png" alt="history" className="w-5 h-5 opacity-60" />
                                 {t('inventory.view_history', 'View History')}
@@ -137,7 +137,7 @@ export default function Inventory() {
                                 type="button"
                                 onClick={() => setIsAddItemModalOpen(true)}
                                 disabled={isExpired}
-                                className="h-10 px-4 text-white rounded-xl hover:shadow-lg font-bold"
+                                className="h-auto px-4 text-white hover:shadow-lg font-bold"
                             >
                                 <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />
                                 {t('inventory.add_item', 'Add New Item')}

@@ -33,7 +33,8 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
             const q = searchQuery.toLowerCase();
             return (
                 emp.username.toLowerCase().includes(q) ||
-                emp.email.toLowerCase().includes(q)
+                emp.email.toLowerCase().includes(q) ||
+                emp.location?.toLowerCase().includes(q)
             );
         });
     }, [employees, searchQuery]);
@@ -74,10 +75,10 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
                     </div>
                     <Button
                         onClick={onAddEmployee}
-                        disabled={isLimitReached}
+                        disabled={false}
                         className="text-white"
                     >
-                        <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
+                        <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />
                         {t('team.add_employee', 'Add Employee')}
                     </Button>
                 </div>
@@ -104,23 +105,27 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
                                         </Badge>
                                     </div>
                                 </div>
+                                {
+                                    emp?.role !== 'admin' && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="bg-white">
+                                                <DropdownMenuItem
+                                                    className="group rounded-lg text-red-700 cursor-pointer hover:text-white  hover:bg-red-500"
+                                                    onClick={() => onDeactivateEmployee(emp)}
+                                                >
+                                                    <img src="/eva-icons (2)/outline/person-delete.png" alt="deactivate" className="w-4 h-4 me-2 opacity-70" />
+                                                    {t('team.deactivate', 'Deactivate')}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )
+                                }
 
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="bg-white">
-                                        <DropdownMenuItem
-                                            className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
-                                            onClick={() => onDeactivateEmployee(emp)}
-                                        >
-                                            <img src="/eva-icons (2)/outline/person-delete.png" alt="deactivate" className="w-4 h-4 me-2 opacity-70" />
-                                            {t('team.deactivate', 'Deactivate')}
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
                             </CardHeader>
                             <CardContent className="p-4 pt-0 space-y-3">
                                 <div className="text-sm space-y-2">

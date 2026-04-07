@@ -48,12 +48,9 @@ export function AddBranchModal({ onOpenChange, organizationUuid }: AddBranchModa
             <form onSubmit={handleSubmit}>
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold">{t('team.add_branch_title', 'Add New Branch')}</DialogTitle>
-                    <DialogDescription>
-                        {t('team.add_branch_desc', 'Enter branch name and location.')}
-                    </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-8 space-y-4">
                     <div className="grid gap-2">
                         <Label htmlFor="branch_name" className="font-semibold">{t('team.branch_name', 'Branch Name')} *</Label>
                         <Input

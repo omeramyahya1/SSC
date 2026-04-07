@@ -53,12 +53,9 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
             <form onSubmit={handleSubmit}>
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold">{t('team.add_employee_title', 'Add New Employee')}</DialogTitle>
-                    <DialogDescription>
-                        {t('team.add_employee_desc', 'Enter credentials and assign to a branch.')}
-                    </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-6 space-y-4">
                     <div className="grid gap-2">
                         <Label htmlFor="username" className="font-semibold">{t('common.username', 'Username')} *</Label>
                         <Input
