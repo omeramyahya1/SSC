@@ -194,6 +194,7 @@ CREATE TABLE public.organizations (
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
   is_dirty boolean DEFAULT true,
+  emp_count integer DEFAULT 0,
   CONSTRAINT organizations_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.password_reset_requests (
