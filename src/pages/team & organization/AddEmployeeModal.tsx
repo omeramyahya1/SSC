@@ -131,21 +131,6 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="role" className="font-semibold">{t('team.role', 'Role')}</Label>
-                        <Select
-                            onValueChange={(value) => setFormData(prev => ({ ...prev, role: value }))}
-                            value={formData.role}
-                        >
-                            <SelectTrigger className="bg-white">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white">
-                                <SelectItem value="employee">{t('team.role.employee', 'Employee')}</SelectItem>
-                                <SelectItem value="admin">{t('team.role.admin', 'Admin')}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
                 </div>
 
                 <DialogFooter>
