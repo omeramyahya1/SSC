@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, generate_salt, hash_password, generate_temp_password
+from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password
 from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch
 from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
@@ -334,14 +334,10 @@ def register_user():
             "jwt": jwt_token
         }), 201
 
-@user_bp.route("/<string:user_uuid>", methods=['GET'])
-def get_user(user_uuid):
+@user_bp.route("/<string:user_id_or_uuid>", methods=['GET'])
+def get_user(user_id_or_uuid):
     with get_db() as db:
-        try:
-            id = int(user_uuid)
-            item = db.query(User).filter(User.user_id == id).first()
-        except:
-            item = db.query(User).filter(User.uuid == user_uuid).first()
+        item = get_by_id_or_uuid(db, User, User.user_id, User.uuid, user_id_or_uuid)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
@@ -431,10 +427,10 @@ def create_employee():
         db.refresh(new_user)
         return jsonify(model_to_dict(new_user)), 201
 
-@user_bp.route('/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
+@user_bp.route('/<string:user_id_or_uuid>', methods=['PUT'])
+def update_user(user_id_or_uuid):
     with get_db() as db:
-            item = db.query(User).filter(User.user_id == user_id).first()
+            item = get_by_id_or_uuid(db, User, User.user_id, User.uuid, user_id_or_uuid)
             if not item:
                 return jsonify({"error": "Not found"}), 404
 
@@ -451,10 +447,10 @@ def update_user(user_id):
             db.refresh(item)
             return(jsonify(model_to_dict(item)))
 
-@user_bp.route('/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
+@user_bp.route('/<string:user_id_or_uuid>', methods=['DELETE'])
+def delete_user(user_id_or_uuid):
     with get_db() as db:
-        user = db.query(User).filter(User.user_id == user_id).first()
+        user = get_by_id_or_uuid(db, User, User.user_id, User.uuid, user_id_or_uuid)
         if not user:
             return jsonify({"error": "Not found"}), 404
 

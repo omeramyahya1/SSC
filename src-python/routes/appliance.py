@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db
+from utils import get_db, get_by_id_or_uuid
 from models import Appliance, Project
 from schemas import ApplianceCreate, ApplianceUpdate, ApplianceBatchCreate
 from serializer import model_to_dict
@@ -65,10 +65,10 @@ def create_appliance():
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
 
-@appliance_bp.route('/<int:item_id>', methods=['PUT'])
+@appliance_bp.route('/<string:item_id>', methods=['PUT'])
 def update_appliance(item_id):
     with get_db() as db:
-        item = db.query(Appliance).filter(Appliance.appliance_id == item_id).first()
+        item = get_by_id_or_uuid(db, Appliance, Appliance.appliance_id, Appliance.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
 
@@ -103,18 +103,18 @@ def get_all_appliance():
         items = db.query(Appliance).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@appliance_bp.route('/<int:item_id>', methods=['GET'])
+@appliance_bp.route('/<string:item_id>', methods=['GET'])
 def get_appliance(item_id):
     with get_db() as db:
-        item = db.query(Appliance).filter(Appliance.appliance_id == item_id).first()
+        item = get_by_id_or_uuid(db, Appliance, Appliance.appliance_id, Appliance.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@appliance_bp.route('/<int:item_id>', methods=['DELETE'])
+@appliance_bp.route('/<string:item_id>', methods=['DELETE'])
 def delete_appliance(item_id):
     with get_db() as db:
-        item = db.query(Appliance).filter(Appliance.appliance_id == item_id).first()
+        item = get_by_id_or_uuid(db, Appliance, Appliance.appliance_id, Appliance.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         db.delete(item)

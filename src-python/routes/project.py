@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from sqlalchemy.orm import joinedload
 from datetime import datetime
-from utils import get_db
+from utils import get_db, get_by_id_or_uuid
 from models import Project, Customer, User, Authentication, SystemConfiguration, Appliance, Invoice, Payment, Document
 from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate, ProjectStatusUpdate
 from serializer import model_to_dict
@@ -123,10 +123,10 @@ def create_project():
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
 
-@project_bp.route('/<int:item_id>', methods=['PUT'])
+@project_bp.route('/<string:item_id>', methods=['PUT'])
 def update_project(item_id):
     with get_db() as db:
-        item = db.query(Project).filter(Project.project_id == item_id).first()
+        item = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
 
@@ -167,18 +167,18 @@ def get_project_by_uuid(uuid):
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@project_bp.route('/<int:item_id>', methods=['GET'])
+@project_bp.route('/<string:item_id>', methods=['GET'])
 def get_project(item_id):
     with get_db() as db:
-        item = db.query(Project).filter(Project.project_id == item_id).first()
+        item = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@project_bp.route('/<string:project_uuid>', methods=['DELETE'])
-def delete_project(project_uuid):
+@project_bp.route('/<string:project_id_or_uuid>', methods=['DELETE'])
+def delete_project(project_id_or_uuid):
     with get_db() as db:
-        project = db.query(Project).filter(Project.uuid == project_uuid).first()
+        project = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, project_id_or_uuid)
         if not project:
             return jsonify({"error": "Project not found"}), 404
 
@@ -191,10 +191,10 @@ def delete_project(project_uuid):
             db.rollback()
             return jsonify({"error": f"Database error: {str(e)}"}), 500
 
-@project_bp.route('/<string:project_uuid>/recover', methods=['PATCH'])
-def recover_project(project_uuid):
+@project_bp.route('/<string:project_id_or_uuid>/recover', methods=['PATCH'])
+def recover_project(project_id_or_uuid):
     with get_db() as db:
-        project = db.query(Project).filter(Project.uuid == project_uuid).first()
+        project = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, project_id_or_uuid)
         if not project.deleted_at:
             return jsonify({"message": "Project is not deleted"}), 400
 
@@ -207,8 +207,8 @@ def recover_project(project_uuid):
             db.rollback()
             return jsonify({"error": f"Database error: {str(e)}"}), 500
 
-@project_bp.route('/<string:project_uuid>/permanent', methods=['DELETE'])
-def delete_project_permanently(project_uuid):
+@project_bp.route('/<string:project_id_or_uuid>/permanent', methods=['DELETE'])
+def delete_project_permanently(project_id_or_uuid):
     with get_db() as db:
         try:
             auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
@@ -216,12 +216,18 @@ def delete_project_permanently(project_uuid):
                 return jsonify({"error": "No authenticated user found. Please log in."}), 401
 
             # 1. Find the project and eager load its children
+            try:
+                numeric_id = int(project_id_or_uuid)
+                project_filter = Project.project_id == numeric_id
+            except (TypeError, ValueError):
+                project_filter = Project.uuid == project_id_or_uuid
+
             project = db.query(Project).options(
                 joinedload(Project.invoices).joinedload(Invoice.payments),
                 joinedload(Project.appliances),
                 joinedload(Project.documents),
                 joinedload(Project.system_config)
-            ).filter(Project.uuid == project_uuid, Project.user_uuid == auth_record.user_uuid).first()
+            ).filter(project_filter, Project.user_uuid == auth_record.user_uuid).first()
 
             if not project:
                 return jsonify({"error": "Project not found"}), 404
@@ -251,14 +257,14 @@ def delete_project_permanently(project_uuid):
         except Exception as e:
             db.rollback()
             import logging
-            logging.exception(f"Error during permanent deletion of project {project_uuid}")
+            logging.exception(f"Error during permanent deletion of project {project_id_or_uuid}")
             return jsonify({"error": f"An internal error occurred: {str(e)}"}), 500
 
-@project_bp.route('/<string:project_uuid>', methods=['PATCH'])
-def patch_project_details(project_uuid):
+@project_bp.route('/<string:project_id_or_uuid>', methods=['PATCH'])
+def patch_project_details(project_id_or_uuid):
     with get_db() as db:
         # 1. Fetch the project with its customer
-        project = db.query(Project).options(joinedload(Project.customer)).filter(Project.uuid == project_uuid).first()
+        project = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, project_id_or_uuid)
         if not project:
             return jsonify({"error": "Project not found"}), 404
         # Validate incoming data with Pydantic schema
@@ -310,8 +316,8 @@ def patch_project_details(project_uuid):
             project_dict['customer'] = model_to_dict(customer)
             return jsonify(project_dict), 200
 
-@project_bp.route('/<string:project_uuid>/status', methods=['PATCH'])
-def patch_project_status(project_uuid):
+@project_bp.route('/<string:project_id_or_uuid>/status', methods=['PATCH'])
+def patch_project_status(project_id_or_uuid):
     with get_db() as db:
         # 1. Validate incoming data
         try:
@@ -320,7 +326,7 @@ def patch_project_status(project_uuid):
             return jsonify({"errors": e.errors()}), 400
 
         # 2. Fetch the project
-        project = db.query(Project).filter(Project.uuid == project_uuid).first()
+        project = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, project_id_or_uuid)
         if not project:
             return jsonify({"error": "Project not found"}), 404
 
