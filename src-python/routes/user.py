@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, generate_salt, hash_password
+from utils import get_db, generate_salt, hash_password, generate_temp_password
 from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch
 from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
@@ -368,11 +368,34 @@ def create_employee():
         if current_emp_count >= org.emp_count:
             return jsonify({"error": "Employee limit reached for this organization"}), 400
 
-        # Create user
+        # Generate temporary password
+        temp_password = generate_temp_password()
         salt = generate_salt()
-        hashed_pw = hash_password(data.get('password'), salt)
+        hashed_pw = hash_password(temp_password, salt)
         new_user_uuid = str(uuid.uuid4())
+        auth_uuid = str(uuid.uuid4())
         
+        # Call Supabase RPC register_employee
+        try:
+            service_client = get_service_role_client()
+            service_client.rpc('register_employee', {
+                'p_user_uuid': new_user_uuid,
+                'p_username': data.get('username'),
+                'p_email': data.get('email'),
+                'p_org_id': org_uuid,
+                'p_branch_id': data.get('branch_uuid'),
+                'p_role': data.get('role', 'employee'),
+                'p_auth_uuid': auth_uuid,
+                'p_password_hash': hashed_pw,
+                'p_password_salt': salt,
+                'p_temp_password': temp_password,
+                'p_org_name': org.name # Pass org name for email template
+            }).execute()
+        except Exception as e:
+            print(f"Error calling register_employee RPC: {str(e)}")
+            return jsonify({"error": "Failed to register employee in the cloud."}), 500
+
+        # Create user locally
         new_user = User(
             uuid=new_user_uuid,
             username=data.get('username'),
@@ -380,18 +403,18 @@ def create_employee():
             role=data.get('role', 'employee'),
             organization_uuid=org_uuid,
             branch_uuid=data.get('branch_uuid'),
-            status='active',
-            account_type='enterprise_tier1', # Or inherit from org/admin
-            is_dirty=True
+            status='trial', # Initial status before first login
+            account_type='enterprise_tier1', 
+            is_dirty=False # Cloud record already created
         )
         db.add(new_user)
         
         new_auth = Authentication(
-            uuid=str(uuid.uuid4()),
+            uuid=auth_uuid,
             user_uuid=new_user_uuid,
             password_hash=hashed_pw,
             password_salt=salt,
-            is_dirty=True
+            is_dirty=False
         )
         db.add(new_auth)
         
@@ -453,5 +476,3 @@ def delete_user(user_id):
         
         db.commit()
         return jsonify({"message": "User deactivated successfully"}), 200
-
-
