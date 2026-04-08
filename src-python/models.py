@@ -308,6 +308,7 @@ class InventoryCategory(Base, TimestampDirtyMixin):
 
     inventory_category_id = Column(Integer, primary_key=True)
     organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=True)
+    user_uuid = Column(String, ForeignKey("user.uuid"), nullable=True)
     name = Column(String, nullable=False)
     spec_schema = Column(JSON)  # e.g., {"wattage": "W", "voltage": "V"}
 
@@ -320,6 +321,7 @@ class InventoryItem(Base, TimestampDirtyMixin):
     inventory_item_id = Column(Integer, primary_key=True)
     organization_uuid = Column(String, ForeignKey("organizations.uuid"), nullable=True)
     branch_uuid = Column(String, ForeignKey("branches.uuid"), nullable=True)
+    user_uuid = Column(String, ForeignKey("user.uuid"), nullable=True)
     name = Column(String, nullable=False)
     sku = Column(String, unique=True)
     brand = Column(String)

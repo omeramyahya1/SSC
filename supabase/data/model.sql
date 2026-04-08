@@ -131,8 +131,10 @@ CREATE TABLE public.inventory_categories (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
   is_dirty boolean NOT NULL DEFAULT false,
+  user_uuid uuid,
   CONSTRAINT inventory_categories_pkey PRIMARY KEY (id),
-  CONSTRAINT inventory_categories_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id)
+  CONSTRAINT inventory_categories_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
+  CONSTRAINT inventory_categories_user_uuid_fkey FOREIGN KEY (user_uuid) REFERENCES public.users(id)
 );
 CREATE TABLE public.inventory_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -152,10 +154,12 @@ CREATE TABLE public.inventory_items (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
   is_dirty boolean NOT NULL DEFAULT false,
+  user_uuid uuid,
   CONSTRAINT inventory_items_pkey PRIMARY KEY (id),
   CONSTRAINT inventory_items_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
   CONSTRAINT inventory_items_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id),
-  CONSTRAINT inventory_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.inventory_categories(id)
+  CONSTRAINT inventory_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.inventory_categories(id),
+  CONSTRAINT inventory_items_user_uuid_fkey FOREIGN KEY (user_uuid) REFERENCES public.users(id)
 );
 CREATE TABLE public.invoices (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

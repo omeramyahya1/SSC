@@ -376,16 +376,20 @@ class BranchUpdate(BaseModel):
 class InventoryCategoryCreate(BaseModel):
     name: str
     organization_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     spec_schema: Optional[Any] = None
 
 class InventoryCategoryUpdate(BaseModel):
     name: Optional[str] = None
     organization_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     spec_schema: Optional[Any] = None
 
 class InventoryItemCreate(BaseModel):
     name: str
     organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     sku: Optional[str] = None
     brand: Optional[str] = None
     model: Optional[str] = None
@@ -399,6 +403,8 @@ class InventoryItemCreate(BaseModel):
 class InventoryItemUpdate(BaseModel):
     name: Optional[str] = None
     organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     sku: Optional[str] = None
     brand: Optional[str] = None
     model: Optional[str] = None
