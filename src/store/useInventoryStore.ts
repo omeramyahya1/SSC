@@ -4,15 +4,17 @@ import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 export interface InventoryCategory {
     uuid: string;
-    organization_uuid: string;
+    organization_uuid: string | null;
+    user_uuid?: string;
     name: string;
     spec_schema: Record<string, string>; // e.g., {"wattage": "W", "voltage": "V"}
 }
 
 export interface InventoryItem {
     uuid: string;
-    organization_uuid: string;
+    organization_uuid: string | null;
     branch_uuid?: string;
+    user_uuid?: string;
     name: string;
     sku: string;
     brand?: string;
@@ -28,12 +30,12 @@ export interface InventoryItem {
 
 export interface StockAdjustment {
     uuid: string;
-    organization_uuid: string;
+    organization_uuid: string | null;
     branch_uuid?: string;
     item_uuid: string;
     adjustment: number;
     reason: string;
-    user_uuid: string;
+    user_uuid?: string;
 }
 
 interface InventoryState {
@@ -48,7 +50,7 @@ interface InventoryState {
     addItem: (item: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     updateItem: (uuid: string, updates: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     deleteItem: (uuid: string) => Promise<void>;
-    adjustStock: (itemUuid: string, adjustment: number, reason: string, organization_uuid: string, branch_uuid: string | undefined, user_uuid: string) => Promise<void>;
+    adjustStock: (itemUuid: string, adjustment: number, reason: string) => Promise<void>;
 }
 
 export const useInventoryStore = create<InventoryState>((set, get) => ({
@@ -138,15 +140,12 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         }
     },
 
-    adjustStock: async (itemUuid, adjustment, reason, organization_uuid, branch_uuid, user_uuid) => {
+    adjustStock: async (itemUuid, adjustment, reason) => {
         try {
             await api.post('/inventory/adjustments', {
                 item_uuid: itemUuid,
                 adjustment,
                 reason,
-                organization_uuid,
-                ...(branch_uuid !== undefined ? { branch_uuid } : {}),
-                user_uuid,
             });
             // Update local quantity
             set((state) => ({
