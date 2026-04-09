@@ -60,7 +60,7 @@ export default function TeamOrganization() {
         return;
     }
     try {
-        await deleteUser(employeeToDelete.user_id);
+        await deleteUser(employeeToDelete.uuid);
         toast.success(t('team.deactivate_success', 'Employee deactivated successfully'));
         setEmployeeToDelete(null);
     } catch (e) {

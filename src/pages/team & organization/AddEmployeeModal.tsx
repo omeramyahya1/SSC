@@ -79,7 +79,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
 
     return (
         <DialogContent className="sm:max-w-[425px] bg-white" dir={i18n.dir()}>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold">{t('team.add_employee_title', 'Add New Employee')}</DialogTitle>
                 </DialogHeader>
