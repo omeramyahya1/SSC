@@ -325,7 +325,7 @@ export function Dashboard() {
                                     disabled={isExpired || currentView !== 'active'}
                                     className="text-white rounded-lg hover:shadow-lg "
                                     >
-                                    <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
+                                    <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />
                                     <span className='me-2'>{t('dashboard.create_project', 'Create New Project')}</span>
                                 </Button>
                             </div>
