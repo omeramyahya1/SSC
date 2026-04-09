@@ -5,7 +5,8 @@ from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
 from utils import get_db
 import models
-from sqlalchemy import LargeBinary
+from sqlalchemy import LargeBinary, Numeric
+from decimal import Decimal
 from supabase_client import get_user_client, get_service_role_client, get_anon_client
 from serializer import model_to_dict
 
@@ -129,6 +130,8 @@ def _generic_mapper(record):
             value = getattr(record, col)
             if isinstance(value, datetime):
                 payload[col] = _to_iso(value)
+            elif isinstance(value, Decimal):
+                payload[col] = float(value)
             else:
                 payload[col] = value
     fk_mappings = {'user_uuid': 'user_id', 'customer_uuid': 'customer_id', 'project_uuid': 'project_id', 'system_config_uuid': 'system_config_id', 'invoice_uuid': 'invoice_id', 'subscription_uuid': 'subscription_id', 'organization_uuid': 'organization_id', 'branch_uuid': 'branch_id', 'category_uuid': 'category_id', 'item_uuid': 'item_id'}
@@ -162,8 +165,6 @@ def _map_cloud_to_local(payload: dict, model_class) -> dict:
                 continue
             except (ValueError, TypeError):
                 pass
-        mapped_payload[key] = value
-
     local_columns = {c.name for c in model_class.__table__.columns}
     final_payload = {k: v for k, v in mapped_payload.items() if k in local_columns}
 

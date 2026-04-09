@@ -346,7 +346,7 @@ def get_user(user_id_or_uuid):
 @user_bp.route("/", methods=['GET'])
 def get_all_users():
     with get_db() as db:
-        items = db.query(User).all()
+        items = db.query(User).filter(User.deleted_at == None).all()
         return jsonify([model_to_dict(i) for i in items])
 
 @user_bp.route('/employee', methods=['POST'])
