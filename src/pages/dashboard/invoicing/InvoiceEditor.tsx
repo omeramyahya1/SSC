@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from "react-i18next";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import {
     ArrowLeft,
     ArrowRight,

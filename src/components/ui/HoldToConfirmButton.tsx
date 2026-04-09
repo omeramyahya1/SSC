@@ -94,9 +94,9 @@ export function HoldToConfirmButton({
       className={cn(
         "w-full relative overflow-hidden transition-all duration-200 border-transparent", className,
         isHolding && cn(
-          "scale-[0.95] bg-primary-light"
+          `${variant === 'destructive'? 'bg-semantic-error text-white' : 'scale-[0.95] bg-primary-light'}`
         )
-      )}
+      ) + `${variant === 'destructive'? 'border border-semantic-error bg-red-50' : '' }`}
       onPointerDown={(e) => {
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         startHolding();
@@ -125,7 +125,7 @@ export function HoldToConfirmButton({
       {/* Filling background */}
       <motion.div
         className={cn(
-          "absolute left-0 top-0 bottom-0 pointer-events-none z-0 bg-primary"
+          `absolute left-0 top-0 bottom-0 pointer-events-none z-0 ${variant === 'destructive'? 'bg-semantic-error' : 'bg-primary'}`
         )}
         style={{ right: fillRightOffset }}
       />

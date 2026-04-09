@@ -1350,12 +1350,13 @@ const Stage8 = () => {
         switch (syncStatus) {
             case 'syncing':
                 return (
-                    <>
+                    <div className='flex flex-col items-center '>
                         <p className="mb-8 leading-relaxed flex-col">
                             {t('registration.success.syncing', 'Finalizing account setup, please wait...')}
                         </p>
+                        <Spinner />
 
-                    </>
+                    </div>
                 );
             case 'error':
                 return (
