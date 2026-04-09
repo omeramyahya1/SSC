@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
-import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,7 +22,7 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
         brand: source.brand || '',
         model: source.model || '',
         sku: source.sku,
-        category_uuid: source.category_uuid,
+        category_uuid: source.category_uuid || source.category?.uuid || '',
         low_stock_threshold: source.low_stock_threshold,
         buy_price: source.buy_price,
         sell_price: source.sell_price,
@@ -35,9 +35,11 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
         setFormData(buildFormData(item));
     }, [item]);
 
-    const selectedCategory = useMemo(() =>
-        categories.find(c => c.uuid === formData.category_uuid),
-    [categories, formData.category_uuid]);
+    const selectedCategory = useMemo(() => {
+        const normalizedUuid = String(formData.category_uuid || '');
+        const fromStore = categories.find(c => String(c.uuid) === normalizedUuid);
+        return fromStore ?? item.category ?? null;
+    }, [categories, formData.category_uuid, item.category]);
 
     const handleSpecChange = (key: string, value: string) => {
         setFormData(prev => ({
@@ -62,16 +64,13 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
     };
 
     const isFormValid = formData.name && formData.sku && formData.buy_price > 0 && formData.sell_price > 0;
+    // console.log(selectedCategory?.name);
 
     return (
         <DialogContent className="sm:max-w-[600px] bg-white max-h-[90vh] overflow-y-auto" dir={i18n.dir()}>
             <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">{t('inventory.edit_item_title', 'Edit Inventory Item')}</DialogTitle>
-                <DialogDescription>
-                    {t('inventory.edit_item_desc', 'Update the details for this component.')}
-                </DialogDescription>
             </DialogHeader>
-
             <div className="grid gap-6 py-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2 opacity-70">
@@ -116,7 +115,7 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                             <div className="p-4 bg-gray-50 rounded-lg border space-y-4">
                         <h4 className="text-sm font-bold text-gray-700">{t('inventory.technical_specs', 'Technical Specifications')}</h4>
                         <div className="grid grid-cols-2 gap-4">
-                            {Object.entries(selectedCategory.spec_schema).map(([key, unit]) => (
+                            {Object.entries(selectedCategory.spec_schema || {}).map(([key, unit]) => (
                                 <div key={key} className="grid gap-1.5">
                                     <Label htmlFor={`edit-spec-${key}`} className="text-xs">
                                         {unit ? `${formatSpecLabel(key)} (${unit})` : formatSpecLabel(key)}
