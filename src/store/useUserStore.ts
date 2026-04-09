@@ -48,8 +48,8 @@ export interface UserStore {
   fetchUser: (id: string) => Promise<void>;
   createUser: (data: NewUserData) => Promise<User | undefined>;
   createEmployee: (data: any) => Promise<User | undefined>;
-  updateUser: (id: number, data: Partial<NewUserData>) => Promise<User | undefined>;
-  deleteUser: (id: number) => Promise<void>;
+  updateUser: (id: number | string, data: Partial<NewUserData>) => Promise<User | undefined>;
+  deleteUser: (id: number | string) => Promise<void>;
   setCurrentUser: (user: User | null) => void;
 }
 
