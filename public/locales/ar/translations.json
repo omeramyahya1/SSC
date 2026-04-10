@@ -711,6 +711,8 @@
   "team.checking_email": "جارٍ التحقق من البريد...",
   "team.deactivate_error": "فشل إلغاء تنشيط الموظف",
   "team.email_exists": "البريد الإلكتروني موجود بالفعل",
+  "team.invalid_email": "البريد الإلكتروني غير صالح",
+  "components.empty_inventory": "المخزون فارغ",
   "team.no_branches": "لم يتم العثور على فروع",
   "team.no_employees": "لم يتم العثور على موظفين"
 }
