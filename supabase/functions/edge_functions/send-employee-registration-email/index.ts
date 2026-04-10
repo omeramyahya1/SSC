@@ -12,7 +12,7 @@ const emailWrapper = (
   const textAlign = lang === "ar" ? "right" : "left";
   const footerText = "© 2026 Solar System Calculator. All rights reserved.";
   const appName = "Solar System Calculator";
-  
+
   return `
 <div style="font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; box-sizing: border-box; background-color: #ffffff; color: #333; line-height: 1.6; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;" dir="${dir}">
   <div style="text-align: center; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
@@ -80,9 +80,9 @@ serve(async (req) => {
   );
 
   // Fetch Pending Registration Jobs
-  const { data: jobs, error: fetchError } = await supabase
+  const { data: pendingJobs, error: fetchError } = await supabase
     .from("notification_jobs")
-    .select("*")
+    .select("id, recipient_user_id, payload, created_at")
     .eq("status", "pending")
     .eq("event_type", "employee_registration");
 
@@ -90,7 +90,24 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: fetchError.message }), { status: 500 });
   }
 
-  for (const job of jobs ?? []) {
+  const pendingIds = (pendingJobs ?? []).map((j) => j.id);
+  if (pendingIds.length === 0) {
+    return new Response("OK", { status: 200 });
+  }
+
+  // Atomically claim jobs to avoid double processing
+  const { data: claimedJobs, error: claimError } = await supabase
+    .from("notification_jobs")
+    .update({ status: "processing" })
+    .in("id", pendingIds)
+    .eq("status", "pending")
+    .select("id, recipient_user_id, payload, created_at");
+
+  if (claimError) {
+    return new Response(JSON.stringify({ error: claimError.message }), { status: 500 });
+  }
+
+  for (const job of claimedJobs ?? []) {
     try {
       // Fetch User & Settings to determine language
       const { data: userData, error: userError } = await supabase

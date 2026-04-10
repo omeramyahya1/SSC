@@ -42,7 +42,8 @@ BEGIN
 
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public;
 
 -- Create the trigger
 DROP TRIGGER IF EXISTS trg_on_user_created ON public.users;
