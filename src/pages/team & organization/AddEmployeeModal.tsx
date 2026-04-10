@@ -157,7 +157,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                         {t('common.cancel', 'Cancel')}
                     </Button>
-                    <Button type="submit" disabled={isSubmitting || isCheckingEmail || !valid || emailAvailable !== true} className="text-white">
+                    <Button type="submit" disabled={isSubmitting || isCheckingEmail || !valid || emailAvailable !== true || !formData.username} className="text-white">
                         {isSubmitting ? t('common.saving', 'Saving...') : t('team.add_employee', 'Add Employee')}
                     </Button>
                 </DialogFooter>

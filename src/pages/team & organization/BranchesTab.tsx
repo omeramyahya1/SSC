@@ -82,11 +82,16 @@ export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranc
                                 </div>
 
                                 <DropdownMenu dir={i18n.dir()}>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
+                                    {
+                                        branch.name === 'HQ' || branch.name === 'الفرع الرئيسي' || (
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                        )
+                                    }
+
                                     <DropdownMenuContent align="end" className="bg-white">
                                         <DropdownMenuItem
                                             className="cursor-pointer rounded-lg hover:bg-gray-100"
