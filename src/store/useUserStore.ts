@@ -161,7 +161,7 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     try {
       await api.delete(`${resource}/${id}`);
       set((state) => ({
-        users: state.users.filter((u) => u.user_id !== id),
+        users: state.users.filter((u) => u.user_id !== id && u.uuid !== id),
         isLoading: false,
       }));
     } catch (e: any) {
