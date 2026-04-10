@@ -64,7 +64,6 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
     };
 
     const isFormValid = formData.name && formData.sku && formData.buy_price > 0 && formData.sell_price > 0;
-    // console.log(selectedCategory?.name);
 
     return (
         <DialogContent className="sm:max-w-[600px] bg-white max-h-[90vh] overflow-y-auto" dir={i18n.dir()}>

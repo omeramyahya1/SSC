@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -19,8 +19,6 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
     const { createCustomer } = useCustomerStore();
     const { currentUser } = useUserStore();
 
-    const [isEmailValid, setIsEmailValid] = useState(true);
-
     const [formData, setFormData] = useState<NewCustomerData>({
         full_name: '',
         email: '',
@@ -28,6 +26,8 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
         organization_uuid: currentUser?.organization_uuid || null,
         user_uuid: currentUser?.uuid || null,
     });
+
+    const isEmailValid = !formData.email || EMAIL_REGEX.test(formData.email);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,13 +50,6 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
             setIsSubmitting(false);
         }
     };
-
-    useEffect(() => {
-        // Only pre-fill if not logged in and a previous user's email is available
-        if (formData.email) {
-            setIsEmailValid(EMAIL_REGEX.test(formData?.email));
-        }
-      });
 
     return (
         <DialogContent className="sm:max-w-[425px] bg-white" dir={i18n.dir()}>
@@ -89,11 +82,18 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
                             id="email"
                             type="email"
                             value={formData.email || ''}
+                            aria-invalid={!isEmailValid}
+                            aria-describedby={!isEmailValid ? 'customer-email-error' : undefined}
                             className={`flex h-9 w-full rounded-base border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40
                           ${!isEmailValid ? 'ring-red-500 ring-1' : 'focus:shadow-md focus:ring-1 focus:ring-primary/20'}`}
                             onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                             placeholder={t('dashboard.customer_email_ph', 'e.g. johndoe@example.com')}
                         />
+                        {!isEmailValid && (
+                            <p id="customer-email-error" className="text-sm text-red-600">
+                                {t('customers.invalid_email', 'Enter a valid email address')}
+                            </p>
+                        )}
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="phone_number" className="font-semibold">

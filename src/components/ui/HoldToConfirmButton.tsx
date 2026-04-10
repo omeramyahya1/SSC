@@ -92,11 +92,13 @@ export function HoldToConfirmButton({
   return (
     <Button
       className={cn(
-        "w-full relative overflow-hidden transition-all duration-200 border-transparent", className,
-        isHolding && cn(
-          `${variant === 'destructive'? 'bg-semantic-error text-white' : 'scale-[0.95] bg-primary-light'}`
-        )
-      ) + `${variant === 'destructive'? 'border border-semantic-error bg-red-50' : '' }`}
+        "w-full relative overflow-hidden transition-all duration-200 border-transparent",
+        className,
+        isHolding &&
+          (variant === 'destructive'
+            ? 'border border-semantic-error bg-red-50 text-white'
+            : 'scale-[0.95] bg-primary-light')
+      )}
       onPointerDown={(e) => {
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         startHolding();

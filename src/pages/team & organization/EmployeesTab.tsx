@@ -88,7 +88,7 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
                         </div>
                             <Button
                                 onClick={onAddEmployee}
-                                disabled={false}
+                                disabled={isLimitReached}
                                 className="text-white"
                             >
                                 <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />
@@ -134,7 +134,7 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
                                                     className="group rounded-lg text-red-700 cursor-pointer hover:text-white  hover:bg-red-500"
                                                     onClick={() => onDeactivateEmployee(emp)}
                                                 >
-                                                    <MinusCircle className='className="w-4 h-4 opacity-70 group-hover:text-white"'/>
+                                                    <MinusCircle className="w-4 h-4 opacity-70 group-hover:text-white" />
                                                     {t('team.deactivate', 'Deactivate')}
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>

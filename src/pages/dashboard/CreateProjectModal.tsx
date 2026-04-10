@@ -12,6 +12,7 @@ import { BleConfigData, BleSettingsPayload } from '@/store/useBleStore';
 import { useCustomerStore } from '@/store/useCustomerStore';
 
 export interface NewProjectData {
+    customer_uuid?: string;
     customer_name: string;
     phone_number: string | undefined;
     email: string | undefined;
@@ -72,6 +73,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
 
     const handleCreate = () => {
         const projectData: NewProjectData = {
+            customer_uuid: useExistingCustomer ? selectedCustomerId || undefined : undefined,
             customer_name: customerName,
             email: customerEmail || undefined,
             phone_number: customerPhone || undefined,
@@ -81,7 +83,10 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
         onSubmit(projectData, initialData || undefined);
     };
 
-    const isFormValid = customerName.trim() !== '' && locationState.trim() !== '' && locationCity.trim() !== '';
+    const isFormValid =
+        locationState.trim() !== '' &&
+        locationCity.trim() !== '' &&
+        (useExistingCustomer ? selectedCustomerId !== '' : customerName.trim() !== '');
 
     return (
         <DialogContent className="sm:max-w-[525px] bg-white" dir={i18n.dir()}>

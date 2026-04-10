@@ -38,10 +38,6 @@ export default function TeamOrganization() {
   const [employeeToDelete, setEmployeeToDelete] = useState<User | null>(null);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
 
-  if (currentUser?.role !== "admin") {
-    return <Navigate to="/home/dashboard" replace />;
-  }
-
   useEffect(() => {
     if (currentUser?.organization_uuid) {
       fetchEmployees(currentUser.organization_uuid);
@@ -49,6 +45,11 @@ export default function TeamOrganization() {
       fetchOrganization(currentUser.organization_uuid);
     }
   }, [currentUser, fetchEmployees, fetchBranches, fetchOrganization]);
+
+
+  if (currentUser?.role !== "admin") {
+    return <Navigate to="/home/dashboard" replace />;
+  }
 
   const maxEmployees = currentOrganization?.emp_count || 0;
   const isLimitReached = users.length >= maxEmployees;
@@ -128,10 +129,12 @@ export default function TeamOrganization() {
 
       {/* Modals */}
       <Dialog open={isAddEmployeeOpen} onOpenChange={setIsAddEmployeeOpen}>
+        {currentUser.organization_uuid && (
         <AddEmployeeModal
             onOpenChange={setIsAddEmployeeOpen}
-            organizationUuid={currentUser.organization_uuid!}
+            organizationUuid={currentUser.organization_uuid}
         />
+        )}
       </Dialog>
 
       <Dialog open={isAddBranchOpen} onOpenChange={setIsAddBranchOpen}>

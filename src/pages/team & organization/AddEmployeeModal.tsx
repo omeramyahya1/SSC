@@ -36,6 +36,10 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
     const [valid, setValid] = useState(false);
 
     useEffect(() => {
+        setFormData(prev => ({ ...prev, organization_uuid: organizationUuid }));
+    }, [organizationUuid]);
+
+    useEffect(() => {
         const email = formData.email.trim();
 
         if (!email) {
@@ -143,7 +147,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                                 <SelectValue placeholder={t('team.select_branch', 'Select a branch')} />
                             </SelectTrigger>
                             <SelectContent className="bg-white" >
-                                {branches.map(branch => (
+                                {branches.filter(b => b.organization_uuid === organizationUuid).map(branch => (
                                     <SelectItem key={branch.uuid} value={branch.uuid}>
                                         {branch.name}
                                     </SelectItem>

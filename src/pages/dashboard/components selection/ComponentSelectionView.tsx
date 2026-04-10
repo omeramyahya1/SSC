@@ -102,13 +102,13 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
             const scope = currentUser?.organization_uuid
                 ? { org_uuid: currentUser.organization_uuid, branch_uuid: currentUser.branch_uuid ?? null, user_uuid: null }
                 : { org_uuid: null, branch_uuid: null, user_uuid: currentUser?.uuid ?? null };
-            await generateRecommendations(projectUuid, bleResults, scope);
+            const result = await generateRecommendations(projectUuid, bleResults, scope);
 
-            if (components.length != 0 ) {
-                toast.success(t('components.recommendations_generated', 'Recommendations generated successfully!'));
-            } else {
-                toast.error(t('components.empty_inventory', 'Inventory Empty'));
-            }
+        if (result.length !== 0) {
+            toast.success(t('components.recommendations_generated', 'Recommendations generated successfully!'));
+        } else {
+            toast.error(t('components.empty_inventory', 'Inventory Empty'));
+        }
 
         } catch (e: any) {
             toast.error(e.message || "Failed to generate recommendations");
