@@ -85,7 +85,7 @@
   "dashboard.toast.trash_emptied": "تم إفراغ سلة المهملات.",
   "dashboard.Sales": "المبيعات",
   "auth.change_password_now": "تغيير كلمة المرور الآن",
-  "auth.first_login_desc": "لأمنك، يرجى تغيير كلمة المرور قبل المتابعة.",
+  "auth.first_login_desc": "لأمنك، يُنصح بتغيير كلمة المرور ويمكنك تأجيل ذلك لاحقًا.",
   "auth.first_login_title": "تسجيل الدخول لأول مرة",
   "description": "هذا تطبيق سطح مكتب ثنائي اللغة.",
   "login.banner.title": "لنبدأ",

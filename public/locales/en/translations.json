@@ -199,7 +199,7 @@
   "registration.internet_required": "Internet is required to continue the registration process.",
   "registration.internet_restored_desc": "Your internet connection has been restored. You can now continue.",
   "components.empty_inventory": "Inventory is empty.",
-  "team.invalid_email": "Email is invalid."
+  "team.invalid_email": "Email is invalid.",
   "registration.internet_restored_title": "Internet Restored",
   "registration.language.ar": "العربية",
   "registration.language.en": "English",
