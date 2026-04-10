@@ -1,6 +1,7 @@
 import { Sidebar } from "./dashboard/Sidebar";
 import { InternetAlert } from "./dashboard/InternetAlert";
 import { Outlet, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { Toaster } from "react-hot-toast";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import {
@@ -28,6 +29,22 @@ const MainContent = () => {
     setShowFirstTimeLoginPrompt(false);
     navigate("/change_password");
   };
+
+  useEffect(() => {
+    const stopDrop = (e: any) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    // 'dragover' must be prevented for 'drop' to be blocked
+    window.addEventListener('dragover', stopDrop, false);
+    window.addEventListener('drop', stopDrop, false);
+
+    return () => {
+      window.removeEventListener('dragover', stopDrop);
+      window.removeEventListener('drop', stopDrop);
+    };
+  }, []);
 
   return (
     <div className="flex h-screen w-full font-sans">
