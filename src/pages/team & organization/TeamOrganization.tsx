@@ -91,8 +91,8 @@ export default function TeamOrganization() {
             <span className="text-muted-foreground">({currentOrganization?.name || ''})</span>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" >
-            <TabsList className="bg-white border mb-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" dir={i18n.dir()}>
+            <TabsList className="bg-white border">
                 <TabsTrigger value="employees" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                     {t('team.employees', 'Employees')}
                 </TabsTrigger>
