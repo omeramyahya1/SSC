@@ -12,6 +12,8 @@ interface AddCustomerModalProps {
     onOpenChange: (isOpen: boolean) => void;
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
     const { t, i18n } = useTranslation();
     const { createCustomer } = useCustomerStore();
@@ -24,6 +26,8 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
         organization_uuid: currentUser?.organization_uuid || null,
         user_uuid: currentUser?.uuid || null,
     });
+
+    const isEmailValid = !formData.email || EMAIL_REGEX.test(formData.email);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -49,7 +53,7 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
 
     return (
         <DialogContent className="sm:max-w-[425px] bg-white" dir={i18n.dir()}>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold">{t('customers.add_customer_title', 'Add New Customer')}</DialogTitle>
                     <DialogDescription>
@@ -74,13 +78,22 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
                         <Label htmlFor="email" className="font-semibold">
                             {t('customers.col.email', 'Email')}
                         </Label>
-                        <Input
+                        <input
                             id="email"
                             type="email"
                             value={formData.email || ''}
+                            aria-invalid={!isEmailValid}
+                            aria-describedby={!isEmailValid ? 'customer-email-error' : undefined}
+                            className={`flex h-9 w-full rounded-base border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40
+                          ${!isEmailValid ? 'ring-red-500 ring-1' : 'focus:shadow-md focus:ring-1 focus:ring-primary/20'}`}
                             onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                             placeholder={t('dashboard.customer_email_ph', 'e.g. johndoe@example.com')}
                         />
+                        {!isEmailValid && (
+                            <p id="customer-email-error" className="text-sm text-red-600">
+                                {t('customers.invalid_email', 'Enter a valid email address')}
+                            </p>
+                        )}
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="phone_number" className="font-semibold">
@@ -99,7 +112,7 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                         {t('common.cancel', 'Cancel')}
                     </Button>
-                    <Button type="submit" disabled={isSubmitting || !formData.full_name} className="text-white">
+                    <Button type="submit" disabled={isSubmitting || !formData.full_name || !isEmailValid} className="text-white">
                         {isSubmitting ? t('common.saving', 'Saving...') : t('customers.add_customer', 'Add Customer')}
                     </Button>
                 </DialogFooter>

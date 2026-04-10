@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
+import { useUserStore } from '@/store/useUserStore';
 import { InventorySelectorModal } from './InventorySelectorModal';
 import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { Input } from '@/components/ui/input';
@@ -61,6 +62,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
     } = useProjectComponentStore();
 
     const { items, categories, fetchItems, fetchCategories } = useInventoryStore();
+    const { currentUser } = useUserStore();
 
     const {currentInvoice} = useInvoiceStore();
 
@@ -97,8 +99,17 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
         }
         setIsGenerating(true);
         try {
-            await generateRecommendations(projectUuid, bleResults);
+            const scope = currentUser?.organization_uuid
+                ? { org_uuid: currentUser.organization_uuid, branch_uuid: currentUser.branch_uuid ?? null, user_uuid: null }
+                : { org_uuid: null, branch_uuid: null, user_uuid: currentUser?.uuid ?? null };
+            const result = await generateRecommendations(projectUuid, bleResults, scope);
+
+        if (result.length !== 0) {
             toast.success(t('components.recommendations_generated', 'Recommendations generated successfully!'));
+        } else {
+            toast.error(t('components.empty_inventory', 'Inventory Empty'));
+        }
+
         } catch (e: any) {
             toast.error(e.message || "Failed to generate recommendations");
         } finally {

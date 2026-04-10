@@ -5,7 +5,8 @@ from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
 from utils import get_db
 import models
-from sqlalchemy import LargeBinary
+from sqlalchemy import LargeBinary, Numeric
+from decimal import Decimal
 from supabase_client import get_user_client, get_service_role_client, get_anon_client
 from serializer import model_to_dict
 
@@ -114,7 +115,7 @@ def _map_document_to_payload(record: models.Document):
     return payload
 
 def _map_subscription_payment_to_payload(record: models.SubscriptionPayment):
-    payload = {**_map_common_fields(record), "subscription_id": record.subscription_uuid, "amount": record.amount, "payment_method": record.payment_method, "trx_no": record.trx_no, "status": record.status}
+    payload = {**_map_common_fields(record), "subscription_id": record.subscription_uuid, "amount": float(record.amount), "payment_method": record.payment_method, "trx_no": record.trx_no, "status": record.status}
     if record.trx_screenshot:
         path = f"payment_screenshots/{record.uuid}.png"
         payload["trx_screenshot"] = upload_blob(record.trx_screenshot, "SSC", path)
@@ -129,6 +130,8 @@ def _generic_mapper(record):
             value = getattr(record, col)
             if isinstance(value, datetime):
                 payload[col] = _to_iso(value)
+            elif isinstance(value, Decimal):
+                payload[col] = float(value)
             else:
                 payload[col] = value
     fk_mappings = {'user_uuid': 'user_id', 'customer_uuid': 'customer_id', 'project_uuid': 'project_id', 'system_config_uuid': 'system_config_id', 'invoice_uuid': 'invoice_id', 'subscription_uuid': 'subscription_id', 'organization_uuid': 'organization_id', 'branch_uuid': 'branch_id', 'category_uuid': 'category_id', 'item_uuid': 'item_id'}
@@ -145,27 +148,30 @@ def _map_cloud_to_local(payload: dict, model_class) -> dict:
     of attributes for a local SQLAlchemy model.
     """
     fk_mappings = {'user_id': 'user_uuid', 'customer_id': 'customer_uuid', 'project_id': 'project_uuid', 'system_config_id': 'system_config_uuid', 'invoice_id': 'invoice_uuid', 'subscription_id': 'subscription_uuid', 'organization_id': 'organization_uuid', 'branch_id': 'branch_uuid', 'category_id': 'category_uuid', 'item_id': 'item_uuid'}
+    local_columns = {c.name for c in model_class.__table__.columns}
     mapped_payload = {}
     for key, value in payload.items():
         if key == 'id':
-            mapped_payload['uuid'] = value
+            local_key = 'uuid'
+        elif key in fk_mappings:
+            local_key = fk_mappings[key]
+        else:
+            local_key = key
+
+        if local_key not in local_columns:
             continue
-        if key in fk_mappings:
-            mapped_payload[fk_mappings[key]] = value
-            continue
+
         if isinstance(value, str):
             try:
                 if value.endswith('Z'):
                     value = value[:-1] + '+00:00'
-                dt_obj = datetime.fromisoformat(value)
-                mapped_payload[key] = dt_obj
-                continue
+                value = datetime.fromisoformat(value)
             except (ValueError, TypeError):
                 pass
-        mapped_payload[key] = value
 
-    local_columns = {c.name for c in model_class.__table__.columns}
-    final_payload = {k: v for k, v in mapped_payload.items() if k in local_columns}
+        mapped_payload[local_key] = value
+
+    final_payload = dict(mapped_payload)
 
     # Do not process blobs pulled from the cloud for now.
     blob_cols = {col.name for col in model_class.__table__.columns if isinstance(col.type, LargeBinary)}

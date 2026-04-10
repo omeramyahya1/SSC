@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db
-from models import InventoryCategory, InventoryItem, StockAdjustment, ProjectComponent, User, Authentication
+from models import InventoryCategory, InventoryItem, StockAdjustment, ProjectComponent, User, Authentication, Branch
 from schemas import (
     InventoryCategoryCreate, InventoryCategoryUpdate,
     InventoryItemCreate, InventoryItemUpdate,
@@ -13,6 +13,54 @@ import logging
 inventory_bp = Blueprint('inventory_bp', __name__, url_prefix='/inventory')
 
 # --- Categories ---
+
+def _get_current_user(db):
+    auth_record = (
+        db.query(Authentication)
+        .filter(Authentication.is_logged_in == True)
+        .order_by(Authentication.last_active.desc())
+        .first()
+    )
+    if not auth_record:
+        return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
+
+    current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+    if not current_user:
+        return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
+
+    return current_user, None
+
+def _get_inventory_scope(user):
+    if user.organization_uuid:
+        if user.role == 'admin':
+            return {"level": "org", "org_uuid": user.organization_uuid, "branch_uuid": None, "user_uuid": None}
+        return {"level": "branch", "org_uuid": user.organization_uuid, "branch_uuid": user.branch_uuid, "user_uuid": None}
+    return {"level": "user", "org_uuid": None, "branch_uuid": None, "user_uuid": user.uuid}
+
+def _apply_category_scope(query, scope):
+    if scope["org_uuid"]:
+        return query.filter(InventoryCategory.organization_uuid == scope["org_uuid"])
+    return query.filter(InventoryCategory.user_uuid == scope["user_uuid"])
+
+def _apply_item_scope(query, scope):
+    query = query.filter(InventoryItem.deleted_at.is_(None))
+    if scope["org_uuid"]:
+        query = query.filter(InventoryItem.organization_uuid == scope["org_uuid"])
+        if scope["branch_uuid"]:
+            query = query.filter(InventoryItem.branch_uuid == scope["branch_uuid"])
+        return query
+    return query.filter(InventoryItem.user_uuid == scope["user_uuid"])
+
+def _get_scoped_category(db, scope, category_uuid):
+    query = db.query(InventoryCategory).filter(InventoryCategory.uuid == category_uuid)
+    return _apply_category_scope(query, scope).first()
+
+def _get_scoped_item(db, scope, item_uuid):
+    query = db.query(InventoryItem).filter(
+        InventoryItem.uuid == item_uuid,
+        InventoryItem.deleted_at.is_(None),
+    )
+    return _apply_item_scope(query, scope).first()
 
 def _default_inventory_categories():
     return [
@@ -54,12 +102,27 @@ def _default_inventory_categories():
 def create_category():
     with get_db() as db:
         try:
+            current_user, error_response = _get_current_user(db)
+            if error_response:
+                return error_response
+            scope = _get_inventory_scope(current_user)
+
             try:
                 validated_data = InventoryCategoryCreate(**request.json)
             except ValidationError as e:
                 return jsonify({"errors": e.errors()}), 400
 
-            new_item = InventoryCategory(**validated_data.dict())
+            payload = validated_data.dict()
+            payload.pop("organization_uuid", None)
+            payload.pop("user_uuid", None)
+            if scope["org_uuid"]:
+                payload["organization_uuid"] = scope["org_uuid"]
+                payload["user_uuid"] = None
+            else:
+                payload["organization_uuid"] = None
+                payload["user_uuid"] = scope["user_uuid"]
+
+            new_item = InventoryCategory(**payload)
             new_item.is_dirty = True
             db.add(new_item)
             db.commit()
@@ -73,15 +136,32 @@ def create_category():
 @inventory_bp.route('/categories', methods=['GET'])
 def get_categories():
     with get_db() as db:
-        items = db.query(InventoryCategory).all()
+        current_user, error_response = _get_current_user(db)
+        if error_response:
+            return error_response
+        scope = _get_inventory_scope(current_user)
+
+        items = _apply_category_scope(db.query(InventoryCategory), scope).all()
         if items:
             return jsonify([model_to_dict(i) for i in items])
+
+        if scope["branch_uuid"]:
+            # For employees, categories are derived from branch items only.
+            return jsonify([])
+
+        if not scope["org_uuid"] and not scope["user_uuid"]:
+            return jsonify({"error": "Unable to determine category scope."}), 400
+
+        category_org_uuid = scope["org_uuid"] if scope["org_uuid"] else None
+        category_user_uuid = None if scope["org_uuid"] else scope["user_uuid"]
 
         defaults = []
         for cat in _default_inventory_categories():
             item = InventoryCategory(
                 name=cat["name"],
                 spec_schema=cat["spec_schema"],
+                organization_uuid=category_org_uuid,
+                user_uuid=category_user_uuid,
                 is_dirty=True
             )
             defaults.append(item)
@@ -94,7 +174,12 @@ def get_categories():
 @inventory_bp.route('/categories/<string:uuid>', methods=['GET'])
 def get_category(uuid):
     with get_db() as db:
-        item = db.query(InventoryCategory).filter(InventoryCategory.uuid == uuid).first()
+        current_user, error_response = _get_current_user(db)
+        if error_response:
+            return error_response
+        scope = _get_inventory_scope(current_user)
+
+        item = _get_scoped_category(db, scope, uuid)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
@@ -103,7 +188,12 @@ def get_category(uuid):
 def update_category(uuid):
     with get_db() as db:
         try:
-            item = db.query(InventoryCategory).filter(InventoryCategory.uuid == uuid).first()
+            current_user, error_response = _get_current_user(db)
+            if error_response:
+                return error_response
+            scope = _get_inventory_scope(current_user)
+
+            item = _get_scoped_category(db, scope, uuid)
             if not item:
                 return jsonify({"error": "Not found"}), 404
             try:
@@ -111,7 +201,10 @@ def update_category(uuid):
             except ValidationError as e:
                 return jsonify({"errors": e.errors()}), 400
 
-            for key, value in validated_data.dict(exclude_unset=True).items():
+            update_data = validated_data.dict(exclude_unset=True)
+            update_data.pop("organization_uuid", None)
+            update_data.pop("user_uuid", None)
+            for key, value in update_data.items():
                 setattr(item, key, value)
             item.is_dirty = True
             db.commit()
@@ -126,7 +219,12 @@ def update_category(uuid):
 def delete_category(uuid):
     with get_db() as db:
         try:
-            item = db.query(InventoryCategory).filter(InventoryCategory.uuid == uuid).first()
+            current_user, error_response = _get_current_user(db)
+            if error_response:
+                return error_response
+            scope = _get_inventory_scope(current_user)
+
+            item = _get_scoped_category(db, scope, uuid)
             if not item:
                 return jsonify({"error": "Not found"}), 404
             db.delete(item)
@@ -151,17 +249,47 @@ def validate_specs(category, specs):
 def create_item():
     with get_db() as db:
         try:
+            current_user, error_response = _get_current_user(db)
+            if error_response:
+                return error_response
+            scope = _get_inventory_scope(current_user)
+
             try:
                 validated_data = InventoryItemCreate(**request.json)
             except ValidationError as e:
                 return jsonify({"errors": e.errors()}), 400
 
-            if validated_data.category_uuid and validated_data.technical_specs:
-                category = db.query(InventoryCategory).filter(InventoryCategory.uuid == validated_data.category_uuid).first()
-                if not validate_specs(category, validated_data.technical_specs):
+            if validated_data.category_uuid:
+                category = _get_scoped_category(db, scope, validated_data.category_uuid)
+                if not category:
+                    return jsonify({"error": "Category not found"}), 404
+                if validated_data.technical_specs and not validate_specs(category, validated_data.technical_specs):
                     return jsonify({"error": "Invalid technical specs format"}), 400
 
-            new_item = InventoryItem(**validated_data.dict())
+            if scope["org_uuid"] and current_user.role == 'admin':
+                if not validated_data.branch_uuid:
+                    return jsonify({"error": "branch_uuid is required for admin-created items."}), 400
+                branch = db.query(Branch).filter(Branch.uuid == validated_data.branch_uuid).first()
+                if not branch or branch.organization_uuid != scope["org_uuid"]:
+                    return jsonify({"error": "Invalid branch for this organization."}), 400
+
+            payload = validated_data.dict()
+            payload.pop("organization_uuid", None)
+            payload.pop("branch_uuid", None)
+            payload.pop("user_uuid", None)
+            if scope["org_uuid"]:
+                payload["organization_uuid"] = scope["org_uuid"]
+                payload["user_uuid"] = None
+                if scope["branch_uuid"]:
+                    payload["branch_uuid"] = scope["branch_uuid"]
+                else:
+                    payload["branch_uuid"] = validated_data.branch_uuid
+            else:
+                payload["organization_uuid"] = None
+                payload["branch_uuid"] = None
+                payload["user_uuid"] = scope["user_uuid"]
+
+            new_item = InventoryItem(**payload)
             new_item.is_dirty = True
             db.add(new_item)
             db.commit()
@@ -175,13 +303,24 @@ def create_item():
 @inventory_bp.route('/items', methods=['GET'])
 def get_items():
     with get_db() as db:
-        items = db.query(InventoryItem).all()
+        current_user, error_response = _get_current_user(db)
+        if error_response:
+            return error_response
+        scope = _get_inventory_scope(current_user)
+
+        items = _apply_item_scope(db.query(InventoryItem), scope).all()
+
         return jsonify([model_to_dict(i) for i in items])
 
 @inventory_bp.route('/items/<string:uuid>', methods=['GET'])
 def get_item(uuid):
     with get_db() as db:
-        item = db.query(InventoryItem).filter(InventoryItem.uuid == uuid).first()
+        current_user, error_response = _get_current_user(db)
+        if error_response:
+            return error_response
+        scope = _get_inventory_scope(current_user)
+
+        item = _get_scoped_item(db, scope, uuid)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
@@ -190,7 +329,12 @@ def get_item(uuid):
 def update_item(uuid):
     with get_db() as db:
         try:
-            item = db.query(InventoryItem).filter(InventoryItem.uuid == uuid).first()
+            current_user, error_response = _get_current_user(db)
+            if error_response:
+                return error_response
+            scope = _get_inventory_scope(current_user)
+
+            item = _get_scoped_item(db, scope, uuid)
             if not item:
                 return jsonify({"error": "Not found"}), 404
             try:
@@ -199,11 +343,20 @@ def update_item(uuid):
                 return jsonify({"errors": e.errors()}), 400
 
             update_data = validated_data.dict(exclude_unset=True)
+            update_data.pop("organization_uuid", None)
+            update_data.pop("branch_uuid", None)
+            update_data.pop("user_uuid", None)
+
+            if scope["org_uuid"] and current_user.role == 'admin':
+                if "branch_uuid" in update_data and not update_data["branch_uuid"]:
+                    return jsonify({"error": "branch_uuid cannot be empty for admin items."}), 400
 
             new_cat_uuid = update_data.get('category_uuid', item.category_uuid)
             new_specs = update_data.get('technical_specs', item.technical_specs)
             if new_cat_uuid and new_specs:
-                category = db.query(InventoryCategory).filter(InventoryCategory.uuid == new_cat_uuid).first()
+                category = _get_scoped_category(db, scope, new_cat_uuid)
+                if not category:
+                    return jsonify({"error": "Category not found"}), 404
                 if not validate_specs(category, new_specs):
                     return jsonify({"error": "Invalid technical specs format"}), 400
 
@@ -222,7 +375,12 @@ def update_item(uuid):
 def delete_item(uuid):
     with get_db() as db:
         try:
-            item = db.query(InventoryItem).filter(InventoryItem.uuid == uuid).first()
+            current_user, error_response = _get_current_user(db)
+            if error_response:
+                return error_response
+            scope = _get_inventory_scope(current_user)
+
+            item = _get_scoped_item(db, scope, uuid)
             if not item:
                 return jsonify({"error": "Not found"}), 404
             db.delete(item)
@@ -240,6 +398,11 @@ def delete_item(uuid):
 def create_adjustment():
     with get_db() as db:
         try:
+            current_user, error_response = _get_current_user(db)
+            if error_response:
+                return error_response
+            scope = _get_inventory_scope(current_user)
+
             try:
                 validated_data = StockAdjustmentCreate(**request.json)
             except ValidationError as e:
@@ -262,6 +425,9 @@ def create_adjustment():
                     )
                     if not item:
                         raise _ItemNotFound()
+                    scoped_item = _get_scoped_item(db, scope, item.uuid)
+                    if not scoped_item:
+                        return jsonify({"error": "Not authorized to adjust this item."}), 403
 
                     # Validate that the adjustment doesn't result in negative stock
                     if item.quantity_on_hand + validated_data.adjustment < 0:
@@ -271,7 +437,20 @@ def create_adjustment():
                     item.quantity_on_hand += validated_data.adjustment
                     item.is_dirty = True
 
-                    new_adjustment = StockAdjustment(**validated_data.dict(exclude_unset=True))
+                    payload = validated_data.dict(exclude_unset=True)
+                    payload.pop("organization_uuid", None)
+                    payload.pop("branch_uuid", None)
+                    payload.pop("user_uuid", None)
+                    if scope["org_uuid"]:
+                        payload["organization_uuid"] = scope["org_uuid"]
+                        payload["branch_uuid"] = scope["branch_uuid"] or item.branch_uuid
+                        payload["user_uuid"] = current_user.uuid
+                    else:
+                        payload["organization_uuid"] = None
+                        payload["branch_uuid"] = None
+                        payload["user_uuid"] = scope["user_uuid"]
+
+                    new_adjustment = StockAdjustment(**payload)
                     new_adjustment.is_dirty = True
                     db.add(new_adjustment)
             except _ItemNotFound:
@@ -289,6 +468,15 @@ def create_adjustment():
 @inventory_bp.route('/items/<string:item_uuid>/adjustments', methods=['GET'])
 def get_item_adjustments(item_uuid):
     with get_db() as db:
+        current_user, error_response = _get_current_user(db)
+        if error_response:
+            return error_response
+        scope = _get_inventory_scope(current_user)
+
+        item = _get_scoped_item(db, scope, item_uuid)
+        if not item:
+            return jsonify({"error": "Not found"}), 404
+
         adjustments = db.query(StockAdjustment).filter(StockAdjustment.item_uuid == item_uuid).all()
         return jsonify([model_to_dict(a) for a in adjustments])
 
@@ -297,40 +485,21 @@ def get_adjustments_history():
     """
     Get global stock adjustment history.
     """
-    org_uuid = request.args.get('org_uuid')
-    user_uuid = request.args.get('user_uuid')
-
     with get_db() as db:
-        auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
-        if not auth_record:
-            return jsonify({"error": "No authenticated user found. Please log in."}), 401
-
-        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
-        if not current_user:
-            return jsonify({"error": "Authenticated user not found in user table."}), 404
-
-        if org_uuid and user_uuid:
-            return jsonify({"error": "Provide either org_uuid or user_uuid, not both."}), 400
-
-        if org_uuid:
-            if current_user.organization_uuid != org_uuid:
-                return jsonify({"error": "Not authorized to view this organization."}), 403
-        elif user_uuid:
-            if current_user.uuid != user_uuid:
-                return jsonify({"error": "Not authorized to view this user."}), 403
-        else:
-            # Default to current user's org if available, otherwise their user uuid
-            org_uuid = current_user.organization_uuid
-            if not org_uuid:
-                user_uuid = current_user.uuid
+        current_user, error_response = _get_current_user(db)
+        if error_response:
+            return error_response
+        scope = _get_inventory_scope(current_user)
 
         query = db.query(StockAdjustment).join(InventoryItem, StockAdjustment.item_uuid == InventoryItem.uuid)
         query = query.filter(StockAdjustment.deleted_at == None, InventoryItem.deleted_at == None)
 
-        if org_uuid:
-            query = query.filter(StockAdjustment.organization_uuid == org_uuid)
-        elif user_uuid:
-            query = query.filter(StockAdjustment.user_uuid == user_uuid)
+        if scope["org_uuid"]:
+            query = query.filter(StockAdjustment.organization_uuid == scope["org_uuid"])
+            if scope["branch_uuid"]:
+                query = query.filter(StockAdjustment.branch_uuid == scope["branch_uuid"])
+        else:
+            query = query.filter(StockAdjustment.user_uuid == scope["user_uuid"])
 
         adjustments = query.order_by(StockAdjustment.created_at.desc()).all()
 

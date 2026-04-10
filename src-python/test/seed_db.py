@@ -255,8 +255,8 @@ def main() -> None:
     seed_inventory(
         items_per_category=args.items_per_category,
         seed=args.seed,
-        organization_uuid="6c12fe90-ec6c-4661-8168-2431816dd448",
-        branch_uuid="a73148e7-7ac7-4529-a9fd-965c0cfe5c37",
+        organization_uuid="857a50fe-a918-4823-a464-84a67e032065",
+        branch_uuid="4ea07606-4916-47d1-9259-3139deab43ba",
         clear=args.clear,
     )
 

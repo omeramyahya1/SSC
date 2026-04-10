@@ -44,11 +44,7 @@ export function InventoryHistoryModal({ isOpen }: InventoryHistoryModalProps) {
         const fetchHistory = async () => {
             setIsLoading(true);
             try {
-                const params = {
-                    org_uuid:  currentUser?.organization_uuid,
-                    user_uuid: !currentUser?.organization_uuid ? currentUser?.uuid : undefined,
-                };
-                const { data } = await api.get('/inventory/adjustments/history', { params });
+                const { data } = await api.get('/inventory/adjustments/history');
                 setHistory(data);
             } catch (error) {
                 console.error("Failed to fetch inventory history", error);

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db
+from utils import get_db, get_by_id_or_uuid
 from models import Customer, Project
 from schemas import CustomerCreate, CustomerUpdate
 from serializer import model_to_dict
@@ -38,11 +38,11 @@ def create_customer():
         db.refresh(new_item)
         return jsonify(get_customer_with_stats(db, new_item)), 201
 
-@customer_bp.route('/<int:item_id>', methods=['PUT'])
+@customer_bp.route('/<string:item_id>', methods=['PUT'])
 def update_customer(item_id):
     with get_db() as db:
-        item = db.query(Customer).filter(Customer.customer_id == item_id, Customer.deleted_at .is_(None)).first()
-        if not item:
+        item = get_by_id_or_uuid(db, Customer, Customer.customer_id, Customer.uuid, item_id)
+        if not item or item.deleted_at is not None:
             return jsonify({"error": "Not found"}), 404
 
         try:
@@ -67,19 +67,19 @@ def get_all_customer():
         items = db.query(Customer).filter(Customer.deleted_at .is_(None)).all()
         return jsonify([get_customer_with_stats(db, i) for i in items])
 
-@customer_bp.route('/<int:item_id>', methods=['GET'])
+@customer_bp.route('/<string:item_id>', methods=['GET'])
 def get_customer(item_id):
     with get_db() as db:
-        item = db.query(Customer).filter(Customer.customer_id == item_id, Customer.deleted_at .is_(None)).first()
-        if not item:
+        item = get_by_id_or_uuid(db, Customer, Customer.customer_id, Customer.uuid, item_id)
+        if not item or item.deleted_at is not None:
             return jsonify({"error": "Not found"}), 404
         return jsonify(get_customer_with_stats(db, item))
 
-@customer_bp.route('/<int:item_id>', methods=['DELETE'])
+@customer_bp.route('/<string:item_id>', methods=['DELETE'])
 def delete_customer(item_id):
     with get_db() as db:
-        item = db.query(Customer).filter(Customer.customer_id == item_id).first()
-        if not item:
+        item = get_by_id_or_uuid(db, Customer, Customer.customer_id, Customer.uuid, item_id)
+        if not item or item.deleted_at is not None:
             return jsonify({"error": "Not found"}), 404
 
         # Soft delete: set deleted_at instead of db.delete(item)

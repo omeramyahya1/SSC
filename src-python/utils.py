@@ -6,7 +6,14 @@ from contextlib import contextmanager
 from db_setup import SessionLocal
 import hashlib
 import os
+import string
+import secrets
 from datetime import datetime, timedelta, timezone
+
+def generate_temp_password(length=12):
+    """Generates a random alphanumeric temporary password."""
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 # Context manager to get a database session
 
@@ -62,6 +69,21 @@ def hash_password(password, salt):
 def verify_password(password, salt, stored_hash):
     """Verifies a password against a stored hash and salt."""
     return hash_password(password, salt) == stored_hash
+
+# --- ID/UUID lookup helper ---
+def get_by_id_or_uuid(db, model, id_column, uuid_column, value):
+    """
+    Fetch a record by numeric id or uuid string.
+    If `value` is an int-like string, it will be matched against `id_column`,
+    otherwise it will be matched against `uuid_column`.
+    """
+    if value is None:
+        return None
+    try:
+        numeric_id = int(value)
+    except (TypeError, ValueError):
+        return db.query(model).filter(uuid_column == value).first()
+    return db.query(model).filter(id_column == numeric_id).first()
 
 # --- New Helper Functions for Offline/Online Login ---
 

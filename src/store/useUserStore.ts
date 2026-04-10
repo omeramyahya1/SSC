@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '@/api/client';
 import { registerStore, StoreKeys } from '@/api/storeRegistry';
+import toast from 'react-hot-toast';
 
 // --- 1. Define Types ---
 
@@ -15,7 +16,7 @@ export interface User {
     is_dirty: boolean;
     email: string;
     business_name?: string;
-    account_type: "enterprise" | "standard";
+    account_type: "enterprise" | "standard" | "enterprise_tier1" | "enterprise_tier2";
     location?: string;
     business_logo?: any;
     business_email?: string;
@@ -26,7 +27,8 @@ export interface User {
     branch_id?: number;
     branch_location?: string;
     branch_uuid?: string;
-    role?: "admin" | "employee";
+    role: "admin" | "employee" | "user";
+    deleted_at?: string;
 }
 
 export type NewUserData = Omit<User, 'user_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
@@ -42,10 +44,12 @@ export interface UserStore {
   isLoading: boolean;
   error: string | null;
   fetchUsers: () => Promise<void>;
+  fetchEmployees: (orgUuid: string) => Promise<void>;
   fetchUser: (id: string) => Promise<void>;
   createUser: (data: NewUserData) => Promise<User | undefined>;
-  updateUser: (id: number, data: Partial<NewUserData>) => Promise<User | undefined>;
-  deleteUser: (id: number) => Promise<void>;
+  createEmployee: (data: any) => Promise<User | undefined>;
+  updateUser: (id: number | string, data: Partial<NewUserData>) => Promise<User | undefined>;
+  deleteUser: (id: number | string) => Promise<void>;
   setCurrentUser: (user: User | null) => void;
 }
 
@@ -67,9 +71,21 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<User[]>(resource);
-      set({ users: data, isLoading: false });
+      set({ users: data.filter(u => !u.deleted_at), isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch users";
+      set({ error: errorMsg, isLoading: false });
+      console.error(errorMsg, e);
+    }
+  },
+
+  fetchEmployees: async (orgUuid) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.get<User[]>(resource);
+      set({ users: data, isLoading: false });
+    } catch (e: any) {
+      const errorMsg = e.message || "Failed to fetch employees";
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
     }
@@ -105,13 +121,37 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     }
   },
 
+  createEmployee: async (employeeData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.post<User>(`${resource}/employee`, employeeData);
+      set((state) => ({ users: [...state.users, data], isLoading: false }));
+      return data;
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.error || "Failed to create employee";
+      set({ error: errorMsg, isLoading: false });
+      toast.error(errorMsg);
+      console.error(errorMsg, e);
+      return undefined;
+    }
+  },
+
   updateUser: async (id, updatedData) => {
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.put<User>(`${resource}/${id}`, updatedData);
+      const normalizedId =
+        typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : id;
+
       set((state) => ({
-        users: state.users.map((u) => (u.user_id === id ? data : u)),
-        currentUser: state.currentUser?.user_id === id ? data : state.currentUser,
+        users: state.users.map((u) =>
+          u.user_id === normalizedId || u.uuid === id ? data : u
+        ),
+        currentUser:
+          state.currentUser &&
+          (state.currentUser.user_id === normalizedId || state.currentUser.uuid === id)
+            ? data
+            : state.currentUser,
         isLoading: false,
       }));
       return data;
@@ -128,7 +168,7 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     try {
       await api.delete(`${resource}/${id}`);
       set((state) => ({
-        users: state.users.filter((u) => u.user_id !== id),
+        users: state.users.filter((u) => u.user_id !== id && u.uuid !== id),
         isLoading: false,
       }));
     } catch (e: any) {

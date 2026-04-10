@@ -344,6 +344,7 @@ class UserUpdate(BaseModel):
 class OrganizationCreate(BaseModel):
     name: str
     plan_type: Optional[str] = None
+    emp_count: Optional[int] = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -351,6 +352,7 @@ class OrganizationCreate(BaseModel):
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
     plan_type: Optional[str] = None
+    emp_count: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -374,16 +376,20 @@ class BranchUpdate(BaseModel):
 class InventoryCategoryCreate(BaseModel):
     name: str
     organization_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     spec_schema: Optional[Any] = None
 
 class InventoryCategoryUpdate(BaseModel):
     name: Optional[str] = None
     organization_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     spec_schema: Optional[Any] = None
 
 class InventoryItemCreate(BaseModel):
     name: str
     organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     sku: Optional[str] = None
     brand: Optional[str] = None
     model: Optional[str] = None
@@ -397,6 +403,8 @@ class InventoryItemCreate(BaseModel):
 class InventoryItemUpdate(BaseModel):
     name: Optional[str] = None
     organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     sku: Optional[str] = None
     brand: Optional[str] = None
     model: Optional[str] = None

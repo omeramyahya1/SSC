@@ -70,7 +70,19 @@ export default function LoginScreen() {
       setCurrentAuthentication(authentication);
 
       if (user?.role === "employee") {
-        navigate("/change_password")
+        if (user.status !== "active") {
+           // First time login logic
+           try {
+             const updatedUser = await useUserStore.getState().updateUser(user.user_id, { status: "active" });
+             if (updatedUser) {
+                setCurrentUser(updatedUser);
+             }
+             useAuthenticationStore.getState().setShowFirstTimeLoginPrompt(true);
+           } catch (err) {
+             console.error("Failed to update user status on first login", err);
+           }
+        }
+        navigate("/dashboard");
         return;
       }
       // Redirect to dashboard

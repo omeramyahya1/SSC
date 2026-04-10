@@ -15,6 +15,7 @@ export const StoreKeys = {
   SyncLog: "SyncLogStore",
   ApplicationSettings: "ApplicationSettingsStore",
   Branch: "BranchStore",
+  Organization: "OrganizationStore"
 } as const;
 
 export type StoreKey = (typeof StoreKeys)[keyof typeof StoreKeys];

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db
+from utils import get_db, get_by_id_or_uuid
 from models import ApplicationSettings, Authentication
 from schemas import ApplicationSettingsCreate, ApplicationSettingsUpdate
 from serializer import model_to_dict
@@ -39,10 +39,16 @@ def create_application_settings():
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
 
-@application_settings_bp.route('/<int:item_id>', methods=['PUT'])
+@application_settings_bp.route('/<string:item_id>', methods=['PUT'])
 def update_application_settings(item_id):
     with get_db() as db:
-        item = db.query(ApplicationSettings).filter(ApplicationSettings.id == item_id).first()
+        item = get_by_id_or_uuid(
+            db,
+            ApplicationSettings,
+            ApplicationSettings.application_settings_id,
+            ApplicationSettings.uuid,
+            item_id
+        )
         if not item:
             return jsonify({"error": "Not found"}), 404
 
@@ -67,18 +73,30 @@ def get_all_application_settings():
         items = db.query(ApplicationSettings).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@application_settings_bp.route('/<int:item_id>', methods=['GET'])
+@application_settings_bp.route('/<string:item_id>', methods=['GET'])
 def get_application_settings(item_id):
     with get_db() as db:
-        item = db.query(ApplicationSettings).filter(ApplicationSettings.id == item_id).first()
+        item = get_by_id_or_uuid(
+            db,
+            ApplicationSettings,
+            ApplicationSettings.application_settings_id,
+            ApplicationSettings.uuid,
+            item_id
+        )
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@application_settings_bp.route('/<int:item_id>', methods=['DELETE'])
+@application_settings_bp.route('/<string:item_id>', methods=['DELETE'])
 def delete_application_settings(item_id):
     with get_db() as db:
-        item = db.query(ApplicationSettings).filter(ApplicationSettings.id == item_id).first()
+        item = get_by_id_or_uuid(
+            db,
+            ApplicationSettings,
+            ApplicationSettings.application_settings_id,
+            ApplicationSettings.uuid,
+            item_id
+        )
         if not item:
             return jsonify({"error": "Not found"}), 404
         db.delete(item)

@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db
-from models import Branch
+from utils import get_db, get_by_id_or_uuid
+from models import Branch, Organization, User, Customer, Project, InventoryItem
 from schemas import BranchCreate, BranchUpdate
 from serializer import model_to_dict
+from datetime import datetime
 
 branch_bp = Blueprint('branch_bp', __name__, url_prefix='/branches')
 
@@ -17,55 +18,74 @@ def create_branch():
         return jsonify({"errors": e.errors()}), 400
 
     with get_db() as db:
+        org = db.query(Organization).filter(Organization.uuid == validated_data.organization_uuid).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+
         # Create the SQLAlchemy model from validated data
         new_item = Branch(**validated_data.dict())
+        new_item.is_dirty = True
         db.add(new_item)
         db.commit()
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
 
-@branch_bp.route('/<int:item_id>', methods=['PUT'])
-def update_branch(item_id):
+@branch_bp.route('/<string:item_id>', methods=['DELETE'])
+def delete_branch(item_id):
     with get_db() as db:
-        item = db.query(Branch).filter(Branch.branch_id == item_id).first()
+        item = get_by_id_or_uuid(db, Branch, Branch.branch_id, Branch.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
+        now = datetime.utcnow()
+        item.deleted_at = now
+        item.is_dirty = True
+
+        # Cascading soft delete
+        db.query(User).filter(User.branch_uuid == item.uuid).update({User.deleted_at: now, User.is_dirty: True}, synchronize_session=False)
+        db.query(Customer).filter(Customer.branch_uuid == item.uuid).update({Customer.deleted_at: now, Customer.is_dirty: True}, synchronize_session=False)
+        db.query(Project).filter(Project.branch_uuid == item.uuid).update({Project.deleted_at: now, Project.is_dirty: True}, synchronize_session=False)
+        db.query(InventoryItem).filter(InventoryItem.branch_uuid == item.uuid).update({InventoryItem.deleted_at: now, InventoryItem.is_dirty: True}, synchronize_session=False)
+
+        db.commit()
+        return jsonify({"message": "Branch and related data deactivated successfully"}), 200
+
+@branch_bp.route('/<string:item_id>', methods=['PUT'])
+def update_branch(item_id):
+    with get_db() as db:
+        item = get_by_id_or_uuid(db, Branch, Branch.branch_id, Branch.uuid, item_id)
+        if not item or item.deleted_at is not None:
+            return jsonify({"error": "Not found"}), 404
+
         try:
-            # Validate request data
             validated_data = BranchUpdate(**request.json)
         except ValidationError as e:
             return jsonify({"errors": e.errors()}), 400
+
 
         # Use exclude_unset=True to only update fields that were actually provided
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))
 
 @branch_bp.route('/', methods=['GET'])
 def get_all_branch():
+    org_uuid = request.args.get('org_uuid')
     with get_db() as db:
-        items = db.query(Branch).all()
+        query = db.query(Branch)
+        if org_uuid:
+            query = query.filter(Branch.organization_uuid == org_uuid)
+        items = query.filter(Branch.deleted_at == None).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@branch_bp.route('/<int:item_id>', methods=['GET'])
+@branch_bp.route('/<string:item_id>', methods=['GET'])
 def get_branch(item_id):
     with get_db() as db:
-        item = db.query(Branch).filter(Branch.branch_id == item_id).first()
-        if not item:
+        item = get_by_id_or_uuid(db, Branch, Branch.branch_id, Branch.uuid, item_id)
+        if not item or item.deleted_at is not None:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
-
-@branch_bp.route('/<int:item_id>', methods=['DELETE'])
-def delete_branch(item_id):
-    with get_db() as db:
-        item = db.query(Branch).filter(Branch.branch_id == item_id).first()
-        if not item:
-            return jsonify({"error": "Not found"}), 404
-        db.delete(item)
-        db.commit()
-        return jsonify({"message": "Deleted successfully"}), 200

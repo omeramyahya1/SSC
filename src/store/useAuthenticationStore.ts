@@ -59,6 +59,8 @@ export interface AuthenticationStore {
   currentAuthenticationSnapshot: { auth_id: number; user_uuid: string; is_logged_in: boolean } | null;
   isLoading: boolean;
   error: string | null;
+  showFirstTimeLoginPrompt: boolean;
+  setShowFirstTimeLoginPrompt: (show: boolean) => void;
   fetchAuthentications: () => Promise<void>;
   fetchAuthentication: (id: number) => Promise<void>;
   fetchLatestAuthentication: () => Promise<Authentication | undefined>;
@@ -75,6 +77,9 @@ export const useAuthenticationStore = create<AuthenticationStore>()(persist((set
   currentAuthenticationSnapshot: null,
   isLoading: false,
   error: null,
+  showFirstTimeLoginPrompt: false,
+
+  setShowFirstTimeLoginPrompt: (show) => set({ showFirstTimeLoginPrompt: show }),
 
   logout: async () => {
     const currentAuth = get().currentAuthentication;

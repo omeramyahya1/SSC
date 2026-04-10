@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db
+from utils import get_db, get_by_id_or_uuid
 from models import SystemConfiguration, Project
 from schemas import SystemConfigurationCreate, SystemConfigurationUpdate
 from serializer import model_to_dict
@@ -100,10 +100,10 @@ def get_system_configuration_by_project_uuid(project_uuid):
 
         return jsonify(model_to_dict(system_config)), 200
 
-@system_configuration_bp.route('/<int:item_id>', methods=['PUT'])
+@system_configuration_bp.route('/<string:item_id>', methods=['PUT'])
 def update_system_configuration(item_id):
     with get_db() as db:
-        item = db.query(SystemConfiguration).filter(SystemConfiguration.system_config_id == item_id).first()
+        item = get_by_id_or_uuid(db, SystemConfiguration, SystemConfiguration.system_config_id, SystemConfiguration.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
 
@@ -128,18 +128,18 @@ def get_all_system_configuration():
         items = db.query(SystemConfiguration).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@system_configuration_bp.route('/<int:item_id>', methods=['GET'])
+@system_configuration_bp.route('/<string:item_id>', methods=['GET'])
 def get_system_configuration(item_id):
     with get_db() as db:
-        item = db.query(SystemConfiguration).filter(SystemConfiguration.system_config_id == item_id).first()
+        item = get_by_id_or_uuid(db, SystemConfiguration, SystemConfiguration.system_config_id, SystemConfiguration.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@system_configuration_bp.route('/<int:item_id>', methods=['DELETE'])
+@system_configuration_bp.route('/<string:item_id>', methods=['DELETE'])
 def delete_system_configuration(item_id):
     with get_db() as db:
-        item = db.query(SystemConfiguration).filter(SystemConfiguration.system_config_id == item_id).first()
+        item = get_by_id_or_uuid(db, SystemConfiguration, SystemConfiguration.system_config_id, SystemConfiguration.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         db.delete(item)

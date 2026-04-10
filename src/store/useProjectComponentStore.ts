@@ -27,7 +27,11 @@ interface ProjectComponentState {
     addComponent: (component: Partial<ProjectComponent>) => Promise<ProjectComponent | undefined>;
     updateComponent: (uuid: string, updates: Partial<ProjectComponent>) => Promise<ProjectComponent | undefined>;
     removeComponent: (uuid: string) => Promise<void>;
-    generateRecommendations: (projectUuid: string, bleResults: any) => Promise<ProjectComponent[]>;
+    generateRecommendations: (
+        projectUuid: string,
+        bleResults: any,
+        scope?: { org_uuid?: string | null; branch_uuid?: string | null; user_uuid?: string | null }
+    ) => Promise<ProjectComponent[]>;
 }
 
 export const useProjectComponentStore = create<ProjectComponentState>((set, get) => ({
@@ -99,10 +103,11 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
         }
     },
 
-    generateRecommendations: async (projectUuid, bleResults) => {
+    generateRecommendations: async (projectUuid, bleResults, scope) => {
         set({ isLoading: true, error: null });
         try {
-            const { data } = await api.post<ProjectComponent[]>(`/recommendations/projects/${projectUuid}/recommend`, bleResults);
+            const payload = scope ? { ...bleResults, scope } : bleResults;
+            const { data } = await api.post<ProjectComponent[]>(`/recommendations/projects/${projectUuid}/recommend`, payload);
             // After recommending, we should probably re-fetch components to get the full objects with items
             const { data: fullComponents } = await api.get<ProjectComponent[]>(`/inventory/projects/${projectUuid}/components`);
             set({ components: fullComponents, isLoading: false, lastProjectUuid: projectUuid });

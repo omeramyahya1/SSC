@@ -10,11 +10,11 @@ BEGIN
     RETURN NOT EXISTS (
         SELECT 1
         FROM public.users
-        WHERE email = email_to_check
+        WHERE LOWER(email) = LOWER(email_to_check)
     );
 END;
 $$;
 
--- Allow anonymous users to call this during registration
+-- Re-apply permissions
 GRANT EXECUTE ON FUNCTION public.check_email_exists(text) TO anon;
 GRANT EXECUTE ON FUNCTION public.check_email_exists(text) TO authenticated;

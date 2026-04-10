@@ -1,9 +1,18 @@
 import math
 from models import InventoryItem, InventoryCategory, ProjectComponent
 from sqlalchemy.orm import Session
+from sqlalchemy import false
 
-def get_category_uuid(db: Session, category_name: str):
-    cat = db.query(InventoryCategory).filter(InventoryCategory.name.ilike(f"%{category_name}%")).first()
+def get_category_uuid(db: Session, category_name: str, scope: dict | None = None):
+    query = db.query(InventoryCategory).filter(InventoryCategory.name.ilike(f"%{category_name}%"))
+    if scope:
+        if scope.get("org_uuid"):
+            query = query.filter(InventoryCategory.organization_uuid == scope["org_uuid"])
+        elif scope.get("user_uuid"):
+            query = query.filter(InventoryCategory.user_uuid == scope["user_uuid"])
+        else:
+            return None
+    cat = query.first()
     return cat.uuid if cat else None
 
 def safe_float(value, default=0.0):
@@ -18,7 +27,19 @@ def first_spec_value(specs: dict, keys: list, default=0.0):
             return safe_float(specs[k], default)
     return default
 
-def generate_recommendations(db: Session, ble_results: dict):
+def _apply_item_scope(query, scope: dict | None):
+    if not scope:
+        return query
+    if scope.get("org_uuid"):
+        query = query.filter(InventoryItem.organization_uuid == scope["org_uuid"])
+        if scope.get("branch_uuid"):
+            query = query.filter(InventoryItem.branch_uuid == scope["branch_uuid"])
+        return query
+    if scope.get("user_uuid"):
+        return query.filter(InventoryItem.user_uuid == scope["user_uuid"])
+    return query.filter(false())
+
+def generate_recommendations(db: Session, ble_results: dict, scope: dict | None = None):
     """
     Core function to generate component recommendations based on BLE results and inventory.
     """
@@ -39,11 +60,12 @@ def generate_recommendations(db: Session, ble_results: dict):
     selected_battery = None
 
     # 1. Inverter Selection
-    inverter_cat_uuid = get_category_uuid(db, "inverter")
+    inverter_cat_uuid = get_category_uuid(db, "inverter", scope)
     if inverter_cat_uuid:
-        inverters = db.query(InventoryItem).filter(
+        inverters = _apply_item_scope(db.query(InventoryItem), scope).filter(
             InventoryItem.category_uuid == inverter_cat_uuid,
-            InventoryItem.quantity_on_hand > 0
+            InventoryItem.quantity_on_hand > 0,
+            InventoryItem.deleted_at.is_(None)
         ).all()
 
         qualified_inverters = []
@@ -83,11 +105,12 @@ def generate_recommendations(db: Session, ble_results: dict):
             })
 
     # 2. Battery Selection
-    battery_cat_uuid = get_category_uuid(db, "batteries")
+    battery_cat_uuid = get_category_uuid(db, "batteries", scope)
     if battery_cat_uuid:
-        batteries = db.query(InventoryItem).filter(
+        batteries = _apply_item_scope(db.query(InventoryItem), scope).filter(
             InventoryItem.category_uuid == battery_cat_uuid,
-            InventoryItem.quantity_on_hand > 0
+            InventoryItem.quantity_on_hand > 0,
+            InventoryItem.deleted_at == None
         ).all()
 
         # BLE suggests a specific battery unit capacity
@@ -153,11 +176,12 @@ def generate_recommendations(db: Session, ble_results: dict):
             })
 
     # 3. Panel Selection & MPPT Re-calculation
-    panel_cat_uuid = get_category_uuid(db, "panel")
+    panel_cat_uuid = get_category_uuid(db, "panel", scope)
     if panel_cat_uuid:
-        panels = db.query(InventoryItem).filter(
+        panels = _apply_item_scope(db.query(InventoryItem), scope).filter(
             InventoryItem.category_uuid == panel_cat_uuid,
-            InventoryItem.quantity_on_hand > 0
+            InventoryItem.quantity_on_hand > 0,
+            InventoryItem.deleted_at == None
         ).all()
 
         if panels:

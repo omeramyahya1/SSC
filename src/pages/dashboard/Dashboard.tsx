@@ -276,7 +276,7 @@ export function Dashboard() {
                     <div className="flex flex-col gap-4 mb-6">
                         <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center justify-between w-full">
-                                <h1 className="text-3xl font-bold">
+                                <h1 className="text-primary text-3xl font-bold">
                                     {currentView === 'active' ? t('dashboard.projects', 'Projects') :
                                      currentView === 'trash' ? t('dashboard.trash', 'Trash') :
                                      t('dashboard.archive', 'Archive')}
@@ -325,7 +325,7 @@ export function Dashboard() {
                                     disabled={isExpired || currentView !== 'active'}
                                     className="text-white rounded-lg hover:shadow-lg "
                                     >
-                                    <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert me-2" />
+                                    <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />
                                     <span className='me-2'>{t('dashboard.create_project', 'Create New Project')}</span>
                                 </Button>
                             </div>

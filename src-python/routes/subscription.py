@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db
+from utils import get_db, get_by_id_or_uuid
 from models import Subscription
 from schemas import SubscriptionCreate, SubscriptionUpdate
 from serializer import model_to_dict
@@ -24,10 +24,10 @@ def create_subscription():
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
 
-@subscription_bp.route('/<int:item_id>', methods=['PUT'])
+@subscription_bp.route('/<string:item_id>', methods=['PUT'])
 def update_subscription(item_id):
     with get_db() as db:
-        item = db.query(Subscription).filter(Subscription.subscription_id == item_id).first()
+        item = get_by_id_or_uuid(db, Subscription, Subscription.subscription_id, Subscription.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
             
@@ -52,18 +52,18 @@ def get_all_subscription():
         items = db.query(Subscription).all()
         return jsonify([model_to_dict(i) for i in items])
 
-@subscription_bp.route('/<int:item_id>', methods=['GET'])
+@subscription_bp.route('/<string:item_id>', methods=['GET'])
 def get_subscription(item_id):
     with get_db() as db:
-        item = db.query(Subscription).filter(Subscription.subscription_id == item_id).first()
+        item = get_by_id_or_uuid(db, Subscription, Subscription.subscription_id, Subscription.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
-@subscription_bp.route('/<int:item_id>', methods=['DELETE'])
+@subscription_bp.route('/<string:item_id>', methods=['DELETE'])
 def delete_subscription(item_id):
     with get_db() as db:
-        item = db.query(Subscription).filter(Subscription.subscription_id == item_id).first()
+        item = get_by_id_or_uuid(db, Subscription, Subscription.subscription_id, Subscription.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
         db.delete(item)
