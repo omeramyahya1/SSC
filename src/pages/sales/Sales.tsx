@@ -38,10 +38,10 @@ export default function Sales() {
     const isAdmin = currentUser?.role === 'admin';
 
     useEffect(() => {
-        if (isAdmin) {
-            fetchBranches();
+        if (isAdmin && currentUser?.organization_uuid) {
+            fetchBranches({ org_uuid: currentUser.organization_uuid });
         }
-    }, [isAdmin]);
+    }, [isAdmin, currentUser?.organization_uuid, fetchBranches]);
 
     // We can assume branches are available from the user's organization if needed,
     // but for now let's keep it simple or fetch them if isAdmin.
