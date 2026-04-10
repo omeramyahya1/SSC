@@ -33,10 +33,11 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCheckingEmail, setIsCheckingEmail] = useState(false);
     const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
+    const [valid, setValid] = useState(false);
 
     useEffect(() => {
         if (!EMAIL_REGEX.test(formData.email)) {
-            setEmailAvailable(null);
+            setValid(false);
             return;
         }
 
@@ -103,7 +104,6 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                             value={formData.email}
                             onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
                             placeholder="john@example.com"
-                            required
                             className={`w-full px-4 py-3 h-auto border border-neutral/20 shadow-sm rounded-base outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40 ${emailAvailable === false ? 'ring-red-500 ring-2' : 'focus:shadow-md focus:ring-2 focus:ring-primary/20'}`}
                         />
                         {isCheckingEmail && (
@@ -118,11 +118,12 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                         <Select
                             onValueChange={(value) => setFormData(prev => ({ ...prev, branch_uuid: value }))}
                             value={formData.branch_uuid}
+                            dir={i18n.dir()}
                         >
                             <SelectTrigger className="bg-white">
                                 <SelectValue placeholder={t('team.select_branch', 'Select a branch')} />
                             </SelectTrigger>
-                            <SelectContent className="bg-white">
+                            <SelectContent className="bg-white" >
                                 {branches.map(branch => (
                                     <SelectItem key={branch.uuid} value={branch.uuid}>
                                         {branch.name}
@@ -133,7 +134,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                     </div>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className='gap-4'>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                         {t('common.cancel', 'Cancel')}
                     </Button>

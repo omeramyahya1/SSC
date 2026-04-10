@@ -22,7 +22,7 @@ interface EmployeesTabProps {
 }
 
 export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactivateEmployee }: EmployeesTabProps) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
     const { branches } = useBranchStore();
 
@@ -45,7 +45,7 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
     const isLimitReached = employees.length >= maxEmployees;
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4" dir={i18n.dir()}>
             <div className="flex flex-col align-top md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="relative flex-grow max-w-md w-full">
                     <img
@@ -64,11 +64,26 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
                 <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
                     <div className='flex flex-row gap-4'>
                         <div className="font-bold">
-                            <span className={`text-4xl ${isLimitReached ? "text-red-500 font-bold" : "text-primary"}`}>
-                                {employees.length}
-                            </span>
-                            <span className="text-muted-foreground mx-1">/</span>
-                            <span className="text-muted-foreground">{maxEmployees}</span>
+                            {
+                                i18n.dir() === 'ltr' ? (
+                                    <>
+                                        <span className={`text-4xl ${isLimitReached ? "text-red-500 font-bold" : "text-primary"}`}>
+                                            {employees.length}
+                                        </span>
+                                        <span className="text-muted-foreground mx-1">/</span>
+                                        <span className="text-muted-foreground">{maxEmployees}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="text-muted-foreground">{maxEmployees}</span>
+                                        <span className="text-muted-foreground mx-1">/</span>
+                                        <span className={`text-4xl ${isLimitReached ? "text-red-500 font-bold" : "text-primary"}`}>
+                                            {employees.length}
+                                        </span>
+                                    </>
+                                )
+                            }
+
                             <span className="ms-2 text-muted-foreground">({t('team.employees', 'Employees')})</span>
                         </div>
                             <Button
@@ -108,13 +123,13 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
 
                                 {
                                     emp?.role !== 'admin' && (
-                                        <DropdownMenu>
+                                        <DropdownMenu dir={i18n.dir()}>
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8">
                                                     <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="bg-white">
+                                            <DropdownMenuContent align="end" className="bg-white" >
                                                 <DropdownMenuItem
                                                     className="group rounded-lg text-red-700 cursor-pointer hover:text-white  hover:bg-red-500"
                                                     onClick={() => onDeactivateEmployee(emp)}
@@ -137,10 +152,6 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                         <img src="/eva-icons (2)/outline/pin.png" alt="branch" className="w-4 h-4 opacity-60" />
                                         <span>{getBranchName(emp.branch_uuid)}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                        <img src="/eva-icons (2)/outline/clock.png" alt="last login" className="w-4 h-4 opacity-60" />
-                                        <span>{t('team.last_login', 'Last Login')}: {emp.updated_at ? new Date(emp.updated_at).toLocaleDateString() : t('common.never', 'Never')}</span>
                                     </div>
                                 </div>
                             </CardContent>

@@ -2,14 +2,14 @@ import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Branch, useBranchStore } from '@/store/useBranchStore';
+import { Branch } from '@/store/useBranchStore';
 
 interface BranchesTabProps {
     branches: Branch[];
@@ -19,7 +19,7 @@ interface BranchesTabProps {
     onDeleteBranch: (branch: Branch) => void;
 }
 
-export function BranchesTab({ branches, isLimitReached, onAddBranch, onEditBranch, onDeleteBranch }: BranchesTabProps) {
+export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranch }: BranchesTabProps) {
     const { t, i18n } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -34,7 +34,7 @@ export function BranchesTab({ branches, isLimitReached, onAddBranch, onEditBranc
     }, [branches, searchQuery]);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4" dir={i18n.dir()}>
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="relative flex-grow max-w-md w-full">
                     <img
@@ -81,7 +81,7 @@ export function BranchesTab({ branches, isLimitReached, onAddBranch, onEditBranc
                                     </div>
                                 </div>
 
-                                <DropdownMenu>
+                                <DropdownMenu dir={i18n.dir()}>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="icon" className="h-8 w-8">
                                             <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />

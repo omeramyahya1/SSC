@@ -119,7 +119,7 @@ export function EditBranchModal({ branch, onOpenChange }: EditBranchModalProps) 
                     </div>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className='gap-4'>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                         {t('common.cancel', 'Cancel')}
                     </Button>

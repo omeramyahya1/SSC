@@ -84,14 +84,14 @@ export default function TeamOrganization() {
   };
 
   return (
-    <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
-      <div className="p-6 space-y-6">
+    <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
+      <div className="p-6 space-y-6" dir={i18n.dir()}>
         <div className="flex flex-row gap-2 align-middle items-center">
             <h1 className="text-primary text-3xl font-bold">{t('team.title', 'Team & Organization')}</h1>
             <span className="text-muted-foreground">({currentOrganization?.name || ''})</span>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" >
             <TabsList className="bg-white border mb-4">
                 <TabsTrigger value="employees" className="data-[state=active]:bg-primary data-[state=active]:text-white">
                     {t('team.employees', 'Employees')}
@@ -107,6 +107,7 @@ export default function TeamOrganization() {
                     maxEmployees={maxEmployees}
                     onAddEmployee={() => setIsAddEmployeeOpen(true)}
                     onDeactivateEmployee={setEmployeeToDelete}
+
                 />
             </TabsContent>
 
@@ -193,6 +194,6 @@ export default function TeamOrganization() {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </main>
+    </div>
   );
 }

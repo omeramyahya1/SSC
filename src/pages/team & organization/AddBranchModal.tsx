@@ -69,7 +69,7 @@ export function AddBranchModal({ onOpenChange, organizationUuid }: AddBranchModa
                             id="branch_name"
                             value={formData.name}
                             onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="e.g. Omdurman Branch"
+                            placeholder={t('team.branch_name', 'Branch Name')}
                             required
                         />
                     </div>
@@ -103,7 +103,7 @@ export function AddBranchModal({ onOpenChange, organizationUuid }: AddBranchModa
                     </div>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className='gap-4' dir={i18n.dir()}>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                         {t('common.cancel', 'Cancel')}
                     </Button>
