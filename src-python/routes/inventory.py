@@ -154,13 +154,19 @@ def get_categories():
             # For employees, categories are derived from branch items only.
             return jsonify([])
 
+        if not scope["org_uuid"] and not scope["user_uuid"]:
+            return jsonify({"error": "Unable to determine category scope."}), 400
+
+        category_org_uuid = scope["org_uuid"] if scope["org_uuid"] else None
+        category_user_uuid = None if scope["org_uuid"] else scope["user_uuid"]
+
         defaults = []
         for cat in _default_inventory_categories():
             item = InventoryCategory(
                 name=cat["name"],
                 spec_schema=cat["spec_schema"],
-                organization_uuid=scope["org_uuid"],
-                user_uuid=scope["user_uuid"],
+                organization_uuid=category_org_uuid,
+                user_uuid=category_user_uuid,
                 is_dirty=True
             )
             defaults.append(item)

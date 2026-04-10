@@ -1,10 +1,39 @@
 from flask import Blueprint, request, jsonify
 from utils import get_db
-from models import Project, ProjectComponent, InventoryItem
+from models import Project, ProjectComponent, InventoryItem, User, Authentication
 from recommender.recommender import generate_recommendations
 from serializer import model_to_dict
 
 recommender_bp = Blueprint('recommender_bp', __name__, url_prefix='/recommendations')
+
+def _get_current_user(db):
+    auth_record = (
+        db.query(Authentication)
+        .filter(Authentication.is_logged_in == True)
+        .order_by(Authentication.last_active.desc())
+        .first()
+    )
+    if not auth_record:
+        return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
+
+    current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+    if not current_user:
+        return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
+
+    return current_user, None
+
+def _get_recommender_scope(user):
+    if user.organization_uuid:
+        return {
+            "org_uuid": user.organization_uuid,
+            "branch_uuid": user.branch_uuid,
+            "user_uuid": None
+        }
+    return {
+        "org_uuid": None,
+        "branch_uuid": None,
+        "user_uuid": user.uuid
+    }
 
 @recommender_bp.route('/projects/<string:project_uuid>/recommend', methods=['POST'])
 def recommend_components(project_uuid):
@@ -16,11 +45,16 @@ def recommend_components(project_uuid):
         return jsonify({"error": "Missing BLE results in payload"}), 400
 
     with get_db() as db:
+        current_user, error_response = _get_current_user(db)
+        if error_response:
+            return error_response
+        scope = _get_recommender_scope(current_user)
+
         project = db.query(Project).filter(Project.uuid == project_uuid).first()
         if not project:
             return jsonify({"error": "Project not found"}), 404
 
-        recommendations = generate_recommendations(db, ble_results)
+        recommendations = generate_recommendations(db, ble_results, scope)
 
         # Clear previous components for this project to provide a fresh recommendation slate
         db.query(ProjectComponent).filter(
