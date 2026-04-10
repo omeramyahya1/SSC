@@ -24,7 +24,7 @@ export interface OrganizationStore {
   error: string | null;
   fetchOrganizations: () => Promise<void>;
   fetchOrganization: (id: string | number) => Promise<void>;
-  updateOrganization: (id: number, data: Partial<Organization>) => Promise<Organization | undefined>;
+  updateOrganization: (id: string | number, data: Partial<Organization>) => Promise<Organization | undefined>;
   setCurrentOrganization: (org: Organization | null) => void;
 }
 
@@ -67,8 +67,16 @@ export const useOrganizationStore = create<OrganizationStore>((set) => ({
     try {
       const { data } = await api.put<Organization>(`${resource}/${id}`, updatedData);
       set((state) => ({
-        organizations: state.organizations.map((o) => (o.organization_id === id ? data : o)),
-        currentOrganization: state.currentOrganization?.organization_id === id ? data : state.currentOrganization,
+        organizations: state.organizations.map((o) =>
+          (typeof id === 'number' ? o.organization_id === id : o.uuid === id) ? data : o
+        ),
+        currentOrganization:
+          state.currentOrganization &&
+          (typeof id === 'number'
+            ? state.currentOrganization.organization_id === id
+            : state.currentOrganization.uuid === id)
+            ? data
+            : state.currentOrganization,
         isLoading: false,
       }));
       return data;

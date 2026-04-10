@@ -83,9 +83,7 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<User[]>(resource);
-      // Filter locally for now, or we could add a backend filter
-      const employees = data.filter(u => u.organization_uuid === orgUuid && !u.deleted_at);
-      set({ users: employees, isLoading: false });
+      set({ users: data, isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch employees";
       set({ error: errorMsg, isLoading: false });
@@ -142,9 +140,18 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.put<User>(`${resource}/${id}`, updatedData);
+      const normalizedId =
+        typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : id;
+
       set((state) => ({
-        users: state.users.map((u) => (u.user_id === id ? data : u)),
-        currentUser: state.currentUser?.user_id === id ? data : state.currentUser,
+        users: state.users.map((u) =>
+          u.user_id === normalizedId || u.uuid === id ? data : u
+        ),
+        currentUser:
+          state.currentUser &&
+          (state.currentUser.user_id === normalizedId || state.currentUser.uuid === id)
+            ? data
+            : state.currentUser,
         isLoading: false,
       }));
       return data;
