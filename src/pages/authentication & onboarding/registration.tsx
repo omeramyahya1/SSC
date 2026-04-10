@@ -281,6 +281,7 @@ export default function RegistrationScreen() {
                   logo: formData.stage4.logo
               },
               stage6: formData.stage6,
+              stage3: formData.stage3,
               stage7: {
                   referenceNumber: formData.stage7.referenceNumber,
                   receipt: formData.stage7.receipt,
@@ -386,7 +387,7 @@ export default function RegistrationScreen() {
         <div className={`relative transition-all duration-500 ease-in-out bg-[var(--color-bg)] p-8 md:p-12 flex flex-col h-screen overflow-y-auto items-center justify-center ${isExpanded ? 'w-full' : 'w-full md:w-2/3'}`}>
           <header className="relative flex items-center justify-between w-full mb-8 h-9 flex-shrink-0">
             {currentStage > 1 && currentStage < 8 && (
-              <button onClick={handleBack} className="h-full border shadow-sm rounded-base flex items-center px-2 gap-4 text-neutral/70 z-20 bg-white" >
+              <button onClick={handleBack} className="h-full border shadow-sm rounded-base flex items-center px-2 text-neutral/70 bg-white" >
                 <img src="/eva-icons/fill/png/128/chevron-left.png" alt={t('registration.back_alt', 'Back')} className={`w-5 h-5 opacity-70 transition-transform duration-300 ${i18n.language === 'ar' ? 'rotate-180' : ''}`}  />
                 <span>{t('registration.back', 'Back')}</span>
               </button>
@@ -956,7 +957,7 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
             </Card>
 
             <div className="space-y-4 pt-4 ps-5">
-                 <div className="flex items-start space-x-2">
+                 <div className="flex gap-2 items-start space-x-2">
                     <Checkbox id="terms" checked={stage5.acceptedTerms} onCheckedChange={toggleTerms as any} />
                     <div className="grid gap-1.5 leading-none">
                         <label htmlFor="terms" className="text-sm font-medium leading-none cursor-pointer">{t('registration.accept_terms', 'I accept the Terms & Conditions')}</label>
@@ -978,7 +979,7 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
                         </Dialog>
                     </div>
                 </div>
-                <div className="flex items-start space-x-2">
+                <div className="flex gap-2 items-start space-x-2">
                     <Checkbox id="processing" checked={stage5.acceptedProcessing} onCheckedChange={toggleProcessing as any} />
                      <label htmlFor="processing" className="text-sm font-medium leading-none cursor-pointer">{t('registration.accept_processing', 'I acknowledge the 24h processing time')}</label>
                 </div>
@@ -1184,7 +1185,7 @@ const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData }: { setValid: (
                                     )}
 
                                     {/* 3. Confirmation Logic */}
-                                    <div className="flex items-center space-x-2 pt-4 border-t border-neutral/10 w-full justify-center">
+                                    <div className="flex items-center gap-2 space-x-2 pt-4 border-t border-neutral/10 w-full justify-center">
                                         <Checkbox
                                             id={`confirm-${method}`}
                                             checked={data.confirmedTransfer}
