@@ -17,6 +17,16 @@ SECURITY DEFINER
 SET search_path = public, pg_catalog
 AS $$
 BEGIN
+    -- Prevent duplicate emails (case-insensitive)
+    IF EXISTS (
+        SELECT 1
+        FROM public.users
+        WHERE LOWER(email) = LOWER(p_email)
+    ) THEN
+        RAISE EXCEPTION 'Email already in use'
+            USING ERRCODE = '23505';
+    END IF;
+
     -- Set the temporary password and org name in a session variable for the trigger
     -- We use a JSON object to pass multiple values
     PERFORM set_config('app.registration_data', json_build_object(

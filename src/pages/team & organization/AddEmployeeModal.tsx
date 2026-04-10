@@ -36,16 +36,32 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
     const [valid, setValid] = useState(false);
 
     useEffect(() => {
-        if (!EMAIL_REGEX.test(formData.email)) {
+        const email = formData.email.trim();
+
+        if (!email) {
             setValid(false);
+            setEmailAvailable(null);
+            setIsCheckingEmail(false);
             return;
         }
+
+        const isValid = EMAIL_REGEX.test(email);
+        setValid(isValid);
+
+        if (!isValid) {
+            setEmailAvailable(null);
+            setIsCheckingEmail(false);
+            return;
+        }
+
+        // Reset availability while we re-check
+        setEmailAvailable(null);
 
         const checkEmail = async () => {
             setIsCheckingEmail(true);
             try {
                 const response = await api.post<{ isUnique: boolean }>('/users/check-email-uniqueness', {
-                    email: formData.email
+                    email
                 });
                 setEmailAvailable(response.data.isUnique);
             } catch (error) {
@@ -62,7 +78,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.username || !formData.email || emailAvailable === false) return;
+        if (!formData.username || !formData.email || !valid || emailAvailable !== true) return;
 
         setIsSubmitting(true);
         try {
@@ -112,6 +128,9 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                         {emailAvailable === false && (
                             <p className="text-xs text-red-500 font-medium">{t('team.email_exists', 'Email is already in use')}</p>
                         )}
+                        {formData.email && !valid && (
+                            <p className="text-xs text-red-500 font-medium">{t('team.invalid_email', 'Email is invalid')}</p>
+                        )}
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="branch" className="font-semibold">{t('team.branch', 'Branch')}</Label>
@@ -138,7 +157,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                         {t('common.cancel', 'Cancel')}
                     </Button>
-                    <Button type="submit" disabled={isSubmitting || isCheckingEmail || emailAvailable === false} className="text-white">
+                    <Button type="submit" disabled={isSubmitting || isCheckingEmail || !valid || emailAvailable !== true} className="text-white">
                         {isSubmitting ? t('common.saving', 'Saving...') : t('team.add_employee', 'Add Employee')}
                     </Button>
                 </DialogFooter>
@@ -146,4 +165,3 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
         </DialogContent>
     );
 }
-
