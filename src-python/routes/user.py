@@ -135,7 +135,6 @@ def check_referral_code():
 def register_user():
     try:
         payload = RegistrationPayload(**request.json)
-        print(payload)
     except ValidationError as e:
         return jsonify({"error": "Invalid payload", "details": e.errors()}), 400
 

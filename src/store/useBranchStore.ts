@@ -26,7 +26,12 @@ export interface BranchStore {
   currentBranch: Branch | null;
   isLoading: boolean;
   error: string | null;
-  fetchBranches: () => Promise<void>;
+  lastFetchParams: {
+      org_uuid?: string;
+    };
+  fetchBranches: (params?: {
+      org_uuid?: string;
+    }) => Promise<void>;
   fetchBranch: (id: number) => Promise<void>;
   createBranch: (data: NewBranchData) => Promise<Branch | undefined>;
   updateBranch: (id: number, data: Partial<NewBranchData>) => Promise<Branch | undefined>;
@@ -34,21 +39,27 @@ export interface BranchStore {
   setCurrentBranch: (branch: Branch | null) => void;
 }
 
-export const useBranchStore = create<BranchStore>((set) => ({
+export const useBranchStore = create<BranchStore>((set, get) => ({
   branches: [],
   currentBranch: null,
   isLoading: false,
   error: null,
+  lastFetchParams: {},
 
   setCurrentBranch: (branch) => {
     set({ currentBranch: branch });
   },
 
-  fetchBranches: async () => {
+  fetchBranches: async (params) => {
+    const resolvedParams = params ?? get().lastFetchParams;
     set({ isLoading: true, error: null });
     try {
-      const { data } = await api.get<Branch[]>(resource);
-      set({ branches: data.filter(b => !b.deleted_at), isLoading: false });
+      const { data } = await api.get<Branch[]>(resource, { params: resolvedParams });
+      set({
+        branches: data.filter(b => !b.deleted_at),
+        isLoading: false,
+        lastFetchParams: resolvedParams ?? {}
+      });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch branches";
       set({ error: errorMsg, isLoading: false });

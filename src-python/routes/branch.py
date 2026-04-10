@@ -77,8 +77,12 @@ def update_branch(item_id):
 
 @branch_bp.route('/', methods=['GET'])
 def get_all_branch():
+    org_uuid = request.args.get('org_uuid')
     with get_db() as db:
-        items = db.query(Branch).all()
+        query = db.query(Branch)
+        if org_uuid:
+            query = query.filter(Branch.organization_uuid == org_uuid)
+        items = query.filter(Branch.deleted_at == None).all()
         return jsonify([model_to_dict(i) for i in items])
 
 @branch_bp.route('/<string:item_id>', methods=['GET'])
