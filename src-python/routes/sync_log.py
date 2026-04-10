@@ -148,25 +148,30 @@ def _map_cloud_to_local(payload: dict, model_class) -> dict:
     of attributes for a local SQLAlchemy model.
     """
     fk_mappings = {'user_id': 'user_uuid', 'customer_id': 'customer_uuid', 'project_id': 'project_uuid', 'system_config_id': 'system_config_uuid', 'invoice_id': 'invoice_uuid', 'subscription_id': 'subscription_uuid', 'organization_id': 'organization_uuid', 'branch_id': 'branch_uuid', 'category_id': 'category_uuid', 'item_id': 'item_uuid'}
+    local_columns = {c.name for c in model_class.__table__.columns}
     mapped_payload = {}
     for key, value in payload.items():
         if key == 'id':
-            mapped_payload['uuid'] = value
+            local_key = 'uuid'
+        elif key in fk_mappings:
+            local_key = fk_mappings[key]
+        else:
+            local_key = key
+
+        if local_key not in local_columns:
             continue
-        if key in fk_mappings:
-            mapped_payload[fk_mappings[key]] = value
-            continue
+
         if isinstance(value, str):
             try:
                 if value.endswith('Z'):
                     value = value[:-1] + '+00:00'
-                dt_obj = datetime.fromisoformat(value)
-                mapped_payload[key] = dt_obj
-                continue
+                value = datetime.fromisoformat(value)
             except (ValueError, TypeError):
                 pass
-    local_columns = {c.name for c in model_class.__table__.columns}
-    final_payload = {k: v for k, v in mapped_payload.items() if k in local_columns}
+
+        mapped_payload[local_key] = value
+
+    final_payload = dict(mapped_payload)
 
     # Do not process blobs pulled from the cloud for now.
     blob_cols = {col.name for col in model_class.__table__.columns if isinstance(col.type, LargeBinary)}

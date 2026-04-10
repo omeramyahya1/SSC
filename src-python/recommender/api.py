@@ -9,7 +9,7 @@ recommender_bp = Blueprint('recommender_bp', __name__, url_prefix='/recommendati
 def _get_current_user(db):
     auth_record = (
         db.query(Authentication)
-        .filter(Authentication.is_logged_in == True)
+        .filter(Authentication.is_logged_in)
         .order_by(Authentication.last_active.desc())
         .first()
     )

@@ -18,12 +18,9 @@ def create_branch():
         return jsonify({"errors": e.errors()}), 400
 
     with get_db() as db:
-        # Check emp_count if needed (as per prompt)
         org = db.query(Organization).filter(Organization.uuid == validated_data.organization_uuid).first()
-        if org:
-            current_emp_count = db.query(User).filter(User.organization_uuid == org.uuid, User.deleted_at == None).count()
-            if current_emp_count >= org.emp_count:
-                return jsonify({"error": "Employee limit reached. Cannot create more branches."}), 400
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
 
         # Create the SQLAlchemy model from validated data
         new_item = Branch(**validated_data.dict())
@@ -57,7 +54,7 @@ def delete_branch(item_id):
 def update_branch(item_id):
     with get_db() as db:
         item = get_by_id_or_uuid(db, Branch, Branch.branch_id, Branch.uuid, item_id)
-        if not item:
+        if not item or item.deleted_at is not None:
             return jsonify({"error": "Not found"}), 404
 
         try:
@@ -89,6 +86,6 @@ def get_all_branch():
 def get_branch(item_id):
     with get_db() as db:
         item = get_by_id_or_uuid(db, Branch, Branch.branch_id, Branch.uuid, item_id)
-        if not item:
+        if not item or item.deleted_at is not None:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))

@@ -1,6 +1,7 @@
 import math
 from models import InventoryItem, InventoryCategory, ProjectComponent
 from sqlalchemy.orm import Session
+from sqlalchemy import false
 
 def get_category_uuid(db: Session, category_name: str, scope: dict | None = None):
     query = db.query(InventoryCategory).filter(InventoryCategory.name.ilike(f"%{category_name}%"))
@@ -9,6 +10,8 @@ def get_category_uuid(db: Session, category_name: str, scope: dict | None = None
             query = query.filter(InventoryCategory.organization_uuid == scope["org_uuid"])
         elif scope.get("user_uuid"):
             query = query.filter(InventoryCategory.user_uuid == scope["user_uuid"])
+        else:
+            return None
     cat = query.first()
     return cat.uuid if cat else None
 
@@ -32,7 +35,9 @@ def _apply_item_scope(query, scope: dict | None):
         if scope.get("branch_uuid"):
             query = query.filter(InventoryItem.branch_uuid == scope["branch_uuid"])
         return query
-    return query.filter(InventoryItem.user_uuid == scope.get("user_uuid"))
+    if scope.get("user_uuid"):
+        return query.filter(InventoryItem.user_uuid == scope["user_uuid"])
+    return query.filter(false())
 
 def generate_recommendations(db: Session, ble_results: dict, scope: dict | None = None):
     """
@@ -60,7 +65,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
         inverters = _apply_item_scope(db.query(InventoryItem), scope).filter(
             InventoryItem.category_uuid == inverter_cat_uuid,
             InventoryItem.quantity_on_hand > 0,
-            InventoryItem.deleted_at == None
+            InventoryItem.deleted_at.is_(None)
         ).all()
 
         qualified_inverters = []

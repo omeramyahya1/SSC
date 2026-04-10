@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db
-from models import InventoryCategory, InventoryItem, StockAdjustment, ProjectComponent, User, Authentication
+from models import InventoryCategory, InventoryItem, StockAdjustment, ProjectComponent, User, Authentication, Branch
 from schemas import (
     InventoryCategoryCreate, InventoryCategoryUpdate,
     InventoryItemCreate, InventoryItemUpdate,
@@ -39,19 +39,11 @@ def _get_inventory_scope(user):
 
 def _apply_category_scope(query, scope):
     if scope["org_uuid"]:
-        if scope["branch_uuid"]:
-            return (
-                query.join(InventoryItem, InventoryItem.category_uuid == InventoryCategory.uuid)
-                .filter(
-                    InventoryItem.organization_uuid == scope["org_uuid"],
-                    InventoryItem.branch_uuid == scope["branch_uuid"],
-                )
-                .distinct()
-            )
         return query.filter(InventoryCategory.organization_uuid == scope["org_uuid"])
     return query.filter(InventoryCategory.user_uuid == scope["user_uuid"])
 
 def _apply_item_scope(query, scope):
+    query = query.filter(InventoryItem.deleted_at.is_(None))
     if scope["org_uuid"]:
         query = query.filter(InventoryItem.organization_uuid == scope["org_uuid"])
         if scope["branch_uuid"]:
@@ -64,7 +56,10 @@ def _get_scoped_category(db, scope, category_uuid):
     return _apply_category_scope(query, scope).first()
 
 def _get_scoped_item(db, scope, item_uuid):
-    query = db.query(InventoryItem).filter(InventoryItem.uuid == item_uuid)
+    query = db.query(InventoryItem).filter(
+        InventoryItem.uuid == item_uuid,
+        InventoryItem.deleted_at.is_(None),
+    )
     return _apply_item_scope(query, scope).first()
 
 def _default_inventory_categories():
@@ -271,8 +266,12 @@ def create_item():
                 if validated_data.technical_specs and not validate_specs(category, validated_data.technical_specs):
                     return jsonify({"error": "Invalid technical specs format"}), 400
 
-            if scope["org_uuid"] and current_user.role == 'admin' and not validated_data.branch_uuid:
-                return jsonify({"error": "branch_uuid is required for admin-created items."}), 400
+            if scope["org_uuid"] and current_user.role == 'admin':
+                if not validated_data.branch_uuid:
+                    return jsonify({"error": "branch_uuid is required for admin-created items."}), 400
+                branch = db.query(Branch).filter(Branch.uuid == validated_data.branch_uuid).first()
+                if not branch or branch.organization_uuid != scope["org_uuid"]:
+                    return jsonify({"error": "Invalid branch for this organization."}), 400
 
             payload = validated_data.dict()
             payload.pop("organization_uuid", None)

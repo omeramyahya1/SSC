@@ -79,7 +79,7 @@ def get_customer(item_id):
 def delete_customer(item_id):
     with get_db() as db:
         item = get_by_id_or_uuid(db, Customer, Customer.customer_id, Customer.uuid, item_id)
-        if not item:
+        if not item or item.deleted_at is not None:
             return jsonify({"error": "Not found"}), 404
 
         # Soft delete: set deleted_at instead of db.delete(item)

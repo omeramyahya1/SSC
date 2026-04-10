@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from datetime import datetime
 
@@ -12,7 +12,7 @@ class Stage1Payload(BaseModel):
 
 class Stage3Payload(BaseModel):
     plan: Optional[str] = None
-    employees: Optional[int] = 1
+    employees: int = Field(default=1, ge=1)
     tier1Duration: Optional[str] = None
 
 class Stage4Payload(BaseModel):

@@ -10,7 +10,7 @@ import string
 import secrets
 from datetime import datetime, timedelta, timezone
 
-def generate_temp_password(length=6):
+def generate_temp_password(length=12):
     """Generates a random alphanumeric temporary password."""
     alphabet = string.ascii_letters + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
