@@ -178,8 +178,8 @@ export function Sidebar() {
                     )
                    }
                     {showSidebarContent &&
-                        <Button variant="outline" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className={`group ${isCollapsed ? 'hover:bg-gray-700' : 'bg-gray-700'}`}>
-                            <SidebarClose className={`h-6 w-6 text-white ${i18n.dir() === 'rtl' && 'rotate-180'}`}/>
+                        <Button variant="outline" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className={`group ${isCollapsed ? 'hover:bg-gray-700' : 'bg-gray-700 hover:bg-white'}`}>
+                            <SidebarClose className={`h-6 w-6 text-white group-hover:text-gray-700 ${i18n.dir() === 'rtl' && 'rotate-180'}`}/>
                         </Button>
                     }
                 </div>
