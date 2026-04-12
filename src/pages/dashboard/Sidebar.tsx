@@ -18,21 +18,21 @@ import {
 import { SidebarClose, SidebarOpen, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const SidebarItem = ({ icon, text, children, to, onClick, isSelected }: { icon: string, text: string, to?: string, onClick?: () => void, children?: React.ReactNode, isSelected?: boolean }) => {
+const SidebarItem = ({ icon, text, children, to, onClick, isSelected, showSidebarContent}: { icon: string, text: string, to?: string, onClick?: () => void, children?: React.ReactNode, isSelected?: boolean, showSidebarContent: boolean}) => {
     const { i18n } = useTranslation();
 
     const content = (
-        <>
+        <div className={`flex flex-row gap-4 ${!showSidebarContent ? 'justify-center' : 'justify-start'}`}>
             {
                 icon !== "sales" ? (
-                    <img src={icon} alt="" className="w-6 h-6 opacity-40 group-hover:opacity-100" />
+                    <img src={icon} alt="" className={`w-6 h-6 opacity-40 group-hover:opacity-100`} />
                 ) : (
-                    <img src="/eva-icons (2)/outline/banknote.png" alt="" className="w-6 h-6 opacity-40 group-hover:opacity-100" />
+                    <img src="/eva-icons (2)/outline/banknote.png" alt="" className={`w-6 h-6 opacity-40 group-hover:opacity-100`} />
                 )
             }
-            <span className="truncate font-bold">{text}</span>
+            {showSidebarContent && <span className="truncate font-bold">{text}</span>}
             {children}
-        </>
+        </div>
     );
 
     if (to) {
@@ -40,7 +40,7 @@ const SidebarItem = ({ icon, text, children, to, onClick, isSelected }: { icon: 
             <NavLink
                 to={to}
                 className={({ isActive }) =>
-                    `w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm flex items-center ${isActive && !isSelected ? 'bg-white shadow-sm' : ''}`
+                    `w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm flex items-center ${isActive && !isSelected ? 'bg-white shadow-sm [&_img]:opacity-100' : ''}`
                 }
             >
                 {content}
@@ -49,7 +49,7 @@ const SidebarItem = ({ icon, text, children, to, onClick, isSelected }: { icon: 
     }
 
     return (
-        <Button variant="ghost" dir={i18n.dir()} className={`w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm ${isSelected ? 'bg-white shadow-sm' : ''}`} onClick={onClick}>
+        <Button variant="ghost" dir={i18n.dir()} className={`w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm ${isSelected ? 'bg-white shadow-sm [&_img]:opacity-100' : ''}`} onClick={onClick}>
             {content}
         </Button>
     );
@@ -187,25 +187,25 @@ export function Sidebar() {
                 {/* Nav Items */}
                 <nav className="flex-grow px-2 space-y-2 pt-4" >
                     <div className="space-y-1">
-                        <SidebarItem icon="/eva-icons (2)/outline/grid.png" text={t('dashboard.dashboard', 'Dashboard')} to="/home/dashboard" isSelected={nonNavSelected !== null} />
-                        <SidebarItem icon="/eva-icons (2)/outline/people.png" text={t('dashboard.customers', 'Customers')} to="/home/customers" isSelected={nonNavSelected !== null} />
+                        <SidebarItem showSidebarContent={showSidebarContent} icon="/eva-icons (2)/outline/grid.png" text={t('dashboard.dashboard', 'Dashboard')} to="/home/dashboard" isSelected={nonNavSelected !== null} />
+                        <SidebarItem showSidebarContent={showSidebarContent} icon="/eva-icons (2)/outline/people.png" text={t('dashboard.customers', 'Customers')} to="/home/customers" isSelected={nonNavSelected !== null} />
                     </div>
                     <Separator className="bg-gray-700 my-2" />
                     <div className="space-y-1">
-                        <SidebarItem icon="/eva-icons (2)/outline/archive.png" text={t('dashboard.inventory', 'Inventory')} to="/home/inventory" isSelected={nonNavSelected !== null} />
-                        <SidebarItem icon="sales" text={t('dashboard.Sales', 'Sales')} to="/home/sales" isSelected={nonNavSelected !== null} />
+                        <SidebarItem showSidebarContent={showSidebarContent} icon="/eva-icons (2)/outline/archive.png" text={t('dashboard.inventory', 'Inventory')} to="/home/inventory" isSelected={nonNavSelected !== null} />
+                        <SidebarItem showSidebarContent={showSidebarContent} icon="sales" text={t('dashboard.Sales', 'Sales')} to="/home/sales" isSelected={nonNavSelected !== null} />
                     </div>
                     <Separator className="bg-gray-700 my-2" />
                      <div className="space-y-1">
                         {
                             currentUser?.role === 'admin' && (
-                                <SidebarItem icon="/eva-icons (2)/outline/building.png" text={t('dashboard.team', 'Team / Organization')} to="/home/team" isSelected={nonNavSelected !== null}/>
+                                <SidebarItem showSidebarContent={showSidebarContent} icon="/eva-icons (2)/outline/building.png" text={t('dashboard.team', 'Team / Organization')} to="/home/team" isSelected={nonNavSelected !== null}/>
                             )
                         }
                         <Popover onOpenChange={(open) => !open && setNonNavSelected(null)}>
                             <PopoverTrigger asChild>
                                 <div onClick={() => setNonNavSelected('subscription')}>
-                                    <SidebarItem icon="/eva-icons (2)/outline/credit-card.png" text={t('dashboard.subscription', 'My Plan')} isSelected={nonNavSelected === 'subscription'} />
+                                    <SidebarItem showSidebarContent={showSidebarContent} icon="/eva-icons (2)/outline/credit-card.png" text={t('dashboard.subscription', 'My Plan')} isSelected={nonNavSelected === 'subscription'} />
                                 </div>
                             </PopoverTrigger>
                             <SubscriptionDetails onOpenModal={() => setIsPlanModalOpen(true)} />
@@ -216,7 +216,7 @@ export function Sidebar() {
                         <Dialog onOpenChange={(open) => !open && setNonNavSelected(null)}>
                             <DialogTrigger asChild>
                                 <div onClick={() => setNonNavSelected('support')}>
-                                    <SidebarItem icon="/eva-icons (2)/outline/question-mark-circle.png" text={t('dashboard.support', 'Support')} isSelected={nonNavSelected === 'support'} />
+                                    <SidebarItem showSidebarContent={showSidebarContent} icon="/eva-icons (2)/outline/question-mark-circle.png" text={t('dashboard.support', 'Support')} isSelected={nonNavSelected === 'support'} />
                                 </div>
                             </DialogTrigger>
                             <SupportModal />
@@ -224,7 +224,7 @@ export function Sidebar() {
                         <Dialog onOpenChange={(open) => !open && setNonNavSelected(null)}>
                             <DialogTrigger asChild>
                                 <div onClick={() => setNonNavSelected('settings')}>
-                                    <SidebarItem icon="/eva-icons (2)/outline/settings-2.png" text={t('dashboard.settings', 'Settings')} isSelected={nonNavSelected === 'settings'} />
+                                    <SidebarItem showSidebarContent={showSidebarContent} icon="/eva-icons (2)/outline/settings-2.png" text={t('dashboard.settings', 'Settings')} isSelected={nonNavSelected === 'settings'} />
                                 </div>
                             </DialogTrigger>
                             <SettingsModal />
@@ -234,7 +234,7 @@ export function Sidebar() {
 
                 {/* Footer */}
                 <div className="p-4">
-                    <Button variant="ghost" className={`w-full gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group transition-all duration-300 ease-in-out ${isCollapsed ? 'justify-center' : 'justify-start'}`} onClick={handleSync}>
+                    <Button variant="ghost" className={`w-full gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group ${isCollapsed ? 'justify-center' : 'justify-start'}`} onClick={handleSync}>
                         {isSyncing ? <Spinner className="w-6 h-6" /> : <img src="/eva-icons (2)/outline/sync.png" alt={t('common.synced_alt', 'synced')} className="w-6 h-6 opacity-40 group-hover:opacity-100" />}
                          {showSidebarContent && <span className="truncate">{isSyncing ? t('dashboard.syncing', 'Syncing...') : t('dashboard.synced', 'Synced')}</span>}
                     </Button>
