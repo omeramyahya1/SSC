@@ -5,7 +5,36 @@ from models import SubscriptionPayment
 from schemas import SubscriptionPaymentCreate, SubscriptionPaymentUpdate
 from serializer import model_to_dict
 
+import base64
+import uuid
+
+from supabase_client import get_service_role_client
+
 subscription_payment_bp = Blueprint('subscription_payment_bp', __name__, url_prefix='/subscription_payments')
+
+@subscription_payment_bp.route('/confirm_remote', methods=['POST'])
+def confirm_remote_payment():
+    data = request.json
+    try:
+        service_client = get_service_role_client()
+        rpc_params = {
+            'p_payment_uuid': data.get('p_payment_uuid'),
+            'p_subscription_uuid': data.get('p_subscription_uuid'),
+            'p_amount': data.get('p_amount'),
+            'p_payment_method': data.get('p_payment_method'),
+            'p_trx_no': data.get('p_trx_no'),
+            'p_trx_screenshot': data.get('p_trx_screenshot'),
+            'p_distributor_id': data.get('p_distributor_id')
+        }
+        
+        response = service_client.rpc('subscription_payment', rpc_params).execute()
+        
+        if hasattr(response, 'error') and response.error:
+            return jsonify({"error": response.error.message}), 500
+            
+        return jsonify(response.data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @subscription_payment_bp.route('/', methods=['POST'])
 def create_subscription_payment():
@@ -17,8 +46,24 @@ def create_subscription_payment():
         return jsonify({"errors": e.errors()}), 400
 
     with get_db() as db:
-        # Create the SQLAlchemy model from validated data
-        new_item = SubscriptionPayment(**validated_data.dict())
+        data_dict = validated_data.dict(exclude_unset=True)
+        
+        # Handle Base64 decoding for the screenshot
+        if data_dict.get('trx_screenshot'):
+            try:
+                b64_str = data_dict['trx_screenshot']
+                if "base64," in b64_str:
+                    b64_str = b64_str.split("base64,")[1]
+                data_dict['trx_screenshot'] = base64.b64decode(b64_str)
+            except Exception as e:
+                print(f"Error decoding trx_screenshot: {e}")
+                data_dict['trx_screenshot'] = None
+
+        # Ensure uuid is set if provided, else generate one
+        if not data_dict.get('uuid'):
+            data_dict['uuid'] = str(uuid.uuid4())
+
+        new_item = SubscriptionPayment(**data_dict)
         db.add(new_item)
         db.commit()
         db.refresh(new_item)

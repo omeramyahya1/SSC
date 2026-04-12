@@ -242,7 +242,8 @@ class SubscriptionUpdate(BaseModel):
 
 
 class SubscriptionPaymentCreate(BaseModel):
-    subscription_id: Optional[int] = None
+    uuid: Optional[str] = None
+    subscription_uuid: Optional[str] = None
     amount: Optional[float] = None
     payment_method: Optional[str] = None
     trx_no: Optional[str] = None
@@ -253,7 +254,7 @@ class SubscriptionPaymentCreate(BaseModel):
     is_dirty: Optional[bool] = None
 
 class SubscriptionPaymentUpdate(BaseModel):
-    subscription_id: Optional[int] = None
+    subscription_uuid: Optional[str] = None
     amount: Optional[float] = None
     payment_method: Optional[str] = None
     trx_no: Optional[str] = None

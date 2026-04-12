@@ -7,6 +7,7 @@ import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 export interface Subscription {
   subscription_id: number;
+  uuid: string;
   user_id: number;
   created_at: string;
   updated_at: string;
@@ -19,7 +20,7 @@ export interface Subscription {
   tampered: boolean;
 }
 
-export type NewSubscriptionData = Omit<Subscription, 'subscription_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
+export type NewSubscriptionData = Omit<Subscription, 'subscription_id' | 'uuid' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/subscriptions';
 
@@ -36,9 +37,10 @@ export interface SubscriptionStore {
   updateSubscription: (id: number, data: Partial<NewSubscriptionData>) => Promise<Subscription | undefined>;
   deleteSubscription: (id: number) => Promise<void>;
   setCurrentSubscription: (subscription: Subscription | null) => void;
+  refreshSubscriptionStatus: () => Promise<void>;
 }
 
-export const useSubscriptionStore = create<SubscriptionStore>((set) => ({
+export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   subscriptions: [],
   currentSubscription: null,
   isLoading: false,
@@ -52,12 +54,17 @@ export const useSubscriptionStore = create<SubscriptionStore>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<Subscription[]>(resource);
-      set({ subscriptions: data, isLoading: false });
+      set({ subscriptions: data, currentSubscription: data[0] || null, isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch subscriptions";
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
     }
+  },
+
+  refreshSubscriptionStatus: async () => {
+      // This would ideally call a 'sync' or 'refresh' endpoint that pulls from Supabase
+      await get().fetchSubscriptions();
   },
 
   fetchSubscription: async (id) => {

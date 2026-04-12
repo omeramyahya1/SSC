@@ -5,7 +5,26 @@ from models import Subscription
 from schemas import SubscriptionCreate, SubscriptionUpdate
 from serializer import model_to_dict
 
+from supabase_client import get_service_role_client
+
 subscription_bp = Blueprint('subscription_bp', __name__, url_prefix='/subscriptions')
+
+@subscription_bp.route('/activate', methods=['POST'])
+def activate_license():
+    data = request.json
+    try:
+        service_client = get_service_role_client()
+        response = service_client.rpc('activate_license', {
+            'p_license_code': data.get('p_license_code'),
+            'p_user_uuid': data.get('p_user_uuid')
+        }).execute()
+        
+        if hasattr(response, 'error') and response.error:
+            return jsonify({"error": response.error.message}), 500
+            
+        return jsonify(response.data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @subscription_bp.route('/', methods=['POST'])
 def create_subscription():
