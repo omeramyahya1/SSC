@@ -44,7 +44,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { useLocationData } from '@/hooks/useLocationData';
 import { useInvoiceStore, InvoiceDetails } from '@/store/useInvoiceStore';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore, User } from '@/store/useUserStore';
 import { InventorySelectorModal } from '../components selection/InventorySelectorModal';
 import { HoldToConfirmButton } from '@/components/ui/HoldToConfirmButton';
 import { InventoryItem } from '@/store/useInventoryStore';
@@ -52,12 +52,14 @@ import { Project } from '@/store/useProjectStore';
 
 interface InvoiceEditorProps {
     project: Project;
+    User?: User | null;
     onBack: () => void;
 }
 
-export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
+export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
+    const resolvedUser = useMemo(() => User ?? currentUser, [User, currentUser]);
     const { getClimateDataForCity } = useLocationData();
     const {
         currentInvoice,
@@ -101,7 +103,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                 return;
             }
 
-            if (currentUser) {
+            if (resolvedUser?.uuid) {
                 const initialDetails: InvoiceDetails = {
                     shipping_fee: 0,
                     installation_fee: 0,
@@ -118,13 +120,14 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                 setCustomTerms('');
                 createInvoice({
                     project_uuid: project.uuid,
-                    user_uuid: currentUser.uuid,
+                    user_uuid: resolvedUser.uuid,
                     status: 'pending',
                     invoice_details: initialDetails
                 });
             }
+
         });
-    }, [project.uuid, currentUser, fetchComponents, fetchInvoiceByProject, createInvoice]);
+    }, [project.uuid, resolvedUser, fetchComponents, fetchInvoiceByProject, createInvoice]);
 
     const toNumber = (value: string) => {
         const n = Number(value);
@@ -221,9 +224,8 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
     };
 
     const handleIssue = useCallback(async () => {
-        if (!currentUser) {
+        if (!resolvedUser?.uuid) {
             toast.error(t('invoicing.error_no_user', 'User not authenticated.'));
-            console.log(currentUser)
             return;
         }
 
@@ -241,7 +243,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
             if (!invoice) {
                 const created = await createInvoice({
                     project_uuid: project.uuid,
-                    user_uuid: currentUser.uuid,
+                    user_uuid: resolvedUser.uuid,
                     status: 'pending',
                     invoice_details: details,
                     amount: grandTotal
@@ -257,13 +259,13 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                     amount: grandTotal
                 });
             }
-            await issueInvoice(invoice.uuid, currentUser.uuid);
+            await issueInvoice(invoice.uuid, resolvedUser.uuid);
             toast.success(t('invoicing.issue_success', 'Invoice issued successfully!'));
         } catch (e: any) {
             toast.error(e.message || t('invoicing.issue_error', 'Failed to issue invoice.'));
         }
 
-    }, [currentInvoice, currentUser, shippingFee, installationFee, discountPercent, dueDate, customTermsEnabled, customTerms, generateDefaultTerms, grandTotal, t, updateInvoice, issueInvoice, createInvoice, project.uuid]);
+    }, [currentInvoice, resolvedUser, shippingFee, installationFee, discountPercent, dueDate, customTermsEnabled, customTerms, generateDefaultTerms, grandTotal, t, updateInvoice, issueInvoice, createInvoice, project.uuid]);
 
     if (isInvoiceLoading && !currentInvoice) {
         return <div className="flex flex-col items-center justify-center h-full"><Spinner className="w-12 h-12" /></div>;
@@ -622,7 +624,7 @@ export function InvoiceEditor({ project, onBack }: InvoiceEditorProps) {
                                     <div>
                                         <p className="font-black text-lg leading-none mb-1">{t('invoicing.issued', 'Invoice Issued')}</p>
                                         <p className="text-sm opacity-80">{format(new Date(currentInvoice?.issued_at!), "PPP")}</p>
-                                        <p className="text-sm opacity-80">{t('invoicing.issued_by', "by") + ": " + currentUser?.username}</p>
+                                        <p className="text-sm opacity-80">{t('invoicing.issued_by', "by") + ": " + resolvedUser?.username}</p>
                                     </div>
                                 </div>
                             )}

@@ -87,7 +87,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                 inv.invoice_id?.toString().includes(q) ||
                 (inv.customer_name || '').toLowerCase().includes(q);
 
-            const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
+            const matchesStatus = statusFilter === 'all' || inv.status === statusFilter && inv.issued_at || !inv.issued_at && statusFilter === 'draft';
 
             return matchesSearch && matchesStatus;
         });
@@ -168,6 +168,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                             </SelectTrigger>
                             <SelectContent className="bg-white">
                                 <SelectItem value="all">{t('finances.all', 'All (status)')}</SelectItem>
+                                <SelectItem value="draft">{t('finances.draft', 'Draft')}</SelectItem>
                                 <SelectItem value="pending">{t('finances.pending', 'Pending')}</SelectItem>
                                 <SelectItem value="partial">{t('finances.partial', 'Partial')}</SelectItem>
                                 <SelectItem value="paid">{t('finances.paid', 'Paid')}</SelectItem>
@@ -219,16 +220,42 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                     { (invoice as any).due_date ? format(new Date((invoice as any).due_date), 'dd/MM/yyyy') : '—'}
                                 </TableCell>
                                 <TableCell className="font-black text-gray-900">
-                                    {formatCurrency(invoice.amount)}
+                                    {
+                                        invoice.issued_at ? (
+                                            formatCurrency(invoice.amount)
+                                        ) : (
+                                            "-"
+                                        )
+                                    }
                                 </TableCell>
                                 <TableCell className="font-bold text-green-600">
-                                    {formatCurrency((invoice as any).paid_amount)}
+                                    {
+                                        invoice.issued_at ? (
+                                            formatCurrency((invoice as any).paid_amount)
+                                        ) : (
+                                            "-"
+                                        )
+                                    }
                                 </TableCell>
                                 <TableCell className={`font-black ${(invoice as any).remainder > 0 ? `text-red-500` : `text-green-600`}`}>
-                                    {formatCurrency((invoice as any).remainder)}
+                                    {
+                                        invoice.issued_at ? (
+                                            formatCurrency((invoice as any).remainder)
+                                        ) : (
+                                            "-"
+                                        )
+                                    }
                                 </TableCell>
                                 <TableCell className='text-center'>
-                                    {getStatusBadge(invoice.status)}
+                                    {
+                                        invoice.issued_at ? (
+                                            getStatusBadge(invoice.status)
+                                         ) : (
+                                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-none font-bold">
+                                                <AlertCircle className="w-3 h-3 me-1" /> {t('finances.draft', 'Draft')}
+                                            </Badge>
+                                         )
+                                    }
                                 </TableCell>
                                 <TableCell className="text-end">
                                     <DropdownMenu dir={i18n.dir()}>
@@ -238,7 +265,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl">
-                                            {invoice.status !== 'paid' && (
+                                            {invoice.status !== 'paid' && invoice.issued_at && (
                                                 <DropdownMenuItem
                                                     onClick={() => {
                                                         setInvoiceForPayment(invoice);

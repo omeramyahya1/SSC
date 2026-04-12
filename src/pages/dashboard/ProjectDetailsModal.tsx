@@ -28,6 +28,7 @@ import { useProjectStore, ProjectUpdatePayload } from "@/store/useProjectStore";
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
 import { useInvoiceStore } from '@/store/useInvoiceStore';
+import { useUserStore } from '@/store/useUserStore';
 import { toast } from 'react-hot-toast';
 import { ComponentSelectionView } from './components selection/ComponentSelectionView';
 import { InvoiceEditor } from './invoicing/InvoiceEditor';
@@ -258,6 +259,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         fetchInvoiceByProject,
         setCurrentInvoice,
     } = useInvoiceStore();
+    const { currentUser } = useUserStore();
 
     useEffect(() => {
         setProject(projectProp);
@@ -623,6 +625,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
             <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
                 <InvoiceEditor
                     project={project}
+                    User={currentUser}
                     onBack={() => setCurrentView(currentInvoice?.issued_at && true ? 'config' : 'components')}
                 />
             </DialogContent>
