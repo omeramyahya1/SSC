@@ -112,7 +112,7 @@ const SubscriptionDetails = ({ onOpenModal }: { onOpenModal: () => void }) => {
                                 <span>{t('dashboard.grace_warning', 'Grace period ends on')} {new Date(currentSubscription.grace_period_end).toLocaleDateString()}</span>
                             </div>
                         )}
-                        <Button className="mt-2 w-full text-white" onClick={onOpenModal}>{t('dashboard.renew_upgrade', 'Renew / Upgrade')}</Button>
+                        <Button className="mt-2 w-full text-white" onClick={onOpenModal}>{currentUser?.status === 'active' ? t('dashboard.plan_details', 'View Plan Details') : t('dashboard.renew_upgrade', 'Renew / Upgrade')}</Button>
                     </div>
                 )}
                  {(accountType as any) === 'lifetime' && (
@@ -159,8 +159,8 @@ export function Sidebar() {
         <Dialog onOpenChange={(open) => !open && setNonNavSelected(null)}>
             <div
                 className={`flex flex-col bg-primary-gray transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-64'}`}
-                onMouseEnter={() => { if(isCollapsed) setIsHovering(true) }}
-                onMouseLeave={() => { if(isCollapsed) setIsHovering(false) }}
+                onMouseEnter={() => { setIsHovering(true) }}
+                onMouseLeave={() => { setIsHovering(false) }}
                 dir={i18n.dir()}
             >
                 {/* Header */}
@@ -178,7 +178,7 @@ export function Sidebar() {
                     )
                    }
                     {showSidebarContent &&
-                        <Button variant="outline" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className={`group ${isCollapsed ? 'hover:bg-gray-700' : 'bg-gray-700 hover:bg-white'}`}>
+                        <Button variant="outline" size="icon" onClick={() => {setIsCollapsed(!isCollapsed); setIsHovering(false)}} className={`group ${isCollapsed ? 'hover:bg-gray-700' : 'bg-gray-700 hover:bg-white'}`}>
                             <SidebarClose className={`h-6 w-6 text-white group-hover:text-gray-700 ${i18n.dir() === 'rtl' && 'rotate-180'}`}/>
                         </Button>
                     }
@@ -234,7 +234,7 @@ export function Sidebar() {
 
                 {/* Footer */}
                 <div className="p-4">
-                    <Button variant="ghost" className="w-full justify-start gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group" onClick={handleSync}>
+                    <Button variant="ghost" className={`w-full gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group transition-all duration-300 ease-in-out ${isCollapsed ? 'justify-center' : 'justify-start'}`} onClick={handleSync}>
                         {isSyncing ? <Spinner className="w-6 h-6" /> : <img src="/eva-icons (2)/outline/sync.png" alt={t('common.synced_alt', 'synced')} className="w-6 h-6 opacity-40 group-hover:opacity-100" />}
                          {showSidebarContent && <span className="truncate">{isSyncing ? t('dashboard.syncing', 'Syncing...') : t('dashboard.synced', 'Synced')}</span>}
                     </Button>
