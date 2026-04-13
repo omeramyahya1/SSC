@@ -25,7 +25,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { AlertCircle, Check, Info, ShieldAlert, Wifi, WifiOff } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, Info, ShieldAlert, Wifi, WifiOff } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useUserStore } from '@/store/useUserStore';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
@@ -414,11 +414,8 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
         return (
             <div className="space-y-6">
-                <div className="flex items-center gap-4 mb-4">
-                    <Button variant="ghost" size="icon" onClick={() => setView('status')} disabled={currentUser?.status !== 'active'}>
-                        <Check className="rotate-180" />
-                    </Button>
-                    <h2 className="text-xl font-bold">{t('subscription.choose_plan', 'Choose your new plan')}</h2>
+                <div className="flex text-center items-center gap-4 mb-4">
+                    <label className="font-bold w-full">{t('subscription.choose_plan', 'Choose your new plan')}</label>
                 </div>
 
                 {isLoadingPricing ? (
@@ -428,8 +425,8 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                         {plans.map((plan) => (
                             <Card key={plan}
                                 className={cn(
-                                    "cursor-pointer transition-all hover:border-primary",
-                                    selectedPlan === plan ? "border-primary bg-primary/5" : "border-gray-200"
+                                    "cursor-pointer transition-all border-[0.5px]  hover:border-primary",
+                                    selectedPlan === plan ? " border-primary bg-primary/5" : "border-gray-200"
                                 )}
                                 onClick={() => setSelectedPlan(plan)}
                             >
@@ -445,7 +442,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                                              {pricingData.length > 0 ? (
                                                  plan === 'Tier1' ?
                                                  formatCurrency(calculatedPrice) :
-                                                 formatCurrency(pricingData.find(p => p.billing_cycle === plan && p.plan_type.toLowerCase() === 'standard')?.base_price || 0)
+                                                 formatCurrency(pricingData.find(p => p.billing_cycle.toLowerCase() === plan.toLowerCase() && p.plan_type.toLowerCase() === 'standard')?.base_price )
                                              ) : '...'}
                                          </div>
                                     </div>
@@ -498,9 +495,9 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     const renderPayment = () => {
         return (
             <div className="space-y-6">
-                <div className="flex items-center gap-4 mb-4">
+                <div className="flex items-center align-middle mb-4">
                     <Button variant="ghost" size="icon" onClick={() => setView('upgrade')}>
-                        <Check className="rotate-180" />
+                        <ArrowLeft className={`${i18n.dir() === 'ltr' ? '' : 'rotate-180'}`} />
                     </Button>
                     <h2 className="text-xl font-bold">{t('registration.stage6.title', 'Payment Options')}</h2>
                 </div>
@@ -510,19 +507,6 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                      <div className="text-4xl font-black text-primary">
                         {formatCurrency(calculatedPrice)}
                      </div>
-                </div>
-
-                <div className="flex gap-2">
-                    <Input placeholder={t('registration.referral_code', 'Referral Code')} value={referralCode}
-                        onChange={(e) => { setReferralCode(e.target.value); setReferralStatus('idle'); }}
-                        className="h-12 font-bold"
-                    />
-                    <Button variant="outline" className="h-12 px-6 font-bold"
-                        onClick={handleApplyReferral}
-                        disabled={!referralCode || referralStatus === 'checking'} >
-                        {referralStatus === 'checking' ? <Spinner /> :
-                         referralStatus === 'valid' ? <Check className="text-green-600" /> : t('registration.apply', 'Apply')}
-                    </Button>
                 </div>
 
                 <Accordion type="single" collapsible className="w-full" onValueChange={setPaymentMethod} value={paymentMethod || ''}>
