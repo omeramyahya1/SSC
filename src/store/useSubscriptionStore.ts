@@ -50,10 +50,11 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     set({ currentSubscription: subscription });
   },
 
-  fetchSubscriptions: async () => {
+  fetchSubscriptions: async (user_uuid?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const { data } = await api.get<Subscription[]>(resource);
+      const url = user_uuid ? `${resource}?user_uuid=${user_uuid}` : resource;
+      const { data } = await api.get<Subscription[]>(url);
       set({ subscriptions: data, currentSubscription: data[0] || null, isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch subscriptions";
