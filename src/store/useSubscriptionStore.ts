@@ -34,8 +34,8 @@ export interface SubscriptionStore {
   fetchSubscriptions: (user_uuid?: string) => Promise<void>;
   fetchSubscription: (id: string) => Promise<void>;
   createSubscription: (data: NewSubscriptionData) => Promise<Subscription | undefined>;
-  updateSubscription: (id: number, data: Partial<NewSubscriptionData>) => Promise<Subscription | undefined>;
-  deleteSubscription: (id: number) => Promise<void>;
+  updateSubscription: (id: string, data: Partial<NewSubscriptionData>) => Promise<Subscription | undefined>;
+  deleteSubscription: (id: string) => Promise<void>;
   setCurrentSubscription: (subscription: Subscription | null) => void;
   refreshSubscriptionStatus: () => Promise<void>;
 }
@@ -64,7 +64,6 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   },
 
   refreshSubscriptionStatus: async () => {
-      // This would ideally call a 'sync' or 'refresh' endpoint that pulls from Supabase
       await get().fetchSubscriptions();
   },
 
@@ -99,8 +98,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     try {
       const { data } = await api.put<Subscription>(`${resource}/${id}`, updatedData);
       set((state) => ({
-        subscriptions: state.subscriptions.map((s) => (s.subscription_id === id ? data : s)),
-        currentSubscription: state.currentSubscription?.subscription_id === id ? data : state.currentSubscription,
+        subscriptions: state.subscriptions.map((s) => (s.uuid === id ? data : s)),
+        currentSubscription: state.currentSubscription?.uuid === id ? data : state.currentSubscription,
         isLoading: false,
       }));
       return data;
@@ -117,7 +116,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     try {
       await api.delete(`${resource}/${id}`);
       set((state) => ({
-        subscriptions: state.subscriptions.filter((s) => s.subscription_id !== id),
+        subscriptions: state.subscriptions.filter((s) => s.uuid !== id),
         isLoading: false,
       }));
     } catch (e: any) {

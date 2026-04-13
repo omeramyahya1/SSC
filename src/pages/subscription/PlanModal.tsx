@@ -100,7 +100,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
     useEffect(() => {
         if (isOpen) {
-            fetchSubscriptions();
+            fetchSubscriptions(currentUser?.uuid);
             fetchSubscriptionPayments();
             const status = currentUser?.status;
             if (status === 'grace' || status === 'expired' || status === 'trial') {
@@ -145,8 +145,9 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     const triggerSync = async () => {
         setIsSyncing(true);
         try {
-            await api.post('/sync_logs/sync');
-            await fetchSubscriptions();
+            // await api.post('/sync_logs/sync');
+            // Should be await api.post('/sync_logs/sync_subscriptions') only to be develped.
+            await fetchSubscriptions(currentUser?.uuid);
             await fetchSubscriptionPayments();
         } catch (e) {
             console.error("Sync failed:", e);
@@ -347,7 +348,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
         return (
             <div className="space-y-6 p-4">
                 <div className="flex flex-col items-center gap-2 pb-4 border-b">
-                     <span className="text-xs font-bold uppercase text-neutral/40 tracking-widest">{t('subscription.current_plan', 'Current Plan')}</span>
+                     <span className="text-xs font-bold text-neutral/40">{t('subscription.current_plan', 'Current Plan')}</span>
                      <h2 className="text-3xl font-black text-primary capitalize">{currentSubscription?.type || 'N/A'}</h2>
                      <div className={cn(
                          "px-3 py-1 rounded-full text-xs font-black uppercase tracking-tighter",
@@ -359,17 +360,17 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <span className="text-[10px] font-bold text-neutral/40 uppercase block mb-1">{t('subscription.expires_on', 'Expires On')}</span>
-                        <span className="text-sm font-bold">{currentSubscription?.expiration_date ? new Date(currentSubscription.expiration_date).toLocaleDateString() : 'N/A'}</span>
+                        <span className="text-[10px] font-bold text-neutral/40 block mb-1">{t('subscription.expires_on', 'Expires On')}</span>
+                        <span className="text-sm text-primary font-bold">{currentSubscription?.expiration_date ? new Date(currentSubscription.expiration_date).toLocaleDateString() : 'N/A'}</span>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                        <span className="text-[10px] font-bold text-neutral/40 uppercase block mb-1">{t('subscription.account_type', 'Account Type')}</span>
-                        <span className="text-sm font-bold capitalize">{currentUser?.account_type?.replace('_', ' ')}</span>
+                        <span className="text-[10px] font-bold text-neutral/40 block mb-1">{t('subscription.account_type', 'Account Type')}</span>
+                        <span className="text-sm text-primary font-bold capitalize">{currentUser?.account_type?.replace('_', ' ')}</span>
                     </div>
                 </div>
 
                 {currentSubscription?.license_code && (
-                    <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                    <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 text-center">
                         <span className="text-[10px] font-bold text-primary/60 uppercase block mb-2">{t('subscription.your_license', 'Your License Code')}</span>
                         <code className="text-lg font-mono font-bold select-all tracking-wider">{currentSubscription.license_code}</code>
                     </div>
@@ -386,9 +387,9 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                             {t('subscription.upgrade_plan', 'Upgrade Plan')}
                         </Button>
                     )}
-                    <Button variant="ghost" className="font-bold text-neutral/50" onClick={() => setView('activate')}>
+                    {/* <Button variant="ghost" className="font-bold text-neutral/50" onClick={() => setView('activate')}>
                         {t('subscription.have_code', 'Have a license code?')}
-                    </Button>
+                    </Button> */}
                     <Button variant="link" className="text-xs opacity-50" onClick={triggerSync} disabled={isSyncing}>
                         {isSyncing ? <Spinner className="w-3 h-3 me-2" /> : null}
                         {t('subscription.refresh_status', 'Refresh Status')}
@@ -645,14 +646,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md p-0 overflow-hidden bg-white border-none rounded-3xl shadow-2xl">
                 <DialogHeader className="p-6 pb-2">
-                    <DialogTitle className="hidden">Subscription</DialogTitle>
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">{t('subscription.modal_title', 'SSC Subscription Management')}</span>
-                        </div>
-                        {!isOnline ? <WifiOff className="w-4 h-4 text-red-500" /> : <Wifi className="w-4 h-4 text-green-500 opacity-20" />}
-                    </div>
+                    <DialogTitle className=''>{t('subscription.modal_title', 'Subscription')}</DialogTitle>
                 </DialogHeader>
 
                 <ScrollArea className="max-h-[85vh] p-6 pt-0">
