@@ -31,8 +31,8 @@ export interface SubscriptionStore {
   currentSubscription: Subscription | null;
   isLoading: boolean;
   error: string | null;
-  fetchSubscriptions: () => Promise<void>;
-  fetchSubscription: (id: number) => Promise<void>;
+  fetchSubscriptions: (user_uuid?: string) => Promise<void>;
+  fetchSubscription: (id: string) => Promise<void>;
   createSubscription: (data: NewSubscriptionData) => Promise<Subscription | undefined>;
   updateSubscription: (id: number, data: Partial<NewSubscriptionData>) => Promise<Subscription | undefined>;
   deleteSubscription: (id: number) => Promise<void>;

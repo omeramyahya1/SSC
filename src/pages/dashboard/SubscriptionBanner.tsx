@@ -7,28 +7,29 @@ import { useTranslation } from "react-i18next";
 export function SubscriptionBanner() {
     const { t } = useTranslation();
     const { currentUser } = useUserStore();
-    const { currentSubscription, fetchSubscription } = useSubscriptionStore();
+    const { currentSubscription, fetchSubscriptions } = useSubscriptionStore();
     const subscriptionStatus = currentUser?.status; // Using user status as per `useUserStore`
 
     useEffect(() => {
-        // Assuming there is a way to get the subscription id, maybe from user
-        // For now, let's assume we can fetch it. If user has no subscription, this will fail gracefully.
-        if (currentUser?.user_id) {
-            // This is a placeholder, you might need a dedicated `fetchSubscriptionByUserId`
-            // fetchSubscription(currentUser.user_id);
+        if (currentUser?.uuid) {
+            fetchSubscriptions(currentUser.uuid);
         }
-    }, [currentUser, fetchSubscription]);
-
-    // For demonstration, we'll just use the status from the user object.
+    }, [currentUser, fetchSubscriptions]);
 
     if (subscriptionStatus === 'grace') {
-        const graceDaysLeft = 7; // Dummy data
+        let graceDaysLeft = 0;
+        if (currentSubscription?.grace_period_end) {
+            const endDate = new Date(currentSubscription.grace_period_end);
+            const today = new Date();
+            const diffTime = endDate.getTime() - today.getTime();
+            graceDaysLeft = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+        }
         return (
             <div className="w-full p-2">
                 <Alert variant="destructive" className="bg-yellow-100 border-yellow-500 text-yellow-800">
                     <AlertTitle>{t('dashboard.grace_title', 'Subscription in Grace Period')}</AlertTitle>
                     <AlertDescription>
-                        {t('dashboard.grace_desc', `Your subscription expires in ${graceDaysLeft} days. Renew now to avoid service interruption.`)}
+                        {t('dashboard.grace_desc', { count: graceDaysLeft }, `Your subscription expires in ${graceDaysLeft} days. Renew now to avoid service interruption.`)}
                     </AlertDescription>
                 </Alert>
             </div>

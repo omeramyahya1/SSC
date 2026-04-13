@@ -21,6 +21,7 @@ import { CustomerCard } from './CustomerCard';
 import { AddCustomerModal } from './AddCustomerModal';
 import { EditCustomerModal } from './EditCustomerModal';
 import toast from "react-hot-toast";
+import { SubscriptionBanner } from '../dashboard/SubscriptionBanner';
 
 export default function CustomersPage() {
     const { t, i18n } = useTranslation();
@@ -124,6 +125,7 @@ export default function CustomersPage() {
 
     return (
         <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
+            <SubscriptionBanner />
             <div className="p-6 space-y-6">
                 {/* Header & Toolbar */}
                 <div className="flex flex-col gap-4">

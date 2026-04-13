@@ -18,10 +18,10 @@ def activate_license():
             'p_license_code': data.get('p_license_code'),
             'p_user_uuid': data.get('p_user_uuid')
         }).execute()
-        
+
         if hasattr(response, 'error') and response.error:
             return jsonify({"error": response.error.message}), 500
-            
+
         return jsonify(response.data), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -49,7 +49,7 @@ def update_subscription(item_id):
         item = get_by_id_or_uuid(db, Subscription, Subscription.subscription_id, Subscription.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
         try:
             # Validate request data
             validated_data = SubscriptionUpdate(**request.json)
@@ -60,7 +60,7 @@ def update_subscription(item_id):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))
@@ -68,7 +68,12 @@ def update_subscription(item_id):
 @subscription_bp.route('/', methods=['GET'])
 def get_all_subscription():
     with get_db() as db:
-        items = db.query(Subscription).all()
+        user_uuid = request.args.get('user_uuid')
+        print(user_uuid)
+        query = db.query(Subscription)
+        if user_uuid:
+            query = query.filter(Subscription.user_uuid == user_uuid)
+        items = query.filter(Subscription.deleted_at == None).all()
         return jsonify([model_to_dict(i) for i in items])
 
 @subscription_bp.route('/<string:item_id>', methods=['GET'])

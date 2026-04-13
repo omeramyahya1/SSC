@@ -22,6 +22,7 @@ import { AddBranchModal } from "./AddBranchModal";
 import { EditBranchModal } from "./EditBranchModal";
 import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import toast from "react-hot-toast";
+import { SubscriptionBanner } from "../dashboard/SubscriptionBanner";
 
 export default function TeamOrganization() {
   const { t, i18n } = useTranslation();
@@ -86,6 +87,7 @@ export default function TeamOrganization() {
 
   return (
     <div className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
+        <SubscriptionBanner />
       <div className="p-6 space-y-6" dir={i18n.dir()}>
         <div className="flex flex-row gap-2 align-middle items-center">
             <h1 className="text-primary text-3xl font-bold">{t('team.title', 'Team & Organization')}</h1>
