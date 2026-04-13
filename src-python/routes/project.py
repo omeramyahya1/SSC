@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from sqlalchemy.orm import joinedload
+import json
 from datetime import datetime
 from utils import get_db, get_by_id_or_uuid
 from models import Project, Customer, User, Authentication, SystemConfiguration, Appliance, Invoice, Payment, Document
+from .authentication import get_latest_authentication
 from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate, ProjectStatusUpdate
 from serializer import model_to_dict
 
@@ -147,8 +149,10 @@ def update_project(item_id):
 
 @project_bp.route('/', methods=['GET'])
 def get_all_project():
+    user_uuid = json.loads(get_latest_authentication().data)['user_uuid']
+
     with get_db() as db:
-        items = db.query(Project).options(joinedload(Project.customer)).order_by(Project.created_at.desc()).all()
+        items = db.query(Project).options(joinedload(Project.customer)).order_by(Project.created_at.desc()).filter(Project.user_uuid == user_uuid).all()
         results = []
         for p in items:
             project_dict = model_to_dict(p)
