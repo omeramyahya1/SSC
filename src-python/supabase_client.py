@@ -26,8 +26,10 @@ def get_user_client() -> Client:
         auth_entry = (
             db.query(models.Authentication)
             .filter(models.Authentication.is_logged_in.is_(True))
+            .order_by(models.Authentication.created_at.desc())
             .first()
         )
+
 
         if auth_entry and auth_entry.current_jwt:
             options = ClientOptions(
