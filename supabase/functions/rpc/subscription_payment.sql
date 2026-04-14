@@ -15,19 +15,32 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_user_id uuid;
+  v_existing_distributor_id uuid;
+  v_final_distributor_id uuid;
   v_discount_percent integer;
   v_commission_amount double precision;
 BEGIN
-  -- 1. Get the user_id associated with the subscription
-  SELECT user_id INTO v_user_id
-  FROM public.subscriptions
-  WHERE id = p_subscription_uuid;
+  -- 1. Get the user_id and existing distributor_id associated with the subscription
+  SELECT s.user_id, u.distributor_id 
+  INTO v_user_id, v_existing_distributor_id
+  FROM public.subscriptions s
+  JOIN public.users u ON s.user_id = u.id
+  WHERE s.id = p_subscription_uuid;
 
   IF v_user_id IS NULL THEN
-    RETURN json_build_object('success', false, 'message', 'Subscription not found');
+    RETURN json_build_object('success', false, 'message', 'Subscription or User not found');
   END IF;
 
-  -- 2. Insert the payment record using the provided UUID
+  -- 2. Determine the final distributor_id to use
+  -- Priority: 1. Existing ID in users table, 2. Passed parameter
+  v_final_distributor_id := COALESCE(v_existing_distributor_id, p_distributor_id);
+
+  -- 3. If user has no distributor yet but one was passed, link them now
+  IF v_existing_distributor_id IS NULL AND p_distributor_id IS NOT NULL THEN
+    UPDATE public.users SET distributor_id = p_distributor_id WHERE id = v_user_id;
+  END IF;
+
+  -- 4. Insert the payment record
   INSERT INTO public.subscription_payments (
     id,
     subscription_id,
@@ -47,12 +60,11 @@ BEGIN
     'under_processing'
   );
 
-  -- 3. If a distributor is provided, handle commission/linkage
-  IF p_distributor_id IS NOT NULL THEN
-    -- Get distributor discount/commission info
+  -- 5. Handle commission if a distributor is linked
+  IF v_final_distributor_id IS NOT NULL THEN
     SELECT discount_percent INTO v_discount_percent
     FROM public.distributors
-    WHERE id = p_distributor_id;
+    WHERE id = v_final_distributor_id;
 
     IF v_discount_percent IS NOT NULL THEN
       -- Calculate commission (example: 10% of the amount)
@@ -66,7 +78,7 @@ BEGIN
         notes
       )
       VALUES (
-        p_distributor_id,
+        v_final_distributor_id,
         v_user_id,
         v_commission_amount,
         'pending',
