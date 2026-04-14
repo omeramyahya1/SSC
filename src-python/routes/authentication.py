@@ -33,7 +33,7 @@ def login_user():
 
     with get_db() as db:
         # --- 1. Initial Local Check ---
-        user = db.query(User).filter_by(email=login_data.email).first()
+        user = db.query(User).filter_by(email=login_data.email.lower()).first()
 
         # --- 1a. User is NOT found locally ---
         if not user:

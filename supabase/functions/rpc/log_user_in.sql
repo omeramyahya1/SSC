@@ -15,7 +15,7 @@ DECLARE
     v_result json;
 BEGIN
     -- 1. Find the user by email
-    SELECT * INTO v_user_record FROM public.users WHERE email = p_email LIMIT 1;
+    SELECT * INTO v_user_record FROM public.users WHERE LOWER(email) = LOWER(p_email) LIMIT 1;
 
     -- 2. If user not found, return null (which becomes JSON null)
     IF NOT FOUND THEN
@@ -24,7 +24,7 @@ BEGIN
 
     -- 3. Find the latest authentication record for that user
     SELECT * INTO v_auth_record FROM public.authentications WHERE user_id = v_user_record.id ORDER BY created_at DESC LIMIT 1;
-    
+
     -- It's possible a user exists without an auth record, though unlikely.
     IF NOT FOUND THEN
         RETURN NULL;
