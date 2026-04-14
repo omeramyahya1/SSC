@@ -53,7 +53,7 @@ type PricingInfo = {
 export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
-    const { currentSubscription, fetchSubscriptions } = useSubscriptionStore();
+    const { subscriptions, currentSubscription, fetchSubscriptions } = useSubscriptionStore();
     const { subscriptionPayments, createSubscriptionPayment, fetchSubscriptionPayments } = useSubscriptionPaymentStore();
 
     const [view, setView] = useState<'status' | 'upgrade' | 'payment' | 'activate'>('status');
@@ -88,6 +88,27 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
+        const fetchDistributorInfo = async () => {
+            if (currentUser?.distributor_id && !discountApplied) {
+                try {
+                    const response = await api.post('/users/distributor-info', { distributor_id: currentUser.distributor_id });
+                    if (response.data.distributorId) {
+                        setDiscountApplied(true);
+                        setDistributorId(response.data.distributorId);
+                        setDiscountPercent(response.data.discountPercent);
+                        setReferralStatus('valid');
+                    }
+                } catch (error) {
+                    console.error("Failed to load distributor info:", error);
+                }
+            }
+        };
+        if (isOpen) {
+            fetchDistributorInfo();
+        }
+    }, [isOpen, currentUser?.distributor_id]);
+
+    useEffect(() => {
         const handleOnline = () => setIsOnline(true);
         const handleOffline = () => setIsOnline(false);
         window.addEventListener('online', handleOnline);
@@ -100,7 +121,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
     useEffect(() => {
         if (isOpen) {
-            fetchSubscriptions(currentUser?.uuid);
+            fetchSubscriptions(currentUser?.uuid); // Fetch subscriptions for the current user
             fetchSubscriptionPayments();
             const status = currentUser?.status;
             if (status === 'grace' || status === 'expired' || status === 'trial') {
@@ -145,8 +166,6 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     const triggerSync = async () => {
         setIsSyncing(true);
         try {
-            // await api.post('/sync_logs/sync');
-            // Should be await api.post('/sync_logs/sync_subscriptions') only to be develped.
             await fetchSubscriptions(currentUser?.uuid);
             await fetchSubscriptionPayments();
         } catch (e) {
@@ -156,9 +175,17 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
         }
     };
 
+    const latestSubscription = useMemo(() => {
+        if (!subscriptions || subscriptions.length === 0) return null;
+        // Sort subscriptions by creation date descending to get the latest
+        const sortedSubscriptions = [...subscriptions].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return sortedSubscriptions[0];
+    }, [subscriptions]);
+
     const hasPendingPayment = useMemo(() => {
-        return subscriptionPayments.some(p => p.status === 'under_processing' && p.subscription_id === currentSubscription?.subscription_id);
-    }, [subscriptionPayments, currentSubscription]);
+        if (!latestSubscription) return false;
+        return subscriptionPayments.some(p => p.status === 'under_processing' && p.subscription_uuid === latestSubscription.uuid);
+    }, [subscriptionPayments, latestSubscription]);
 
     const calculatedPrice = useMemo(() => {
         if (!selectedPlan || selectedPlan === 'Free Trial') return 0;
@@ -235,29 +262,34 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
         }
         setIsSubmittingPayment(true);
         try {
+            // 1. Create a new subscription first
+            const subscriptionCreationData = {
+                user_uuid: currentUser!.uuid,
+                plan_type: selectedPlan === 'Tier1' ? 'enterprise' : selectedPlan!.toLowerCase(),
+                billing_cycle: tier1Duration,
+                employees: employees
+            };
+            const subscriptionResponse = await api.post('/subscriptions/create-and-sync', subscriptionCreationData);
+            const newSubscriptionUuid = subscriptionResponse.data.new_subscription_uuid;
+
+            if (!newSubscriptionUuid) {
+                throw new Error(t('subscription.failed_create_sub', 'Failed to create new subscription.'));
+            }
+
+            // 2. Create the payment for the new subscription
             const paymentData = {
-                subscription_uuid: currentSubscription!.uuid,
+                subscription_uuid: newSubscriptionUuid,
                 amount: calculatedPrice,
                 payment_method: paymentMethod!,
                 trx_no: referenceNumber,
                 trx_screenshot: receipt,
-                status: 'under_processing' as const
+                status: 'under_processing' as const,
+                distributor_id: distributorId
             };
 
-            // 1. Save Locally
-            await createSubscriptionPayment(paymentData as any);
+            const response = await createSubscriptionPayment(paymentData as any);
 
-            // 2. Call Python backend proxy for RPC (Pass the same UUID)
-            const response = await api.post('/subscription_payments/confirm_remote', {
-                p_subscription_uuid: currentSubscription!.uuid,
-                p_amount: calculatedPrice,
-                p_payment_method: paymentMethod,
-                p_trx_no: referenceNumber,
-                p_trx_screenshot: receipt, // Python backend will handle decoding
-                p_distributor_id: distributorId
-            });
-
-            if (response.data.error) throw new Error(response.data.error);
+            if (!response) throw new Error(t('subscription.payment_failed', 'Failed to submit payment'));
 
             toast.success(t('subscription.payment_submitted', 'Payment submitted for review'));
             await triggerSync();
@@ -414,15 +446,15 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
         return (
             <div className="space-y-6">
-                <div className="flex flex-col text-center items-center gap-4 mb-4">
+                {!hasPendingPayment && (<div className="flex flex-col text-center items-center gap-4 mb-4">
                     <label className="font-bold w-full">{t('subscription.choose_plan', 'Choose your new plan')}</label>
-                </div>
+                </div>)}
 
                 {isLoadingPricing ? (
                     <div className="py-20 flex justify-center"><Spinner className="w-12 h-12" /></div>
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
-                        {plans.map((plan) => (
+                        { !hasPendingPayment && plans.map((plan) => (
                             <Card key={plan}
                                 className={cn(
                                     "cursor-pointer transition-all border-[0.5px]  hover:border-primary",
@@ -468,7 +500,12 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                                 )}
                             </Card>
                         ))}
-                    <span className='text-center font-semibold'>{t('subscription.current_plan', 'Your current plan is:')} {t(`registration.plans.${currentType}`, `${currentType}`)}</span>
+
+                    {
+                        !hasPendingPayment && (
+                            <span className='text-center font-semibold'>{t('subscription.current_plan', 'Your current plan is:')} {t(`registration.plans.${currentType}`, `${currentType}`)}</span>
+                        )
+                    }
 
                     </div>
                 )}
@@ -483,13 +520,51 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                     </Alert>
                 )}
 
-                <Button
-                    className="w-full h-12 text-lg font-bold text-white mt-4"
-                    disabled={!selectedPlan || hasPendingPayment}
-                    onClick={() => setView('payment')}
-                >
-                    {t('common.continue', 'Continue to Payment')}
-                </Button>
+                {!discountApplied && !hasPendingPayment && (
+                    <div className="flex flex-col gap-2 p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
+                        <Label className="text-xs font-bold ps-1">{t('registration.referral_code', 'Referral Code (Optional)')}</Label>
+                        <div className="flex gap-2">
+                            <Input
+                                value={referralCode}
+                                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                                placeholder="SSC-XXXX"
+                                className="h-10 font-bold uppercase"
+                                disabled={referralStatus === 'checking' || referralStatus === 'valid'}
+                            />
+                            <Button
+                                variant="outline"
+                                onClick={handleApplyReferral}
+                                disabled={!referralCode || referralStatus === 'checking' || referralStatus === 'valid'}
+                            >
+                                {referralStatus === 'checking' ? <Spinner className="w-4 h-4" /> : t('common.apply', 'Apply')}
+                            </Button>
+                        </div>
+                        {referralStatus === 'valid' && <p className="text-[10px] text-green-600 font-bold ps-1">{t('registration.referral_valid', 'Discount Applied!')}</p>}
+                        {referralStatus === 'invalid' && <p className="text-[10px] text-red-600 font-bold ps-1">{t('registration.referral_invalid', 'Invalid referral code')}</p>}
+                    </div>
+                )}
+
+                {discountApplied && !hasPendingPayment && (
+                    <Alert className="bg-green-50 border-green-200">
+                        <Check className="h-4 w-4 text-green-600" />
+                        <AlertTitle className="text-green-800 font-bold">{t('subscription.discount_active', 'Discount Active')}</AlertTitle>
+                        <AlertDescription className="text-green-700">
+                            {t('subscription.discount_desc', 'A {{percent}}% discount has been applied to your total.', { percent: discountPercent })}
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                {
+                    !hasPendingPayment && (
+                        <Button
+                            className="w-full h-12 text-lg font-bold text-white mt-4"
+                            disabled={!selectedPlan || hasPendingPayment}
+                            onClick={() => setView('payment')}
+                        >
+                            {t('common.continue', 'Continue to Payment')}
+                        </Button>
+                    )
+                }
             </div>
         );
     };

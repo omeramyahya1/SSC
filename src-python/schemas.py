@@ -248,6 +248,7 @@ class SubscriptionPaymentCreate(BaseModel):
     payment_method: Optional[str] = None
     trx_no: Optional[str] = None
     trx_screenshot: Optional[Any] = None
+    distributor_id: Optional[str] = None
     status: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

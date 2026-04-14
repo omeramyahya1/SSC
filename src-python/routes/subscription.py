@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db, get_by_id_or_uuid
-from models import Subscription
+from models import Subscription, User
 from schemas import SubscriptionCreate, SubscriptionUpdate
 from serializer import model_to_dict
-
+from datetime import datetime, timedelta
 from supabase_client import get_service_role_client
+from .sync_log import sync_table, SYNC_CONFIG # Import sync_table and SYNC_CONFIG
+import time # Import time for delays
 
 subscription_bp = Blueprint('subscription_bp', __name__, url_prefix='/subscriptions')
 
@@ -26,6 +28,92 @@ def activate_license():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@subscription_bp.route('/latest', methods=['GET'])
+def get_latest_subscription():
+    user_uuid = request.args.get('user_uuid')
+    if not user_uuid:
+        return jsonify({"error": "user_uuid is required"}), 400
+    
+    with get_db() as db:
+        latest = db.query(Subscription).filter(
+            Subscription.user_uuid == user_uuid,
+            Subscription.deleted_at == None
+        ).order_by(Subscription.created_at.desc()).first()
+        
+        if not latest:
+            return jsonify({"error": "No subscription found"}), 404
+        return jsonify(model_to_dict(latest)), 200
+
+@subscription_bp.route('/create-and-sync', methods=['POST'])
+def create_and_sync_subscription():
+    data = request.json
+    user_uuid = data.get('user_uuid')
+    plan_type = data.get('plan_type')
+    billing_cycle = data.get('billing_cycle') # 'Monthly', 'Annual', 'Lifetime'
+    employees = data.get('employees', 1) # For enterprise, default 1
+
+    if not user_uuid or not plan_type or not billing_cycle:
+        return jsonify({"error": "Missing user_uuid, plan_type, or billing_cycle"}), 400
+
+    with get_db() as db:
+        try:
+            # 1. Determine expiration date
+            expiration_date = datetime.utcnow()
+            if billing_cycle == 'Monthly':
+                expiration_date += timedelta(days=30)
+            elif billing_cycle == 'Annual':
+                expiration_date += timedelta(days=365)
+            elif billing_cycle == 'Lifetime':
+                expiration_date = None # Lifetime subscriptions might not have a hard expiration
+
+            # 2. Create new Subscription locally
+            new_subscription_data = {
+                "user_uuid": user_uuid,
+                "type": plan_type,
+                "status": "pending", # Set to pending until payment is approved
+                "expiration_date": expiration_date,
+                "grace_period_end": expiration_date + timedelta(days=7) if expiration_date else None, # Example grace period
+                "is_dirty": True # Mark as dirty to be pushed
+            }
+            new_subscription = Subscription(**new_subscription_data)
+            db.add(new_subscription)
+            db.commit()
+            db.refresh(new_subscription)
+
+            # 3. Sync the new subscription to Supabase immediately
+            subscription_config = next((config for config in SYNC_CONFIG if config["model"] == Subscription), None)
+            if not subscription_config:
+                raise Exception("Subscription sync configuration not found.")
+            
+            sync_table(db, Subscription, subscription_config["table_name"], subscription_config["mapper"], dirty_only=True)
+            
+            # 4. Verify remote availability with retries
+            service_client = get_service_role_client()
+            retries = 3
+            delay = 0.5 # seconds
+            remote_subscription_found = False
+
+            for i in range(retries):
+                try:
+                    # Query Supabase directly to ensure the subscription is visible
+                    response = service_client.table('subscriptions').select('id').eq('id', new_subscription.uuid).execute()
+                    if response.data and len(response.data) > 0:
+                        remote_subscription_found = True
+                        break
+                except Exception as e:
+                    print(f"Attempt {i+1} to verify remote subscription failed: {e}")
+                time.sleep(delay)
+            
+            if not remote_subscription_found:
+                raise Exception(f"New subscription {new_subscription.uuid} not found in remote database after retries.")
+
+            return jsonify({"new_subscription_uuid": new_subscription.uuid}), 200
+
+        except Exception as e:
+            db.rollback()
+            print(f"Error creating and syncing new subscription: {e}")
+            return jsonify({"error": str(e)}), 500
+
 @subscription_bp.route('/', methods=['POST'])
 def create_subscription():
     try:
@@ -42,6 +130,7 @@ def create_subscription():
         db.commit()
         db.refresh(new_item)
         return jsonify(model_to_dict(new_item)), 201
+
 
 @subscription_bp.route('/<string:item_id>', methods=['PUT'])
 def update_subscription(item_id):
