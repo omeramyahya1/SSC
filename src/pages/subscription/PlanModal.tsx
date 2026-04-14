@@ -69,7 +69,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
     // Payment state
     const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
-    const [confirmedTransfer, setConfirmedTransfer] = useState(false);
+    const [confirmedTransfer, setConfirmedTransfer] = useState<string | null>(null);
     const [referralCode, setReferralCode] = useState('');
     const [referralStatus, setReferralStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
     const [discountApplied, setDiscountApplied] = useState(false);
@@ -414,7 +414,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
         return (
             <div className="space-y-6">
-                <div className="flex text-center items-center gap-4 mb-4">
+                <div className="flex flex-col text-center items-center gap-4 mb-4">
                     <label className="font-bold w-full">{t('subscription.choose_plan', 'Choose your new plan')}</label>
                 </div>
 
@@ -468,6 +468,8 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                                 )}
                             </Card>
                         ))}
+                    <span className='text-center font-semibold'>{t('subscription.current_plan', 'Your current plan is:')} {t(`registration.plans.${currentType}`, `${currentType}`)}</span>
+
                     </div>
                 )}
 
@@ -512,12 +514,12 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 <Accordion type="single" collapsible className="w-full" onValueChange={setPaymentMethod} value={paymentMethod || ''}>
                     {['Bankak', 'Ocash', 'Fawry', 'MyCashi', 'BNMB'].map((method) => (
                         <AccordionItem key={method} value={method} className="border rounded-xl px-4 mb-2">
-                            <AccordionTrigger className="hover:no-underline py-4">
+                            <AccordionTrigger onClick={() => setConfirmedTransfer(null)} className="hover:no-underline py-4">
                                 <div className="flex items-center gap-4 w-full">
                                     <div className="w-10 h-10 rounded-lg overflow-hidden border">
                                         <img src={`/bank_icons/${method.toLowerCase()}.jpg`} className="w-full h-full object-cover" alt={method} />
                                     </div>
-                                    <span className="font-bold">{method}</span>
+                                    <span className="font-bold">{t(`finances.methods.${method}`, `${method}`)}</span>
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="pb-4">
@@ -530,13 +532,19 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                                             <p className="text-2xl font-mono font-black text-primary tracking-widest">{bankDetails[method.toLowerCase()]?.account_number}</p>
                                         </div>
                                         {bankDetails[method.toLowerCase()]?.qr_code && (
-                                            <img src={bankDetails[method.toLowerCase()].qr_code} className="w-48 h-48 rounded-xl border-4 border-white shadow-xl" alt="QR" />
+                                            <img src={bankDetails[method.toLowerCase()].qr_code} className="w-48 h-48 rounded-xl border border-primary-gray shadow-xl" alt="QR" />
                                         )}
                                         <div className="flex items-center gap-2 pt-4 w-full justify-center">
-                                            <Checkbox id={`confirm-${method}`} checked={confirmedTransfer} onCheckedChange={setConfirmedTransfer as any} />
-                                            <label htmlFor={`confirm-${method}`} className="text-sm font-bold cursor-pointer">{t('registration.transfer_confirm', 'I have transferred the amount')}</label>
-                                        </div>
-                                    </div>
+                                           <Checkbox id={`confirm-${method}`} checked={confirmedTransfer === method} onCheckedChange={(checked) => {
+                                               setConfirmedTransfer(checked ? method : null);
+                                               if (checked) { // Clear reference number and receipt if a new method is checked
+                                                   setReferenceNumber('');
+                                                   setReceipt(null);
+                                                   setReceiptPreview(null);
+                                               }
+                                           }} />
+                                           <label htmlFor={`confirm-${method}`} className="text-sm font-bold cursor-pointer">{t('registration.transfer_confirm', 'I have transferred the amount')}</label>
+                                        </div>                                    </div>
                                 ) : <div className="py-8 flex justify-center"><Spinner /></div>}
                             </AccordionContent>
                         </AccordionItem>
@@ -546,11 +554,11 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 {confirmedTransfer && (
                     <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300">
                         <div className="space-y-1.5">
-                            <Label className="text-xs font-bold ps-1 uppercase text-neutral/40">{t('registration.ref_number', 'Reference Number')}</Label>
+                            <Label className="text-xs font-bold ps-1">{t('registration.ref_number', 'Reference Number')}</Label>
                             <Input value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} placeholder="e.g. REF-123456" className="h-12 font-bold" />
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs font-bold ps-1 uppercase text-neutral/40">{t('registration.upload_receipt', 'Upload Receipt')}</Label>
+                            <Label className="text-xs font-bold ps-1">{t('registration.upload_receipt', 'Upload Receipt')}</Label>
                             <div className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all relative"
                                 onClick={() => fileInputRef.current?.click()} >
                                 {receiptPreview ? (
@@ -569,7 +577,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
                 <Button
                     className="w-full h-14 text-xl font-black text-white"
-                    disabled={!paymentMethod || !confirmedTransfer || !referenceNumber || isSubmittingPayment}
+                    disabled={!paymentMethod || confirmedTransfer === null || !referenceNumber || isSubmittingPayment}
                     onClick={handleSubmitPayment}
                 >
                     {isSubmittingPayment ? <Spinner className="w-6 h-6" /> : t('registration.finish', 'Submit Payment')}
