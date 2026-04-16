@@ -349,7 +349,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
         if (isTampered) {
             return (
-                <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center">
+                <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center" dir={i18n.dir()}>
                     <ShieldAlert className="w-16 h-16 text-red-600 animate-pulse" />
                     <h2 className="text-2xl font-black text-red-600 uppercase tracking-tighter">Security Alert</h2>
                     <p className="text-neutral/70 font-bold">
@@ -364,14 +364,14 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
         if (isEmployee) {
             return (
-                <div className="flex flex-col items-center justify-center p-8 space-y-6 text-center">
+                <div className="flex flex-col items-center justify-center p-8 space-y-6 text-center" dir={i18n.dir()}>
                     <div className="bg-primary/10 p-4 rounded-full">
                         <ShieldAlert className="w-12 h-12 text-primary" />
                     </div>
                     <div>
                         <h3 className="text-xl font-bold mb-2">{t('subscription.org_subscribed', 'Organization Subscription')}</h3>
                         <p className="text-neutral/60">
-                            {t('subscription.org_member_desc', 'You are part of the {{org}} organization.', { org: currentUser?.org_name })}
+                            {t('subscription.org_member_desc', 'You are part of the {{org}} organization.', { org: currentUser?.org_name})}
                         </p>
                     </div>
                     {(isGrace || isExpired) && (
@@ -383,7 +383,6 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                             </AlertDescription>
                         </Alert>
                     )}
-                    <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>{t('common.close', 'Close')}</Button>
                 </div>
             );
         }
