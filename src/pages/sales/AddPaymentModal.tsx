@@ -100,8 +100,9 @@ export function AddPaymentModal({ isOpen, onClose, initialInvoiceUuid, initialAm
             setMethod('Cash');
             setReference('');
             setPaymentDate(new Date());
-        } catch (error) {
-            toast.error(t('finances.payment_error', 'Failed to record payment.'));
+        } catch (error: any) {
+            const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message;
+            toast.error(errorMsg || t('finances.payment_error', 'Failed to record payment.'));
         } finally {
             setIsSubmitting(false);
         }

@@ -14,6 +14,6 @@ BEGIN
     FROM
         public.distributors d
     WHERE
-        d.referral_code = p_referral_code;
+        LOWER(d.referral_code) = LOWER(p_referral_code);
 END;
 $$;

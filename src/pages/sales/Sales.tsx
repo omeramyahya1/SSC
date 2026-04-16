@@ -23,6 +23,7 @@ import { FinancesDashboard } from './FinancesDashboard';
 import { InvoicesList } from './InvoicesList';
 import { PaymentsList } from './PaymentsList';
 import { AddPaymentModal } from './AddPaymentModal';
+import { SubscriptionBanner } from '../dashboard/SubscriptionBanner';
 
 export default function Sales() {
     const { t, i18n } = useTranslation();
@@ -60,6 +61,7 @@ export default function Sales() {
 
     return (
         <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
+            <SubscriptionBanner />
             <div className="p-6 space-y-6">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

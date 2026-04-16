@@ -7,10 +7,11 @@ import { registerStore, StoreKeys } from '@/api/storeRegistry';
 
 export interface SubscriptionPayment {
   payment_id: number;
-  subscription_id: number;
+  subscription_uuid: string;
   amount: number;
   payment_method: string;
-  transaction_reference: string; // Base64 for LargeBinary
+  trx_no: string;
+  trx_screenshot?: string; // Base64 or URL
   status: "under_processing" | "approved" | "declined";
   created_at: string;
   updated_at: string;

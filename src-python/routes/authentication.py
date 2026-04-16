@@ -8,6 +8,7 @@ from serializer import model_to_dict
 from datetime import datetime
 import uuid
 from routes.sync_log import sync
+from sqlalchemy import func
 
 authentication_bp = Blueprint('authentication_bp', __name__, url_prefix='/authentications')
 
@@ -33,7 +34,11 @@ def login_user():
 
     with get_db() as db:
         # --- 1. Initial Local Check ---
-        user = db.query(User).filter_by(email=login_data.email).first()
+        user = (
+            db.query(User)
+            .filter(func.lower(User.email) == login_data.email.strip().lower())
+            .first()
+        )
 
         # --- 1a. User is NOT found locally ---
         if not user:

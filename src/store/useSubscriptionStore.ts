@@ -2,11 +2,13 @@
 import { create } from 'zustand';
 import api from '@/api/client';
 import { registerStore, StoreKeys } from '@/api/storeRegistry';
+import { useUserStore } from '@/store/useUserStore';
 
 // --- 1. Define Types ---
 
 export interface Subscription {
   subscription_id: number;
+  uuid: string;
   user_id: number;
   created_at: string;
   updated_at: string;
@@ -14,12 +16,12 @@ export interface Subscription {
   expiration_date: string;
   grace_period_end: string;
   type: "trial" | "monthly" | "annual" | "lifetime";
-  status: "active" | "expired" | "trial" | "pending";
+  status: "active" | "expired" | "trial" | "pending" | null;
   license_code: string;
   tampered: boolean;
 }
 
-export type NewSubscriptionData = Omit<Subscription, 'subscription_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
+export type NewSubscriptionData = Omit<Subscription, 'subscription_id' | 'uuid' | 'created_at' | 'updated_at' | 'is_dirty'>;
 
 const resource = '/subscriptions';
 
@@ -30,15 +32,16 @@ export interface SubscriptionStore {
   currentSubscription: Subscription | null;
   isLoading: boolean;
   error: string | null;
-  fetchSubscriptions: () => Promise<void>;
-  fetchSubscription: (id: number) => Promise<void>;
+  fetchSubscriptions: (user_uuid?: string) => Promise<void>;
+  fetchSubscription: (id: string) => Promise<void>;
   createSubscription: (data: NewSubscriptionData) => Promise<Subscription | undefined>;
-  updateSubscription: (id: number, data: Partial<NewSubscriptionData>) => Promise<Subscription | undefined>;
-  deleteSubscription: (id: number) => Promise<void>;
+  updateSubscription: (id: string, data: Partial<NewSubscriptionData>) => Promise<Subscription | undefined>;
+  deleteSubscription: (id: string) => Promise<void>;
   setCurrentSubscription: (subscription: Subscription | null) => void;
+  refreshSubscriptionStatus: (user_uuid?: string) => Promise<void>;
 }
 
-export const useSubscriptionStore = create<SubscriptionStore>((set) => ({
+export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   subscriptions: [],
   currentSubscription: null,
   isLoading: false,
@@ -48,16 +51,24 @@ export const useSubscriptionStore = create<SubscriptionStore>((set) => ({
     set({ currentSubscription: subscription });
   },
 
-  fetchSubscriptions: async () => {
+  fetchSubscriptions: async (user_uuid?: string) => {
+    if (!user_uuid) return;
     set({ isLoading: true, error: null });
     try {
-      const { data } = await api.get<Subscription[]>(resource);
-      set({ subscriptions: data, isLoading: false });
+      const { data } = await api.get<Subscription[]>(
+        `${resource}?user_uuid=${encodeURIComponent(user_uuid)}`
+      );
+      const active = data.find((s) => s.status === "active") ?? null;
+      set({ subscriptions: data, currentSubscription: active, isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch subscriptions";
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
     }
+  },
+
+  refreshSubscriptionStatus: async (user_uuid?: string) => {
+      await get().fetchSubscriptions(user_uuid);
   },
 
   fetchSubscription: async (id) => {
@@ -91,8 +102,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set) => ({
     try {
       const { data } = await api.put<Subscription>(`${resource}/${id}`, updatedData);
       set((state) => ({
-        subscriptions: state.subscriptions.map((s) => (s.subscription_id === id ? data : s)),
-        currentSubscription: state.currentSubscription?.subscription_id === id ? data : state.currentSubscription,
+        subscriptions: state.subscriptions.map((s) => (s.uuid === id ? data : s)),
+        currentSubscription: state.currentSubscription?.uuid === id ? data : state.currentSubscription,
         isLoading: false,
       }));
       return data;
@@ -108,10 +119,19 @@ export const useSubscriptionStore = create<SubscriptionStore>((set) => ({
     set({ isLoading: true, error: null });
     try {
       await api.delete(`${resource}/${id}`);
-      set((state) => ({
-        subscriptions: state.subscriptions.filter((s) => s.subscription_id !== id),
-        isLoading: false,
-      }));
+      set((state) => {
+        const subscriptions = state.subscriptions.filter((s) => s.uuid !== id);
+        const currentSubscription =
+          state.currentSubscription?.uuid === id
+            ? subscriptions.find((s) => s.status === "active") ?? null
+            : state.currentSubscription;
+
+        return {
+          subscriptions,
+          currentSubscription,
+          isLoading: false,
+        };
+      });
     } catch (e: any) {
       const errorMsg = e.message || `Failed to delete subscription ${id}`;
       set({ error: errorMsg, isLoading: false });
@@ -121,5 +141,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set) => ({
 }));
 
 registerStore(StoreKeys.Subscription, () => {
-  useSubscriptionStore.getState().fetchSubscriptions();
+  const { currentUser, currentUserSnapshot } = useUserStore.getState();
+  const userUuid = currentUser?.uuid || currentUserSnapshot?.uuid;
+  if (!userUuid) return;
+  return useSubscriptionStore.getState().fetchSubscriptions(userUuid);
 });

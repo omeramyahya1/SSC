@@ -148,7 +148,25 @@ def update_project(item_id):
 @project_bp.route('/', methods=['GET'])
 def get_all_project():
     with get_db() as db:
-        items = db.query(Project).options(joinedload(Project.customer)).order_by(Project.created_at.desc()).all()
+        auth_record = (
+            db.query(Authentication)
+            .filter(Authentication.is_logged_in.is_(True))
+            .order_by(Authentication.last_active.desc())
+            .first()
+        )
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+        items = (
+            db.query(Project)
+            .options(joinedload(Project.customer))
+            .filter(
+                Project.user_uuid == auth_record.user_uuid,
+                Project.deleted_at.is_(None),
+            )
+            .order_by(Project.created_at.desc())
+            .all()
+        )
         results = []
         for p in items:
             project_dict = model_to_dict(p)

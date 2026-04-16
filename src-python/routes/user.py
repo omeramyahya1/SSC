@@ -131,6 +131,46 @@ def check_referral_code():
         print(f"Error calling Supabase RPC 'check_referral_code': {e}")
         return jsonify({"error": "Failed to verify referral code uniqueness", "isValid": False}), 500
 
+@user_bp.route('/distributor-info', methods=['POST'])
+def get_distributor_info():
+    """
+    Fetches distributor info by distributor_id from Supabase.
+    """
+    data = request.get_json()
+    if not data or 'distributor_id' not in data:
+        return jsonify({"error": "Distributor ID is required"}), 400
+
+    distributor_id = data['distributor_id']
+
+    # Validate UUID format:
+    try:
+        uuid.UUID(distributor_id)
+    except (ValueError, AttributeError):
+        return jsonify({"error": "Invalid distributor ID format"}), 400
+
+    try:
+        supabase = get_service_role_client()
+        response = (
+            supabase.table('distributors')
+            .select('id, discount_percent')
+            .eq('id', distributor_id)
+            .execute()
+        )
+
+        if not hasattr(response, 'data') or not response.data:
+            return jsonify({"error": "Distributor not found."}), 404
+
+        distributor_data = response.data[0]
+
+        return jsonify({
+            "distributorId": str(distributor_data['id']),
+            "discountPercent": distributor_data['discount_percent']
+        }), 200
+
+    except Exception as e:
+        print(f"Error fetching distributor info: {e}")
+        return jsonify({"error": "Failed to fetch distributor info"}), 500
+
 @user_bp.route('/register', methods=['POST'])
 def register_user():
     try:
@@ -232,11 +272,12 @@ def register_user():
             pass
 
         # Call register_user RPC
+        normalized_email = stage1.email.strip().lower()
         try:
             print("--- Calling register_user RPC ---")
             service_client = get_service_role_client()
             service_client.rpc('register_user', {
-                'p_user_uuid': new_user_uuid, 'p_username': stage1.username, 'p_email': stage1.email,
+                'p_user_uuid': new_user_uuid, 'p_username': stage1.username, 'p_email': normalized_email,
                 'p_auth_uuid': new_auth_uuid, 'p_password_hash': hashed_pw, 'p_password_salt': salt,
                 'p_device_id': new_device_uuid, 'p_distributor_id': payload.distributor_id
             }).execute()
@@ -247,7 +288,7 @@ def register_user():
 
         # Create local records
         new_user = User(
-            uuid=new_user_uuid, username=stage1.username, email=stage1.email,
+            uuid=new_user_uuid, username=stage1.username, email=normalized_email,
             business_name=stage4.businessName, account_type=payload.account_type, location=location,
             business_logo=logo_bytes, status=user_status,
             role='admin' if 'enterprise' in payload.account_type else 'user',

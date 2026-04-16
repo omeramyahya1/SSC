@@ -353,7 +353,7 @@ export function Dashboard() {
 
                             <div className="flex items-center gap-2">
                                 {/* Sort */}
-                                <Select value={sortBy} onValueChange={(v: SortOption) => setSortBy(v)}>
+                                <Select value={sortBy} onValueChange={(v: SortOption) => setSortBy(v)} dir={i18n.dir()}>
                                     <SelectTrigger className={`w-auto border-gray-200 flex gap-2 ${sortBy !== "newest" ? "bg-primary text-white" : "bg-white"}`}>
                                         <img src="/eva-icons (2)/outline/swap.png" alt="sort" className={`w-4 h-4 rotate-90 ${sortBy !== "newest" ? "invert" : "opacity-60"}`} />
                                         <SelectValue placeholder={t('dashboard.sort_by', 'Sort by')} />
@@ -369,7 +369,7 @@ export function Dashboard() {
 
                                 {/* Filter Status (only in Active view) */}
                                 {currentView === 'active' && (
-                                    <Select value={filterStatus} onValueChange={setFilterStatus}>
+                                    <Select value={filterStatus} onValueChange={setFilterStatus} dir={i18n.dir()}>
                                         <SelectTrigger className={`w-auto bg-white border-gray-200 flex gap-2 ${filterStatus !== "all" ? "bg-primary text-white" : "bg-white"}`}>
                                             <img src="/eva-icons (2)/outline/funnel.png" alt="filter" className={`w-4 h-4 ${filterStatus !== "all" ? "invert" : "opacity-60"}`} />
                                             <SelectValue placeholder={t('dashboard.filter', 'Filter')} />
@@ -384,7 +384,7 @@ export function Dashboard() {
                                 )}
 
                                 {/* Group By */}
-                                <Select value={groupBy} onValueChange={(v: GroupOption) => setGroupBy(v)}>
+                                <Select value={groupBy} onValueChange={(v: GroupOption) => setGroupBy(v)} dir={i18n.dir()}>
                                     <SelectTrigger className={`w-auto bg-white border-gray-200 flex gap-2 ${groupBy !== "none" ? "bg-primary text-white" : "bg-white"}`}>
                                         <img src="/eva-icons (2)/outline/layers.png" alt="group" className={`w-4 h-4 ${groupBy !== "none" ? "invert" : "opacity-60"}`} />
                                         <SelectValue placeholder={t('dashboard.group_by', 'Group by')} />

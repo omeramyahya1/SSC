@@ -11,6 +11,7 @@ import api from '@/api/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Project } from '@/store/useProjectStore';
 import { useProjectStore } from '@/store/useProjectStore';
+import { User, useUserStore } from '@/store/useUserStore';
 
 interface InvoiceEditorModalProps {
     isOpen: boolean;
@@ -23,6 +24,7 @@ export function InvoiceEditorModal({ isOpen, onClose, invoiceUuid }: InvoiceEdit
     const [project, setProject] = useState<Project | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const { projects, fetchProjects } = useProjectStore();
+    const { currentUser } = useUserStore();
 
     useEffect(() => {
         const fetchContext = async () => {
@@ -70,7 +72,7 @@ export function InvoiceEditorModal({ isOpen, onClose, invoiceUuid }: InvoiceEdit
                     </div>
                 ) : project ? (
                     <div className="h-full overflow-hidden flex flex-col">
-                        <InvoiceEditor project={project} onBack={onClose} />
+                        <InvoiceEditor project={project} User={currentUser} onBack={onClose} />
                     </div>
                 ) : (
                     <div className="h-full flex items-center justify-center text-muted-foreground font-bold">
