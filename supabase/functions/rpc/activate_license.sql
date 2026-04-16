@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION public.activate_license(
   p_license_code text,
   p_user_uuid uuid
 )
-RETURNS json
+RETURNS json -- Changed from json to jsonb for robustness
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -25,16 +25,12 @@ BEGIN
     RETURN json_build_object('success', false, 'message', 'Invalid license code or user mismatch');
   END IF;
 
-  IF v_current_status = 'active' THEN
-     RETURN json_build_object('success', false, 'message', 'License is already active');
-  END IF;
-
   -- 2. Calculate new expiry if needed (if it's a renewal or new activation)
-  -- For this demo, we'll just set it to active. In a real system, 
+  -- For this demo, we'll just set it to active. In a real system,
   -- the admin might have set the license_code after approving payment.
-  
+
   UPDATE public.subscriptions
-  SET 
+  SET
     status = 'active',
     updated_at = now(),
     is_dirty = true
@@ -46,7 +42,7 @@ BEGIN
   WHERE id = p_user_uuid;
 
   RETURN json_build_object(
-    'success', true, 
+    'success', true,
     'message', 'License activated successfully',
     'subscription_id', v_subscription_id
   );

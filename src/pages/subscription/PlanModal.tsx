@@ -83,6 +83,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     // License activation state
     const [licenseCode, setLicenseCode] = useState('');
     const [isActivating, setIsActivating] = useState(false);
+    const [invalidLicense, setInvalidLicense] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -121,16 +122,33 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
     useEffect(() => {
         if (isOpen) {
-            fetchSubscriptions(currentUser?.uuid); // Fetch subscriptions for the current user
+            fetchSubscriptions(currentUser?.uuid);
             fetchSubscriptionPayments();
+        }
+    }, [isOpen, currentUser?.uuid]);
+
+    const latestSubscription = useMemo(() => {
+        if (!subscriptions || subscriptions.length === 0) return null;
+        // Sort subscriptions by creation date descending to get the latest
+        const sortedSubscriptions = [...subscriptions].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return sortedSubscriptions[0];
+    }, [subscriptions]);
+
+    const hasPendingPayment = useMemo(() => {
+        if (!latestSubscription) return false;
+        return subscriptionPayments.some(p => p.status === 'under_processing' && p.subscription_uuid === latestSubscription.uuid);
+    }, [subscriptionPayments, latestSubscription]);
+
+    useEffect(() => {
+        if (isOpen) {
             const status = currentUser?.status;
             if (status === 'grace' || status === 'expired' || status === 'trial') {
-                setView('upgrade');
+                setView(hasPendingPayment ? 'activate' : 'upgrade');
             } else {
                 setView('status');
             }
         }
-    }, [isOpen, currentUser?.status]);
+    }, [isOpen, currentUser?.status, hasPendingPayment]);
 
     useEffect(() => {
         if (view === 'upgrade' && pricingData.length === 0) {
@@ -174,18 +192,6 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
             setIsSyncing(false);
         }
     };
-
-    const latestSubscription = useMemo(() => {
-        if (!subscriptions || subscriptions.length === 0) return null;
-        // Sort subscriptions by creation date descending to get the latest
-        const sortedSubscriptions = [...subscriptions].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        return sortedSubscriptions[0];
-    }, [subscriptions]);
-
-    const hasPendingPayment = useMemo(() => {
-        if (!latestSubscription) return false;
-        return subscriptionPayments.some(p => p.status === 'under_processing' && p.subscription_uuid === latestSubscription.uuid);
-    }, [subscriptionPayments, latestSubscription]);
 
     const calculatedPrice = useMemo(() => {
         if (!selectedPlan || selectedPlan === 'Free Trial') return 0;
@@ -314,22 +320,25 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 p_user_uuid: currentUser?.uuid
             });
 
-            if (response.data.error) throw new Error(response.data.error);
-
             if (response.data.success) {
                 toast.success(t('subscription.activation_success', 'License activated successfully!'));
                 await triggerSync();
                 setView('status');
             } else {
-                throw new Error(response.data.message || t('subscription.activation_failed', 'Invalid license code'));
+                throw new Error(response.data.message);
             }
         } catch (error: any) {
-            toast.error(error.message);
+            if (error.response?.status === 401) {
+                toast.error(t('subscription.activation_failed', 'Invalid license code'));
+                setInvalidLicense(true)
+            } else {
+                toast.error(error.response?.data?.error || error.response?.data?.message || error.message || t('subscription.activation_failed', 'Invalid license code'));
+            }
         } finally {
             setIsActivating(false);
         }
     };
-    const renderStatus = () => {
+    const renderStatus = (hasPendingPayment?: boolean) => {
         const isTampered = currentSubscription?.tampered;
         const isGrace = currentUser?.status === 'grace';
         const isExpired = currentUser?.status === 'expired';
@@ -410,7 +419,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
                 <div className="flex flex-col gap-2 pt-4">
                     {(isGrace || isExpired) && isAdmin && (
-                        <Button className="h-12 text-lg font-bold text-white" onClick={() => setView('upgrade')}>
+                        <Button className="h-12 text-lg font-bold text-white" onClick={() => setView(hasPendingPayment ? 'activate' : 'upgrade')}>
                             {t('subscription.renew_now', 'Renew Subscription')}
                         </Button>
                     )}
@@ -666,7 +675,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
             <div className="space-y-6">
                 <div className="flex items-center gap-4 mb-4">
                     <Button variant="ghost" size="icon" onClick={() => setView('status')}>
-                        <Check className="rotate-180" />
+                        <ArrowLeft className={`${i18n.dir() === 'ltr' ? '' : 'rotate-180'}`} />
                     </Button>
                     <h2 className="text-xl font-bold">{t('subscription.activate_license', 'Activate License')}</h2>
                 </div>
@@ -684,9 +693,10 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                     <Label className="text-xs font-bold uppercase tracking-widest text-neutral/40 ps-1">{t('subscription.license_code', 'License Code')}</Label>
                     <Input
                         value={licenseCode}
-                        onChange={(e) => setLicenseCode(e.target.value)}
-                        placeholder="XXXX-XXXX-XXXX-XXXX"
-                        className="h-14 text-center font-mono text-xl font-black tracking-widest uppercase"
+                        onChange={(e) => {setLicenseCode(e.target.value); setInvalidLicense(false)}}
+                        placeholder="XXXXXXXX-XXXX"
+                        maxLength={13}
+                        className={cn("h-14 text-center font-mono text-xl font-black tracking-widest uppercase", invalidLicense ? "border-semantic-error" : '')}
                     />
                 </div>
 
