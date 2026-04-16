@@ -56,7 +56,6 @@ def create_subscription_payment():
             user.distributor_id = incoming_distributor_id
             user.is_dirty = True
             final_distributor_id = incoming_distributor_id
-            db.commit() # Save the distributor linkage to the user
 
         data_dict = validated_data.dict(exclude_unset=True)
 
@@ -84,9 +83,10 @@ def create_subscription_payment():
             try:
                 path = f"payment_screenshots/{payment_uuid}.png"
                 screenshot_url = upload_blob(raw_screenshot_bytes, "SSC", path, use_service_client=True)
-                data_dict['trx_screenshot'] = raw_screenshot_bytes
+                data_dict['trx_screenshot'] = screenshot_url  # Store URL, not bytes
             except Exception as e:
                 logger.error(f"Failed to upload screenshot: {e}", exc_info=True)
+                data_dict['trx_screenshot'] = None  # Ensure no bytes leak through
 
         # 2. Save Locally
         local_data = dict(data_dict)

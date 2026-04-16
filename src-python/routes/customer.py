@@ -65,9 +65,15 @@ def update_customer(item_id):
 
 @customer_bp.route('/', methods=['GET'])
 def get_all_customer():
-    user_uuid = json.loads(get_latest_authentication().data)['user_uuid']
+    auth = get_latest_authentication()
+    if not auth or not auth.data:
+        return jsonify({"error": "Not authenticated"}), 401
+    try:
+        user_uuid = json.loads(auth.data)['user_uuid']
+    except (json.JSONDecodeError, KeyError):
+        return jsonify({"error": "Invalid authentication data"}), 401
     with get_db() as db:
-        items = db.query(Customer).filter(Customer.deleted_at .is_(None), Customer.user_uuid == user_uuid).all()
+        items = db.query(Customer).filter(Customer.deleted_at.is_(None), Customer.user_uuid == user_uuid).all()
         return jsonify([get_customer_with_stats(db, i) for i in items])
 
 @customer_bp.route('/<string:item_id>', methods=['GET'])

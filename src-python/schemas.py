@@ -243,7 +243,7 @@ class SubscriptionUpdate(BaseModel):
 
 class SubscriptionPaymentCreate(BaseModel):
     uuid: Optional[str] = None
-    subscription_uuid: Optional[str] = None
+    subscription_uuid: str
     amount: Optional[float] = None
     payment_method: Optional[str] = None
     trx_no: Optional[str] = None

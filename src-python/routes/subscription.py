@@ -84,8 +84,8 @@ def _refresh_local_after_activation(service_client, user_uuid: str, new_subscrip
 @subscription_bp.route('/activate', methods=['POST'])
 def activate_license():
     data = request.get_json() or {}
-    print(f"Activating license: {data}")
     user_uuid = data.get('p_user_uuid')
+    print(f"Activating license for user_uuid={user_uuid}")
     try:
         service_client = get_service_role_client()
         response = service_client.rpc('activate_license', {
@@ -93,7 +93,7 @@ def activate_license():
             'p_user_uuid': data.get('p_user_uuid')
         }).execute()
 
-        print(f"Supabase response: {response}")
+        print("Supabase activation RPC completed")
 
         # If execute() did not raise an APIError, it means response.data should be available
         if not response.data:
@@ -208,9 +208,13 @@ def create_and_sync_subscription():
                 expiration_date = None # Lifetime subscriptions might not have a hard expiration
 
             # 2. Create new Subscription locally
+            normalized_type = billing_cycle.lower()
+            if normalized_type not in {"monthly", "annual", "lifetime"}:
+                return jsonify({"error": "Invalid billing_cycle"}), 400
+
             new_subscription_data = {
                 "user_uuid": user_uuid,
-                "type": plan_type,
+                "type": normalized_type,
                 "status": "pending", # Set to pending until payment is approved
                 "expiration_date": expiration_date,
                 "grace_period_end": expiration_date + timedelta(days=7) if expiration_date else None, # Example grace period
@@ -218,8 +222,9 @@ def create_and_sync_subscription():
             }
             new_subscription = Subscription(**new_subscription_data)
             db.add(new_subscription)
-            db.commit()
-            db.refresh(new_subscription)
+            # Ensure the new row is visible to subsequent queries within this session
+            # without committing early (avoids orphaned committed rows if sync fails).
+            db.flush()
 
             # 3. Sync the new subscription to Supabase immediately
             subscription_config = next((config for config in SYNC_CONFIG if config["model"] == Subscription), None)
@@ -246,6 +251,17 @@ def create_and_sync_subscription():
                 time.sleep(delay)
 
             if not remote_subscription_found:
+                # Compensate: remove the just-created local subscription row so we don't
+                # leave an orphaned committed record if the remote sync/visibility failed.
+                try:
+                    local_sub = db.query(Subscription).filter_by(uuid=new_subscription.uuid).first()
+                    if local_sub:
+                        db.delete(local_sub)
+                        db.commit()
+                except Exception as cleanup_error:
+                    print(
+                        f"Failed to cleanup local subscription {new_subscription.uuid} after remote verification failure: {cleanup_error}"
+                    )
                 raise Exception(f"New subscription {new_subscription.uuid} not found in remote database after retries.")
 
             return jsonify({"new_subscription_uuid": new_subscription.uuid}), 200
@@ -322,4 +338,39 @@ def delete_subscription(item_id):
             return jsonify({"error": "Not found"}), 404
         db.delete(item)
         db.commit()
+
+@subscription_bp.route('/<string:item_id>/cancel', methods=['POST'])
+def cancel_subscription(item_id):
+    """
+    Compensating action for partially completed subscription flows.
+    Soft-deletes a subscription locally (deleted_at) and syncs that change to Supabase.
+    """
+    with get_db() as db:
+        item = get_by_id_or_uuid(db, Subscription, Subscription.subscription_id, Subscription.uuid, item_id)
+        if not item:
+            return jsonify({"error": "Not found"}), 404
+
+        if item.deleted_at is not None:
+            return jsonify({"status": "ok", "subscription_uuid": item.uuid}), 200
+
+        item.deleted_at = datetime.utcnow()
+        item.is_dirty = True
+
+        subscription_config = next((config for config in SYNC_CONFIG if config["model"] == Subscription), None)
+        if not subscription_config:
+            return jsonify({"error": "Subscription sync configuration not found."}), 500
+
+        try:
+            sync_table(
+                db,
+                Subscription,
+                subscription_config["table_name"],
+                subscription_config["mapper"],
+                dirty_only=True,
+            )
+        except Exception as e:
+            db.rollback()
+            return jsonify({"error": str(e)}), 500
+
+        return jsonify({"status": "ok", "subscription_uuid": item.uuid}), 200
         return jsonify({"message": "Deleted successfully"}), 200
