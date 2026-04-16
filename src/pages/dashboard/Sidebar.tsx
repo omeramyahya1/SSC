@@ -83,10 +83,9 @@ const SubscriptionDetails = ({ onOpenModal }: { onOpenModal: () => void }) => {
         <PopoverContent className="w-80 bg-white" dir={i18n.dir()}>
             <div className="grid gap-4">
                 <div className="space-y-2">
-                    <h4 className="font-medium leading-none">{t('dashboard.subscription', 'My Plan')}</h4>
-                    <p className="text-sm text-muted-foreground">
+                    <h2 className="text-sm text-muted-foreground">
                         {t('dashboard.sub_details_desc', 'Your current subscription details.')}
-                    </p>
+                    </h2>
                 </div>
                 {(accountType === 'standard' || accountType?.startsWith('enterprise')) && (
                     <div className="grid gap-2">

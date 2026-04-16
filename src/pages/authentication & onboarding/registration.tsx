@@ -681,7 +681,7 @@ const Stage2 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 
 // --- STAGE 3: Plan Selection ---
 const Stage3 = ({ setValid, pricingIsLoading, calculatedPrice }: { setValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { formData, updateFormData } = useRegistrationStore();
     const { accountType } = formData.stage2;
     const data = formData.stage3;
@@ -719,7 +719,7 @@ const Stage3 = ({ setValid, pricingIsLoading, calculatedPrice }: { setValid: (v:
                             <div className="space-y-2">
                                 <Label className="font-bold">{t('registration.employees_count', 'Number of Employees')}: {data.employees}</Label>
                                 <Slider disabled={data.plan !== 'Tier1'} defaultValue={[data.employees]} max={20} min={1} step={1} onValueChange={(vals) => updateFormData('stage3', {employees: vals[0]})}
-                                  onClick={(e) => { e.stopPropagation(); handlePlanSelect('Tier1'); }} />
+                                  onClick={(e) => { e.stopPropagation(); handlePlanSelect('Tier1'); }} dir={i18n.dir()}/>
                             </div>
                             <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                                 <Label className="text-sm font-semibold">{t('registration.duration', 'Duration')}</Label>

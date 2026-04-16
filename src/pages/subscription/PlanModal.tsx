@@ -5,7 +5,6 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +18,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
     Select,
     SelectContent,
-    SelectGroup,
     SelectItem,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { AlertCircle, ArrowLeft, Check, Info, ShieldAlert, Wifi, WifiOff } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, Info, ShieldAlert, WifiOff } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useUserStore } from '@/store/useUserStore';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
@@ -391,10 +389,10 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
         }
 
         return (
-            <div className="space-y-6 p-4">
+            <div className="space-y-6 p-4" dir={i18n.dir()}>
                 <div className="flex flex-col items-center gap-2 pb-4 border-b">
                      <span className="text-xs font-bold text-neutral/40">{t('subscription.current_plan', 'Current Plan')}</span>
-                     <h2 className="text-3xl font-black text-primary capitalize">{currentSubscription?.type || 'N/A'}</h2>
+                     <h2 className="text-3xl font-black text-primary capitalize">{t(`registration.plans.${currentSubscription?.type}`, `${currentSubscription?.type}`) || 'N/A'}</h2>
                      <div className={cn(
                          "px-3 py-1 rounded-full text-xs font-black uppercase tracking-tighter",
                          (isGrace) ? "bg-yellow-100 text-yellow-700" : isExpired ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
@@ -410,7 +408,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                         <span className="text-[10px] font-bold text-neutral/40 block mb-1">{t('subscription.account_type', 'Account Type')}</span>
-                        <span className="text-sm text-primary font-bold capitalize">{currentUser?.account_type?.replace('_', ' ')}</span>
+                        <span className="text-sm text-primary font-bold capitalize">{t(`registration.type.${currentUser?.account_type}`, `${currentUser?.account_type}`)}</span>
                     </div>
                 </div>
 
@@ -421,7 +419,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                     </div>
                 )}
 
-                <div className="flex flex-col gap-2 pt-4">
+                <div className="flex flex-col items-center gap-2 pt-4">
                     {(isGrace || isExpired) && isAdmin && (
                         <Button className="h-12 text-lg font-bold text-white" onClick={() => setView(hasPendingPayment ? 'activate' : 'upgrade')}>
                             {t('subscription.renew_now', 'Renew Subscription')}
@@ -432,10 +430,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                             {t('subscription.upgrade_plan', 'Upgrade Plan')}
                         </Button>
                     )}
-                    {/* <Button variant="ghost" className="font-bold text-neutral/50" onClick={() => setView('activate')}>
-                        {t('subscription.have_code', 'Have a license code?')}
-                    </Button> */}
-                    <Button variant="link" className="text-xs opacity-50" onClick={triggerSync} disabled={isSyncing}>
+                    <Button variant="link" className="text-s opacity-80 w-fit" onClick={triggerSync} disabled={isSyncing}>
                         {isSyncing ? <Spinner className="w-3 h-3 me-2" /> : null}
                         {t('subscription.refresh_status', 'Refresh Status')}
                     </Button>
@@ -458,7 +453,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
         }
 
         return (
-            <div className="space-y-6">
+            <div className="space-y-6" dir={i18n.dir()}>
                 {!hasPendingPayment && (<div className="flex flex-col text-center items-center gap-4 mb-4">
                     <label className="font-bold w-full">{t('subscription.choose_plan', 'Choose your new plan')}</label>
                 </div>)}
@@ -496,11 +491,11 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                                     <CardContent className="p-4 pt-0 space-y-4">
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold">{t('registration.employees_count', 'Employees')}: {employees}</Label>
-                                            <Slider value={[employees]} max={50} min={1} step={1} onValueChange={(v) => setEmployees(v[0])} />
+                                            <Slider value={[employees]} max={50} min={1} step={1} onValueChange={(v) => setEmployees(v[0])} dir={i18n.dir()} />
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold">{t('registration.duration', 'Duration')}</Label>
-                                            <Select value={tier1Duration} onValueChange={(v: any) => setTier1Duration(v)}>
+                                            <Select value={tier1Duration} onValueChange={(v: any) => setTier1Duration(v)} dir={i18n.dir()}>
                                                 <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
                                                 <SelectContent className="bg-white">
                                                     <SelectItem value="Monthly">{t('registration.plans.monthly', 'Monthly')}</SelectItem>
@@ -584,7 +579,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
     const renderPayment = () => {
         return (
-            <div className="space-y-6">
+            <div className="space-y-6" dir={i18n.dir()}>
                 <div className="flex items-center align-middle mb-4">
                     <Button variant="ghost" size="icon" onClick={() => setView('upgrade')}>
                         <ArrowLeft className={`${i18n.dir() === 'ltr' ? '' : 'rotate-180'}`} />
@@ -676,7 +671,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
     const renderActivate = () => {
         return (
-            <div className="space-y-6">
+            <div className="space-y-6" dir={i18n.dir()}>
                 <div className="flex items-center gap-4 mb-4">
                     <Button variant="ghost" size="icon" onClick={() => setView('status')}>
                         <ArrowLeft className={`${i18n.dir() === 'ltr' ? '' : 'rotate-180'}`} />
