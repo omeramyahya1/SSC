@@ -46,21 +46,21 @@ BEGIN
         -- Calculate new expiration and grace period based on subscription type
         CASE v_subscription_type
             WHEN 'monthly' THEN
-                v_sub_expiration_date := NOW() + INTERVAL '1 month';
-                v_sub_grace_period_end := NOW() + INTERVAL '1 month 7 days';
+                v_sub_expiration_date := GREATEST(COALESCE(v_sub_expiration_date, NOW()), NOW()) + INTERVAL '1 month';
+                v_sub_grace_period_end := v_sub_expiration_date + INTERVAL '1 month 7 days';
             WHEN 'annual' THEN
-                v_sub_expiration_date := NOW() + INTERVAL '1 year';
-                v_sub_grace_period_end := NOW() + INTERVAL '1 year 7 days';
+                v_sub_expiration_date := GREATEST(COALESCE(v_sub_expiration_date, NOW()), NOW()) + INTERVAL '1 year';
+                v_sub_grace_period_end := v_sub_expiration_date + INTERVAL '1 year 7 days';
             WHEN 'lifetime' THEN
                 v_sub_expiration_date := NULL; -- Lifetime has no expiration
                 v_sub_grace_period_end := NULL;
             WHEN 'trial' THEN -- Assuming trial can also be "approved" to an active state
-                v_sub_expiration_date := NOW() + INTERVAL '14 days';
-                v_sub_grace_period_end := NOW() + INTERVAL '14 days 7 days';
+                v_sub_expiration_date := GREATEST(COALESCE(v_sub_expiration_date, NOW()), NOW()) + INTERVAL '14 days';
+                v_sub_grace_period_end := v_sub_expiration_date + INTERVAL '14 days 7 days';
             ELSE
                 -- Default or error handling for unknown types
-                v_sub_expiration_date := NOW() + INTERVAL '30 days'; -- Default to monthly if type not specified
-                v_sub_grace_period_end := NOW() + INTERVAL '37 days';
+                v_sub_expiration_date := GREATEST(COALESCE(v_sub_expiration_date, NOW()), NOW()) + INTERVAL '30 days'; -- Default to monthly if type not specified
+                v_sub_grace_period_end := v_sub_expiration_date + INTERVAL '37 days';
         END CASE;
 
         UPDATE public.subscriptions
@@ -69,7 +69,7 @@ BEGIN
             status = 'active', -- Set subscription to active
             expiration_date = v_sub_expiration_date,
             grace_period_end = v_sub_grace_period_end,
-            updated_at = NOW()
+            updated_at = v_sub_expiration_date
         WHERE id = NEW.subscription_id;
 
         -- 2. Notify User
@@ -118,7 +118,7 @@ BEGIN
     ELSIF NEW.status = 'declined' AND OLD.status IS DISTINCT FROM 'declined' THEN
         -- Set subscription status to null (or an appropriate 'declined' state)
         UPDATE public.subscriptions
-        SET status = NULL, updated_at = NOW()
+        SET status = NULL, updated_at = v_sub_expiration_date
         WHERE id = NEW.subscription_id;
 
         -- Notify User

@@ -19,10 +19,18 @@ BEGIN
   SELECT id, status, type, expiration_date
   INTO v_subscription_id, v_current_status, v_type, v_expiry
   FROM public.subscriptions
-  WHERE user_id = p_user_uuid AND license_code = p_license_code;
+  WHERE user_id = p_user_uuid AND license_code = p_license_code AND deleted_at IS NULL;
 
   IF v_subscription_id IS NULL THEN
     RETURN json_build_object('success', false, 'message', 'Invalid license code or user mismatch');
+  END IF;
+
+  IF v_current_status IS NULL THEN
+    RETURN json_build_object('success', false, 'message', 'License is not eligible for activation');
+  END IF;
+
+  IF v_type <> 'lifetime' AND v_expiry IS NOT NULL AND v_expiry < now() THEN
+    RETURN json_build_object('success', false, 'message', 'License has expired');
   END IF;
 
   -- 2. Calculate new expiry if needed (if it's a renewal or new activation)
