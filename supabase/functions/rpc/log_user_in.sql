@@ -15,7 +15,12 @@ DECLARE
     v_result json;
 BEGIN
     -- 1. Find the user by email
-    SELECT * INTO v_user_record FROM public.users WHERE LOWER(email) = LOWER(p_email) LIMIT 1;
+    SELECT *
+    INTO v_user_record
+    FROM public.users
+    WHERE LOWER(email) = LOWER(TRIM(p_email))
+      AND deleted_at IS NULL
+    LIMIT 1;
 
     -- 2. If user not found, return null (which becomes JSON null)
     IF NOT FOUND THEN

@@ -17,11 +17,11 @@ DECLARE
   v_user_id uuid;
   v_existing_distributor_id uuid;
   v_final_distributor_id uuid;
-  v_discount_percent integer;
+  v_commission_percent integer;
   v_commission_amount double precision;
 BEGIN
   -- 1. Get the user_id and existing distributor_id associated with the subscription
-  SELECT s.user_id, u.distributor_id 
+  SELECT s.user_id, u.distributor_id
   INTO v_user_id, v_existing_distributor_id
   FROM public.subscriptions s
   JOIN public.users u ON s.user_id = u.id
@@ -62,13 +62,13 @@ BEGIN
 
   -- 5. Handle commission if a distributor is linked
   IF v_final_distributor_id IS NOT NULL THEN
-    SELECT discount_percent INTO v_discount_percent
+    SELECT commission INTO v_commission_percent
     FROM public.distributors
     WHERE id = v_final_distributor_id;
 
-    IF v_discount_percent IS NOT NULL THEN
-      -- Calculate commission (example: 10% of the amount)
-      v_commission_amount := p_amount * 0.1; 
+    IF v_commission_percent IS NOT NULL THEN
+      -- Calculate commission based on distributor's discount percent
+      v_commission_amount := p_amount * (v_commission_percent::double precision / 100.0);
 
       INSERT INTO public.distributor_financials (
         distributor_id,
@@ -88,7 +88,7 @@ BEGIN
   END IF;
 
   RETURN json_build_object(
-    'success', true, 
+    'success', true,
     'message', 'Payment recorded successfully',
     'payment_id', p_payment_uuid
   );

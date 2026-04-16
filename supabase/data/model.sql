@@ -107,6 +107,7 @@ CREATE TABLE public.distributors (
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
   email text,
+  commission double precision DEFAULT '0.1'::double precision CHECK (commission > 0.01::double precision AND commission < 0.5::double precision),
   CONSTRAINT distributors_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.documents (
@@ -124,7 +125,7 @@ CREATE TABLE public.documents (
 );
 CREATE TABLE public.inventory_categories (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  organization_id uuid NOT NULL,
+  organization_id uuid,
   name text NOT NULL,
   spec_schema jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -138,7 +139,7 @@ CREATE TABLE public.inventory_categories (
 );
 CREATE TABLE public.inventory_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  organization_id uuid NOT NULL,
+  organization_id uuid,
   branch_id uuid,
   category_id uuid,
   name text NOT NULL,
