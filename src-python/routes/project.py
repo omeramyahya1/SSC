@@ -160,7 +160,10 @@ def get_all_project():
         items = (
             db.query(Project)
             .options(joinedload(Project.customer))
-            .filter(Project.user_uuid == auth_record.user_uuid)
+            .filter(
+                Project.user_uuid == auth_record.user_uuid,
+                Project.deleted_at.is_(None),
+            )
             .order_by(Project.created_at.desc())
             .all()
         )

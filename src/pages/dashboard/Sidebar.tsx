@@ -143,10 +143,10 @@ export function Sidebar() {
     }, [location.pathname]);
 
     useEffect(() => {
-        if (!currentSubscription && currentUser && !subscriptionFetched) {
-            fetchSubscriptions().finally(() => setSubscriptionFetched(true));
+        if (!currentSubscription && currentUser?.uuid && !subscriptionFetched) {
+            fetchSubscriptions(currentUser.uuid).finally(() => setSubscriptionFetched(true));
          }
-    }, [currentSubscription, fetchSubscriptions, currentUser, subscriptionFetched]);
+    }, [currentSubscription, fetchSubscriptions, currentUser?.uuid, subscriptionFetched]);
 
     const handleSync = () => {
         setIsSyncing(true);

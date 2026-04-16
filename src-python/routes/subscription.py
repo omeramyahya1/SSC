@@ -315,7 +315,6 @@ def update_subscription(item_id):
 def get_all_subscription():
     with get_db() as db:
         user_uuid = request.args.get('user_uuid')
-        print(user_uuid)
         query = db.query(Subscription)
         if user_uuid:
             query = query.filter(Subscription.user_uuid == user_uuid)
@@ -373,4 +372,3 @@ def cancel_subscription(item_id):
             return jsonify({"error": str(e)}), 500
 
         return jsonify({"status": "ok", "subscription_uuid": item.uuid}), 200
-        return jsonify({"message": "Deleted successfully"}), 200

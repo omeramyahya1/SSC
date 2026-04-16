@@ -115,6 +115,8 @@ def create_subscription_payment():
                 print(f"Remote RPC Error: {rpc_response.error.message}")
         except Exception as e:
             logger.error(f"Failed to call remote RPC for payment {payment_uuid}: {e}", exc_info=True)
+            db.delete(new_item)
+            db.commit()
             # Consider whether this should fail the request
 
         return jsonify(model_to_dict(new_item)), 201

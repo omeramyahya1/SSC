@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import api from '@/api/client';
 import { registerStore, StoreKeys } from '@/api/storeRegistry';
+import { useUserStore } from '@/store/useUserStore';
 
 // --- 1. Define Types ---
 
@@ -31,13 +32,13 @@ export interface SubscriptionStore {
   currentSubscription: Subscription | null;
   isLoading: boolean;
   error: string | null;
-  fetchSubscriptions: (user_uuid: string) => Promise<void>;
+  fetchSubscriptions: (user_uuid?: string) => Promise<void>;
   fetchSubscription: (id: string) => Promise<void>;
   createSubscription: (data: NewSubscriptionData) => Promise<Subscription | undefined>;
   updateSubscription: (id: string, data: Partial<NewSubscriptionData>) => Promise<Subscription | undefined>;
   deleteSubscription: (id: string) => Promise<void>;
   setCurrentSubscription: (subscription: Subscription | null) => void;
-  refreshSubscriptionStatus: (user_uuid: string) => Promise<void>;
+  refreshSubscriptionStatus: (user_uuid?: string) => Promise<void>;
 }
 
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -50,14 +51,15 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     set({ currentSubscription: subscription });
   },
 
-  fetchSubscriptions: async (user_uuid: string) => {
+  fetchSubscriptions: async (user_uuid?: string) => {
+    if (!user_uuid) return;
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<Subscription[]>(
         `${resource}?user_uuid=${encodeURIComponent(user_uuid)}`
       );
-      const active = data.find((s) => s.status === "active") || null;
-      set({ subscriptions: data, currentSubscription: active || data[0] || null, isLoading: false });
+      const active = data.find((s) => s.status === "active") ?? null;
+      set({ subscriptions: data, currentSubscription: active, isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch subscriptions";
       set({ error: errorMsg, isLoading: false });
@@ -65,7 +67,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     }
   },
 
-  refreshSubscriptionStatus: async (user_uuid: string) => {
+  refreshSubscriptionStatus: async (user_uuid?: string) => {
       await get().fetchSubscriptions(user_uuid);
   },
 
@@ -121,7 +123,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         const subscriptions = state.subscriptions.filter((s) => s.uuid !== id);
         const currentSubscription =
           state.currentSubscription?.uuid === id
-            ? subscriptions.find((s) => s.status === "active") ?? subscriptions[0] ?? null
+            ? subscriptions.find((s) => s.status === "active") ?? null
             : state.currentSubscription;
 
         return {
@@ -139,5 +141,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 }));
 
 registerStore(StoreKeys.Subscription, () => {
-  useSubscriptionStore.getState().fetchSubscriptions(); //errror?
+  const { currentUser, currentUserSnapshot } = useUserStore.getState();
+  const userUuid = currentUser?.uuid || currentUserSnapshot?.uuid;
+  if (!userUuid) return;
+  return useSubscriptionStore.getState().fetchSubscriptions(userUuid);
 });
