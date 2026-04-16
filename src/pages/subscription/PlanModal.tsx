@@ -249,10 +249,24 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
         }
     };
 
+    const MAX_RECEIPT_SIZE_BYTES = 5 * 1024 * 1024;
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            setReceiptPreview(URL.createObjectURL(file));
+        if (!file.type.startsWith('image/')) {
+            toast.error(t('subscription.invalid_receipt_type', 'Please upload an image file.'));
+            return;
+        }
+        if (file.size > MAX_RECEIPT_SIZE_BYTES) {
+            toast.error(t('subscription.receipt_too_large', 'Receipt image is too large.'));
+            return;
+        }
+
+        if (receiptPreview) {
+            URL.revokeObjectURL(receiptPreview);
+        }
+        setReceiptPreview(URL.createObjectURL(file));
             const reader = new FileReader();
             reader.readAsDataURL(file);
             reader.onload = () => setReceipt(reader.result as string);
@@ -291,9 +305,18 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 distributor_id: distributorId
             };
 
-            const response = await createSubscriptionPayment(paymentData as any);
-
-            if (!response) throw new Error(t('subscription.payment_failed', 'Failed to submit payment'));
+            let response: any;
+            try {
+                response = await createSubscriptionPayment(paymentData as any);
+                if (!response) throw new Error(t('subscription.payment_failed', 'Failed to submit payment'));
+            } catch (paymentError) {
+                try {
+                    await api.post(`/subscriptions/${newSubscriptionUuid}/cancel`);
+                } catch (cancelError) {
+                    console.error(`Failed to cancel orphaned subscription ${newSubscriptionUuid}:`, cancelError);
+                }
+                throw paymentError;
+            }
 
             toast.success(t('subscription.payment_submitted', 'Payment submitted for review'));
             await triggerSync();

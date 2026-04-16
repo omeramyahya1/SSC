@@ -241,7 +241,6 @@ export function Sidebar() {
                     </Button>
                 </div>
             </div>
-            <SettingsModal />
         </Dialog>
         <PlanModal isOpen={isPlanModalOpen} onOpenChange={setIsPlanModalOpen} />
         </>

@@ -87,7 +87,10 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                 inv.invoice_id?.toString().includes(q) ||
                 (inv.customer_name || '').toLowerCase().includes(q);
 
-            const matchesStatus = statusFilter === 'all' || inv.status === statusFilter && inv.issued_at || !inv.issued_at && statusFilter === 'draft';
+    const matchesStatus =
+            statusFilter === 'all' ||
+            (inv.status === statusFilter && inv.issued_at) ||
+            (!inv.issued_at && statusFilter === 'draft');
 
             return matchesSearch && matchesStatus;
         });
