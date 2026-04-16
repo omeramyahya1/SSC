@@ -624,7 +624,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                     <div>
                                         <p className="font-black text-lg leading-none mb-1">{t('invoicing.issued', 'Invoice Issued')}</p>
                                         <p className="text-sm opacity-80">{format(new Date(currentInvoice?.issued_at!), "PPP")}</p>
-                                        <p className="text-sm opacity-80">{t('invoicing.issued_by', "by") + ": " + resolvedUser?.username}</p>
+                                        <p className="text-sm opacity-80">{t('invoicing.issued_by', "by") + ": " + (resolvedUser?.username || t('common.unknown', 'Unknown'))}</p>
                                     </div>
                                 </div>
                             )}

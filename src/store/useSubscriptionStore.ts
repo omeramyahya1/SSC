@@ -116,10 +116,19 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await api.delete(`${resource}/${id}`);
-      set((state) => ({
-        subscriptions: state.subscriptions.filter((s) => s.uuid !== id),
-        isLoading: false,
-      }));
+      set((state) => {
+        const subscriptions = state.subscriptions.filter((s) => s.uuid !== id);
+        const currentSubscription =
+          state.currentSubscription?.uuid === id
+            ? subscriptions.find((s) => s.status === "active") ?? subscriptions[0] ?? null
+            : state.currentSubscription;
+
+        return {
+          subscriptions,
+          currentSubscription,
+          isLoading: false,
+        };
+      });
     } catch (e: any) {
       const errorMsg = e.message || `Failed to delete subscription ${id}`;
       set({ error: errorMsg, isLoading: false });

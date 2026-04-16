@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION public.activate_license(
   p_license_code text,
   p_user_uuid uuid
 )
-RETURNS json -- Changed from json to jsonb for robustness
+RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -64,5 +64,6 @@ BEGIN
 EXCEPTION
   WHEN OTHERS THEN
     RETURN json_build_object('success', false, 'message', SQLERRM);
+    RAISE; -- Let the error propagate to rollback the transaction
 END;
 $$;

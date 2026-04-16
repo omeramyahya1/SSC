@@ -142,6 +142,12 @@ def get_distributor_info():
 
     distributor_id = data['distributor_id']
 
+    # Validate UUID format:
+    try:
+        uuid.UUID(distributor_id)
+    except (ValueError, AttributeError):
+        return jsonify({"error": "Invalid distributor ID format"}), 400
+
     try:
         supabase = get_service_role_client()
         response = supabase.table('distributors').select('*').eq('id', distributor_id).execute()
@@ -276,7 +282,7 @@ def register_user():
 
         # Create local records
         new_user = User(
-            uuid=new_user_uuid, username=stage1.username, email=stage1.email,
+            uuid=new_user_uuid, username=stage1.username,email=stage1.email.lower(),
             business_name=stage4.businessName, account_type=payload.account_type, location=location,
             business_logo=logo_bytes, status=user_status,
             role='admin' if 'enterprise' in payload.account_type else 'user',

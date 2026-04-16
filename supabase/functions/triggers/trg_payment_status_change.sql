@@ -29,9 +29,10 @@ BEGIN
         v_sub_expiration_date
     FROM public.subscriptions s
     JOIN public.users u ON s.user_id = u.id
-    LEFT JOIN public.distributor_financials df ON s.user_id = df.user_id -- This join might be incorrect if df.user_id is not unique
+    LEFT JOIN public.distributor_financials df ON s.user_id = df.user_id
     LEFT JOIN public.distributors d ON df.distributor_id = d.id
     WHERE s.id = NEW.subscription_id
+    ORDER BY df.created_at DESC NULLS LAST
     LIMIT 1;
 
     -- ==================================================

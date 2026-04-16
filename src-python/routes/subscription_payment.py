@@ -9,6 +9,9 @@ from .sync_log import upload_blob
 import base64
 import uuid
 
+import logging
+logger = logging.getLogger(__name__)
+
 from supabase_client import get_service_role_client
 
 subscription_payment_bp = Blueprint('subscription_payment_bp', __name__, url_prefix='/subscription_payments')
@@ -67,7 +70,7 @@ def create_subscription_payment():
                     b64_str = b64_str.split("base64,")[1]
                 raw_screenshot_bytes = base64.b64decode(b64_str)
             except Exception as e:
-                print(f"Error decoding trx_screenshot: {e}")
+                logger.warning(f"Error decoding trx_screenshot: {e}", exc_info=True)
                 data_dict['trx_screenshot'] = None
 
         # Ensure uuid is set if provided, else generate one
@@ -83,7 +86,7 @@ def create_subscription_payment():
                 screenshot_url = upload_blob(raw_screenshot_bytes, "SSC", path, use_service_client=True)
                 data_dict['trx_screenshot'] = raw_screenshot_bytes
             except Exception as e:
-                print(f"Failed to upload screenshot: {e}")
+                logger.error(f"Failed to upload screenshot: {e}", exc_info=True)
 
         # 2. Save Locally
         local_data = dict(data_dict)
@@ -111,7 +114,8 @@ def create_subscription_payment():
             if hasattr(rpc_response, 'error') and rpc_response.error:
                 print(f"Remote RPC Error: {rpc_response.error.message}")
         except Exception as e:
-            print(f"Failed to call remote RPC: {e}")
+            logger.error(f"Failed to call remote RPC for payment {payment_uuid}: {e}", exc_info=True)
+            # Consider whether this should fail the request
 
         return jsonify(model_to_dict(new_item)), 201
 

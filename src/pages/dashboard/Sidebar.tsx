@@ -136,15 +136,17 @@ export function Sidebar() {
     const { currentUser } = useUserStore();
     const { currentSubscription, fetchSubscriptions } = useSubscriptionStore();
 
+    const [subscriptionFetched, setSubscriptionFetched] = useState(false);
+
     useEffect(() => {
         setNonNavSelected(null);
     }, [location.pathname]);
 
     useEffect(() => {
-        if (!currentSubscription && currentUser) {
-            fetchSubscriptions();
-        }
-    }, [currentSubscription, fetchSubscriptions, currentUser]);
+        if (!currentSubscription && currentUser && !subscriptionFetched) {
+            fetchSubscriptions().finally(() => setSubscriptionFetched(true));
+         }
+    }, [currentSubscription, fetchSubscriptions, currentUser, subscriptionFetched]);
 
     const handleSync = () => {
         setIsSyncing(true);

@@ -350,12 +350,12 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
         if (isTampered) {
             return (
                 <div className="flex flex-col items-center justify-center p-8 space-y-4 text-center" dir={i18n.dir()}>
-                    <ShieldAlert className="w-16 h-16 text-red-600 animate-pulse" />
+                    <ShieldAlert className="w-16 h-16 text-red-600" />
                     <h2 className="text-2xl font-black text-red-600 uppercase tracking-tighter">Security Alert</h2>
                     <p className="text-neutral/70 font-bold">
                         {t('subscription.tampered_desc', 'Unusual activity detected on your account. Access to online features has been restricted for security reasons.')}
                     </p>
-                    <Button variant="destructive" className="w-full h-12 text-lg font-bold" onClick={() => onOpenChange(false)}>
+                    <Button className="w-full h-12 text-lg font-bold" onClick={() => onOpenChange(false)}>
                         {t('subscription.contact_support', 'Contact Support')}
                     </Button>
                 </div>

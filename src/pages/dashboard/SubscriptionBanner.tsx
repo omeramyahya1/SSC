@@ -29,7 +29,7 @@ export function SubscriptionBanner() {
                 <Alert variant="destructive" className="bg-yellow-100 border-yellow-500 text-yellow-800">
                     <AlertTitle>{t('dashboard.grace_title', 'Subscription in Grace Period')}</AlertTitle>
                     <AlertDescription>
-                        {t('dashboard.grace_desc', { count: graceDaysLeft }, `Your subscription expires in ${graceDaysLeft} days. Renew now to avoid service interruption.`)}
+                        {t('dashboard.grace_desc', { count: graceDaysLeft, defaultValue: `Your subscription expires in ${graceDaysLeft} days. Renew now to avoid service interruption.` })}
                     </AlertDescription>
                 </Alert>
             </div>
