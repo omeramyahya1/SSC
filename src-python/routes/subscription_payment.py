@@ -18,7 +18,9 @@ subscription_payment_bp = Blueprint('subscription_payment_bp', __name__, url_pre
 
 @subscription_payment_bp.route('/', methods=['POST'])
 def create_subscription_payment():
-    data = request.json
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid or missing JSON body"}), 400
     try:
         # Validate request data using the Pydantic schema
         validated_data = SubscriptionPaymentCreate(**data)
@@ -111,13 +113,21 @@ def create_subscription_payment():
 
             rpc_response = service_client.rpc('subscription_payment', rpc_params).execute()
 
-            if hasattr(rpc_response, 'error') and rpc_response.error:
-                print(f"Remote RPC Error: {rpc_response.error.message}")
+            rpc_data = getattr(rpc_response, 'data', None) or {}
+            if (hasattr(rpc_response, 'error') and rpc_response.error) or not rpc_data.get('success', False):
+                err_msg = (
+                    rpc_response.error.message if getattr(rpc_response, 'error', None)
+                    else rpc_data.get('message', 'Unknown RPC failure')
+                )
+                logger.error(f"Remote RPC failed for payment {payment_uuid}: {err_msg}")
+                db.delete(new_item)
+                db.commit()
+                return jsonify({"error": "Payment registration failed remotely", "details": err_msg}), 502
         except Exception as e:
             logger.error(f"Failed to call remote RPC for payment {payment_uuid}: {e}", exc_info=True)
             db.delete(new_item)
             db.commit()
-            # Consider whether this should fail the request
+            return jsonify({"error": "Payment registration failed remotely"}), 502
 
         return jsonify(model_to_dict(new_item)), 201
 

@@ -150,7 +150,12 @@ def get_distributor_info():
 
     try:
         supabase = get_service_role_client()
-        response = supabase.table('distributors').select('*').eq('id', distributor_id).execute()
+        response = (
+            supabase.table('distributors')
+            .select('id, discount_percent')
+            .eq('id', distributor_id)
+            .execute()
+        )
 
         if not hasattr(response, 'data') or not response.data:
             return jsonify({"error": "Distributor not found."}), 404

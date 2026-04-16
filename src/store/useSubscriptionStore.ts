@@ -16,7 +16,7 @@ export interface Subscription {
   expiration_date: string;
   grace_period_end: string;
   type: "trial" | "monthly" | "annual" | "lifetime";
-  status: "active" | "expired" | "trial" | "pending";
+  status: "active" | "expired" | "trial" | "pending" | null;
   license_code: string;
   tampered: boolean;
 }

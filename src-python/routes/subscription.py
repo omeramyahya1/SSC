@@ -62,9 +62,9 @@ def _refresh_local_after_activation(service_client, user_uuid: str, new_subscrip
         if payment_cloud.data and len(payment_cloud.data) > 0:
             _upsert_from_cloud(db, SubscriptionPayment, payment_cloud.data[0])
 
-        # Enforce required local states (even if cloud payload already matches)
+        # Enforce required local states (no-op if cloud payload already matches).
+        # Do not mark as dirty: the cloud is source of truth for this record.
         local_subscription.status = "active"
-        local_subscription.is_dirty = True
         local_user.status = "active"
 
         previous_subscriptions = (
@@ -133,8 +133,19 @@ def activate_license():
             try:
                 # e.details contains the b'{"success" : true, ...}' string
                 # Remove the b'...' wrapper and unescape quotes
-                details_json_str = e.details.lstrip("b'").rstrip("'").replace('\\"', '"')
-                parsed_response = json.loads(details_json_str)
+                raw = e.details
+                if isinstance(raw, (bytes, bytearray)):
+                    raw = raw.decode("utf-8", errors="replace")
+                elif not isinstance(raw, str):
+                    raw = str(raw)
+                try:
+                    parsed_response = json.loads(raw)
+                except json.JSONDecodeError:
+                    # Fallback for Python bytes repr like: b'{"success": true, ...}'
+                    if raw.startswith("b'") and raw.endswith("'"):
+                        raw = raw[2:-1].replace('\\"', '"')
+                    parsed_response = json.loads(raw)
+
                 if parsed_response.get('success'):
                     print(f"Successfully parsed successful JSON from APIError details: {parsed_response}")
                     new_subscription_uuid = parsed_response.get("subscription_id")
@@ -251,8 +262,15 @@ def create_and_sync_subscription():
                 time.sleep(delay)
 
             if not remote_subscription_found:
-                # Compensate: remove the just-created local subscription row so we don't
-                # leave an orphaned committed record if the remote sync/visibility failed.
+                # Compensate: remove the local row AND best-effort delete any cloud row
+                # that may have been pushed, to avoid orphaned records on either side.
+                try:
+                    service_client.table("subscriptions").delete().eq("id", new_subscription.uuid).execute()
+                except Exception as remote_cleanup_error:
+                    print(
+                        f"Failed to cleanup remote subscription {new_subscription.uuid} "
+                        f"after verification failure: {remote_cleanup_error}"
+                    )
                 try:
                     local_sub = db.query(Subscription).filter_by(uuid=new_subscription.uuid).first()
                     if local_sub:

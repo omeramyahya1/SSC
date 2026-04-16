@@ -13,7 +13,6 @@ DECLARE
   v_current_status text;
   v_type text;
   v_expiry timestamp with time zone;
-  v_new_expiry timestamp with time zone;
 BEGIN
   -- 1. Find the subscription matching the user and license code
   SELECT id, status, type, expiration_date
@@ -71,7 +70,6 @@ BEGIN
 
 EXCEPTION
   WHEN OTHERS THEN
-    RETURN json_build_object('success', false, 'message', SQLERRM);
-    RAISE; -- Let the error propagate to rollback the transaction
+    RAISE EXCEPTION 'activate_license failed: %', SQLERRM;
 END;
 $$;

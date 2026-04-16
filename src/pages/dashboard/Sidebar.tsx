@@ -114,7 +114,7 @@ const SubscriptionDetails = ({ onOpenModal }: { onOpenModal: () => void }) => {
                         <Button className="mt-2 w-full text-white" onClick={onOpenModal}>{currentUser?.status === 'active' ? t('dashboard.plan_details', 'View Plan Details') : t('dashboard.renew_upgrade', 'Renew / Upgrade')}</Button>
                     </div>
                 )}
-                 {(accountType as any) === 'lifetime' && (
+                 {currentSubscription?.type === 'lifetime' && (
                     <div className="grid gap-2 text-center p-4 bg-gray-100 rounded-md">
                         <span className="font-bold">{t('dashboard.lifetime_license', 'Lifetime License')}</span>
                     </div>
