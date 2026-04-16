@@ -31,13 +31,13 @@ export interface SubscriptionStore {
   currentSubscription: Subscription | null;
   isLoading: boolean;
   error: string | null;
-  fetchSubscriptions: (user_uuid?: string) => Promise<void>;
+  fetchSubscriptions: (user_uuid: string) => Promise<void>;
   fetchSubscription: (id: string) => Promise<void>;
   createSubscription: (data: NewSubscriptionData) => Promise<Subscription | undefined>;
   updateSubscription: (id: string, data: Partial<NewSubscriptionData>) => Promise<Subscription | undefined>;
   deleteSubscription: (id: string) => Promise<void>;
   setCurrentSubscription: (subscription: Subscription | null) => void;
-  refreshSubscriptionStatus: () => Promise<void>;
+  refreshSubscriptionStatus: (user_uuid: string) => Promise<void>;
 }
 
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -50,11 +50,12 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     set({ currentSubscription: subscription });
   },
 
-  fetchSubscriptions: async (user_uuid?: string) => {
+  fetchSubscriptions: async (user_uuid: string) => {
     set({ isLoading: true, error: null });
     try {
-      const url = user_uuid ? `${resource}?user_uuid=${user_uuid}` : resource;
-      const { data } = await api.get<Subscription[]>(url);
+      const { data } = await api.get<Subscription[]>(
+        `${resource}?user_uuid=${encodeURIComponent(user_uuid)}`
+      );
       const active = data.find((s) => s.status === "active") || null;
       set({ subscriptions: data, currentSubscription: active || data[0] || null, isLoading: false });
     } catch (e: any) {
@@ -64,8 +65,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     }
   },
 
-  refreshSubscriptionStatus: async () => {
-      await get().fetchSubscriptions();
+  refreshSubscriptionStatus: async (user_uuid: string) => {
+      await get().fetchSubscriptions(user_uuid);
   },
 
   fetchSubscription: async (id) => {
@@ -138,5 +139,5 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 }));
 
 registerStore(StoreKeys.Subscription, () => {
-  useSubscriptionStore.getState().fetchSubscriptions();
+  useSubscriptionStore.getState().fetchSubscriptions(); //errror?
 });
