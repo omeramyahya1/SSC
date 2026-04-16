@@ -321,8 +321,12 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
             });
 
             if (response.data.success) {
+                if (currentUser?.user_id) {
+                    await useUserStore.getState().fetchUser(String(currentUser.user_id));
+                }
+                await fetchSubscriptions(currentUser?.uuid);
+                await fetchSubscriptionPayments();
                 toast.success(t('subscription.activation_success', 'License activated successfully!'));
-                await triggerSync();
                 setView('status');
             } else {
                 throw new Error(response.data.message);
@@ -681,12 +685,11 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 </div>
 
                 <div className="p-8 bg-primary/5 rounded-3xl border border-primary/10 flex flex-col items-center text-center space-y-4">
-                    <div className="bg-primary/10 p-4 rounded-full">
-                        <Check className="w-12 h-12 text-primary" />
-                    </div>
-                    <p className="text-sm font-bold text-neutral/60">
+                    {isActivating ? (<Spinner className="w-12 h-12" />) : currentUser?.status === 'active' ? (<div className="bg-semantic-success p-4 rounded-full">
+                        <Check className="w-12 h-12 text-white" />
+                    </div>) : (<p className="text-sm font-bold text-neutral/60">
                         {t('subscription.activate_desc', 'Enter the license code sent to your email after payment approval.')}
-                    </p>
+                    </p>)}
                 </div>
 
                 <div className="space-y-2">
@@ -704,7 +707,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                     <Button
                         className="h-14 text-xl font-black text-white"
                         onClick={handleActivateLicense}
-                        disabled={licenseCode.length < 8 || isActivating}
+                        disabled={licenseCode.length < 13 || isActivating}
                     >
                         {isActivating ? <Spinner className="w-6 h-6" /> : t('subscription.activate_now', 'Activate Now')}
                     </Button>

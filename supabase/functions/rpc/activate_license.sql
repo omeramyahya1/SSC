@@ -29,6 +29,17 @@ BEGIN
   -- For this demo, we'll just set it to active. In a real system,
   -- the admin might have set the license_code after approving payment.
 
+  -- 2a. Expire any previous subscriptions for this user (to keep cloud consistent across devices)
+  UPDATE public.subscriptions
+  SET
+    status = 'expired',
+    updated_at = now(),
+    is_dirty = true
+  WHERE user_id = p_user_uuid
+    AND id <> v_subscription_id
+    AND status <> 'expired';
+
+  -- 2b. Activate the matched subscription
   UPDATE public.subscriptions
   SET
     status = 'active',
@@ -38,7 +49,10 @@ BEGIN
 
   -- 3. Update User status
   UPDATE public.users
-  SET status = 'active'
+  SET
+    status = 'active',
+    updated_at = now(),
+    is_dirty = true
   WHERE id = p_user_uuid;
 
   RETURN json_build_object(

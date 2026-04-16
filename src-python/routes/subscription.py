@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db, get_by_id_or_uuid
-from models import Subscription, User
+from models import Subscription, User, SubscriptionPayment
 from schemas import SubscriptionCreate, SubscriptionUpdate
 from serializer import model_to_dict
 from datetime import datetime, timedelta
 from supabase_client import get_service_role_client
-from .sync_log import sync_table, SYNC_CONFIG # Import sync_table and SYNC_CONFIG
+from .sync_log import sync_table, SYNC_CONFIG, _map_cloud_to_local # Import sync helpers + reverse mapper
 import time # Import time for delays
 import json # Import json for parsing
 from postgrest.exceptions import APIError # Import APIError for specific handling
@@ -14,10 +14,78 @@ from postgrest.exceptions import APIError # Import APIError for specific handlin
 
 subscription_bp = Blueprint('subscription_bp', __name__, url_prefix='/subscriptions')
 
+def _upsert_from_cloud(db, model_class, payload: dict):
+    attrs = _map_cloud_to_local(payload, model_class)
+    record_uuid = attrs.get("uuid")
+    if not record_uuid:
+        raise Exception(f"Cloud payload missing id for {model_class.__name__}")
+
+    existing = db.query(model_class).filter_by(uuid=record_uuid).first()
+    if existing:
+        for key, value in attrs.items():
+            setattr(existing, key, value)
+        existing.is_dirty = False
+        return existing
+
+    new_instance = model_class(**attrs)
+    new_instance.is_dirty = False
+    db.add(new_instance)
+    return new_instance
+
+def _refresh_local_after_activation(service_client, user_uuid: str, new_subscription_uuid: str):
+    subscription_cloud = (
+        service_client.table("subscriptions")
+        .select("*")
+        .eq("id", new_subscription_uuid)
+        .single()
+        .execute()
+    )
+    user_cloud = (
+        service_client.table("users")
+        .select("*")
+        .eq("id", user_uuid)
+        .single()
+        .execute()
+    )
+    payment_cloud = (
+        service_client.table("subscription_payments")
+        .select("*")
+        .eq("subscription_id", new_subscription_uuid)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    with get_db() as db:
+        local_subscription = _upsert_from_cloud(db, Subscription, subscription_cloud.data)
+        local_user = _upsert_from_cloud(db, User, user_cloud.data)
+        if payment_cloud.data and len(payment_cloud.data) > 0:
+            _upsert_from_cloud(db, SubscriptionPayment, payment_cloud.data[0])
+
+        # Enforce required local states (even if cloud payload already matches)
+        local_subscription.status = "active"
+        local_subscription.is_dirty = True
+        local_user.status = "active"
+
+        previous_subscriptions = (
+            db.query(Subscription)
+            .filter(
+                Subscription.user_uuid == user_uuid,
+                Subscription.uuid != new_subscription_uuid,
+                Subscription.deleted_at == None,
+                Subscription.status != "expired",
+            )
+            .all()
+        )
+        for sub in previous_subscriptions:
+            sub.status = "expired"
+            sub.is_dirty = True
+
 @subscription_bp.route('/activate', methods=['POST'])
 def activate_license():
-    data = request.get_json()
+    data = request.get_json() or {}
     print(f"Activating license: {data}")
+    user_uuid = data.get('p_user_uuid')
     try:
         service_client = get_service_role_client()
         response = service_client.rpc('activate_license', {
@@ -28,11 +96,33 @@ def activate_license():
         print(f"Supabase response: {response}")
 
         # If execute() did not raise an APIError, it means response.data should be available
-        if response.data:
-            return jsonify(response.data), 200
-        else:
+        if not response.data:
             # Fallback for unexpected empty response if no APIError was raised
             return jsonify({"error": "Unexpected empty response from Supabase"}), 500
+
+        parsed_response = response.data
+
+        if not parsed_response.get("success"):
+            if "Invalid license code or user mismatch" in (parsed_response.get("message") or ""):
+                return jsonify({"error": "Invalid license code"}), 401
+            return jsonify(parsed_response), 400
+
+        new_subscription_uuid = parsed_response.get("subscription_id")
+        if not user_uuid or not new_subscription_uuid:
+            return jsonify({"error": "Activation succeeded but response is missing required ids."}), 500
+
+        # Pull the newly-updated records from the cloud and upsert into local SQLite
+        try:
+            _refresh_local_after_activation(service_client, user_uuid, new_subscription_uuid)
+        except Exception as e:
+            # Activation already succeeded in the cloud; surface a clear error for local update issues.
+            return jsonify({
+                "error": "License activated in cloud but local update failed.",
+                "details": str(e),
+                "activation": parsed_response
+            }), 500
+
+        return jsonify(parsed_response), 200
 
     except APIError as e:
         error_msg = e.message # APIError has a message attribute
@@ -47,6 +137,20 @@ def activate_license():
                 parsed_response = json.loads(details_json_str)
                 if parsed_response.get('success'):
                     print(f"Successfully parsed successful JSON from APIError details: {parsed_response}")
+                    new_subscription_uuid = parsed_response.get("subscription_id")
+                    if not user_uuid or not new_subscription_uuid:
+                        return jsonify({"error": "Activation succeeded but response is missing required ids."}), 500
+
+                    try:
+                        service_client = get_service_role_client()
+                        _refresh_local_after_activation(service_client, user_uuid, new_subscription_uuid)
+                    except Exception as local_update_error:
+                        return jsonify({
+                            "error": "License activated in cloud but local update failed.",
+                            "details": str(local_update_error),
+                            "activation": parsed_response
+                        }), 500
+
                     return jsonify(parsed_response), 200
             except json.JSONDecodeError as parse_error:
                 print(f"Failed to parse successful JSON from APIError details: {parse_error}")

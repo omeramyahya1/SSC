@@ -55,7 +55,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     try {
       const url = user_uuid ? `${resource}?user_uuid=${user_uuid}` : resource;
       const { data } = await api.get<Subscription[]>(url);
-      set({ subscriptions: data, currentSubscription: data[0] || null, isLoading: false });
+      const active = data.find((s) => s.status === "active") || null;
+      set({ subscriptions: data, currentSubscription: active || data[0] || null, isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch subscriptions";
       set({ error: errorMsg, isLoading: false });
