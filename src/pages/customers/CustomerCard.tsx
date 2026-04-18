@@ -30,7 +30,7 @@ export function CustomerCard({ customer, onEdit, onDelete }: CustomerCardProps) 
     };
 
     return (
-        <Card className="overflow-hidden hover:shadow-md transition-shadow bg-white">
+        <Card className="overflow-hidden hover:shadow-md transition-shadow bg-white" dir={i18n.dir()}>
             <CardHeader className="p-4 flex flex-row items-start justify-between space-y-0">
                 <div className="flex flex-col gap-1">
                     <h3 className="text-lg font-bold truncate max-w-[200px]" title={customer.full_name}>
@@ -56,7 +56,7 @@ export function CustomerCard({ customer, onEdit, onDelete }: CustomerCardProps) 
                     </div>
                 </div>
 
-                <DropdownMenu>
+                <DropdownMenu dir={i18n.dir()}>
                     <DropdownMenuTrigger asChild>
                         <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
                             <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
