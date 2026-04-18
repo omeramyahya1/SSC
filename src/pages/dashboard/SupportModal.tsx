@@ -55,7 +55,7 @@ export function SupportModal() {
             icon: <MessageCircle className="w-5 h-5 text-green-600" />,
             title: t('support.whatsapp', 'WhatsApp'),
             value: phoneNo,
-            action: () => phoneNo && openUrl(`https://wa.me/${phoneNo.replace(/\s+/g, '')}`)
+            action: () => phoneNo && openUrl(`https://wa.me/${phoneNo.replace(/\s+/g, '').replace('+', '')}`)
         }
     ];
 
