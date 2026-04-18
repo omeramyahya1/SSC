@@ -32,6 +32,14 @@ const emailWrapper = (
 </div>
   `;
 };
+const escapeHtml = (value: unknown) =>
+  String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[char]!));
 
 serve(async (_req) => {
   const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
@@ -75,18 +83,23 @@ serve(async (_req) => {
     if (ticketJobs.length > 0) {
       const ticketRows = ticketJobs.map((job) => {
         const p = job.payload || {};
-        const date = new Date(job.created_at).toLocaleString("en-US");
+        const date = escapeHtml(new Date(job.created_at).toLocaleString("en-US"));
+       const username = escapeHtml(p.username || "N/A");
+        const userEmail = escapeHtml(p.user_email || "N/A");
+        const businessName = escapeHtml(p.business_name || "");
+        const subject = escapeHtml(p.subject || "No Subject");
+        const body = escapeHtml(p.body || "");
         return `
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd;">${date}</td>
             <td style="padding: 8px; border: 1px solid #ddd;">
-              <strong>${p.username || "N/A"}</strong><br/>
-              <small>${p.user_email || "N/A"}</small><br/>
-              <small>${p.business_name || ""}</small>
+              <strong>${username}</strong><br/>
+              <small>${userEmail}</small><br/>
+              <small>${businessName}</small>
             </td>
             <td style="padding: 8px; border: 1px solid #ddd;">
               <strong>${p.subject || "No Subject"}</strong><br/>
-              <p style="margin: 5px 0 0; font-size: 13px; color: #555;">${p.body || ""}</p>
+              <p style="margin: 5px 0 0; font-size: 13px; color: #555;">${p.body}</p>
             </td>
           </tr>
         `;
@@ -224,7 +237,7 @@ serve(async (_req) => {
     const jobIds = allJobs.map((j) => j.id);
     await supabase.from("notification_jobs").update({
       status: "failed",
-      error_message: e.message || String(e),
+      error: e.message || String(e),
     }).in("id", jobIds);
 
     return new Response(JSON.stringify({ error: e.message }), {

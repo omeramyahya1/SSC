@@ -330,7 +330,7 @@ serve(async (req) => {
       // Update Job Status: Failed
       await supabase.from("notification_jobs").update({
         status: "failed",
-        error_message: e.message || String(e),
+        error: e.message || String(e),
       }).eq("id", job.id);
     }
   }

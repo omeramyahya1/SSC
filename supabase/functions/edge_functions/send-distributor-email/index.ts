@@ -35,7 +35,14 @@ const emailWrapper = (
 
 serve(async (_req) => {
   const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
-    const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
+  const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
+
+  if (!BREVO_API_KEY || !SENDER_EMAIL) {
+    return new Response(
+      JSON.stringify({ error: "Missing BREVO_API_KEY or SENDER_EMAIL env var" }),
+      { status: 500 },
+    );
+  }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -184,7 +191,7 @@ serve(async (_req) => {
       const jobIds = distributorJobs.map((j: any) => j.id);
       await supabase.from("notification_jobs").update({
         status: "failed",
-        error_message: e.message || String(e),
+        error: e.message || String(e),
       }).in("id", jobIds);
     }
   }

@@ -1230,7 +1230,7 @@ const DataRow = ({ label, value, unit = '', formatter }: { label: string; value:
             ) : (
                 <div className="flex justify-between">
                     <span className="text-sm font-semibold text-gray-800">{displayValue} {unit}</span>
-                    <span className="text-sm text-gray-500">{label}</span>
+                    <span className="text-sm text-gray-500 text-end">{label}</span>
                 </div>
 
             ) }

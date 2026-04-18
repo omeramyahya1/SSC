@@ -5,6 +5,7 @@
 
 use std::process::{Child, Command};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
 struct AppState {
@@ -68,13 +69,28 @@ fn main() {
                         let state: State<AppState> = app.state();
 
                         if let Some(mut child) = state.python_process.lock().unwrap().take() {
-                            let client = reqwest::blocking::Client::new();
+                            let client = reqwest::blocking::Client::builder()
+                                .timeout(Duration::from_secs(2))
+                                .build();
 
                             // Best-effort graceful shutdown
-                            let _ = client.post("http://localhost:5000/shutdown").send();
+                            if let Ok(client) = client {
+                                let _ = client.post("http://localhost:5000/shutdown").send();
+                            }
 
-                            // Wait for Python to exit
-                            let _ = child.wait();
+                            // Wait briefly for Python to exit, then force cleanup.
+                            let deadline = Instant::now() + Duration::from_secs(5);
+                            loop {
+                                if matches!(child.try_wait(), Ok(Some(_))) {
+                                    break;
+                                }
+                                if Instant::now() >= deadline {
+                                    let _ = child.kill();
+                                    let _ = child.wait();
+                                    break;
+                                }
+                                std::thread::sleep(Duration::from_millis(100));
+                            }
                         }
 
                         // Exit Tauri cleanly

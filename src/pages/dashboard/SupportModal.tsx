@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {toast} from 'react-hot-toast';
 import { useUserStore } from '@/store/useUserStore';
 import useLocalStorage from '@/hooks/useLocalStorage';
+import { useAuthenticationStore } from '@/store/useAuthenticationStore';
 
 export function SupportModal() {
     const { t, i18n } = useTranslation();
@@ -26,6 +27,7 @@ export function SupportModal() {
     const [view, setView] = useState<'channels' | 'ticket'>('channels');
 
     const { currentUser } = useUserStore();
+    const { currentAuthentication } = useAuthenticationStore();
     const [lastSentTime, setLastSentTime] = useLocalStorage<number>('last_support_ticket_sent', 0);
     const [now, setNow] = useState(Date.now());
 
@@ -77,6 +79,10 @@ export function SupportModal() {
     }, []);
 
     const handleSubmitTicket = async () => {
+        if (!currentUser?.uuid || !currentAuthentication?.current_jwt) {
+            toast.error(t('common.error', 'Error'));
+            return;
+        }
         if (remainingTime > 0) {
             toast.error(t('support.cooldown_active', 'Please wait before sending another ticket.'));
             return;
@@ -92,12 +98,18 @@ export function SupportModal() {
             const { error } = await supabase.rpc('support_ticket', {
                 subject: subject.trim(),
                 body: body.trim(),
-                user_uuid: String(currentUser?.uuid)
-            });
+                user_uuid: currentUser.uuid
+            },
+            {
+                headers: { Authorization: `Bearer ${currentAuthentication.current_jwt}` }
+            }
+        );
 
             if (error) throw error;
 
-            setLastSentTime(Date.now());
+            const sentAt = Date.now();
+            setLastSentTime(sentAt);
+            setNow(sentAt);
             toast.success(t('support.ticket_sent', 'Support ticket sent successfully!'));
             setSubject('');
             setBody('');
