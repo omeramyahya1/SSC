@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
     DialogContent,
     DialogHeader,
@@ -10,12 +10,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, MessageCircle, ExternalLink, Copy, Check, ArrowLeft, Send } from "lucide-react";
+import { Mail, MessageCircle, ExternalLink, Copy, Check, ArrowLeft, Send, Clock } from "lucide-react";
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from "framer-motion";
 import {toast} from 'react-hot-toast';
 import { useUserStore } from '@/store/useUserStore';
+import useLocalStorage from '@/hooks/useLocalStorage';
 
 export function SupportModal() {
     const { t, i18n } = useTranslation();
@@ -25,11 +26,32 @@ export function SupportModal() {
     const [view, setView] = useState<'channels' | 'ticket'>('channels');
 
     const { currentUser } = useUserStore();
+    const [lastSentTime, setLastSentTime] = useLocalStorage<number>('last_support_ticket_sent', 0);
+    const [now, setNow] = useState(Date.now());
 
     // Ticket Form State
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+    const remainingTime = useMemo(() => {
+        const diff = lastSentTime + COOLDOWN_MS - now;
+        return diff > 0 ? diff : 0;
+    }, [lastSentTime, now]);
+
+    const formatRemainingTime = (ms: number) => {
+        const minutes = Math.floor(ms / 60000);
+        const seconds = Math.floor((ms % 60000) / 1000);
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    useEffect(() => {
+        if (remainingTime > 0) {
+            const timer = setInterval(() => setNow(Date.now()), 1000);
+            return () => clearInterval(timer);
+        }
+    }, [remainingTime]);
 
     const handleCopy = (e: React.MouseEvent, value: string, id: string) => {
         e.stopPropagation();
@@ -55,6 +77,11 @@ export function SupportModal() {
     }, []);
 
     const handleSubmitTicket = async () => {
+        if (remainingTime > 0) {
+            toast.error(t('support.cooldown_active', 'Please wait before sending another ticket.'));
+            return;
+        }
+
         if (!subject.trim() || !body.trim()) {
             toast.error(t('support.error_fields', 'Please fill in all fields'));
             return;
@@ -70,6 +97,7 @@ export function SupportModal() {
 
             if (error) throw error;
 
+            setLastSentTime(Date.now());
             toast.success(t('support.ticket_sent', 'Support ticket sent successfully!'));
             setSubject('');
             setBody('');
@@ -217,14 +245,21 @@ export function SupportModal() {
                                 <Button
                                     className="w-full h-12 text-white font-bold rounded-xl shadow-lg shadow-primary/20 mt-4 gap-2"
                                     onClick={handleSubmitTicket}
-                                    disabled={isSubmitting || !subject.trim() || !body.trim()}
+                                    disabled={isSubmitting || !subject.trim() || !body.trim() || remainingTime > 0}
                                 >
                                     {isSubmitting ? (
                                         <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : remainingTime > 0 ? (
+                                        <Clock className="w-4 h-4" />
                                     ) : (
                                         <Send className="w-4 h-4" />
                                     )}
-                                    {t('support.send_ticket', 'Send Support Ticket')}
+                                    {isSubmitting 
+                                        ? t('support.sending', 'Sending...') 
+                                        : remainingTime > 0 
+                                            ? `${t('support.wait', 'Wait')} ${formatRemainingTime(remainingTime)}`
+                                            : t('support.send_ticket', 'Send Support Ticket')
+                                    }
                                 </Button>
                             </motion.div>
                         )}
