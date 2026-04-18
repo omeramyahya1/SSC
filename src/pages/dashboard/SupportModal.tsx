@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Mail, MessageCircle, ExternalLink, Copy, Check, ArrowLeft, Send, Clock } from "lucide-react";
+import { Mail, MessageCircle, ExternalLink, Copy, Check, ArrowLeft, Send, Clock, ArrowRight } from "lucide-react";
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { supabase } from '@/lib/supabaseClient';
 import { motion, AnimatePresence } from "framer-motion";
@@ -129,7 +129,7 @@ export function SupportModal() {
 
     return (
         <DialogContent className="max-w-md p-0 overflow-hidden bg-white border-none rounded-3xl shadow-2xl" dir={i18n.dir()}>
-            <DialogHeader className="p-6 pb-2">
+            <DialogHeader className="p-6 pb-2" dir={i18n.dir()}>
                 <div className="flex items-center gap-2">
                     {view === 'ticket' && (
                         <Button
@@ -138,7 +138,7 @@ export function SupportModal() {
                             className="rounded-full h-8 w-8"
                             onClick={() => setView('channels')}
                         >
-                            <ArrowLeft className="w-4 h-4" />
+                            {i18n.dir() === 'ltr' ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
                         </Button>
                     )}
                     <DialogTitle className="text-2xl font-black">
@@ -254,9 +254,9 @@ export function SupportModal() {
                                     ) : (
                                         <Send className="w-4 h-4" />
                                     )}
-                                    {isSubmitting 
-                                        ? t('support.sending', 'Sending...') 
-                                        : remainingTime > 0 
+                                    {isSubmitting
+                                        ? t('support.sending', 'Sending...')
+                                        : remainingTime > 0
                                             ? `${t('support.wait', 'Wait')} ${formatRemainingTime(remainingTime)}`
                                             : t('support.send_ticket', 'Send Support Ticket')
                                     }
