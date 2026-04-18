@@ -1,11 +1,12 @@
 #![cfg_attr(
-  all(not(debug_assertions), target_os = "windows"),
-  windows_subsystem = "windows"
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
 )]
 
 use std::process::{Child, Command};
 use std::sync::Mutex;
-use tauri::{Manager, State, WindowEvent, AppHandle};
+use std::time::{Duration, Instant};
+use tauri::{AppHandle, Manager, State, WindowEvent};
 
 struct AppState {
     python_process: Mutex<Option<Child>>,
@@ -31,7 +32,6 @@ fn splash_screen(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-
 fn main() {
     /* -------- Start Python backend (dev only) -------- */
     #[cfg(debug_assertions)]
@@ -50,6 +50,7 @@ fn main() {
     let python_process_handle = None;
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![splash_screen])
         .manage(AppState {
             python_process: Mutex::new(python_process_handle),
@@ -61,29 +62,41 @@ fn main() {
                     api.prevent_close();
 
                     // Clone AppHandle (owned, 'static)
-                let app = window.app_handle().clone();
+                    let app = window.app_handle().clone();
 
-                std::thread::spawn(move || {
-                    // Get State INSIDE the thread
-                    let state: State<AppState> = app.state();
+                    std::thread::spawn(move || {
+                        // Get State INSIDE the thread
+                        let state: State<AppState> = app.state();
 
-                    if let Some(mut child) = state.python_process.lock().unwrap().take() {
-                        let client = reqwest::blocking::Client::new();
+                        if let Some(mut child) = state.python_process.lock().unwrap().take() {
+                            let client = reqwest::blocking::Client::builder()
+                                .timeout(Duration::from_secs(2))
+                                .build();
 
-                        // Best-effort graceful shutdown
-                        let _ = client.post("http://localhost:5000/shutdown").send();
+                            // Best-effort graceful shutdown
+                            if let Ok(client) = client {
+                                let _ = client.post("http://localhost:5000/shutdown").send();
+                            }
 
-                        // Wait for Python to exit
-                        let _ = child.wait();
-                    }
+                            // Wait briefly for Python to exit, then force cleanup.
+                            let deadline = Instant::now() + Duration::from_secs(5);
+                            loop {
+                                if matches!(child.try_wait(), Ok(Some(_))) {
+                                    break;
+                                }
+                                if Instant::now() >= deadline {
+                                    let _ = child.kill();
+                                    let _ = child.wait();
+                                    break;
+                                }
+                                std::thread::sleep(Duration::from_millis(100));
+                            }
+                        }
 
-                    // Exit Tauri cleanly
-                    app.exit(0);
-                });
+                        // Exit Tauri cleanly
+                        app.exit(0);
+                    });
                 }
-                
-
-                
             }
         })
         .run(tauri::generate_context!())
