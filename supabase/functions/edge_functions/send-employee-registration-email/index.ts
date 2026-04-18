@@ -72,7 +72,7 @@ const templates = {
 
 serve(async (req) => {
   const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
-  const SENDER_EMAIL = "omeramyahya001@gmail.com";
+  const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
