@@ -3,14 +3,10 @@ CREATE OR REPLACE FUNCTION public.support_ticket(subject text, body text, user_u
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = ''
 AS $$
 DECLARE
   v_user_record record;
 BEGIN
-  IF public.jwt_user_id() IS NULL OR public.jwt_user_id() <> user_uuid THEN
-    RAISE EXCEPTION 'Not authorized';
-  END IF;
 
   IF nullif(btrim(subject), '') IS NULL OR nullif(btrim(body), '') IS NULL THEN
     RAISE EXCEPTION 'Subject and body are required';
