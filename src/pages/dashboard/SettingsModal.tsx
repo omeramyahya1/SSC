@@ -128,28 +128,26 @@ export function SettingsModal() {
         <DialogContent className="w-[85vw] max-w-4xl h-[85vh] p-0 overflow-hidden bg-white border-none rounded-3xl shadow-2xl flex flex-col" dir={i18n.dir()}>
             <DialogHeader className="p-8 pb-4 bg-gray-50/50">
                 <DialogTitle className="text-3xl font-black">{t('dashboard.settings', 'Settings')}</DialogTitle>
-                <DialogDescription className="font-medium text-neutral/60">
-                    {t('settings.description', 'Manage your account preferences and application defaults.')}
-                </DialogDescription>
             </DialogHeader>
 
             <Tabs defaultValue="profile" className="flex flex-1 overflow-hidden" orientation="vertical">
                 <TabsList className="flex flex-col w-64 bg-gray-50/50 p-4 gap-2 h-full border-e border-gray-100 justify-start rounded-none">
-                    <TabsTrigger value="profile" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all font-bold">
+                    <TabsTrigger value="profile" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all font-bold">
                         <User className="w-4 h-4" /> {t('settings.profile', 'Profile')}
                     </TabsTrigger>
-                    <TabsTrigger value="technical" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all font-bold">
+                    <TabsTrigger value="technical" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all font-bold">
                         <Cog className="w-4 h-4" /> {t('settings.technical', 'Technical')}
                     </TabsTrigger>
-                    <TabsTrigger value="security" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all font-bold">
+                    <TabsTrigger value="security" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all font-bold">
                         <Shield className="w-4 h-4" /> {t('settings.security', 'Security')}
                     </TabsTrigger>
-                    <TabsTrigger value="system" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all font-bold">
+                    <TabsTrigger value="system" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all font-bold">
                         <Database className="w-4 h-4" /> {t('settings.system', 'System')}
                     </TabsTrigger>
-                    <div className="mt-auto pt-4">
-                        <Button onClick={handleLogout} variant="ghost" className="w-full justify-start gap-3 px-4 py-3 rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50 font-bold transition-colors">
-                            <LogOut className="w-4 h-4" /> {t('dashboard.logout', 'Logout')}
+                    <div className="mt-auto pt-4 w-full">
+                        <Button onClick={handleLogout} className="w-full justify-start px-4 py-3 rounded-lg bg-red-100 text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2 transition-colors">
+                            <LogOut className="w-4 h-4" />
+                            <span>{t('dashboard.logout', 'Logout')}</span>
                         </Button>
                     </div>
                 </TabsList>
@@ -167,7 +165,7 @@ export function SettingsModal() {
                                                 {currentUser?.username?.charAt(0).toUpperCase()}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <button className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button className="absolute bottom-0 end-0 bg-primary text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Upload className="w-4 h-4" />
                                         </button>
                                     </div>
