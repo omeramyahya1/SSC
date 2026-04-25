@@ -44,6 +44,8 @@ export interface UserStore {
   currentUserSnapshot: { user_id: number; uuid: string } | null;
   isLoading: boolean;
   error: string | null;
+  checkEmailUniqueness: (email: string) => Promise<boolean>;
+  changeCurrentUserEmail: (email: string) => Promise<User | undefined>;
   fetchUsers: () => Promise<void>;
   fetchEmployees: (orgUuid: string) => Promise<void>;
   fetchUser: (id: string) => Promise<void>;
@@ -54,7 +56,7 @@ export interface UserStore {
   setCurrentUser: (user: User | null) => void;
 }
 
-export const useUserStore = create<UserStore>()(persist((set) => ({
+export const useUserStore = create<UserStore>()(persist((set, get) => ({
   users: [],
   currentUser: null,
   currentUserSnapshot: null,
@@ -66,6 +68,34 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
       currentUser: user,
       currentUserSnapshot: user ? { user_id: user.user_id, uuid: user.uuid } : null
     });
+  },
+
+  checkEmailUniqueness: async (email) => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return false;
+    const response = await api.post<{ isUnique: boolean }>(`${resource}/check-email-uniqueness`, { email: normalized });
+    return Boolean(response.data?.isUnique);
+  },
+
+  changeCurrentUserEmail: async (email) => {
+    const current = get().currentUser;
+    if (!current) return undefined;
+
+    set({ isLoading: true, error: null });
+    try {
+      const isUnique = await get().checkEmailUniqueness(email);
+      if (!isUnique) {
+        throw new Error("Email already exists");
+      }
+
+      const updated = await get().updateUser(current.user_id, { email: email.trim().toLowerCase() });
+      set({ isLoading: false });
+      return updated;
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.error || e.message || "Failed to change email";
+      set({ error: errorMsg, isLoading: false });
+      throw new Error(errorMsg);
+    }
   },
 
   fetchUsers: async () => {

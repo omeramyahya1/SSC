@@ -323,6 +323,58 @@ def logout_user():
 
         return jsonify({"message": "Logout successful"}), 200
 
+
+@authentication_bp.route('/change-password', methods=['POST'])
+def change_password():
+    data = request.get_json() or {}
+    current_password = data.get('current_password') or data.get('currentPassword')
+    new_password = data.get('new_password') or data.get('newPassword')
+
+    if not current_password or not new_password:
+        return jsonify({"error": "current_password and new_password are required"}), 400
+
+    with get_db() as db:
+        active_auth = (
+            db.query(Authentication)
+            .filter(Authentication.is_logged_in.is_(True))
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not active_auth:
+            return jsonify({"error": "No active session found"}), 401
+
+        user = db.query(User).filter(User.uuid == active_auth.user_uuid).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        latest_auth = (
+            db.query(Authentication)
+            .filter(Authentication.user_uuid == user.uuid)
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not latest_auth:
+            return jsonify({"error": "Authentication record not found"}), 404
+
+        if not verify_password(current_password, latest_auth.password_salt, latest_auth.password_hash):
+            return jsonify({"error": "Current password is incorrect"}), 400
+
+        salt = generate_salt()
+        pw_hash = hash_password(new_password, salt)
+
+        # Keep all local auth rows consistent (login code may copy from the latest row).
+        db.query(Authentication).filter(Authentication.user_uuid == user.uuid).update(
+            {
+                Authentication.password_hash: pw_hash,
+                Authentication.password_salt: salt,
+                Authentication.is_dirty: True,
+            },
+            synchronize_session=False,
+        )
+        db.commit()
+
+        return jsonify({"message": "Password updated successfully"}), 200
+
 @authentication_bp.route('/<string:item_id>', methods=['PUT'])
 def update_authentication(item_id):
     with get_db() as db:

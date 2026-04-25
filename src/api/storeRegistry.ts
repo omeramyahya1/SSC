@@ -3,6 +3,7 @@ export const StoreKeys = {
   Authentication: "AuthenticationStore",
   Customer: "CustomerStore",
   Project: "ProjectStore",
+  SystemInfo: "SystemInfoStore",
   SystemConfiguration: "SystemConfigurationStore",
   Appliance: "ApplianceStore",
   Inventory: "InventoryStore",

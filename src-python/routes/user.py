@@ -539,6 +539,7 @@ def update_user(user_id_or_uuid):
             for key, value in update_data.items():
                 setattr(item, key, value)
 
+            item.is_dirty = True
             db.commit()
             db.refresh(item)
             return(jsonify(model_to_dict(item)))
