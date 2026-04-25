@@ -1,22 +1,17 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, verify_password
-from models import Authentication, User, Subscription # Import User model
+from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, verify_password, require_internet, get_server_time_or_none, is_jwt_expired_offline
+from models import Authentication, User, Subscription, SyncLog
 from schemas import AuthenticationCreate, AuthenticationUpdate
-from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication # Import new schemas
+from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication
 from serializer import model_to_dict
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
-from routes.sync_log import sync
+from routes.sync_log import sync, trigger_immediate_sync
 from sqlalchemy import func
+from supabase_client import get_service_role_client
 
 authentication_bp = Blueprint('authentication_bp', __name__, url_prefix='/authentications')
-
-from supabase_client import get_service_role_client
-from utils import get_server_time_or_none, is_jwt_expired_offline # Import new helpers
-import uuid
-from routes.sync_log import sync
-from datetime import timezone
 
 def is_valid_uuid(val):
     try:
@@ -326,6 +321,10 @@ def logout_user():
 
 @authentication_bp.route('/change-password', methods=['POST'])
 def change_password():
+    err, code = require_internet()
+    if err:
+        return err, code
+
     data = request.get_json() or {}
     current_password = data.get('current_password') or data.get('currentPassword')
     new_password = data.get('new_password') or data.get('newPassword')
@@ -372,6 +371,8 @@ def change_password():
             synchronize_session=False,
         )
         db.commit()
+
+        trigger_immediate_sync(db, user.uuid, 'authentications')
 
         return jsonify({"message": "Password updated successfully"}), 200
 

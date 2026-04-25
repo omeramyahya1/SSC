@@ -22,10 +22,11 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useSystemInfoStore } from "@/store/useSystemInfoStore";
-import { User, Shield, Database, LogOut, Trash2, Save, Upload, Pencil, X, Mail, KeyRound } from "lucide-react";
+import { User, Shield, Database, LogOut, Trash2, Save, Upload, Pencil, X, Mail, KeyRound, AlertCircle, Globe } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function SettingsModal() {
     const { t, i18n } = useTranslation();
@@ -91,6 +92,10 @@ export function SettingsModal() {
 
     const handleSavePersonalProfile = async () => {
         if (!currentUser) return;
+        if (!navigator.onLine) {
+            toast.error(t('settings.internet_required_save', 'Internet connection required to save changes'));
+            return;
+        }
         setIsSavingPersonal(true);
         try {
             await updateUser(currentUser.user_id, {
@@ -117,6 +122,10 @@ export function SettingsModal() {
 
     const handleSaveOrganizationProfile = async () => {
         if (!currentUser) return;
+        if (!navigator.onLine) {
+            toast.error(t('settings.internet_required_save', 'Internet connection required to save changes'));
+            return;
+        }
         setIsSavingOrganization(true);
         try {
             await updateUser(currentUser.user_id, {
@@ -152,6 +161,10 @@ export function SettingsModal() {
     };
 
     const handlePasswordChange = async () => {
+        if (!navigator.onLine) {
+            toast.error(t('settings.internet_required_change', 'Internet connection required to change sensitive settings'));
+            return;
+        }
         if (newPassword !== confirmPassword) {
             toast.error(t('auth.passwords_mismatch', 'Passwords do not match'));
             return;
@@ -266,6 +279,12 @@ export function SettingsModal() {
                 <div className="flex-1 overflow-hidden">
                     <ScrollArea className="h-full">
                         <div className="p-8 space-y-8">
+                            <Alert className="bg-primary/5 border-primary/20 rounded-2xl">
+                                <Globe className="h-4 w-4 text-primary" />
+                                <AlertDescription className="text-primary font-bold text-xs uppercase tracking-wide">
+                                    {t('settings.sync_requirement', 'Active internet connection required to synchronize settings with your cloud account')}
+                                </AlertDescription>
+                            </Alert>
 
                             <TabsContent value="profile" className="m-0 space-y-6">
                                 <div className="flex items-center gap-6 pb-4">
@@ -323,7 +342,13 @@ export function SettingsModal() {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                onClick={() => setIsEditingPersonal(true)}
+                                                                onClick={() => {
+                                                                    if (!navigator.onLine) {
+                                                                        toast.error(t('settings.internet_required_edit', 'Internet connection required to edit settings'));
+                                                                        return;
+                                                                    }
+                                                                    setIsEditingPersonal(true);
+                                                                }}
                                                                 className="h-7 w-7"
                                                             >
                                                                 <Pencil className="h-4 w-4" />
@@ -416,7 +441,13 @@ export function SettingsModal() {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                onClick={() => setIsEditingOrganization(true)}
+                                                                onClick={() => {
+                                                                    if (!navigator.onLine) {
+                                                                        toast.error(t('settings.internet_required_edit', 'Internet connection required to edit settings'));
+                                                                        return;
+                                                                    }
+                                                                    setIsEditingOrganization(true);
+                                                                }}
                                                                 className="h-7 w-7"
                                                             >
                                                                 <Pencil className="h-4 w-4" />

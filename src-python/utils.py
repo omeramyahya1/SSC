@@ -108,6 +108,15 @@ def get_server_time_or_none():
         print(f"Connectivity check failed: Could not connect to Supabase. Error: {e}")
         return None
 
+def require_internet():
+    """
+    Connectivity check helper.
+    Returns (None, None) if online, or (jsonify_error, status_code) if offline.
+    """
+    if get_server_time_or_none() is None:
+        return jsonify({"error": "Active internet connection required for this action"}), 503
+    return None, None
+
 def is_jwt_expired_offline(jwt_issued_at):
     """
     Checks if a JWT is expired based on its issue date using client's local UTC time.

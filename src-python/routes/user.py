@@ -1,11 +1,11 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password
-from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch
+from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password, require_internet
+from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch, SyncLog
 from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
 from serializer import model_to_dict
-from routes.sync_log import sync, upload_blob
+from routes.sync_log import sync, upload_blob, trigger_immediate_sync
 import base64
 import uuid
 from datetime import datetime, timedelta
@@ -525,6 +525,10 @@ def create_employee():
 
 @user_bp.route('/<string:user_id_or_uuid>', methods=['PUT'])
 def update_user(user_id_or_uuid):
+    err, code = require_internet()
+    if err:
+        return err, code
+
     with get_db() as db:
             item = get_by_id_or_uuid(db, User, User.user_id, User.uuid, user_id_or_uuid)
             if not item:
@@ -542,10 +546,17 @@ def update_user(user_id_or_uuid):
             item.is_dirty = True
             db.commit()
             db.refresh(item)
+            
+            trigger_immediate_sync(db, item.uuid, 'users')
+            
             return(jsonify(model_to_dict(item)))
 
 @user_bp.route('/<string:user_id_or_uuid>', methods=['DELETE'])
 def delete_user(user_id_or_uuid):
+    err, code = require_internet()
+    if err:
+        return err, code
+
     with get_db() as db:
         user = get_by_id_or_uuid(db, User, User.user_id, User.uuid, user_id_or_uuid)
         if not user:
@@ -577,4 +588,7 @@ def delete_user(user_id_or_uuid):
         # But per requirements: "all realted tables: projects, invoices, inventory items, etc."
 
         db.commit()
+        
+        trigger_immediate_sync(db, user.uuid, 'users')
+        
         return jsonify({"message": "User deactivated successfully"}), 200

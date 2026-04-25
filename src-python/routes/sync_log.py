@@ -200,7 +200,8 @@ SYNC_CONFIG = [
     {"model": models.Payment, "table_name": "payments", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.SubscriptionPayment, "table_name": "subscription_payments", "mapper": _map_subscription_payment_to_payload, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Document, "table_name": "documents", "mapper": _map_document_to_payload, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.ApplicationSettings, "table_name": "application_settings", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local}
+    {"model": models.ApplicationSettings, "table_name": "application_settings", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.SyncLog, "table_name": "sync_logs", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local}
 ]
 
 # --- CORE SYNC LOGIC ---
@@ -340,6 +341,20 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
         print("Final sync log pushed successfully.")
     except Exception as e:
         print(f"Warning: Failed to push final sync log to remote: {str(e)}")
+
+def trigger_immediate_sync(db, user_uuid, table_name):
+    """Creates a local sync log and triggers the sync process."""
+    new_log = models.SyncLog(
+        sync_type='incremental',
+        table_name=table_name,
+        status='success',
+        user_uuid=user_uuid,
+        is_dirty=True
+    )
+    db.add(new_log)
+    db.commit()
+    sync()
+
 @sync_log_bp.route('/sync', methods=['POST'])
 def sync():
     start_time = datetime.now(timezone.utc)

@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, get_by_id_or_uuid
+from utils import get_db, get_by_id_or_uuid, require_internet
 from models import ApplicationSettings, Authentication
 from schemas import ApplicationSettingsCreate, ApplicationSettingsUpdate
 from serializer import model_to_dict
+from routes.sync_log import sync, trigger_immediate_sync
 
 application_settings_bp = Blueprint('application_settings_bp', __name__, url_prefix='/application_settings')
 
@@ -24,6 +25,10 @@ def get_appliance_library():
 
 @application_settings_bp.route('/', methods=['POST'])
 def create_application_settings():
+    err, code = require_internet()
+    if err:
+        return err, code
+
     try:
         # Validate request data using the Pydantic schema
         validated_data = ApplicationSettingsCreate(**request.json)
@@ -37,10 +42,17 @@ def create_application_settings():
         db.add(new_item)
         db.commit()
         db.refresh(new_item)
+        
+        trigger_immediate_sync(db, new_item.user_uuid, 'application_settings')
+        
         return jsonify(model_to_dict(new_item)), 201
 
 @application_settings_bp.route('/<string:item_id>', methods=['PUT'])
 def update_application_settings(item_id):
+    err, code = require_internet()
+    if err:
+        return err, code
+
     with get_db() as db:
         item = get_by_id_or_uuid(
             db,
@@ -63,8 +75,12 @@ def update_application_settings(item_id):
         for key, value in update_data.items():
             setattr(item, key, value)
 
+        item.is_dirty = True
         db.commit()
         db.refresh(item)
+        
+        trigger_immediate_sync(db, item.user_uuid, 'application_settings')
+        
         return jsonify(model_to_dict(item))
 
 @application_settings_bp.route('/', methods=['GET'])
