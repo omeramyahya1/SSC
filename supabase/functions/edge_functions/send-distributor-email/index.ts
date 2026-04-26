@@ -265,9 +265,6 @@ serve(async (_req) => {
           sent_at: new Date().toISOString(),
         }).in("id", otherJobIds);
       }
-      processedJobIds.push(...deactivationJobs.map((j: any) => j.id));
-      processedJobIds.push(...otherDistributorJobs.map((j: any) => j.id));
-
     } catch (e: any) {
       console.error(`Failed batch for distributor ${distId}:`, e);
 
@@ -290,3 +287,4 @@ serve(async (_req) => {
       headers: { "Content-Type": "application/json" },
     },
   );
+});

@@ -315,6 +315,19 @@ serve(async (req) => {
   const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
   const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
 
+  if (!BREVO_API_KEY) {
+    return new Response(JSON.stringify({ error: "Missing BREVO_API_KEY" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (!SENDER_EMAIL) {
+    return new Response(JSON.stringify({ error: "Missing SENDER_EMAIL" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -329,8 +342,14 @@ serve(async (req) => {
     .eq("recipient_role", "user");
 
   if (fetchError) {
-    return new Response(JSON.stringify({ error: fetchError.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: fetchError.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
+
+  let sentCount = 0;
+  let failedCount = 0;
 
   for (const job of jobs ?? []) {
     try {
@@ -378,7 +397,7 @@ serve(async (req) => {
         method: "POST",
         headers: {
           "accept": "application/json",
-          "api-key": BREVO_API_KEY || "",
+          "api-key": BREVO_API_KEY,
           "content-type": "application/json",
         },
         body: JSON.stringify(emailData),
@@ -389,11 +408,20 @@ serve(async (req) => {
         throw new Error(`Brevo API Error: ${errText}`);
       }
 
+      // Helpful for debugging deliverability in Supabase logs (Brevo returns JSON with messageId).
+      try {
+        const okText = await response.text();
+        if (okText) console.log(`Brevo send response for job ${job.id}:`, okText);
+      } catch {
+        // ignore
+      }
+
       // Update Job Status: Sent
       await supabase.from("notification_jobs").update({
         status: "sent",
         sent_at: new Date().toISOString(),
       }).eq("id", job.id);
+      sentCount += 1;
 
     } catch (e: any) {
       console.error(`Failed job ${job.id}:`, e);
@@ -402,10 +430,17 @@ serve(async (req) => {
         status: "failed",
         error: e.message || String(e),
       }).eq("id", job.id);
+      failedCount += 1;
     }
   }
 
-  return new Response("OK", {
+  // Supabase dashboard "Test" expects JSON, so always respond with valid JSON.
+  return new Response(JSON.stringify({
+    success: true,
+    total: (jobs ?? []).length,
+    sent: sentCount,
+    failed: failedCount,
+  }), {
     status: 200,
     headers: { "Content-Type": "application/json" }
   });

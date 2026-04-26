@@ -58,6 +58,16 @@ const escapeHtml = (value: unknown) =>
     "'": "&#39;",
   }[char]!));
 
+  serve(async (_req) => {
+  const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
+  const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
+  const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL");
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
 const templates: Templates = {
   account_deactivated_superadmin: {
     en: {
@@ -164,7 +174,7 @@ const templates: Templates = {
     let reportContent = "";
     // Note: totalJobs will now represent only the jobs going into the summary report.
     // Individual jobs (like deactivatedJobs) are processed separately.
-    let totalJobs = otherJobs.length; // Will adjust later in the summary sending logic
+    let totalJobs = allJobs.length; // Will adjust later in the summary sending logic
 
     // Process Super Admin Deactivation Jobs Individually
     for (const job of deactivatedJobs) {
