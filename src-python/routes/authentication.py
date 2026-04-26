@@ -373,20 +373,36 @@ def change_password():
         
         # --- Supabase Direct Sync ---
         try:
-            # We need to sync all affected auth rows. 
-            # Usually, there's only one or a few per user.
+            # Local DB keeps auth history rows, but the cloud table enforces a unique
+            # constraint on (user_id, device_id). So for password changes, update the
+            # cloud rows in-place instead of trying to upsert every local history row.
             affected_auths = db.query(Authentication).filter(Authentication.user_uuid == user.uuid).all()
-            payloads = []
-            for auth in affected_auths:
-                # Update attributes in memory for mapping
-                auth.password_hash = pw_hash
-                auth.password_salt = salt
-                p = generic_mapper(auth)
-                p['is_dirty'] = False
-                payloads.append(p)
-            
-            supabase = get_service_role_client() # Use service client as it handles sensitive data
-            supabase.table('authentications').upsert(payloads).execute()
+
+            supabase = get_service_role_client()  # service client handles sensitive data
+            update_res = (
+                supabase.table('authentications')
+                .update({"password_hash": pw_hash, "password_salt": salt, "is_dirty": False})
+                .eq("user_id", user.uuid)
+                .execute()
+            )
+
+            # If no cloud rows exist yet (rare), upsert one row per distinct device.
+            if not getattr(update_res, "data", None):
+                device_ids = {a.device_id for a in affected_auths if a.device_id}
+                payloads = [
+                    {
+                        "user_id": user.uuid,
+                        "device_id": device_id,
+                        "password_hash": pw_hash,
+                        "password_salt": salt,
+                        "is_dirty": False,
+                    }
+                    for device_id in device_ids
+                ]
+                if payloads:
+                    supabase.table('authentications').upsert(
+                        payloads, on_conflict="user_id,device_id"
+                    ).execute()
             
             # If successful, mark local as clean and commit
             for auth in affected_auths:
