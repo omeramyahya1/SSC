@@ -924,7 +924,33 @@ def delete_user(user_id_or_uuid):
                     synchronize_session=False,
                 )
 
-            db.commit()
+            db.commit() # Commit local changes first
+
+            # Collect user and organization details for the RPC call
+            organization_name_if_exists = None
+            if user.organization_uuid:
+                org = db.query(Organization).filter(Organization.uuid == user.organization_uuid).first()
+                if org:
+                    organization_name_if_exists = org.name
+
+            # Call the Supabase RPC for notifications
+            supabase_service_client = get_service_role_client() # Use service client for RPC
+            try:
+                supabase_service_client.rpc('deactivate_account', {
+                    'p_user_id': user.uuid,
+                    'p_actor_user_id': actor_user.uuid,
+                    'p_user_email': user.email,
+                    'p_username': user.username,
+                    'p_account_type': user.account_type,
+                    'p_role': user.role,
+                    'p_organization_id': user.organization_uuid,
+                    'p_organization_name': organization_name_if_exists,
+                    'p_distributor_id': user.distributor_id
+                }).execute()
+            except Exception as e:
+                print(f"Warning: Failed to create deactivation notification job in Supabase: {e}")
+                # Log error but do not prevent user deactivation from completing.
+
             return jsonify({"message": "User deactivated successfully"}), 200
         except Exception as e:
             db.rollback()
