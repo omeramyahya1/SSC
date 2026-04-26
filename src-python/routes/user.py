@@ -9,7 +9,7 @@ from routes.sync_log import sync, upload_blob, trigger_immediate_sync, map_user_
 import base64
 import uuid
 from datetime import datetime, timedelta
-from supabase_client import get_anon_client, get_service_role_client
+from supabase_client import get_anon_client, get_service_role_client, get_user_client
 
 user_bp = Blueprint('user_bp', __name__, url_prefix='/users')
 
@@ -547,10 +547,10 @@ def update_user(user_id_or_uuid):
             try:
                 payload = map_user_to_payload(item)
                 payload['is_dirty'] = False
-                
+
                 supabase = get_user_client()
                 supabase.table('users').upsert(payload).execute()
-                
+
                 item.is_dirty = False
                 db.commit()
                 db.refresh(item)
@@ -573,7 +573,7 @@ def delete_user(user_id_or_uuid):
 
         now = datetime.utcnow()
         user.deleted_at = now
-        
+
         # Soft delete related auths
         affected_auths = db.query(Authentication).filter(Authentication.user_uuid == user.uuid).all()
         for auth in affected_auths:
@@ -587,19 +587,19 @@ def delete_user(user_id_or_uuid):
             # Sync user
             user_payload = map_user_to_payload(user)
             user_payload['is_dirty'] = False
-            
+
             # Sync auths
             auth_payloads = []
             for auth in affected_auths:
                 p = generic_mapper(auth)
                 p['is_dirty'] = False
                 auth_payloads.append(p)
-            
+
             supabase = get_user_client()
             supabase.table('users').upsert(user_payload).execute()
             if auth_payloads:
                 supabase.table('authentications').upsert(auth_payloads).execute()
-            
+
             from models import Customer, Project, Invoice, Payment, Document, ProjectComponent, StockAdjustment, InventoryItem
             db.query(Customer).filter(Customer.user_uuid == user.uuid).update({Customer.deleted_at: now, Customer.is_dirty: True}, synchronize_session=False)
             db.query(Project).filter(Project.user_uuid == user.uuid).update({Project.deleted_at: now, Project.is_dirty: True}, synchronize_session=False)
