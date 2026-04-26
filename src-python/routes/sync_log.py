@@ -84,7 +84,7 @@ def upload_blob(blob_data: bytes, bucket_name: str, destination_path: str, use_s
 def _to_iso(dt):
     return dt.isoformat() if dt else None
 
-def _map_common_fields(record):
+def map_common_fields(record):
     return {
         "id": record.uuid,
         "created_at": _to_iso(record.created_at),
@@ -93,36 +93,36 @@ def _map_common_fields(record):
         "is_dirty": False,
     }
 
-def _map_user_to_payload(record: models.User):
-    payload = {**_map_common_fields(record), "username": record.username, "email": record.email, "business_name": record.business_name, "account_type": record.account_type, "location": record.location, "business_email": record.business_email, "status": record.status, "organization_id": record.organization_uuid, "branch_id": record.branch_uuid, "role": record.role, "distributor_id": record.distributor_id}
+def map_user_to_payload(record: models.User):
+    payload = {**map_common_fields(record), "username": record.username, "email": record.email, "business_name": record.business_name, "account_type": record.account_type, "location": record.location, "business_email": record.business_email, "status": record.status, "organization_id": record.organization_uuid, "branch_id": record.branch_uuid, "role": record.role, "distributor_id": record.distributor_id}
     if record.business_logo:
         path = f"user_logos/{record.uuid}.png"
         payload["business_logo"] = upload_blob(record.business_logo, "SSC", path)
     return payload
 
-def _map_customer_to_payload(record: models.Customer):
-    return {**_map_common_fields(record), "user_id": record.user_uuid, "full_name": record.full_name, "phone_number": record.phone_number, "email": record.email, "organization_id": record.organization_uuid, "branch_id": record.branch_uuid}
+def map_customer_to_payload(record: models.Customer):
+    return {**map_common_fields(record), "user_id": record.user_uuid, "full_name": record.full_name, "phone_number": record.phone_number, "email": record.email, "organization_id": record.organization_uuid, "branch_id": record.branch_uuid}
 
-def _map_project_to_payload(record: models.Project):
-    return {**_map_common_fields(record), "user_id": record.user_uuid, "customer_id": record.customer_uuid, "system_config_id": record.system_config_uuid, "status": record.status, "project_location": record.project_location, "organization_id": record.organization_uuid, "branch_id": record.branch_uuid}
+def map_project_to_payload(record: models.Project):
+    return {**map_common_fields(record), "user_id": record.user_uuid, "customer_id": record.customer_uuid, "system_config_id": record.system_config_uuid, "status": record.status, "project_location": record.project_location, "organization_id": record.organization_uuid, "branch_id": record.branch_uuid}
 
-def _map_document_to_payload(record: models.Document):
-    payload = {**_map_common_fields(record), "project_id": record.project_uuid, "doc_type": record.doc_type, "file_name": record.file_name}
+def map_document_to_payload(record: models.Document):
+    payload = {**map_common_fields(record), "project_id": record.project_uuid, "doc_type": record.doc_type, "file_name": record.file_name}
     if record.file_blob:
         folder = "documents/invoices" if record.doc_type == "Invoice" else "documents/project_breakdowns"
         path = f"{folder}/{record.uuid}_{record.file_name}"
         payload["file_path"] = upload_blob(record.file_blob, "SSC", path)
     return payload
 
-def _map_subscription_payment_to_payload(record: models.SubscriptionPayment):
-    payload = {**_map_common_fields(record), "subscription_id": record.subscription_uuid, "amount": float(record.amount), "payment_method": record.payment_method, "trx_no": record.trx_no, "status": record.status}
+def map_subscription_payment_to_payload(record: models.SubscriptionPayment):
+    payload = {**map_common_fields(record), "subscription_id": record.subscription_uuid, "amount": float(record.amount), "payment_method": record.payment_method, "trx_no": record.trx_no, "status": record.status}
     if record.trx_screenshot:
         path = f"payment_screenshots/{record.uuid}.png"
         payload["trx_screenshot"] = upload_blob(record.trx_screenshot, "SSC", path)
     return payload
 
-def _generic_mapper(record):
-    payload = _map_common_fields(record)
+def generic_mapper(record):
+    payload = map_common_fields(record)
     local_columns = [c.name for c in record.__table__.columns]
     model_pk_cols = [c.name for c in record.__table__.primary_key.columns]
     for col in local_columns:
@@ -183,25 +183,25 @@ def _map_cloud_to_local(payload: dict, model_class) -> dict:
 # --- SYNC CONFIGURATION ---
 
 SYNC_CONFIG = [
-    {"model": models.Organization, "table_name": "organizations", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Branch, "table_name": "branches", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.User, "table_name": "users", "mapper": _map_user_to_payload, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Authentication, "table_name": "authentications", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Customer, "table_name": "customers", "mapper": _map_customer_to_payload, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Project, "table_name": "projects", "mapper": _map_project_to_payload, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.InventoryCategory, "table_name": "inventory_categories", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.InventoryItem, "table_name": "inventory_items", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.StockAdjustment, "table_name": "stock_adjustments", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.ProjectComponent, "table_name": "project_components", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Appliance, "table_name": "appliances", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Subscription, "table_name": "subscriptions", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Invoice, "table_name": "invoices", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Payment, "table_name": "payments", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.SubscriptionPayment, "table_name": "subscription_payments", "mapper": _map_subscription_payment_to_payload, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Document, "table_name": "documents", "mapper": _map_document_to_payload, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.ApplicationSettings, "table_name": "application_settings", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.SyncLog, "table_name": "sync_logs", "mapper": _generic_mapper, "reverse_mapper": _map_cloud_to_local}
+    {"model": models.Organization, "table_name": "organizations", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Branch, "table_name": "branches", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.User, "table_name": "users", "mapper": map_user_to_payload, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Authentication, "table_name": "authentications", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Customer, "table_name": "customers", "mapper": map_customer_to_payload, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Project, "table_name": "projects", "mapper": map_project_to_payload, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.InventoryCategory, "table_name": "inventory_categories", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.InventoryItem, "table_name": "inventory_items", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.StockAdjustment, "table_name": "stock_adjustments", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.ProjectComponent, "table_name": "project_components", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Appliance, "table_name": "appliances", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Subscription, "table_name": "subscriptions", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Invoice, "table_name": "invoices", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Payment, "table_name": "payments", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.SubscriptionPayment, "table_name": "subscription_payments", "mapper": map_subscription_payment_to_payload, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Document, "table_name": "documents", "mapper": map_document_to_payload, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.ApplicationSettings, "table_name": "application_settings", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.SyncLog, "table_name": "sync_logs", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local}
 ]
 
 # --- CORE SYNC LOGIC ---
@@ -337,7 +337,7 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
 
     print("Pushing final sync log to remote...")
     try:
-        sync_table(db, models.SyncLog, "sync_logs", _generic_mapper, dirty_only=True)
+        sync_table(db, models.SyncLog, "sync_logs", generic_mapper, dirty_only=True)
         print("Final sync log pushed successfully.")
     except Exception as e:
         print(f"Warning: Failed to push final sync log to remote: {str(e)}")

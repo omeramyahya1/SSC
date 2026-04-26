@@ -7,7 +7,7 @@ from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginRe
 from serializer import model_to_dict
 from datetime import datetime, timezone
 import uuid
-from routes.sync_log import sync, trigger_immediate_sync
+from routes.sync_log import sync, trigger_immediate_sync, generic_mapper
 from sqlalchemy import func
 from supabase_client import get_service_role_client
 
@@ -370,11 +370,34 @@ def change_password():
             },
             synchronize_session=False,
         )
-        db.commit()
-
-        trigger_immediate_sync(db, user.uuid, 'authentications')
-
-        return jsonify({"message": "Password updated successfully"}), 200
+        
+        # --- Supabase Direct Sync ---
+        try:
+            # We need to sync all affected auth rows. 
+            # Usually, there's only one or a few per user.
+            affected_auths = db.query(Authentication).filter(Authentication.user_uuid == user.uuid).all()
+            payloads = []
+            for auth in affected_auths:
+                # Update attributes in memory for mapping
+                auth.password_hash = pw_hash
+                auth.password_salt = salt
+                p = generic_mapper(auth)
+                p['is_dirty'] = False
+                payloads.append(p)
+            
+            supabase = get_service_role_client() # Use service client as it handles sensitive data
+            supabase.table('authentications').upsert(payloads).execute()
+            
+            # If successful, mark local as clean and commit
+            for auth in affected_auths:
+                auth.is_dirty = False
+            
+            db.commit()
+            return jsonify({"message": "Password updated successfully"}), 200
+        except Exception as e:
+            db.rollback()
+            print(f"Error syncing password to Supabase: {str(e)}")
+            return jsonify({"error": "Failed to sync password change to cloud."}), 500
 
 @authentication_bp.route('/<string:item_id>', methods=['PUT'])
 def update_authentication(item_id):

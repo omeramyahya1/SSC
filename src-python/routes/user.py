@@ -5,7 +5,7 @@ from models import User, Authentication, ApplicationSettings, Subscription, Subs
 from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
 from serializer import model_to_dict
-from routes.sync_log import sync, upload_blob, trigger_immediate_sync
+from routes.sync_log import sync, upload_blob, trigger_immediate_sync, map_user_to_payload, generic_mapper
 import base64
 import uuid
 from datetime import datetime, timedelta
@@ -543,13 +543,22 @@ def update_user(user_id_or_uuid):
             for key, value in update_data.items():
                 setattr(item, key, value)
 
-            item.is_dirty = True
-            db.commit()
-            db.refresh(item)
-            
-            trigger_immediate_sync(db, item.uuid, 'users')
-            
-            return(jsonify(model_to_dict(item)))
+            # --- Supabase Direct Sync ---
+            try:
+                payload = map_user_to_payload(item)
+                payload['is_dirty'] = False
+                
+                supabase = get_user_client()
+                supabase.table('users').upsert(payload).execute()
+                
+                item.is_dirty = False
+                db.commit()
+                db.refresh(item)
+                return(jsonify(model_to_dict(item)))
+            except Exception as e:
+                db.rollback()
+                print(f"Error syncing user to Supabase: {str(e)}")
+                return jsonify({"error": "Failed to sync changes to cloud."}), 500
 
 @user_bp.route('/<string:user_id_or_uuid>', methods=['DELETE'])
 def delete_user(user_id_or_uuid):
@@ -564,31 +573,44 @@ def delete_user(user_id_or_uuid):
 
         now = datetime.utcnow()
         user.deleted_at = now
-        user.is_dirty = True
-        db.query(Authentication).filter(Authentication.user_uuid == user.uuid).update(
-            {
-                Authentication.is_logged_in: False,
-                Authentication.current_jwt: None,
-                Authentication.jwt_issued_at: None,
-                Authentication.is_dirty: True,
-            },
-            synchronize_session=False,
-        )
-
-        # Cascading soft delete
-        # This is a simplified version. Ideally, we should iterate through all related tables.
-        # Customers, Projects, Invoices, etc.
-        from models import Customer, Project, Invoice, Payment, Document, ProjectComponent, StockAdjustment, InventoryItem
-
-        db.query(Customer).filter(Customer.user_uuid == user.uuid).update({Customer.deleted_at: now, Customer.is_dirty: True}, synchronize_session=False)
-        db.query(Project).filter(Project.user_uuid == user.uuid).update({Project.deleted_at: now, Project.is_dirty: True}, synchronize_session=False)
-        db.query(Invoice).filter(Invoice.user_uuid == user.uuid).update({Invoice.deleted_at: now, Invoice.is_dirty: True}, synchronize_session=False)
-        # Note: Payments and other nested items are usually linked to Invoices or Projects.
-        # For simplicity, we assume if the parent is deleted, they are effectively deleted.
-        # But per requirements: "all realted tables: projects, invoices, inventory items, etc."
-
-        db.commit()
         
-        trigger_immediate_sync(db, user.uuid, 'users')
-        
-        return jsonify({"message": "User deactivated successfully"}), 200
+        # Soft delete related auths
+        affected_auths = db.query(Authentication).filter(Authentication.user_uuid == user.uuid).all()
+        for auth in affected_auths:
+            auth.is_logged_in = False
+            auth.current_jwt = None
+            auth.jwt_issued_at = None
+            auth.is_dirty = True
+
+        # --- Supabase Direct Sync ---
+        try:
+            # Sync user
+            user_payload = map_user_to_payload(user)
+            user_payload['is_dirty'] = False
+            
+            # Sync auths
+            auth_payloads = []
+            for auth in affected_auths:
+                p = generic_mapper(auth)
+                p['is_dirty'] = False
+                auth_payloads.append(p)
+            
+            supabase = get_user_client()
+            supabase.table('users').upsert(user_payload).execute()
+            if auth_payloads:
+                supabase.table('authentications').upsert(auth_payloads).execute()
+            
+            from models import Customer, Project, Invoice, Payment, Document, ProjectComponent, StockAdjustment, InventoryItem
+            db.query(Customer).filter(Customer.user_uuid == user.uuid).update({Customer.deleted_at: now, Customer.is_dirty: True}, synchronize_session=False)
+            db.query(Project).filter(Project.user_uuid == user.uuid).update({Project.deleted_at: now, Project.is_dirty: True}, synchronize_session=False)
+            db.query(Invoice).filter(Invoice.user_uuid == user.uuid).update({Invoice.deleted_at: now, Invoice.is_dirty: True}, synchronize_session=False)
+
+            user.is_dirty = False
+            for auth in affected_auths:
+                auth.is_dirty = False
+            db.commit()
+            return jsonify({"message": "User deactivated successfully"}), 200
+        except Exception as e:
+            db.rollback()
+            print(f"Error syncing user deactivation to Supabase: {str(e)}")
+            return jsonify({"error": "Failed to sync deactivation to cloud."}), 500
