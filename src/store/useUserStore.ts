@@ -52,7 +52,7 @@ export interface UserStore {
   createUser: (data: NewUserData) => Promise<User | undefined>;
   createEmployee: (data: any) => Promise<User | undefined>;
   updateUser: (id: number | string, data: Partial<NewUserData>) => Promise<User | undefined>;
-  deleteUser: (id: number | string) => Promise<void>;
+  deleteUser: (id: number | string, password: string) => Promise<void>;
   setCurrentUser: (user: User | null) => void;
 }
 
@@ -194,18 +194,19 @@ export const useUserStore = create<UserStore>()(persist((set, get) => ({
     }
   },
 
-  deleteUser: async (id) => {
+  deleteUser: async (id, password) => {
     set({ isLoading: true, error: null });
     try {
-      await api.delete(`${resource}/${id}`);
+      await api.delete(`${resource}/${id}`, { data: { password } });
       set((state) => ({
         users: state.users.filter((u) => u.user_id !== id && u.uuid !== id),
         isLoading: false,
       }));
     } catch (e: any) {
-      const errorMsg = e.message || `Failed to delete user ${id}`;
+      const errorMsg = e.response?.data?.error || e.message || `Failed to delete user ${id}`;
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
+      throw new Error(errorMsg);
     }
   },
 }), {

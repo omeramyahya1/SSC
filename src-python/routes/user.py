@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password, require_internet
+from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password, require_internet, verify_password
 from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch, SyncLog
 from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
@@ -8,7 +8,7 @@ from serializer import model_to_dict
 from routes.sync_log import sync, upload_blob, trigger_immediate_sync, map_user_to_payload, generic_mapper
 import base64
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from supabase_client import get_anon_client, get_service_role_client, get_user_client
 
 user_bp = Blueprint('user_bp', __name__, url_prefix='/users')
@@ -566,48 +566,364 @@ def delete_user(user_id_or_uuid):
     if err:
         return err, code
 
+    data = request.get_json(silent=True) or {}
+    password = (
+        data.get('password')
+        or data.get('current_password')
+        or data.get('currentPassword')
+    )
+    if not password:
+        return jsonify({"error": "password is required"}), 400
+
     with get_db() as db:
+        active_auth = (
+            db.query(Authentication)
+            .filter(Authentication.is_logged_in.is_(True))
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not active_auth:
+            return jsonify({"error": "No active session found"}), 401
+
+        actor_user = db.query(User).filter(User.uuid == active_auth.user_uuid).first()
+        if not actor_user:
+            return jsonify({"error": "User not found"}), 404
+
         user = get_by_id_or_uuid(db, User, User.user_id, User.uuid, user_id_or_uuid)
         if not user:
             return jsonify({"error": "Not found"}), 404
 
-        now = datetime.utcnow()
-        user.deleted_at = now
+        if active_auth.user_uuid != user.uuid and actor_user.role != "admin":
+            return jsonify({"error": "Forbidden"}), 403
 
-        # Soft delete related auths
-        affected_auths = db.query(Authentication).filter(Authentication.user_uuid == user.uuid).all()
-        for auth in affected_auths:
-            auth.is_logged_in = False
-            auth.current_jwt = None
-            auth.jwt_issued_at = None
-            auth.is_dirty = True
+        latest_auth = (
+            db.query(Authentication)
+            .filter(Authentication.user_uuid == active_auth.user_uuid)
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not latest_auth or not verify_password(password, latest_auth.password_salt, latest_auth.password_hash):
+            return jsonify({"error": "Invalid password"}), 400
+
+        now = datetime.utcnow()
+        now_iso = now.replace(tzinfo=timezone.utc).isoformat()
+
+        # Collect IDs for tables that don't have user_id columns in Supabase
+        from models import (
+            Customer,
+            Project,
+            Invoice,
+            Payment,
+            Document,
+            ProjectComponent,
+            StockAdjustment,
+            InventoryItem,
+            InventoryCategory,
+            Appliance,
+            SystemConfiguration,
+        )
+
+        project_uuids = [row[0] for row in db.query(Project.uuid).filter(Project.user_uuid == user.uuid).all()]
+        invoice_uuids = [row[0] for row in db.query(Invoice.uuid).filter(Invoice.user_uuid == user.uuid).all()]
+        subscription_uuids = [row[0] for row in db.query(Subscription.uuid).filter(Subscription.user_uuid == user.uuid).all()]
+        system_config_uuids = [
+            row[0]
+            for row in db.query(Project.system_config_uuid)
+            .filter(Project.user_uuid == user.uuid, Project.system_config_uuid.isnot(None))
+            .distinct()
+            .all()
+        ]
+
+        org_uuid = user.organization_uuid if user.organization_uuid and user.role == "admin" else None
+        org_branch_uuids = []
+        org_employee_uuids = []
+        if org_uuid:
+            org_branch_uuids = [
+                row[0] for row in db.query(Branch.uuid).filter(Branch.organization_uuid == org_uuid).all()
+            ]
+            org_employee_uuids = [
+                row[0]
+                for row in db.query(User.uuid)
+                .filter(
+                    User.organization_uuid == org_uuid,
+                    User.role == "employee",
+                    User.uuid != user.uuid,
+                )
+                .all()
+            ]
+
+        # --- Local soft delete cascade (mark dirty for sync) ---
+        user.deleted_at = now
+        user.is_dirty = True
+
+        if org_uuid:
+            db.query(Organization).filter(Organization.uuid == org_uuid).update(
+                {Organization.deleted_at: now, Organization.is_dirty: True},
+                synchronize_session=False,
+            )
+            db.query(Branch).filter(Branch.organization_uuid == org_uuid).update(
+                {Branch.deleted_at: now, Branch.is_dirty: True},
+                synchronize_session=False,
+            )
+            db.query(User).filter(User.uuid.in_(org_employee_uuids)).update(
+                {User.deleted_at: now, User.is_dirty: True},
+                synchronize_session=False,
+            )
+
+            # Minimal employee cascade: disable their sessions + settings/sync logs
+            if org_employee_uuids:
+                db.query(Authentication).filter(Authentication.user_uuid.in_(org_employee_uuids)).update(
+                    {
+                        Authentication.deleted_at: now,
+                        Authentication.is_logged_in: False,
+                        Authentication.current_jwt: None,
+                        Authentication.jwt_issued_at: None,
+                        Authentication.is_dirty: True,
+                    },
+                    synchronize_session=False,
+                )
+                db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid.in_(org_employee_uuids)).update(
+                    {ApplicationSettings.deleted_at: now, ApplicationSettings.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(SyncLog).filter(SyncLog.user_uuid.in_(org_employee_uuids)).update(
+                    {SyncLog.deleted_at: now, SyncLog.is_dirty: True},
+                    synchronize_session=False,
+                )
+
+        db.query(Authentication).filter(Authentication.user_uuid == user.uuid).update(
+            {
+                Authentication.deleted_at: now,
+                Authentication.is_logged_in: False,
+                Authentication.current_jwt: None,
+                Authentication.jwt_issued_at: None,
+                Authentication.is_dirty: True,
+            },
+            synchronize_session=False,
+        )
+        db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == user.uuid).update(
+            {ApplicationSettings.deleted_at: now, ApplicationSettings.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(SyncLog).filter(SyncLog.user_uuid == user.uuid).update(
+            {SyncLog.deleted_at: now, SyncLog.is_dirty: True},
+            synchronize_session=False,
+        )
+
+        db.query(Customer).filter(Customer.user_uuid == user.uuid).update(
+            {Customer.deleted_at: now, Customer.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(Project).filter(Project.user_uuid == user.uuid).update(
+            {Project.deleted_at: now, Project.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(Invoice).filter(Invoice.user_uuid == user.uuid).update(
+            {Invoice.deleted_at: now, Invoice.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(Subscription).filter(Subscription.user_uuid == user.uuid).update(
+            {Subscription.deleted_at: now, Subscription.is_dirty: True},
+            synchronize_session=False,
+        )
+
+        db.query(InventoryCategory).filter(InventoryCategory.user_uuid == user.uuid).update(
+            {InventoryCategory.deleted_at: now, InventoryCategory.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(InventoryItem).filter(InventoryItem.user_uuid == user.uuid).update(
+            {InventoryItem.deleted_at: now, InventoryItem.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(StockAdjustment).filter(StockAdjustment.user_uuid == user.uuid).update(
+            {StockAdjustment.deleted_at: now, StockAdjustment.is_dirty: True},
+            synchronize_session=False,
+        )
+
+        # Indirect relations
+        if project_uuids:
+            db.query(Appliance).filter(Appliance.project_uuid.in_(project_uuids)).update(
+                {Appliance.deleted_at: now, Appliance.is_dirty: True},
+                synchronize_session=False,
+            )
+            db.query(Document).filter(Document.project_uuid.in_(project_uuids)).update(
+                {Document.deleted_at: now, Document.is_dirty: True},
+                synchronize_session=False,
+            )
+            db.query(ProjectComponent).filter(ProjectComponent.project_uuid.in_(project_uuids)).update(
+                {ProjectComponent.deleted_at: now, ProjectComponent.is_dirty: True},
+                synchronize_session=False,
+            )
+        if invoice_uuids:
+            db.query(Payment).filter(Payment.invoice_uuid.in_(invoice_uuids)).update(
+                {Payment.deleted_at: now, Payment.is_dirty: True},
+                synchronize_session=False,
+            )
+        if subscription_uuids:
+            db.query(SubscriptionPayment).filter(SubscriptionPayment.subscription_uuid.in_(subscription_uuids)).update(
+                {SubscriptionPayment.deleted_at: now, SubscriptionPayment.is_dirty: True},
+                synchronize_session=False,
+            )
+        if system_config_uuids:
+            db.query(SystemConfiguration).filter(SystemConfiguration.uuid.in_(system_config_uuids)).update(
+                {SystemConfiguration.deleted_at: now, SystemConfiguration.is_dirty: True},
+                synchronize_session=False,
+            )
 
         # --- Supabase Direct Sync ---
         try:
-            # Sync user
-            user_payload = map_user_to_payload(user)
-            user_payload['is_dirty'] = False
+            supabase = get_service_role_client()
 
-            # Sync auths
-            auth_payloads = []
-            for auth in affected_auths:
-                p = generic_mapper(auth)
-                p['is_dirty'] = False
-                auth_payloads.append(p)
+            # Direct updates avoid (user_id, device_id) unique constraint conflicts in `authentications`.
+            supabase.table('users').update({"deleted_at": now_iso, "is_dirty": False}).eq("id", user.uuid).execute()
+            supabase.table('authentications').update(
+                {
+                    "deleted_at": now_iso,
+                    "is_logged_in": False,
+                    "current_jwt": None,
+                    "jwt_issued_at": None,
+                    "is_dirty": False,
+                }
+            ).eq("user_id", user.uuid).execute()
 
-            supabase = get_user_client()
-            supabase.table('users').upsert(user_payload).execute()
-            if auth_payloads:
-                supabase.table('authentications').upsert(auth_payloads).execute()
+            if org_uuid:
+                supabase.table('organizations').update({"deleted_at": now_iso, "is_dirty": False}).eq("id", org_uuid).execute()
+                supabase.table('branches').update({"deleted_at": now_iso, "is_dirty": False}).eq("organization_id", org_uuid).execute()
+                supabase.table('users').update({"deleted_at": now_iso, "is_dirty": False}).eq("organization_id", org_uuid).eq("role", "employee").execute()
+                if org_employee_uuids:
+                    supabase.table('authentications').update(
+                        {
+                            "deleted_at": now_iso,
+                            "is_logged_in": False,
+                            "current_jwt": None,
+                            "jwt_issued_at": None,
+                            "is_dirty": False,
+                        }
+                    ).in_("user_id", org_employee_uuids).execute()
+                    supabase.table('application_settings').update({"deleted_at": now_iso, "is_dirty": False}).in_("user_id", org_employee_uuids).execute()
+                    supabase.table('sync_logs').update({"deleted_at": now_iso, "is_dirty": False}).in_("user_id", org_employee_uuids).execute()
 
-            from models import Customer, Project, Invoice, Payment, Document, ProjectComponent, StockAdjustment, InventoryItem
-            db.query(Customer).filter(Customer.user_uuid == user.uuid).update({Customer.deleted_at: now, Customer.is_dirty: True}, synchronize_session=False)
-            db.query(Project).filter(Project.user_uuid == user.uuid).update({Project.deleted_at: now, Project.is_dirty: True}, synchronize_session=False)
-            db.query(Invoice).filter(Invoice.user_uuid == user.uuid).update({Invoice.deleted_at: now, Invoice.is_dirty: True}, synchronize_session=False)
+            supabase.table('application_settings').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
+            supabase.table('sync_logs').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
 
+            supabase.table('customers').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
+            supabase.table('projects').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
+            supabase.table('invoices').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
+            supabase.table('subscriptions').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
+
+            supabase.table('inventory_categories').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
+            supabase.table('inventory_items').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
+            supabase.table('stock_adjustments').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
+
+            if project_uuids:
+                supabase.table('appliances').update({"deleted_at": now_iso, "is_dirty": False}).in_("project_id", project_uuids).execute()
+                supabase.table('documents').update({"deleted_at": now_iso, "is_dirty": False}).in_("project_id", project_uuids).execute()
+                supabase.table('project_components').update({"deleted_at": now_iso, "is_dirty": False}).in_("project_id", project_uuids).execute()
+            if invoice_uuids:
+                supabase.table('payments').update({"deleted_at": now_iso, "is_dirty": False}).in_("invoice_id", invoice_uuids).execute()
+            if subscription_uuids:
+                supabase.table('subscription_payments').update({"deleted_at": now_iso, "is_dirty": False}).in_("subscription_id", subscription_uuids).execute()
+            if system_config_uuids:
+                supabase.table('system_configurations').update({"deleted_at": now_iso, "is_dirty": False}).in_("id", system_config_uuids).execute()
+
+            # If cloud sync succeeded, mark local as clean
             user.is_dirty = False
-            for auth in affected_auths:
-                auth.is_dirty = False
+            if org_uuid:
+                db.query(Organization).filter(Organization.uuid == org_uuid).update(
+                    {Organization.is_dirty: False},
+                    synchronize_session=False,
+                )
+                db.query(Branch).filter(Branch.organization_uuid == org_uuid).update(
+                    {Branch.is_dirty: False},
+                    synchronize_session=False,
+                )
+                if org_employee_uuids:
+                    db.query(User).filter(User.uuid.in_(org_employee_uuids)).update(
+                        {User.is_dirty: False},
+                        synchronize_session=False,
+                    )
+                    db.query(Authentication).filter(Authentication.user_uuid.in_(org_employee_uuids)).update(
+                        {Authentication.is_dirty: False},
+                        synchronize_session=False,
+                    )
+                    db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid.in_(org_employee_uuids)).update(
+                        {ApplicationSettings.is_dirty: False},
+                        synchronize_session=False,
+                    )
+                    db.query(SyncLog).filter(SyncLog.user_uuid.in_(org_employee_uuids)).update(
+                        {SyncLog.is_dirty: False},
+                        synchronize_session=False,
+                    )
+
+            db.query(Authentication).filter(Authentication.user_uuid == user.uuid).update(
+                {Authentication.is_dirty: False},
+                synchronize_session=False,
+            )
+            db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == user.uuid).update(
+                {ApplicationSettings.is_dirty: False},
+                synchronize_session=False,
+            )
+            db.query(SyncLog).filter(SyncLog.user_uuid == user.uuid).update(
+                {SyncLog.is_dirty: False},
+                synchronize_session=False,
+            )
+            db.query(Customer).filter(Customer.user_uuid == user.uuid).update(
+                {Customer.is_dirty: False},
+                synchronize_session=False,
+            )
+            db.query(Project).filter(Project.user_uuid == user.uuid).update(
+                {Project.is_dirty: False},
+                synchronize_session=False,
+            )
+            db.query(Invoice).filter(Invoice.user_uuid == user.uuid).update(
+                {Invoice.is_dirty: False},
+                synchronize_session=False,
+            )
+            db.query(Subscription).filter(Subscription.user_uuid == user.uuid).update(
+                {Subscription.is_dirty: False},
+                synchronize_session=False,
+            )
+            db.query(InventoryCategory).filter(InventoryCategory.user_uuid == user.uuid).update(
+                {InventoryCategory.is_dirty: False},
+                synchronize_session=False,
+            )
+            db.query(InventoryItem).filter(InventoryItem.user_uuid == user.uuid).update(
+                {InventoryItem.is_dirty: False},
+                synchronize_session=False,
+            )
+            db.query(StockAdjustment).filter(StockAdjustment.user_uuid == user.uuid).update(
+                {StockAdjustment.is_dirty: False},
+                synchronize_session=False,
+            )
+            if project_uuids:
+                db.query(Appliance).filter(Appliance.project_uuid.in_(project_uuids)).update(
+                    {Appliance.is_dirty: False},
+                    synchronize_session=False,
+                )
+                db.query(Document).filter(Document.project_uuid.in_(project_uuids)).update(
+                    {Document.is_dirty: False},
+                    synchronize_session=False,
+                )
+                db.query(ProjectComponent).filter(ProjectComponent.project_uuid.in_(project_uuids)).update(
+                    {ProjectComponent.is_dirty: False},
+                    synchronize_session=False,
+                )
+            if invoice_uuids:
+                db.query(Payment).filter(Payment.invoice_uuid.in_(invoice_uuids)).update(
+                    {Payment.is_dirty: False},
+                    synchronize_session=False,
+                )
+            if subscription_uuids:
+                db.query(SubscriptionPayment).filter(SubscriptionPayment.subscription_uuid.in_(subscription_uuids)).update(
+                    {SubscriptionPayment.is_dirty: False},
+                    synchronize_session=False,
+                )
+            if system_config_uuids:
+                db.query(SystemConfiguration).filter(SystemConfiguration.uuid.in_(system_config_uuids)).update(
+                    {SystemConfiguration.is_dirty: False},
+                    synchronize_session=False,
+                )
+
             db.commit()
             return jsonify({"message": "User deactivated successfully"}), 200
         except Exception as e:

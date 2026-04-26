@@ -31,7 +31,8 @@ def login_user():
         # --- 1. Initial Local Check ---
         user = (
             db.query(User)
-            .filter(func.lower(User.email) == login_data.email.strip().lower())
+            .filter(func.lower(User.email) == login_data.email.strip().lower())\
+            .filter(User.deleted_at.is_(None))\
             .first()
         )
 
@@ -116,7 +117,7 @@ def handle_online_login(db, email, password, local_user):
         return jsonify({"error": "Offline. Please connect to the internet."}), 503
 
     # If the user exists locally, we just need to refresh their JWT
-    if local_user:
+    if local_user and not local_user.deleted_at:
         print(f"Refreshing JWT for existing local user: {email}")
         try:
             user_auth = db.query(Authentication).filter_by(user_uuid=local_user.uuid).order_by(Authentication.created_at.desc()).first()
@@ -370,7 +371,7 @@ def change_password():
             },
             synchronize_session=False,
         )
-        
+
         # --- Supabase Direct Sync ---
         try:
             # Local DB keeps auth history rows, but the cloud table enforces a unique
@@ -403,17 +404,49 @@ def change_password():
                     supabase.table('authentications').upsert(
                         payloads, on_conflict="user_id,device_id"
                     ).execute()
-            
+
             # If successful, mark local as clean and commit
             for auth in affected_auths:
                 auth.is_dirty = False
-            
+
             db.commit()
             return jsonify({"message": "Password updated successfully"}), 200
         except Exception as e:
             db.rollback()
             print(f"Error syncing password to Supabase: {str(e)}")
             return jsonify({"error": "Failed to sync password change to cloud."}), 500
+
+
+@authentication_bp.route('/verify-password', methods=['POST'])
+def verify_current_password():
+    data = request.get_json(silent=True) or {}
+    password = data.get('password') or data.get('current_password') or data.get('currentPassword')
+    if not password:
+        return jsonify({"error": "password is required"}), 400
+
+    with get_db() as db:
+        active_auth = (
+            db.query(Authentication)
+            .filter(Authentication.is_logged_in.is_(True))
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not active_auth:
+            return jsonify({"error": "No active session found"}), 401
+
+        latest_auth = (
+            db.query(Authentication)
+            .filter(Authentication.user_uuid == active_auth.user_uuid)
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not latest_auth:
+            return jsonify({"error": "Authentication record not found"}), 404
+
+        if not verify_password(password, latest_auth.password_salt, latest_auth.password_hash):
+            return jsonify({"verified": False, "error": "Invalid password"}), 400
+
+        return jsonify({"verified": True}), 200
 
 @authentication_bp.route('/<string:item_id>', methods=['PUT'])
 def update_authentication(item_id):

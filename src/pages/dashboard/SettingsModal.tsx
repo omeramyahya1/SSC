@@ -22,11 +22,12 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useSystemInfoStore } from "@/store/useSystemInfoStore";
-import { User, Shield, Database, LogOut, Trash2, Save, Upload, Pencil, X, Mail, KeyRound, AlertCircle, Globe } from "lucide-react";
+import { User, Shield, Database, LogOut, Trash2, Save, Upload, Pencil, X, Mail, KeyRound, Globe } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import api from "@/api/client";
 
 export function SettingsModal() {
     const { t, i18n } = useTranslation();
@@ -64,6 +65,9 @@ export function SettingsModal() {
 
     // Deactivation confirm dialog
     const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
+    const [deactivatePassword, setDeactivatePassword] = useState("");
+    const [isDeactivatePasswordVerified, setIsDeactivatePasswordVerified] = useState(false);
+    const [isVerifyingDeactivatePassword, setIsVerifyingDeactivatePassword] = useState(false);
 
     const [isSavingPersonal, setIsSavingPersonal] = useState(false);
     const [isSavingOrganization, setIsSavingOrganization] = useState(false);
@@ -222,10 +226,26 @@ export function SettingsModal() {
             return;
         }
         try {
-            await deleteUser(currentUser.uuid);
+            await deleteUser(currentUser.uuid, deactivatePassword);
             await handleLogout();
         } catch (e) {
             toast.error(t('settings.deactivate_failed', 'Failed to deactivate account'));
+        }
+    };
+
+    const handleVerifyDeactivatePassword = async () => {
+        if (!deactivatePassword.trim()) return;
+        setIsVerifyingDeactivatePassword(true);
+        try {
+            await api.post("/authentications/verify-password", { password: deactivatePassword });
+            setIsDeactivatePasswordVerified(true);
+            toast.success(t('settings.password_verified', 'Password verified'));
+        } catch (e: any) {
+            setIsDeactivatePasswordVerified(false);
+            const msg = e?.response?.data?.error || t('settings.invalid_password', 'Invalid password');
+            toast.error(msg);
+        } finally {
+            setIsVerifyingDeactivatePassword(false);
         }
     };
 
@@ -389,7 +409,7 @@ export function SettingsModal() {
                                                     <p className="h-12 flex items-center font-bold text-neutral/80">{currentUser?.location || "—"}</p>
                                                 )}
                                                 {isEmployee && (
-                                                    <p className="text-[10px] text-neutral/40 font-bold uppercase">
+                                                    <p className="text-[10px] text-semantic-warning font-bold uppercase">
                                                         {t('settings.employee_location_locked', 'Employees cannot edit location')}
                                                     </p>
                                                 )}
@@ -553,14 +573,59 @@ export function SettingsModal() {
                                         <Separator />
                                         <div className="space-y-4">
                                             <h4 className="text-sm font-black text-red-500 uppercase tracking-wider">{t('settings.danger_zone', 'Danger Zone')}</h4>
-                                            <div className="p-6 border border-red-100 bg-red-50/30 rounded-2xl flex items-center justify-between">
-                                                <div className="space-y-0.5">
-                                                    <Label className="font-bold text-red-600">{t('settings.deactivate', 'Deactivate Account')}</Label>
-                                                    <p className="text-xs text-red-400 font-medium">{t('settings.deactivate_desc', 'Temporarily disable your account and data access.')}</p>
+                                            <div className="p-6 border border-red-100 bg-red-50/30 rounded-2xl space-y-4">
+                                                <div className="flex items-start justify-between gap-6">
+                                                    <div className="space-y-0.5">
+                                                        <Label className="font-bold text-red-600">{t('settings.deactivate', 'Deactivate Account')}</Label>
+                                                        <p className="text-xs text-red-400 font-medium">{t('settings.deactivate_desc', 'Temporarily disable your account and data access.')}</p>
+                                                    </div>
+                                                    <Button
+                                                        onClick={() => setIsDeactivateOpen(true)}
+                                                        variant="destructive"
+                                                        disabled={!isDeactivatePasswordVerified}
+                                                        className="gap-2 rounded-xl font-bold"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" /> {t('settings.deactivate_button', 'Deactivate')}
+                                                    </Button>
                                                 </div>
-                                                <Button onClick={() => setIsDeactivateOpen(true)} variant="destructive" className="gap-2 rounded-xl font-bold">
-                                                    <Trash2 className="w-4 h-4" /> {t('settings.deactivate_button', 'Deactivate')}
-                                                </Button>
+
+                                                <div className="space-y-3 max-w-sm">
+                                                    <div className="space-y-2">
+                                                        <Label className="text-xs font-bold text-neutral/40 uppercase">
+                                                            {t('auth.current_password', 'Current Password')}
+                                                        </Label>
+                                                        <Input
+                                                            type="password"
+                                                            value={deactivatePassword}
+                                                            onChange={(e) => {
+                                                                setDeactivatePassword(e.target.value);
+                                                                setIsDeactivatePasswordVerified(false);
+                                                            }}
+                                                            className="bg-white border-none rounded-xl h-12 font-medium"
+                                                        />
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={handleVerifyDeactivatePassword}
+                                                            disabled={isVerifyingDeactivatePassword || !deactivatePassword.trim()}
+                                                            className="h-10 rounded-xl font-bold"
+                                                        >
+                                                            {t('common.verify', 'Verify')}
+                                                        </Button>
+                                                        {isDeactivatePasswordVerified && (
+                                                            <p className="text-[10px] font-bold uppercase text-green-600">
+                                                                {t('settings.verified', 'Verified')}
+                                                            </p>
+                                                        )}
+                                                        {!isDeactivatePasswordVerified && !!deactivatePassword.trim() && (
+                                                            <p className="text-[10px] font-bold uppercase text-red-500">
+                                                                {t('settings.verify_required', 'Verify required')}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <AlertDialog open={isDeactivateOpen} onOpenChange={setIsDeactivateOpen}>
@@ -578,6 +643,7 @@ export function SettingsModal() {
                                                             variant="destructive"
                                                             className="w-auto px-8"
                                                             confirmationLabel={t('common.confirming', 'Confirming...')}
+                                                            disabled={!isDeactivatePasswordVerified || isVerifyingDeactivatePassword}
                                                         >
                                                             {t('team.hold_to_deactivate', 'Hold to Deactivate')}
                                                         </HoldToConfirmButton>
