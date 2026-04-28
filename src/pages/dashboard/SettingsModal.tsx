@@ -472,7 +472,7 @@ export function SettingsModal() {
     };
 
     return (
-        <DialogContent className="w-[85vw] max-w-4xl h-[85vh] p-0 overflow-hidden bg-white border-none rounded-3xl shadow-2xl flex flex-col" dir={i18n.dir()}>
+        <DialogContent className="w-[85vw] max-w-4xl h-[85vh] p-0 pb-2 overflow-hidden bg-white border-none rounded-3xl shadow-2xl flex flex-col" dir={i18n.dir()}>
             <DialogHeader className="p-8 pb-4 bg-gray-50/50">
                 <DialogTitle className="text-3xl font-black">{t('dashboard.settings', 'Settings')}</DialogTitle>
             </DialogHeader>
@@ -482,8 +482,8 @@ export function SettingsModal() {
                 // Reset edit modes when switching tabs
                 setIsEditingPersonal(false);
                 setIsEditingOrganization(false);
-            }} className="flex flex-1 overflow-hidden" orientation="vertical">
-                <TabsList className="flex flex-col w-64 bg-gray-50/50 p-4 gap-2 h-full border-e border-gray-100 justify-start rounded-none" dir={i18n.dir()}>
+            }} className="flex flex-1 h-full pb-2 overflow-auto" orientation="vertical" dir={i18n.dir()}>
+                <TabsList className="flex flex-col w-64 bg-gray-100 p-4 gap-2 h-full border-[1px] border-primary-gray justify-start rounded-xl m-2" dir={i18n.dir()}>
                     <TabsTrigger value="profile" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all font-bold">
                         <User className="w-4 h-4" /> {t('settings.profile', 'Profile')}
                     </TabsTrigger>
@@ -494,7 +494,7 @@ export function SettingsModal() {
                         <Database className="w-4 h-4" /> {t('settings.system', 'System')}
                     </TabsTrigger>
                     <div className="mt-auto pt-4 w-full">
-                        <Button onClick={handleLogout} className="w-full justify-start px-4 py-3 rounded-lg bg-red-100 text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2 transition-colors">
+                        <Button onClick={handleLogout} className="w-full justify-start px-4 py-3 rounded-lg bg-white text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2 transition-colors">
                             <LogOut className="w-4 h-4" />
                             <span>{t('dashboard.logout', 'Logout')}</span>
                         </Button>
@@ -502,7 +502,7 @@ export function SettingsModal() {
                 </TabsList>
 
                 <div className="flex-1 overflow-hidden" dir={i18n.dir()}>
-                    <ScrollArea className="h-full">
+                    <ScrollArea className="h-full" dir={i18n.dir()}>
                         <div className="p-8 space-y-8">
 
                             <TabsContent value="profile" className="m-0 space-y-6">
