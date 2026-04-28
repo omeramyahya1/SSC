@@ -442,7 +442,7 @@ export function SettingsModal() {
             toast.success(t('settings.password_verified', 'Password verified'));
         } catch (e: any) {
             setIsDeactivatePasswordVerified(false);
-            const msg = e?.response?.data?.error || t('settings.invalid_password', 'Invalid password');
+            const msg = t('settings.invalid_password', 'Invalid password');
             toast.error(msg);
         } finally {
             setIsVerifyingDeactivatePassword(false);
