@@ -1,11 +1,9 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, get_by_id_or_uuid, require_internet
+from utils import get_db, get_by_id_or_uuid
 from models import ApplicationSettings, Authentication
 from schemas import ApplicationSettingsCreate, ApplicationSettingsUpdate
 from serializer import model_to_dict
-from routes.sync_log import generic_mapper
-from supabase_client import get_user_client
 
 application_settings_bp = Blueprint('application_settings_bp', __name__, url_prefix='/application_settings')
 
@@ -26,10 +24,6 @@ def get_appliance_library():
 
 @application_settings_bp.route('/', methods=['POST'])
 def create_application_settings():
-    err, code = require_internet()
-    if err:
-        return err, code
-
     try:
         # Validate request data using the Pydantic schema
         validated_data = ApplicationSettingsCreate(**request.json)
@@ -40,31 +34,14 @@ def create_application_settings():
     with get_db() as db:
         # Create the SQLAlchemy model from validated data
         new_item = ApplicationSettings(**validated_data.dict())
-
-        # --- Supabase Direct Sync ---
-        try:
-            payload = generic_mapper(new_item)
-            payload['is_dirty'] = False
-
-            supabase = get_user_client()
-            supabase.table('application_settings').upsert(payload).execute()
-
-            new_item.is_dirty = False
-            db.add(new_item)
-            db.commit()
-            db.refresh(new_item)
-            return jsonify(model_to_dict(new_item)), 201
-        except Exception as e:
-            db.rollback()
-            print(f"Error syncing settings to Supabase: {str(e)}")
-            return jsonify({"error": "Failed to sync settings to cloud."}), 500
+        new_item.is_dirty = True
+        db.add(new_item)
+        db.commit()
+        db.refresh(new_item)
+        return jsonify(model_to_dict(new_item)), 201
 
 @application_settings_bp.route('/<string:item_id>', methods=['PUT'])
 def update_application_settings(item_id):
-    err, code = require_internet()
-    if err:
-        return err, code
-
     with get_db() as db:
         item = get_by_id_or_uuid(
             db,
@@ -87,22 +64,10 @@ def update_application_settings(item_id):
         for key, value in update_data.items():
             setattr(item, key, value)
 
-        # --- Supabase Direct Sync ---
-        try:
-            payload = generic_mapper(item)
-            payload['is_dirty'] = False
-
-            supabase = get_user_client()
-            supabase.table('application_settings').upsert(payload).execute()
-
-            item.is_dirty = False
-            db.commit()
-            db.refresh(item)
-            return jsonify(model_to_dict(item))
-        except Exception as e:
-            db.rollback()
-            print(f"Error updating settings to Supabase: {str(e)}")
-            return jsonify({"error": "Failed to sync settings update to cloud."}), 500
+        item.is_dirty = True
+        db.commit()
+        db.refresh(item)
+        return jsonify(model_to_dict(item))
 
 @application_settings_bp.route('/', methods=['GET'])
 def get_all_application_settings():

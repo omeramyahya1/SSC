@@ -579,10 +579,6 @@ def update_user(user_id_or_uuid):
 
 @user_bp.route('/<string:user_id_or_uuid>', methods=['DELETE'])
 def delete_user(user_id_or_uuid):
-    err, code = require_internet()
-    if err:
-        return err, code
-
     data = request.get_json(silent=True) or {}
     password = (
         data.get('password')
@@ -623,7 +619,6 @@ def delete_user(user_id_or_uuid):
             return jsonify({"error": "Invalid password"}), 400
 
         now = datetime.utcnow()
-        now_iso = now.replace(tzinfo=timezone.utc).isoformat()
 
         # Collect IDs for tables that don't have user_id columns in Supabase
         from models import (
@@ -787,173 +782,27 @@ def delete_user(user_id_or_uuid):
                 synchronize_session=False,
             )
 
-        # --- Supabase Direct Sync ---
+        # Commit local changes first; remote syncing is handled by the existing sync pipeline.
         try:
-            supabase = get_service_role_client()
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"Error deactivating user locally: {str(e)}")
+            return jsonify({"error": "Failed to deactivate user."}), 500
 
-            # Direct updates avoid (user_id, device_id) unique constraint conflicts in `authentications`.
-            supabase.table('users').update({"deleted_at": now_iso, "is_dirty": False}).eq("id", user.uuid).execute()
-            supabase.table('authentications').update(
+        # Collect user and organization details for the RPC call (notifications only).
+        organization_name_if_exists = None
+        if user.organization_uuid:
+            org = db.query(Organization).filter(Organization.uuid == user.organization_uuid).first()
+            if org:
+                organization_name_if_exists = org.name
+
+        # Call the Supabase RPC for notifications (best-effort).
+        supabase_service_client = get_service_role_client()  # Use service client for RPC
+        try:
+            supabase_service_client.rpc(
+                'deactivate_account',
                 {
-                    "deleted_at": now_iso,
-                    "is_logged_in": False,
-                    "current_jwt": None,
-                    "jwt_issued_at": None,
-                    "is_dirty": False,
-                }
-            ).eq("user_id", user.uuid).execute()
-
-            if org_uuid:
-                supabase.table('organizations').update({"deleted_at": now_iso, "is_dirty": False}).eq("id", org_uuid).execute()
-                supabase.table('branches').update({"deleted_at": now_iso, "is_dirty": False}).eq("organization_id", org_uuid).execute()
-                supabase.table('users').update({"deleted_at": now_iso, "is_dirty": False}).eq("organization_id", org_uuid).eq("role", "employee").execute()
-                if org_employee_uuids:
-                    supabase.table('authentications').update(
-                        {
-                            "deleted_at": now_iso,
-                            "is_logged_in": False,
-                            "current_jwt": None,
-                            "jwt_issued_at": None,
-                            "is_dirty": False,
-                        }
-                    ).in_("user_id", org_employee_uuids).execute()
-                    supabase.table('application_settings').update({"deleted_at": now_iso, "is_dirty": False}).in_("user_id", org_employee_uuids).execute()
-                    supabase.table('sync_logs').update({"deleted_at": now_iso, "is_dirty": False}).in_("user_id", org_employee_uuids).execute()
-
-            supabase.table('application_settings').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
-            supabase.table('sync_logs').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
-
-            supabase.table('customers').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
-            supabase.table('projects').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
-            supabase.table('invoices').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
-            supabase.table('subscriptions').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
-
-            supabase.table('inventory_categories').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
-            supabase.table('inventory_items').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
-            supabase.table('stock_adjustments').update({"deleted_at": now_iso, "is_dirty": False}).eq("user_id", user.uuid).execute()
-
-            if project_uuids:
-                supabase.table('appliances').update({"deleted_at": now_iso, "is_dirty": False}).in_("project_id", project_uuids).execute()
-                supabase.table('documents').update({"deleted_at": now_iso, "is_dirty": False}).in_("project_id", project_uuids).execute()
-                supabase.table('project_components').update({"deleted_at": now_iso, "is_dirty": False}).in_("project_id", project_uuids).execute()
-            if invoice_uuids:
-                supabase.table('payments').update({"deleted_at": now_iso, "is_dirty": False}).in_("invoice_id", invoice_uuids).execute()
-            if subscription_uuids:
-                supabase.table('subscription_payments').update({"deleted_at": now_iso, "is_dirty": False}).in_("subscription_id", subscription_uuids).execute()
-            if system_config_uuids:
-                supabase.table('system_configurations').update({"deleted_at": now_iso, "is_dirty": False}).in_("id", system_config_uuids).execute()
-
-            # If cloud sync succeeded, mark local as clean
-            user.is_dirty = False
-            if org_uuid:
-                db.query(Organization).filter(Organization.uuid == org_uuid).update(
-                    {Organization.is_dirty: False},
-                    synchronize_session=False,
-                )
-                db.query(Branch).filter(Branch.organization_uuid == org_uuid).update(
-                    {Branch.is_dirty: False},
-                    synchronize_session=False,
-                )
-                if org_employee_uuids:
-                    db.query(User).filter(User.uuid.in_(org_employee_uuids)).update(
-                        {User.is_dirty: False},
-                        synchronize_session=False,
-                    )
-                    db.query(Authentication).filter(Authentication.user_uuid.in_(org_employee_uuids)).update(
-                        {Authentication.is_dirty: False},
-                        synchronize_session=False,
-                    )
-                    db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid.in_(org_employee_uuids)).update(
-                        {ApplicationSettings.is_dirty: False},
-                        synchronize_session=False,
-                    )
-                    db.query(SyncLog).filter(SyncLog.user_uuid.in_(org_employee_uuids)).update(
-                        {SyncLog.is_dirty: False},
-                        synchronize_session=False,
-                    )
-
-            db.query(Authentication).filter(Authentication.user_uuid == user.uuid).update(
-                {Authentication.is_dirty: False},
-                synchronize_session=False,
-            )
-            db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == user.uuid).update(
-                {ApplicationSettings.is_dirty: False},
-                synchronize_session=False,
-            )
-            db.query(SyncLog).filter(SyncLog.user_uuid == user.uuid).update(
-                {SyncLog.is_dirty: False},
-                synchronize_session=False,
-            )
-            db.query(Customer).filter(Customer.user_uuid == user.uuid).update(
-                {Customer.is_dirty: False},
-                synchronize_session=False,
-            )
-            db.query(Project).filter(Project.user_uuid == user.uuid).update(
-                {Project.is_dirty: False},
-                synchronize_session=False,
-            )
-            db.query(Invoice).filter(Invoice.user_uuid == user.uuid).update(
-                {Invoice.is_dirty: False},
-                synchronize_session=False,
-            )
-            db.query(Subscription).filter(Subscription.user_uuid == user.uuid).update(
-                {Subscription.is_dirty: False},
-                synchronize_session=False,
-            )
-            db.query(InventoryCategory).filter(InventoryCategory.user_uuid == user.uuid).update(
-                {InventoryCategory.is_dirty: False},
-                synchronize_session=False,
-            )
-            db.query(InventoryItem).filter(InventoryItem.user_uuid == user.uuid).update(
-                {InventoryItem.is_dirty: False},
-                synchronize_session=False,
-            )
-            db.query(StockAdjustment).filter(StockAdjustment.user_uuid == user.uuid).update(
-                {StockAdjustment.is_dirty: False},
-                synchronize_session=False,
-            )
-            if project_uuids:
-                db.query(Appliance).filter(Appliance.project_uuid.in_(project_uuids)).update(
-                    {Appliance.is_dirty: False},
-                    synchronize_session=False,
-                )
-                db.query(Document).filter(Document.project_uuid.in_(project_uuids)).update(
-                    {Document.is_dirty: False},
-                    synchronize_session=False,
-                )
-                db.query(ProjectComponent).filter(ProjectComponent.project_uuid.in_(project_uuids)).update(
-                    {ProjectComponent.is_dirty: False},
-                    synchronize_session=False,
-                )
-            if invoice_uuids:
-                db.query(Payment).filter(Payment.invoice_uuid.in_(invoice_uuids)).update(
-                    {Payment.is_dirty: False},
-                    synchronize_session=False,
-                )
-            if subscription_uuids:
-                db.query(SubscriptionPayment).filter(SubscriptionPayment.subscription_uuid.in_(subscription_uuids)).update(
-                    {SubscriptionPayment.is_dirty: False},
-                    synchronize_session=False,
-                )
-            if system_config_uuids:
-                db.query(SystemConfiguration).filter(SystemConfiguration.uuid.in_(system_config_uuids)).update(
-                    {SystemConfiguration.is_dirty: False},
-                    synchronize_session=False,
-                )
-
-            db.commit() # Commit local changes first
-
-            # Collect user and organization details for the RPC call
-            organization_name_if_exists = None
-            if user.organization_uuid:
-                org = db.query(Organization).filter(Organization.uuid == user.organization_uuid).first()
-                if org:
-                    organization_name_if_exists = org.name
-
-            # Call the Supabase RPC for notifications
-            supabase_service_client = get_service_role_client() # Use service client for RPC
-            try:
-                supabase_service_client.rpc('deactivate_account', {
                     'p_user_id': user.uuid,
                     'p_actor_user_id': actor_user.uuid,
                     'p_user_email': user.email,
@@ -962,14 +811,11 @@ def delete_user(user_id_or_uuid):
                     'p_role': user.role,
                     'p_organization_id': user.organization_uuid,
                     'p_organization_name': organization_name_if_exists,
-                    'p_distributor_id': user.distributor_id
-                }).execute()
-            except Exception as e:
-                print(f"Warning: Failed to create deactivation notification job in Supabase: {e}")
-                # Log error but do not prevent user deactivation from completing.
-
-            return jsonify({"message": "User deactivated successfully"}), 200
+                    'p_distributor_id': user.distributor_id,
+                },
+            ).execute()
         except Exception as e:
-            db.rollback()
-            print(f"Error syncing user deactivation to Supabase: {str(e)}")
-            return jsonify({"error": "Failed to sync deactivation to cloud."}), 500
+            print(f"Warning: Failed to create deactivation notification job in Supabase: {e}")
+            # Log error but do not prevent user deactivation from completing.
+
+        return jsonify({"message": "User deactivated successfully"}), 200

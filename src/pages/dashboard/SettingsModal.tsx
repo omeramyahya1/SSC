@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import { useUserStore } from "@/store/useUserStore";
+import { useOrganizationStore } from "@/store/useOrganizationStore";
 import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
@@ -140,6 +141,7 @@ export function SettingsModal() {
     const navigate = useNavigate();
     const { currentUser, updateUser, deleteUser, changeCurrentUserEmail, checkEmailUniqueness, setCurrentUser } = useUserStore();
     const { setCurrentAuthentication, logout, changePassword } = useAuthenticationStore();
+    const { updateOrganization } = useOrganizationStore();
     const { systemInfo, isLoading: isSystemInfoLoading, fetchSystemInfo } = useSystemInfoStore();
 
     const isEmployee = currentUser?.role === "employee";
@@ -294,9 +296,28 @@ export function SettingsModal() {
         }
         setIsSavingOrganization(true);
         try {
-            await updateUser(currentUser.user_id, {
-                business_name: organizationDraft.business_name,
-            });
+            const desiredName = organizationDraft.business_name;
+            const orgUuid = currentUser.organization_uuid;
+            const previousBusinessName = currentUser.business_name ?? "";
+            const previousOrgName = currentUser.org_name ?? previousBusinessName;
+
+            if (orgUuid) {
+                await updateOrganization(orgUuid, { name: desiredName });
+
+                try {
+                    await updateUser(currentUser.user_id, { business_name: desiredName });
+                } catch (e) {
+                    try {
+                        await updateOrganization(orgUuid, { name: previousOrgName });
+                    } catch {
+                        // Best-effort compensating update; surface the original error below.
+                    }
+                    throw e;
+                }
+            } else {
+                await updateUser(currentUser.user_id, { business_name: desiredName });
+            }
+
             setIsEditingOrganization(false);
             toast.success(t('settings.profile_updated', 'Profile updated successfully'));
         } catch (error) {

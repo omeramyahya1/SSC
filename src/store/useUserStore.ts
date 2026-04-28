@@ -51,7 +51,7 @@ export interface UserStore {
   fetchUser: (id: string) => Promise<void>;
   createUser: (data: NewUserData) => Promise<User | undefined>;
   createEmployee: (data: any) => Promise<User | undefined>;
-  updateUser: (id: number | string, data: Partial<NewUserData>) => Promise<User | undefined>;
+  updateUser: (id: number | string, data: Partial<NewUserData>) => Promise<User>;
   deleteUser: (id: number | string, password: string) => Promise<void>;
   setCurrentUser: (user: User | null) => void;
 }
@@ -89,10 +89,6 @@ export const useUserStore = create<UserStore>()(persist((set, get) => ({
       }
 
       const updated = await get().updateUser(current.user_id, { email: email.trim().toLowerCase() });
-
-      if (!updated) {
-        throw new Error("Failed to change email")
-      }
 
       set({ isLoading: false });
       return updated;
@@ -192,10 +188,10 @@ export const useUserStore = create<UserStore>()(persist((set, get) => ({
       }));
       return data;
     } catch (e: any) {
-      const errorMsg = e.message || `Failed to update user ${id}`;
+      const errorMsg = e.response?.data?.error || e.message || `Failed to update user ${id}`;
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
-      return undefined;
+      throw new Error(errorMsg);
     }
   },
 

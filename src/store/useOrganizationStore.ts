@@ -24,7 +24,7 @@ export interface OrganizationStore {
   error: string | null;
   fetchOrganizations: () => Promise<void>;
   fetchOrganization: (id: string | number) => Promise<void>;
-  updateOrganization: (id: string | number, data: Partial<Organization>) => Promise<Organization | undefined>;
+  updateOrganization: (id: string | number, data: Partial<Organization>) => Promise<Organization>;
   setCurrentOrganization: (org: Organization | null) => void;
 }
 
@@ -81,10 +81,10 @@ export const useOrganizationStore = create<OrganizationStore>((set) => ({
       }));
       return data;
     } catch (e: any) {
-      const errorMsg = e.message || `Failed to update organization ${id}`;
+      const errorMsg = e.response?.data?.error || e.message || `Failed to update organization ${id}`;
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
-      return undefined;
+      throw new Error(errorMsg);
     }
   },
 }));
