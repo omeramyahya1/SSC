@@ -22,7 +22,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useSystemInfoStore } from "@/store/useSystemInfoStore";
-import { User, Shield, Database, LogOut, Trash2, Save, Pencil, X, Mail, KeyRound, Globe, ChevronsUpDown, Check, Eye, EyeOff } from "lucide-react";
+import { User, Shield, Database, LogOut, Trash2, Save, Pencil, X, Mail, KeyRound, ChevronsUpDown, Check, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { Card } from "@/components/ui/card";
@@ -482,7 +482,7 @@ export function SettingsModal() {
                 // Reset edit modes when switching tabs
                 setIsEditingPersonal(false);
                 setIsEditingOrganization(false);
-            }} className="flex flex-1 h-full pb-2 overflow-auto" orientation="vertical" dir={i18n.dir()}>
+            }} className="flex flex-1 h-full pb-2 overflow-y-auto overscroll-none" orientation="vertical" dir={i18n.dir()}>
                 <TabsList className="flex flex-col w-64 bg-gray-100 p-4 gap-2 h-full border-[1px] border-primary-gray justify-start rounded-xl m-2" dir={i18n.dir()}>
                     <TabsTrigger value="profile" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all font-bold">
                         <User className="w-4 h-4" /> {t('settings.profile', 'Profile')}
@@ -739,9 +739,9 @@ export function SettingsModal() {
                                                     className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
                                                 >
                                                     {showPassword ? (
-                                                        <EyeOff className="w-6 h-6 opacity-70" />
+                                                        <EyeOff className="w-4 h-4 opacity-70" />
                                                     ) : (
-                                                        <Eye className="w-6 h-6 opacity-70" />
+                                                        <Eye className="w-4 h-4 opacity-70" />
                                                     )}
                                                 </button>
                                             </div>
@@ -756,9 +756,9 @@ export function SettingsModal() {
                                                     className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
                                                 >
                                                     {showPassword ? (
-                                                        <EyeOff className="w-6 h-6 opacity-70" />
+                                                        <EyeOff className="w-4 h-4 opacity-70" />
                                                     ) : (
-                                                        <Eye className="w-6 h-6 opacity-70" />
+                                                        <Eye className="w-4 h-4 opacity-70" />
                                                     )}
                                                 </button>
                                             </div>
@@ -778,9 +778,9 @@ export function SettingsModal() {
                                                     className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
                                                 >
                                                     {showPassword ? (
-                                                        <EyeOff className="w-6 h-6 opacity-70" />
+                                                        <EyeOff className="w-4 h-4 opacity-70" />
                                                     ) : (
-                                                        <Eye className="w-6 h-6 opacity-70" />
+                                                        <Eye className="w-4 h-4 opacity-70" />
                                                     )}
                                                 </button>
                                             </div>
@@ -816,9 +816,9 @@ export function SettingsModal() {
                                                     }}
                                                     className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium"
                                                 />
-                                                {isCheckingEmail && (
-                                                    <Mail className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-neutral/50" />
-                                                )}
+
+                                                    <Mail className="w-4 h-4 absolute end-4 top-1/2 -translate-y-1/2 text-neutral/50" />
+
                                             </div>
                                             {emailValidationError && (
                                                 <p className="text-xs text-red-500 mt-1 ps-1 flex items-center gap-1">
