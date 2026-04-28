@@ -387,6 +387,7 @@ export function SettingsModal() {
 
     // --- Email Validation Logic (Debounced) ---
     useEffect(() => {
+        let cancelled = false;
         setEmailAvailable(null);
         setEmailValidationError(null);
 
@@ -404,20 +405,26 @@ export function SettingsModal() {
         const timer = setTimeout(async () => {
             try {
                 const isUnique = await checkEmailUniqueness(email);
+                if (cancelled) return;
                 setEmailAvailable(isUnique);
                 if (!isUnique) {
                     setEmailValidationError(t('registration.email_taken', 'Email is already in use'));
                 }
             } catch (error) {
+                if (cancelled) return;
                 console.error("Error checking email uniqueness:", error);
                 setEmailAvailable(false); // Assume not available on error for safety
                 setEmailValidationError(t('settings.email_check_failed', 'Failed to verify email availability.'));
             } finally {
+                if (cancelled) return;
                 setIsCheckingEmail(false);
             }
         }, 500); // Debounce time
 
-        return () => clearTimeout(timer);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
     }, [newEmail, checkEmailUniqueness, t]);
 
     const handleUpdateEmail = async () => {

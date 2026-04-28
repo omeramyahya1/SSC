@@ -164,6 +164,7 @@ const templates: Templates = {
     });
   }
 
+  const sentJobIds: string[] = [];
   try {
     // 2. Group jobs by event type
     const registrationJobs = allJobs.filter(j => j.event_type !== 'license_tamper_detected_admin' && j.event_type !== 'support_ticket_submitted' && j.event_type !== 'account_deactivated_superadmin');
@@ -172,9 +173,8 @@ const templates: Templates = {
     const deactivatedJobs = allJobs.filter(j => j.event_type === 'account_deactivated_superadmin');
 
     let reportContent = "";
-    // Note: totalJobs will now represent only the jobs going into the summary report.
-    // Individual jobs (like deactivatedJobs) are processed separately.
-    let totalJobs = allJobs.length; // Will adjust later in the summary sending logic
+    const summaryJobs = [...registrationJobs, ...tamperJobs, ...ticketJobs];
+    const summaryJobIds = summaryJobs.map((j) => j.id);
 
     // Process Super Admin Deactivation Jobs Individually
     for (const job of deactivatedJobs) {
@@ -329,6 +329,13 @@ const templates: Templates = {
       `;
     }
 
+     if (summaryJobIds.length === 0) {
+      return new Response(JSON.stringify({ success: true, count: deactivatedJobs.length }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const emailHtml = emailWrapper(
       "Daily Admin Summary Report",
       reportContent,
@@ -339,7 +346,7 @@ const templates: Templates = {
     const emailData = {
       sender: { name: "SSC", email: SENDER_EMAIL },
       to: [{ email: ADMIN_EMAIL, name: "Super Admin" }],
-      subject: `Admin Report: ${totalJobs} Pending Item(s)`,
+      subject: `Admin Report: ${summaryJobIds.length} Pending Item(s)`,
       htmlContent: `<html><body>${emailHtml}</body></html>`,
     };
 
@@ -360,15 +367,6 @@ const templates: Templates = {
 
     // 6. Batch Update: Mark only summary-related jobs as "sent"
     // Deactivation jobs were already marked individually above
-    const summaryJobIds = [...registrationJobs, ...tamperJobs, ...ticketJobs].map((j) => j.id);
-
-   if (summaryJobIds.length === 0) {
-      return new Response(JSON.stringify({ success: true, count: deactivatedJobs.length }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
     const { error: updateError } = await supabase
       .from("notification_jobs")
       .update({
@@ -385,7 +383,9 @@ const templates: Templates = {
     });
   } catch (e: any) {
     console.error(`Batch send failed:`, e);
-    const jobIds = allJobs.map((j) => j.id);
+    const jobIds = allJobs
+      .map((j: { id: any; }) => j.id)
+      .filter((id: any) => !sentJobIds.includes(id));
     await supabase.from("notification_jobs").update({
       status: "failed",
       error: e.message || String(e),

@@ -606,7 +606,12 @@ def delete_user(user_id_or_uuid):
         if not user:
             return jsonify({"error": "Not found"}), 404
 
-        if active_auth.user_uuid != user.uuid and actor_user.role != "admin":
+        same_org_admin = (
+            actor_user.role == "admin"
+            and actor_user.organization_uuid is not None
+            and actor_user.organization_uuid == user.organization_uuid
+        )
+        if active_auth.user_uuid != user.uuid and not same_org_admin:
             return jsonify({"error": "Forbidden"}), 403
 
         latest_auth = (
@@ -677,13 +682,32 @@ def delete_user(user_id_or_uuid):
                 {Branch.deleted_at: now, Branch.is_dirty: True},
                 synchronize_session=False,
             )
-            db.query(User).filter(User.uuid.in_(org_employee_uuids)).update(
-                {User.deleted_at: now, User.is_dirty: True},
-                synchronize_session=False,
-            )
 
-            # Minimal employee cascade: disable their sessions + settings/sync logs
             if org_employee_uuids:
+                employee_project_uuids = [
+                    row[0] for row in db.query(Project.uuid).filter(Project.user_uuid.in_(org_employee_uuids)).all()
+                ]
+                employee_invoice_uuids = [
+                    row[0] for row in db.query(Invoice.uuid).filter(Invoice.user_uuid.in_(org_employee_uuids)).all()
+                ]
+                employee_subscription_uuids = [
+                    row[0]
+                    for row in db.query(Subscription.uuid)
+                    .filter(Subscription.user_uuid.in_(org_employee_uuids))
+                    .all()
+                ]
+                employee_system_config_uuids = [
+                    row[0]
+                    for row in db.query(Project.system_config_uuid)
+                    .filter(Project.user_uuid.in_(org_employee_uuids), Project.system_config_uuid.isnot(None))
+                    .distinct()
+                    .all()
+                ]
+
+                db.query(User).filter(User.uuid.in_(org_employee_uuids)).update(
+                    {User.deleted_at: now, User.is_dirty: True},
+                    synchronize_session=False,
+                )
                 db.query(Authentication).filter(Authentication.user_uuid.in_(org_employee_uuids)).update(
                     {
                         Authentication.deleted_at: now,
@@ -700,6 +724,84 @@ def delete_user(user_id_or_uuid):
                 )
                 db.query(SyncLog).filter(SyncLog.user_uuid.in_(org_employee_uuids)).update(
                     {SyncLog.deleted_at: now, SyncLog.is_dirty: True},
+                    synchronize_session=False,
+                )
+
+                db.query(Customer).filter(Customer.user_uuid.in_(org_employee_uuids)).update(
+                    {Customer.deleted_at: now, Customer.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(Project).filter(Project.user_uuid.in_(org_employee_uuids)).update(
+                    {Project.deleted_at: now, Project.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(Invoice).filter(Invoice.user_uuid.in_(org_employee_uuids)).update(
+                    {Invoice.deleted_at: now, Invoice.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(Subscription).filter(Subscription.user_uuid.in_(org_employee_uuids)).update(
+                    {Subscription.deleted_at: now, Subscription.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(InventoryCategory).filter(InventoryCategory.user_uuid.in_(org_employee_uuids)).update(
+                    {InventoryCategory.deleted_at: now, InventoryCategory.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(InventoryItem).filter(InventoryItem.user_uuid.in_(org_employee_uuids)).update(
+                    {InventoryItem.deleted_at: now, InventoryItem.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(StockAdjustment).filter(StockAdjustment.user_uuid.in_(org_employee_uuids)).update(
+                    {StockAdjustment.deleted_at: now, StockAdjustment.is_dirty: True},
+                    synchronize_session=False,
+                )
+
+                if employee_project_uuids:
+                    db.query(Appliance).filter(Appliance.project_uuid.in_(employee_project_uuids)).update(
+                        {Appliance.deleted_at: now, Appliance.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                    db.query(Document).filter(Document.project_uuid.in_(employee_project_uuids)).update(
+                        {Document.deleted_at: now, Document.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                    db.query(ProjectComponent).filter(ProjectComponent.project_uuid.in_(employee_project_uuids)).update(
+                        {ProjectComponent.deleted_at: now, ProjectComponent.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                if employee_invoice_uuids:
+                    db.query(Payment).filter(Payment.invoice_uuid.in_(employee_invoice_uuids)).update(
+                        {Payment.deleted_at: now, Payment.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                if employee_subscription_uuids:
+                    db.query(SubscriptionPayment).filter(
+                        SubscriptionPayment.subscription_uuid.in_(employee_subscription_uuids)
+                    ).update(
+                        {SubscriptionPayment.deleted_at: now, SubscriptionPayment.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                if employee_system_config_uuids:
+                    db.query(SystemConfiguration).filter(SystemConfiguration.uuid.in_(employee_system_config_uuids)).update(
+                        {SystemConfiguration.deleted_at: now, SystemConfiguration.is_dirty: True},
+                        synchronize_session=False,
+                    )
+
+            if org_branch_uuids:
+                db.query(Customer).filter(Customer.branch_uuid.in_(org_branch_uuids)).update(
+                    {Customer.deleted_at: now, Customer.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(Project).filter(Project.branch_uuid.in_(org_branch_uuids)).update(
+                    {Project.deleted_at: now, Project.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(InventoryItem).filter(InventoryItem.branch_uuid.in_(org_branch_uuids)).update(
+                    {InventoryItem.deleted_at: now, InventoryItem.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(StockAdjustment).filter(StockAdjustment.branch_uuid.in_(org_branch_uuids)).update(
+                    {StockAdjustment.deleted_at: now, StockAdjustment.is_dirty: True},
                     synchronize_session=False,
                 )
 
