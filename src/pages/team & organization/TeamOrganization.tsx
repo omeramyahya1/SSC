@@ -23,6 +23,10 @@ import { EditBranchModal } from "./EditBranchModal";
 import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import toast from "react-hot-toast";
 import { SubscriptionBanner } from "../dashboard/SubscriptionBanner";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import api from "@/api/client";
 
 export default function TeamOrganization() {
   const { t, i18n } = useTranslation();
@@ -38,6 +42,16 @@ export default function TeamOrganization() {
 
   const [employeeToDelete, setEmployeeToDelete] = useState<User | null>(null);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+  const [deactivatePassword, setDeactivatePassword] = useState("");
+  const [isDeactivatePasswordVerified, setIsDeactivatePasswordVerified] = useState(false);
+  const [isVerifyingDeactivatePassword, setIsVerifyingDeactivatePassword] = useState(false);
+
+  useEffect(() => {
+    if (!employeeToDelete) return;
+    setDeactivatePassword("");
+    setIsDeactivatePasswordVerified(false);
+    setIsVerifyingDeactivatePassword(false);
+  }, [employeeToDelete]);
 
   useEffect(() => {
     if (currentUser?.organization_uuid) {
@@ -62,11 +76,27 @@ export default function TeamOrganization() {
         return;
     }
     try {
-        await deleteUser(employeeToDelete.uuid);
+        await deleteUser(employeeToDelete.uuid, deactivatePassword);
         toast.success(t('team.deactivate_success', 'Employee deactivated successfully'));
         setEmployeeToDelete(null);
     } catch (e) {
         toast.error(t('team.deactivate_error', 'Failed to deactivate employee'));
+    }
+  };
+
+  const handleVerifyDeactivatePassword = async () => {
+    if (!deactivatePassword.trim()) return;
+    setIsVerifyingDeactivatePassword(true);
+    try {
+      await api.post("/authentications/verify-password", { password: deactivatePassword });
+      setIsDeactivatePasswordVerified(true);
+      toast.success(t('settings.password_verified', 'Password verified'));
+    } catch (e: any) {
+      setIsDeactivatePasswordVerified(false);
+      const msg = e?.response?.data?.error || t('settings.invalid_password', 'Invalid password');
+      toast.error(msg);
+    } finally {
+      setIsVerifyingDeactivatePassword(false);
     }
   };
 
@@ -164,6 +194,38 @@ export default function TeamOrganization() {
                     {t('team.confirm_deactivate_desc', 'This will disable access and cascade deactivation to all related data. This action is non-recoverable.')}
                 </AlertDialogDescription>
             </AlertDialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-neutral/40 uppercase">
+                  {t('auth.current_password', 'Current Password')}
+                </Label>
+                <Input
+                  type="password"
+                  value={deactivatePassword}
+                  onChange={(e) => {
+                    setDeactivatePassword(e.target.value);
+                    setIsDeactivatePasswordVerified(false);
+                  }}
+                  className="bg-gray-50 border-none rounded-xl h-12 font-medium"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleVerifyDeactivatePassword}
+                  disabled={isVerifyingDeactivatePassword || !deactivatePassword.trim()}
+                  className="h-10 rounded-xl font-bold"
+                >
+                  {t('common.verify', 'Verify')}
+                </Button>
+                {isDeactivatePasswordVerified && (
+                  <p className="text-[10px] font-bold uppercase text-green-600">
+                    {t('settings.verified', 'Verified')}
+                  </p>
+                )}
+              </div>
+            </div>
             <AlertDialogFooter className="gap-2">
                 <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
                 <HoldToConfirmButton
@@ -171,6 +233,7 @@ export default function TeamOrganization() {
                     variant="destructive"
                     className="w-auto px-8"
                     confirmationLabel={t('common.confirming', 'Confirming...')}
+                    disabled={!isDeactivatePasswordVerified || isVerifyingDeactivatePassword}
                 >
                     {t('team.hold_to_deactivate', 'Hold to Deactivate')}
                 </HoldToConfirmButton>

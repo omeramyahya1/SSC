@@ -14,7 +14,7 @@ def get_appliance_library():
         auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
         if not auth_record:
             return jsonify({"error": "Unauthorized"}), 401
-        
+
         app_settings = db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == auth_record.user_uuid).first()
 
         if app_settings and app_settings.other_settings and 'appliance_library' in app_settings.other_settings:
@@ -34,6 +34,7 @@ def create_application_settings():
     with get_db() as db:
         # Create the SQLAlchemy model from validated data
         new_item = ApplicationSettings(**validated_data.dict())
+        new_item.is_dirty = True
         db.add(new_item)
         db.commit()
         db.refresh(new_item)
@@ -63,6 +64,7 @@ def update_application_settings(item_id):
         for key, value in update_data.items():
             setattr(item, key, value)
 
+        item.is_dirty = True
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))

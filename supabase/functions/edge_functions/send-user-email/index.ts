@@ -239,12 +239,95 @@ const templates: Templates = {
         ),
     },
   },
+  account_deactivated_user: {
+    en: {
+      subject: "Account Deactivated - Solar System Calculator",
+      body: (p, lang, date) => {
+        let title = "Your Account Has Been Deactivated";
+        let message = "";
+
+        if (p.deactivated_by_admin) {
+          message = `
+            <p>Hello ${p.username || "User"},</p>
+            <p>This is to inform you that your account at Solar System Calculator has been deactivated by your administrator.</p>
+            <p>Please contact your admin for more information regarding this action.</p>
+            <p>If you believe this is an error, please reach out to your organization's admin or our support team.</p>
+          `;
+        } else {
+          if (p.role === 'admin' && p.account_type !== 'standard') { // Admin of an enterprise account
+            title = "Your Enterprise Account Has Been Deactivated";
+            message = `
+              <p>Hello ${p.username || "Admin"},</p>
+              <p>Your account and all associated organizational data with Solar System Calculator have been successfully deactivated.</p>
+              <p>If you need to recover your account and data, please contact our support team within 14 days of this notification. After this period, data recovery may not be possible.</p>
+              <p>We're sorry to see you go!</p>
+            `;
+          } else { // Standard user
+            message = `
+              <p>Hello ${p.username || "User"},</p>
+              <p>Your account with Solar System Calculator has been successfully deactivated.</p>
+              <p>If you need to recover your account, please contact our support team within 14 days of this notification. After this period, account recovery may not be possible.</p>
+              <p>We're sorry to see you go!</p>
+            `;
+          }
+        }
+        return emailWrapper(title, message, date, lang);
+      },
+    },
+    ar: {
+      subject: "تم إلغاء تفعيل الحساب - حاسبة النظام الشمسي",
+      body: (p, lang, date) => {
+        let title = "تم إلغاء تفعيل حسابك";
+        let message = "";
+
+        if (p.deactivated_by_admin) {
+          message = `
+            <p>مرحباً ${p.username || "مستخدم"},</p>
+            <p>نود إبلاغك بأن حسابك في حاسبة النظام الشمسي قد تم إلغاء تفعيله بواسطة المسؤول الخاص بك.</p>
+            <p>يرجى التواصل مع المسؤول للحصول على مزيد من المعلومات بخصوص هذا الإجراء.</p>
+            <p>إذا كنت تعتقد أن هذا خطأ، يرجى التواصل مع مسؤول منظمتك أو فريق الدعم لدينا.</p>
+          `;
+        } else {
+          if (p.role === 'admin' && p.account_type !== 'standard') { // Admin of an enterprise account
+            title = "تم إلغاء تفعيل حسابك التجاري";
+            message = `
+              <p>مرحباً ${p.username || "مسؤول"},</p>
+              <p>تم إلغاء تفعيل حسابك وجميع البيانات التنظيمية المرتبطة به في حاسبة النظام الشمسي بنجاح.</p>
+              <p>إذا كنت بحاجة إلى استعادة حسابك وبياناتك، يرجى التواصل مع فريق الدعم لدينا خلال 14 يومًا من هذا الإشعار. بعد هذه الفترة، قد لا تكون استعادة البيانات ممكنة.</p>
+              <p>يؤسفنا رؤيتك تغادر!</p>
+            `;
+          } else { // Standard user
+            message = `
+              <p>مرحباً ${p.username || "مستخدم"},</p>
+              <p>تم إلغاء تفعيل حسابك في حاسبة النظام الشمسي بنجاح.</p>
+              <p>إذا كنت بحاجة إلى استعادة حسابك، يرجى التواصل مع فريق الدعم لدينا خلال 14 يومًا من هذا الإشعار. بعد هذه الفترة، قد لا تكون استعادة الحساب ممكنة.</p>
+              <p>يؤسفنا رؤيتك تغادر!</p>
+            `;
+          }
+        }
+        return emailWrapper(title, message, date, lang);
+      },
+    },
+  },
 };
 
 serve(async (req) => {
   const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
   const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
 
+  if (!BREVO_API_KEY) {
+    return new Response(JSON.stringify({ error: "Missing BREVO_API_KEY" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (!SENDER_EMAIL) {
+    return new Response(JSON.stringify({ error: "Missing SENDER_EMAIL" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -259,8 +342,14 @@ serve(async (req) => {
     .eq("recipient_role", "user");
 
   if (fetchError) {
-    return new Response(JSON.stringify({ error: fetchError.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: fetchError.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
+
+  let sentCount = 0;
+  let failedCount = 0;
 
   for (const job of jobs ?? []) {
     try {
@@ -308,7 +397,7 @@ serve(async (req) => {
         method: "POST",
         headers: {
           "accept": "application/json",
-          "api-key": BREVO_API_KEY || "",
+          "api-key": BREVO_API_KEY,
           "content-type": "application/json",
         },
         body: JSON.stringify(emailData),
@@ -319,11 +408,20 @@ serve(async (req) => {
         throw new Error(`Brevo API Error: ${errText}`);
       }
 
+      // Helpful for debugging deliverability in Supabase logs (Brevo returns JSON with messageId).
+      try {
+        const okText = await response.text();
+        if (okText) console.log(`Brevo send response for job ${job.id}:`, okText);
+      } catch {
+        // ignore
+      }
+
       // Update Job Status: Sent
       await supabase.from("notification_jobs").update({
         status: "sent",
         sent_at: new Date().toISOString(),
       }).eq("id", job.id);
+      sentCount += 1;
 
     } catch (e: any) {
       console.error(`Failed job ${job.id}:`, e);
@@ -332,10 +430,17 @@ serve(async (req) => {
         status: "failed",
         error: e.message || String(e),
       }).eq("id", job.id);
+      failedCount += 1;
     }
   }
 
-  return new Response("OK", {
+  // Supabase dashboard "Test" expects JSON, so always respond with valid JSON.
+  return new Response(JSON.stringify({
+    success: true,
+    total: (jobs ?? []).length,
+    sent: sentCount,
+    failed: failedCount,
+  }), {
     status: 200,
     headers: { "Content-Type": "application/json" }
   });

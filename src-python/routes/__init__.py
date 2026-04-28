@@ -16,6 +16,7 @@ from .subscription_payment import subscription_payment_bp
 from .subscription import subscription_bp
 from .sync_log import sync_log_bp
 from .system_configuration import system_configuration_bp
+from .system_info import system_info_bp
 from .user import user_bp
 from .organization import organization_bp
 from .branch import branch_bp
@@ -37,6 +38,7 @@ all_blueprints = [
     subscription_bp,
     sync_log_bp,
     system_configuration_bp,
+    system_info_bp,
     user_bp,
     organization_bp,
     branch_bp,

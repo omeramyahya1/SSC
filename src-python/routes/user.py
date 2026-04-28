@@ -1,15 +1,15 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password
-from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch
+from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password, require_internet, verify_password
+from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch, SyncLog
 from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
 from serializer import model_to_dict
-from routes.sync_log import sync, upload_blob
+from routes.sync_log import sync, upload_blob, trigger_immediate_sync, map_user_to_payload, generic_mapper
 import base64
 import uuid
-from datetime import datetime, timedelta
-from supabase_client import get_anon_client, get_service_role_client
+from datetime import datetime, timedelta, timezone
+from supabase_client import get_anon_client, get_service_role_client, get_user_client
 
 user_bp = Blueprint('user_bp', __name__, url_prefix='/users')
 
@@ -457,7 +457,7 @@ def create_employee():
                 return jsonify({"error": "Invalid branch for this organization."}), 400
 
         role = data.get('role', 'employee')
-        if role not in ['employee', 'admin']:
+        if role not in ['employee']:
             return jsonify({"error": "Invalid role."}), 400
 
         # Generate temporary password
@@ -525,10 +525,31 @@ def create_employee():
 
 @user_bp.route('/<string:user_id_or_uuid>', methods=['PUT'])
 def update_user(user_id_or_uuid):
+    err, code = require_internet()
+    if err:
+        return err, code
+
     with get_db() as db:
+            active_auth = (
+                db.query(Authentication)
+                .filter(Authentication.is_logged_in.is_(True))
+                .order_by(Authentication.created_at.desc())
+                .first()
+            )
+            if not active_auth:
+                return jsonify({"error": "No active session found"}), 401
+
+            actor_user = db.query(User).filter(User.uuid == active_auth.user_uuid).first()
+            if not actor_user:
+                return jsonify({"error": "User not found"}), 404
+
+
             item = get_by_id_or_uuid(db, User, User.user_id, User.uuid, user_id_or_uuid)
             if not item:
                 return jsonify({"error": "Not found"}), 404
+
+            if active_auth.user_uuid != item.uuid and actor_user.role != "admin":
+                return jsonify({"error": "Forbidden"}), 403
 
             try:
                 validated_data = UserUpdate(**request.json)
@@ -539,22 +560,254 @@ def update_user(user_id_or_uuid):
             for key, value in update_data.items():
                 setattr(item, key, value)
 
-            db.commit()
-            db.refresh(item)
-            return(jsonify(model_to_dict(item)))
+            # --- Supabase Direct Sync ---
+            try:
+                payload = map_user_to_payload(item)
+                payload['is_dirty'] = False
+
+                supabase = get_user_client()
+                supabase.table('users').upsert(payload).execute()
+
+                item.is_dirty = False
+                db.commit()
+                db.refresh(item)
+                return(jsonify(model_to_dict(item)))
+            except Exception as e:
+                db.rollback()
+                print(f"Error syncing user to Supabase: {str(e)}")
+                return jsonify({"error": "Failed to sync changes to cloud."}), 500
 
 @user_bp.route('/<string:user_id_or_uuid>', methods=['DELETE'])
 def delete_user(user_id_or_uuid):
+    data = request.get_json(silent=True) or {}
+    password = (
+        data.get('password')
+        or data.get('current_password')
+        or data.get('currentPassword')
+    )
+    if not password:
+        return jsonify({"error": "password is required"}), 400
+
     with get_db() as db:
+        active_auth = (
+            db.query(Authentication)
+            .filter(Authentication.is_logged_in.is_(True))
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not active_auth:
+            return jsonify({"error": "No active session found"}), 401
+
+        actor_user = db.query(User).filter(User.uuid == active_auth.user_uuid).first()
+        if not actor_user:
+            return jsonify({"error": "User not found"}), 404
+
         user = get_by_id_or_uuid(db, User, User.user_id, User.uuid, user_id_or_uuid)
         if not user:
             return jsonify({"error": "Not found"}), 404
 
+        same_org_admin = (
+            actor_user.role == "admin"
+            and actor_user.organization_uuid is not None
+            and actor_user.organization_uuid == user.organization_uuid
+        )
+        if active_auth.user_uuid != user.uuid and not same_org_admin:
+            return jsonify({"error": "Forbidden"}), 403
+
+        latest_auth = (
+            db.query(Authentication)
+            .filter(Authentication.user_uuid == active_auth.user_uuid)
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not latest_auth or not verify_password(password, latest_auth.password_salt, latest_auth.password_hash):
+            return jsonify({"error": "Invalid password"}), 400
+
         now = datetime.utcnow()
+
+        # Collect IDs for tables that don't have user_id columns in Supabase
+        from models import (
+            Customer,
+            Project,
+            Invoice,
+            Payment,
+            Document,
+            ProjectComponent,
+            StockAdjustment,
+            InventoryItem,
+            InventoryCategory,
+            Appliance,
+            SystemConfiguration,
+        )
+
+        project_uuids = [row[0] for row in db.query(Project.uuid).filter(Project.user_uuid == user.uuid).all()]
+        invoice_uuids = [row[0] for row in db.query(Invoice.uuid).filter(Invoice.user_uuid == user.uuid).all()]
+        subscription_uuids = [row[0] for row in db.query(Subscription.uuid).filter(Subscription.user_uuid == user.uuid).all()]
+        system_config_uuids = [
+            row[0]
+            for row in db.query(Project.system_config_uuid)
+            .filter(Project.user_uuid == user.uuid, Project.system_config_uuid.isnot(None))
+            .distinct()
+            .all()
+        ]
+
+        org_uuid = user.organization_uuid if user.organization_uuid and user.role == "admin" else None
+        org_branch_uuids = []
+        org_employee_uuids = []
+        if org_uuid:
+            org_branch_uuids = [
+                row[0] for row in db.query(Branch.uuid).filter(Branch.organization_uuid == org_uuid).all()
+            ]
+            org_employee_uuids = [
+                row[0]
+                for row in db.query(User.uuid)
+                .filter(
+                    User.organization_uuid == org_uuid,
+                    User.role == "employee",
+                    User.uuid != user.uuid,
+                )
+                .all()
+            ]
+
+        # --- Local soft delete cascade (mark dirty for sync) ---
         user.deleted_at = now
         user.is_dirty = True
+
+        if org_uuid:
+            db.query(Organization).filter(Organization.uuid == org_uuid).update(
+                {Organization.deleted_at: now, Organization.is_dirty: True},
+                synchronize_session=False,
+            )
+            db.query(Branch).filter(Branch.organization_uuid == org_uuid).update(
+                {Branch.deleted_at: now, Branch.is_dirty: True},
+                synchronize_session=False,
+            )
+
+            if org_employee_uuids:
+                employee_project_uuids = [
+                    row[0] for row in db.query(Project.uuid).filter(Project.user_uuid.in_(org_employee_uuids)).all()
+                ]
+                employee_invoice_uuids = [
+                    row[0] for row in db.query(Invoice.uuid).filter(Invoice.user_uuid.in_(org_employee_uuids)).all()
+                ]
+                employee_subscription_uuids = [
+                    row[0]
+                    for row in db.query(Subscription.uuid)
+                    .filter(Subscription.user_uuid.in_(org_employee_uuids))
+                    .all()
+                ]
+                employee_system_config_uuids = [
+                    row[0]
+                    for row in db.query(Project.system_config_uuid)
+                    .filter(Project.user_uuid.in_(org_employee_uuids), Project.system_config_uuid.isnot(None))
+                    .distinct()
+                    .all()
+                ]
+
+                db.query(User).filter(User.uuid.in_(org_employee_uuids)).update(
+                    {User.deleted_at: now, User.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(Authentication).filter(Authentication.user_uuid.in_(org_employee_uuids)).update(
+                    {
+                        Authentication.deleted_at: now,
+                        Authentication.is_logged_in: False,
+                        Authentication.current_jwt: None,
+                        Authentication.jwt_issued_at: None,
+                        Authentication.is_dirty: True,
+                    },
+                    synchronize_session=False,
+                )
+                db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid.in_(org_employee_uuids)).update(
+                    {ApplicationSettings.deleted_at: now, ApplicationSettings.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(SyncLog).filter(SyncLog.user_uuid.in_(org_employee_uuids)).update(
+                    {SyncLog.deleted_at: now, SyncLog.is_dirty: True},
+                    synchronize_session=False,
+                )
+
+                db.query(Customer).filter(Customer.user_uuid.in_(org_employee_uuids)).update(
+                    {Customer.deleted_at: now, Customer.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(Project).filter(Project.user_uuid.in_(org_employee_uuids)).update(
+                    {Project.deleted_at: now, Project.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(Invoice).filter(Invoice.user_uuid.in_(org_employee_uuids)).update(
+                    {Invoice.deleted_at: now, Invoice.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(Subscription).filter(Subscription.user_uuid.in_(org_employee_uuids)).update(
+                    {Subscription.deleted_at: now, Subscription.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(InventoryCategory).filter(InventoryCategory.user_uuid.in_(org_employee_uuids)).update(
+                    {InventoryCategory.deleted_at: now, InventoryCategory.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(InventoryItem).filter(InventoryItem.user_uuid.in_(org_employee_uuids)).update(
+                    {InventoryItem.deleted_at: now, InventoryItem.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(StockAdjustment).filter(StockAdjustment.user_uuid.in_(org_employee_uuids)).update(
+                    {StockAdjustment.deleted_at: now, StockAdjustment.is_dirty: True},
+                    synchronize_session=False,
+                )
+
+                if employee_project_uuids:
+                    db.query(Appliance).filter(Appliance.project_uuid.in_(employee_project_uuids)).update(
+                        {Appliance.deleted_at: now, Appliance.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                    db.query(Document).filter(Document.project_uuid.in_(employee_project_uuids)).update(
+                        {Document.deleted_at: now, Document.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                    db.query(ProjectComponent).filter(ProjectComponent.project_uuid.in_(employee_project_uuids)).update(
+                        {ProjectComponent.deleted_at: now, ProjectComponent.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                if employee_invoice_uuids:
+                    db.query(Payment).filter(Payment.invoice_uuid.in_(employee_invoice_uuids)).update(
+                        {Payment.deleted_at: now, Payment.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                if employee_subscription_uuids:
+                    db.query(SubscriptionPayment).filter(
+                        SubscriptionPayment.subscription_uuid.in_(employee_subscription_uuids)
+                    ).update(
+                        {SubscriptionPayment.deleted_at: now, SubscriptionPayment.is_dirty: True},
+                        synchronize_session=False,
+                    )
+                if employee_system_config_uuids:
+                    db.query(SystemConfiguration).filter(SystemConfiguration.uuid.in_(employee_system_config_uuids)).update(
+                        {SystemConfiguration.deleted_at: now, SystemConfiguration.is_dirty: True},
+                        synchronize_session=False,
+                    )
+
+            if org_branch_uuids:
+                db.query(Customer).filter(Customer.branch_uuid.in_(org_branch_uuids)).update(
+                    {Customer.deleted_at: now, Customer.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(Project).filter(Project.branch_uuid.in_(org_branch_uuids)).update(
+                    {Project.deleted_at: now, Project.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(InventoryItem).filter(InventoryItem.branch_uuid.in_(org_branch_uuids)).update(
+                    {InventoryItem.deleted_at: now, InventoryItem.is_dirty: True},
+                    synchronize_session=False,
+                )
+                db.query(StockAdjustment).filter(StockAdjustment.branch_uuid.in_(org_branch_uuids)).update(
+                    {StockAdjustment.deleted_at: now, StockAdjustment.is_dirty: True},
+                    synchronize_session=False,
+                )
+
         db.query(Authentication).filter(Authentication.user_uuid == user.uuid).update(
             {
+                Authentication.deleted_at: now,
                 Authentication.is_logged_in: False,
                 Authentication.current_jwt: None,
                 Authentication.jwt_issued_at: None,
@@ -562,18 +815,109 @@ def delete_user(user_id_or_uuid):
             },
             synchronize_session=False,
         )
+        db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == user.uuid).update(
+            {ApplicationSettings.deleted_at: now, ApplicationSettings.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(SyncLog).filter(SyncLog.user_uuid == user.uuid).update(
+            {SyncLog.deleted_at: now, SyncLog.is_dirty: True},
+            synchronize_session=False,
+        )
 
-        # Cascading soft delete
-        # This is a simplified version. Ideally, we should iterate through all related tables.
-        # Customers, Projects, Invoices, etc.
-        from models import Customer, Project, Invoice, Payment, Document, ProjectComponent, StockAdjustment, InventoryItem
+        db.query(Customer).filter(Customer.user_uuid == user.uuid).update(
+            {Customer.deleted_at: now, Customer.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(Project).filter(Project.user_uuid == user.uuid).update(
+            {Project.deleted_at: now, Project.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(Invoice).filter(Invoice.user_uuid == user.uuid).update(
+            {Invoice.deleted_at: now, Invoice.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(Subscription).filter(Subscription.user_uuid == user.uuid).update(
+            {Subscription.deleted_at: now, Subscription.is_dirty: True},
+            synchronize_session=False,
+        )
 
-        db.query(Customer).filter(Customer.user_uuid == user.uuid).update({Customer.deleted_at: now, Customer.is_dirty: True}, synchronize_session=False)
-        db.query(Project).filter(Project.user_uuid == user.uuid).update({Project.deleted_at: now, Project.is_dirty: True}, synchronize_session=False)
-        db.query(Invoice).filter(Invoice.user_uuid == user.uuid).update({Invoice.deleted_at: now, Invoice.is_dirty: True}, synchronize_session=False)
-        # Note: Payments and other nested items are usually linked to Invoices or Projects.
-        # For simplicity, we assume if the parent is deleted, they are effectively deleted.
-        # But per requirements: "all realted tables: projects, invoices, inventory items, etc."
+        db.query(InventoryCategory).filter(InventoryCategory.user_uuid == user.uuid).update(
+            {InventoryCategory.deleted_at: now, InventoryCategory.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(InventoryItem).filter(InventoryItem.user_uuid == user.uuid).update(
+            {InventoryItem.deleted_at: now, InventoryItem.is_dirty: True},
+            synchronize_session=False,
+        )
+        db.query(StockAdjustment).filter(StockAdjustment.user_uuid == user.uuid).update(
+            {StockAdjustment.deleted_at: now, StockAdjustment.is_dirty: True},
+            synchronize_session=False,
+        )
 
-        db.commit()
+        # Indirect relations
+        if project_uuids:
+            db.query(Appliance).filter(Appliance.project_uuid.in_(project_uuids)).update(
+                {Appliance.deleted_at: now, Appliance.is_dirty: True},
+                synchronize_session=False,
+            )
+            db.query(Document).filter(Document.project_uuid.in_(project_uuids)).update(
+                {Document.deleted_at: now, Document.is_dirty: True},
+                synchronize_session=False,
+            )
+            db.query(ProjectComponent).filter(ProjectComponent.project_uuid.in_(project_uuids)).update(
+                {ProjectComponent.deleted_at: now, ProjectComponent.is_dirty: True},
+                synchronize_session=False,
+            )
+        if invoice_uuids:
+            db.query(Payment).filter(Payment.invoice_uuid.in_(invoice_uuids)).update(
+                {Payment.deleted_at: now, Payment.is_dirty: True},
+                synchronize_session=False,
+            )
+        if subscription_uuids:
+            db.query(SubscriptionPayment).filter(SubscriptionPayment.subscription_uuid.in_(subscription_uuids)).update(
+                {SubscriptionPayment.deleted_at: now, SubscriptionPayment.is_dirty: True},
+                synchronize_session=False,
+            )
+        if system_config_uuids:
+            db.query(SystemConfiguration).filter(SystemConfiguration.uuid.in_(system_config_uuids)).update(
+                {SystemConfiguration.deleted_at: now, SystemConfiguration.is_dirty: True},
+                synchronize_session=False,
+            )
+
+        # Commit local changes first; remote syncing is handled by the existing sync pipeline.
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"Error deactivating user locally: {str(e)}")
+            return jsonify({"error": "Failed to deactivate user."}), 500
+
+        # Collect user and organization details for the RPC call (notifications only).
+        organization_name_if_exists = None
+        if user.organization_uuid:
+            org = db.query(Organization).filter(Organization.uuid == user.organization_uuid).first()
+            if org:
+                organization_name_if_exists = org.name
+
+        # Call the Supabase RPC for notifications (best-effort).
+        supabase_service_client = get_service_role_client()  # Use service client for RPC
+        try:
+            supabase_service_client.rpc(
+                'deactivate_account',
+                {
+                    'p_user_id': user.uuid,
+                    'p_actor_user_id': actor_user.uuid,
+                    'p_user_email': user.email,
+                    'p_username': user.username,
+                    'p_account_type': user.account_type,
+                    'p_role': user.role,
+                    'p_organization_id': user.organization_uuid,
+                    'p_organization_name': organization_name_if_exists,
+                    'p_distributor_id': user.distributor_id,
+                },
+            ).execute()
+        except Exception as e:
+            print(f"Warning: Failed to create deactivation notification job in Supabase: {e}")
+            # Log error but do not prevent user deactivation from completing.
+
         return jsonify({"message": "User deactivated successfully"}), 200

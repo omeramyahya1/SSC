@@ -99,9 +99,6 @@ export function SupportModal() {
                 subject: subject.trim(),
                 body: body.trim(),
                 user_uuid: currentUser.uuid
-            },
-            {
-                headers: { Authorization: `Bearer ${currentAuthentication.current_jwt}` }
             }
         );
 

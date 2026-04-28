@@ -1,22 +1,17 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, verify_password
-from models import Authentication, User, Subscription # Import User model
+from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, verify_password, require_internet, get_server_time_or_none, is_jwt_expired_offline
+from models import Authentication, User, Subscription, SyncLog
 from schemas import AuthenticationCreate, AuthenticationUpdate
-from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication # Import new schemas
+from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication
 from serializer import model_to_dict
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
-from routes.sync_log import sync
+from routes.sync_log import sync, trigger_immediate_sync, generic_mapper
 from sqlalchemy import func
+from supabase_client import get_service_role_client
 
 authentication_bp = Blueprint('authentication_bp', __name__, url_prefix='/authentications')
-
-from supabase_client import get_service_role_client
-from utils import get_server_time_or_none, is_jwt_expired_offline # Import new helpers
-import uuid
-from routes.sync_log import sync
-from datetime import timezone
 
 def is_valid_uuid(val):
     try:
@@ -36,7 +31,8 @@ def login_user():
         # --- 1. Initial Local Check ---
         user = (
             db.query(User)
-            .filter(func.lower(User.email) == login_data.email.strip().lower())
+            .filter(func.lower(User.email) == login_data.email.strip().lower())\
+            .filter(User.deleted_at.is_(None))\
             .first()
         )
 
@@ -121,7 +117,7 @@ def handle_online_login(db, email, password, local_user):
         return jsonify({"error": "Offline. Please connect to the internet."}), 503
 
     # If the user exists locally, we just need to refresh their JWT
-    if local_user:
+    if local_user and not local_user.deleted_at:
         print(f"Refreshing JWT for existing local user: {email}")
         try:
             user_auth = db.query(Authentication).filter_by(user_uuid=local_user.uuid).order_by(Authentication.created_at.desc()).first()
@@ -322,6 +318,135 @@ def logout_user():
         db.commit()
 
         return jsonify({"message": "Logout successful"}), 200
+
+
+@authentication_bp.route('/change-password', methods=['POST'])
+def change_password():
+    err, code = require_internet()
+    if err:
+        return err, code
+
+    data = request.get_json() or {}
+    current_password = data.get('current_password') or data.get('currentPassword')
+    new_password = data.get('new_password') or data.get('newPassword')
+
+    if not current_password or not new_password:
+        return jsonify({"error": "current_password and new_password are required"}), 400
+
+    with get_db() as db:
+        active_auth = (
+            db.query(Authentication)
+            .filter(Authentication.is_logged_in.is_(True))
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not active_auth:
+            return jsonify({"error": "No active session found"}), 401
+
+        user = db.query(User).filter(User.uuid == active_auth.user_uuid).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        latest_auth = (
+            db.query(Authentication)
+            .filter(Authentication.user_uuid == user.uuid)
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not latest_auth:
+            return jsonify({"error": "Authentication record not found"}), 404
+
+        if not verify_password(current_password, latest_auth.password_salt, latest_auth.password_hash):
+            return jsonify({"error": "Current password is incorrect"}), 400
+
+        salt = generate_salt()
+        pw_hash = hash_password(new_password, salt)
+
+        # Keep all local auth rows consistent (login code may copy from the latest row).
+        db.query(Authentication).filter(Authentication.user_uuid == user.uuid).update(
+            {
+                Authentication.password_hash: pw_hash,
+                Authentication.password_salt: salt,
+                Authentication.is_dirty: True,
+            },
+            synchronize_session=False,
+        )
+
+        # --- Supabase Direct Sync ---
+        try:
+            # Local DB keeps auth history rows, but the cloud table enforces a unique
+            # constraint on (user_id, device_id). So for password changes, update the
+            # cloud rows in-place instead of trying to upsert every local history row.
+            affected_auths = db.query(Authentication).filter(Authentication.user_uuid == user.uuid).all()
+
+            supabase = get_service_role_client()  # service client handles sensitive data
+            update_res = (
+                supabase.table('authentications')
+                .update({"password_hash": pw_hash, "password_salt": salt, "is_dirty": False})
+                .eq("user_id", user.uuid)
+                .execute()
+            )
+
+            # If no cloud rows exist yet (rare), upsert one row per distinct device.
+            if not getattr(update_res, "data", None):
+                device_ids = {a.device_id for a in affected_auths if a.device_id}
+                payloads = [
+                    {
+                        "user_id": user.uuid,
+                        "device_id": device_id,
+                        "password_hash": pw_hash,
+                        "password_salt": salt,
+                        "is_dirty": False,
+                    }
+                    for device_id in device_ids
+                ]
+                if payloads:
+                    supabase.table('authentications').upsert(
+                        payloads, on_conflict="user_id,device_id"
+                    ).execute()
+
+            # If successful, mark local as clean and commit
+            for auth in affected_auths:
+                auth.is_dirty = False
+
+            db.commit()
+            return jsonify({"message": "Password updated successfully"}), 200
+        except Exception as e:
+            db.rollback()
+            print(f"Error syncing password to Supabase: {str(e)}")
+            return jsonify({"error": "Failed to sync password change to cloud."}), 500
+
+
+@authentication_bp.route('/verify-password', methods=['POST'])
+def verify_current_password():
+    data = request.get_json(silent=True) or {}
+    password = data.get('password') or data.get('current_password') or data.get('currentPassword')
+    if not password:
+        return jsonify({"error": "password is required"}), 400
+
+    with get_db() as db:
+        active_auth = (
+            db.query(Authentication)
+            .filter(Authentication.is_logged_in.is_(True))
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not active_auth:
+            return jsonify({"error": "No active session found"}), 401
+
+        latest_auth = (
+            db.query(Authentication)
+            .filter(Authentication.user_uuid == active_auth.user_uuid)
+            .order_by(Authentication.created_at.desc())
+            .first()
+        )
+        if not latest_auth:
+            return jsonify({"error": "Authentication record not found"}), 404
+
+        if not verify_password(password, latest_auth.password_salt, latest_auth.password_hash):
+            return jsonify({"verified": False, "error": "Invalid password"}), 400
+
+        return jsonify({"verified": True}), 200
 
 @authentication_bp.route('/<string:item_id>', methods=['PUT'])
 def update_authentication(item_id):

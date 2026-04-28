@@ -61,6 +61,7 @@ export interface AuthenticationStore {
   error: string | null;
   showFirstTimeLoginPrompt: boolean;
   setShowFirstTimeLoginPrompt: (show: boolean) => void;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   fetchAuthentications: () => Promise<void>;
   fetchAuthentication: (id: number) => Promise<void>;
   fetchLatestAuthentication: () => Promise<Authentication | undefined>;
@@ -80,6 +81,21 @@ export const useAuthenticationStore = create<AuthenticationStore>()(persist((set
   showFirstTimeLoginPrompt: false,
 
   setShowFirstTimeLoginPrompt: (show) => set({ showFirstTimeLoginPrompt: show }),
+
+  changePassword: async (currentPassword, newPassword) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.post(`${resource}/change-password`, {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      set({ isLoading: false });
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.error || e.message || "Failed to change password";
+      set({ error: errorMsg, isLoading: false });
+      throw new Error(errorMsg);
+    }
+  },
 
   logout: async () => {
     const currentAuth = get().currentAuthentication;

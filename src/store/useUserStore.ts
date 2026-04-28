@@ -44,17 +44,19 @@ export interface UserStore {
   currentUserSnapshot: { user_id: number; uuid: string } | null;
   isLoading: boolean;
   error: string | null;
+  checkEmailUniqueness: (email: string) => Promise<boolean>;
+  changeCurrentUserEmail: (email: string) => Promise<User | undefined>;
   fetchUsers: () => Promise<void>;
   fetchEmployees: (orgUuid: string) => Promise<void>;
   fetchUser: (id: string) => Promise<void>;
   createUser: (data: NewUserData) => Promise<User | undefined>;
   createEmployee: (data: any) => Promise<User | undefined>;
-  updateUser: (id: number | string, data: Partial<NewUserData>) => Promise<User | undefined>;
-  deleteUser: (id: number | string) => Promise<void>;
+  updateUser: (id: number | string, data: Partial<NewUserData>) => Promise<User>;
+  deleteUser: (id: number | string, password: string) => Promise<void>;
   setCurrentUser: (user: User | null) => void;
 }
 
-export const useUserStore = create<UserStore>()(persist((set) => ({
+export const useUserStore = create<UserStore>()(persist((set, get) => ({
   users: [],
   currentUser: null,
   currentUserSnapshot: null,
@@ -66,6 +68,35 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
       currentUser: user,
       currentUserSnapshot: user ? { user_id: user.user_id, uuid: user.uuid } : null
     });
+  },
+
+  checkEmailUniqueness: async (email) => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return false;
+    const response = await api.post<{ isUnique: boolean }>(`${resource}/check-email-uniqueness`, { email: normalized });
+    return Boolean(response.data?.isUnique);
+  },
+
+  changeCurrentUserEmail: async (email) => {
+    const current = get().currentUser;
+    if (!current) return undefined;
+
+    set({ isLoading: true, error: null });
+    try {
+      const isUnique = await get().checkEmailUniqueness(email);
+      if (!isUnique) {
+        throw new Error("Email already exists");
+      }
+
+      const updated = await get().updateUser(current.user_id, { email: email.trim().toLowerCase() });
+
+      set({ isLoading: false });
+      return updated;
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.error || e.message || "Failed to change email";
+      set({ error: errorMsg, isLoading: false });
+      throw new Error(errorMsg);
+    }
   },
 
   fetchUsers: async () => {
@@ -157,25 +188,26 @@ export const useUserStore = create<UserStore>()(persist((set) => ({
       }));
       return data;
     } catch (e: any) {
-      const errorMsg = e.message || `Failed to update user ${id}`;
+      const errorMsg = e.response?.data?.error || e.message || `Failed to update user ${id}`;
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
-      return undefined;
+      throw new Error(errorMsg);
     }
   },
 
-  deleteUser: async (id) => {
+  deleteUser: async (id, password) => {
     set({ isLoading: true, error: null });
     try {
-      await api.delete(`${resource}/${id}`);
+      await api.delete(`${resource}/${id}`, { data: { password } });
       set((state) => ({
         users: state.users.filter((u) => u.user_id !== id && u.uuid !== id),
         isLoading: false,
       }));
     } catch (e: any) {
-      const errorMsg = e.message || `Failed to delete user ${id}`;
+      const errorMsg = e.response?.data?.error || e.message || `Failed to delete user ${id}`;
       set({ error: errorMsg, isLoading: false });
       console.error(errorMsg, e);
+      throw new Error(errorMsg);
     }
   },
 }), {

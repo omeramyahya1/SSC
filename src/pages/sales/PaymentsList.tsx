@@ -164,7 +164,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                             <TableHead className="text-start font-bold">{t('finances.date', 'Date')}</TableHead>
                             <TableHead className="text-start font-bold">{t('invoicing.id', 'Invoice ID')}</TableHead>
                             <TableHead className="text-start font-bold">{t('invoicing.customer', 'Customer')}</TableHead>
-                            <TableHead className="text-start text-center font-bold">{t('finances.method', 'Method')}</TableHead>
+                            <TableHead className="text-start font-bold">{t('finances.method', 'Method')}</TableHead>
                             <TableHead className="text-start font-bold">{t('finances.reference', 'Reference')}</TableHead>
                             <TableHead className="text-start font-bold">{t('finances.amount', 'Amount')}</TableHead>
                             <TableHead className="text-end font-bold">{t('finances.actions', 'Actions')}</TableHead>
@@ -185,7 +185,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                                     {payment.project_name || 'N/A'}
                                 </TableCell>
                                 <TableCell>
-                                    <div className="text-sm text-center font-bold text-gray-700 capitalize">
+                                    <div className="text-sm text-start font-bold text-gray-700 capitalize">
                                         {t(`finances.methods.${payment.method.toLowerCase()}`, payment.method)}
                                     </div>
                                 </TableCell>
