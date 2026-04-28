@@ -22,12 +22,118 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useSystemInfoStore } from "@/store/useSystemInfoStore";
-import { User, Shield, Database, LogOut, Trash2, Save, Upload, Pencil, X, Mail, KeyRound, Globe } from "lucide-react";
-import { useState, useEffect } from "react";
+import { User, Shield, Database, LogOut, Trash2, Save, Pencil, X, Mail, KeyRound, Globe, ChevronsUpDown, Check, Eye, EyeOff } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { Card } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/api/client";
+import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+
+// Import CSV raw
+import geoDataCsv from '@/assets/dataset/geo_data.csv?raw';
+
+
+// --- Helper Functions & Utilities ---
+const parseCsv = (csv: string) => {
+    const lines = csv.split('\n');
+    const headers = lines[0].split(',');
+    const data: any[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const currentLine = lines[i].split(',');
+        const obj: any = {};
+        for (let j = 0; j < headers.length; j++) {
+            obj[headers[j].trim()] = currentLine[j]?.trim();
+        }
+        data.push(obj);
+    }
+    return data;
+};
+
+const toTitleCase = (str: string) => {
+  if (!str) return '';
+  return str.replace(
+    /\w\S*/g,
+    text => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase()
+  );
+};
+
+// --- Custom Searchable Select (Copied from registration.tsx) ---
+const SearchableSelect = ({ items, value, onValueChange, placeholder, disabled }: any) => {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false)
+
+    const selectedLabel = items.find((item: any) => item.value === value)?.label
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+            <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+                "w-full justify-between px-4 py-3 h-12 border border-neutral/20 shadow-sm rounded-base focus:shadow-md focus:ring-2 focus:ring-primary/20 outline-none transition-all bg-neutral-bg/30 hover:border-neutral/40 placeholder:text-neutral/40",
+                !value && "text-muted-foreground",
+                disabled && "opacity-50 cursor-not-allowed"
+            )}
+            disabled={disabled}
+            >
+            {value ? selectedLabel : placeholder}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-white rounded-lg">
+            <Command>
+            <CommandInput placeholder={placeholder} />
+            <CommandList>
+                <CommandEmpty>{t('registration.search.no_results', 'No results found.')}</CommandEmpty>
+                <CommandGroup>
+                {items.map((item: any) => (
+                    <CommandItem
+                    key={item.value}
+                    value={item.label} // Search by label
+                    className='hover:bg-primary-gray rounded-lg cursor-pointer'
+                    onSelect={(currentValue) => {
+                        // We need the value, not the label
+                        // But cmdk uses label as value often if not specified
+                        // Here we map back
+                        const original = items.find((i: any) => i.label.toLowerCase() === currentValue.toLowerCase()) || items.find((i:any) => i.label === currentValue);
+                        onValueChange(original?.value || currentValue)
+                        setOpen(false)
+                    }}
+                    >
+                    <Check
+                        className={cn(
+                        "mr-2 h-4 w-4",
+                        value === item.value ? "opacity-100" : "opacity-0"
+                        )}
+                    />
+                    {item.label}
+                    </CommandItem>
+                ))}
+                </CommandGroup>
+            </CommandList>
+            </Command>
+        </PopoverContent>
+        </Popover>
+    )
+}
+
 
 export function SettingsModal() {
     const { t, i18n } = useTranslation();
@@ -40,12 +146,18 @@ export function SettingsModal() {
     const isEnterprise = currentUser ? currentUser.account_type !== "standard" : false;
     const canEditOrganizationProfile = Boolean(currentUser) && !isEmployee;
 
+    // Local Constants for Password/Email Validation (Copied from registration.tsx)
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const PASSWORD_MIN_LENGTH = 6;
+
     // Personal profile edit state
     const [isEditingPersonal, setIsEditingPersonal] = useState(false);
     const [personalDraft, setPersonalDraft] = useState({
         username: currentUser?.username || "",
-        location: currentUser?.location || "",
+        locationState: currentUser?.location?.split(', ')[1] || "", // Extract state
+        locationCity: currentUser?.location?.split(', ')[0] || "", // Extract city
     });
+    const [usernameError, setUsernameError] = useState<string | null>(null);
 
     // Organization profile edit state
     const [isEditingOrganization, setIsEditingOrganization] = useState(false);
@@ -54,14 +166,18 @@ export function SettingsModal() {
     });
 
     // Security: email state
-    const [newEmail, setNewEmail] = useState(currentUser?.email || "");
+    const [newEmail, setNewEmail] = useState("");
     const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
     const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+    const [emailValidationError, setEmailValidationError] = useState<string | null>(null); // New state for email validation
 
     // Security: password state
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false); // New state for password visibility
+    const [newPasswordError, setNewPasswordError] = useState<string | null>(null); // New state for new password validation
+    const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null); // New state for confirm password validation
 
     // Deactivation confirm dialog
     const [isDeactivateOpen, setIsDeactivateOpen] = useState(false);
@@ -71,13 +187,40 @@ export function SettingsModal() {
 
     const [isSavingPersonal, setIsSavingPersonal] = useState(false);
     const [isSavingOrganization, setIsSavingOrganization] = useState(false);
+    const [activeTab, setActiveTab] = useState("profile"); // New state for active tab
+
+    // --- Location Data (Copied from registration.tsx) ---
+    const geoDataParsed = useMemo(() => parseCsv(geoDataCsv), []);
+    const uniqueStates = useMemo(() => Array.from(new Set(geoDataParsed.map(item => item.state))).map(stateName => {
+        const entry = geoDataParsed.find(item => item.state === stateName);
+        return {
+            value: entry.state,
+            label_en: toTitleCase(entry.state),
+            label_ar: entry.state_ar
+        };
+    }), [geoDataParsed]);
+
+    const cities = useMemo(() => {
+        const state = personalDraft.locationState;
+        if (state) {
+            return geoDataParsed.filter(item => item.state === state).map(item => ({
+                value: item.city,
+                label_en: toTitleCase(item.city),
+                label_ar: item.city_ar,
+                latitude: item.latitude,
+                longitude: item.longitude
+            }));
+        }
+        return [];
+    }, [personalDraft.locationState, geoDataParsed]);
 
     useEffect(() => {
         if (currentUser) {
             if (!isEditingPersonal) {
                 setPersonalDraft({
                     username: currentUser.username || "",
-                    location: currentUser.location || "",
+                    locationState: currentUser.location?.split(', ')[1] || "",
+                    locationCity: currentUser.location?.split(', ')[0] || "",
                 });
             }
             if (!isEditingOrganization) {
@@ -85,7 +228,11 @@ export function SettingsModal() {
                     business_name: currentUser.business_name || "",
                 });
             }
-            setNewEmail(currentUser.email || "");
+            setNewEmail("");
+            setEmailValidationError(null); // Reset email validation error on user change
+            setNewPasswordError(null);
+            setConfirmPasswordError(null);
+            setUsernameError(null);
         }
         setEmailAvailable(null);
     }, [currentUser, isEditingPersonal, isEditingOrganization]);
@@ -100,11 +247,24 @@ export function SettingsModal() {
             toast.error(t('settings.internet_required_save', 'Internet connection required to save changes'));
             return;
         }
+
+        // Username validation
+        if (personalDraft.username.trim() === '') {
+            setUsernameError(t('settings.username_required', 'Username is required.'));
+            return;
+        } else {
+            setUsernameError(null);
+        }
+
         setIsSavingPersonal(true);
         try {
+            const locationString = personalDraft.locationCity && personalDraft.locationState
+                ? `${personalDraft.locationCity}, ${personalDraft.locationState}`
+                : "";
+
             await updateUser(currentUser.user_id, {
                 username: personalDraft.username,
-                location: isEmployee ? currentUser.location : personalDraft.location
+                location: isEmployee ? currentUser.location : locationString // Only update if not employee
             });
             setIsEditingPersonal(false);
             toast.success(t('settings.profile_updated', 'Profile updated successfully'));
@@ -120,8 +280,10 @@ export function SettingsModal() {
         setIsEditingPersonal(false);
         setPersonalDraft({
             username: currentUser.username || "",
-            location: currentUser.location || "",
+            locationState: currentUser.location?.split(', ')[1] || "",
+            locationCity: currentUser.location?.split(', ')[0] || "",
         });
+        setUsernameError(null); // Clear errors on cancel
     };
 
     const handleSaveOrganizationProfile = async () => {
@@ -164,15 +326,33 @@ export function SettingsModal() {
         i18n.changeLanguage(lang);
     };
 
+    // --- Password Validation Logic ---
+    useEffect(() => {
+        setNewPasswordError(null);
+        setConfirmPasswordError(null);
+
+        if (newPassword.length > 0 && newPassword.length < PASSWORD_MIN_LENGTH) {
+            setNewPasswordError(t('registration.password_hint', 'Min 6 chars, at least 1 number'));
+        } else if (newPassword.length > 0 && !(/\d/).test(newPassword)) {
+            setNewPasswordError(t('registration.password_hint_number', 'Password must contain at least one number.'));
+        }
+
+        if (confirmPassword.length > 0 && newPassword !== confirmPassword) {
+            setConfirmPasswordError(t('registration.passwords_mismatch', 'Passwords do not match.'));
+        }
+    }, [newPassword, confirmPassword, t]);
+
     const handlePasswordChange = async () => {
         if (!navigator.onLine) {
             toast.error(t('settings.internet_required_change', 'Internet connection required to change sensitive settings'));
             return;
         }
-        if (newPassword !== confirmPassword) {
-            toast.error(t('auth.passwords_mismatch', 'Passwords do not match'));
+        // Additional validation before API call
+        if (newPasswordError || confirmPasswordError || !currentPassword || !newPassword || !confirmPassword) {
+            toast.error(t('settings.password_validation_error', 'Please ensure all password fields are valid.'));
             return;
         }
+
         try {
             await changePassword(currentPassword, newPassword);
             setCurrentPassword("");
@@ -184,25 +364,40 @@ export function SettingsModal() {
         }
     };
 
-    const handleCheckEmail = async () => {
+    // --- Email Validation Logic (Debounced) ---
+    useEffect(() => {
+        setEmailAvailable(null);
+        setEmailValidationError(null);
+
         const email = newEmail.trim().toLowerCase();
-        if (!email) return;
-        setIsCheckingEmail(true);
-        try {
-            const isUnique = await checkEmailUniqueness(email);
-            setEmailAvailable(isUnique);
-            if (isUnique) {
-                toast.success(t('settings.email_available', 'Email is available'));
-            } else {
-                toast.error(t('settings.email_taken', 'Email is already in use'));
-            }
-        } catch {
-            setEmailAvailable(false);
-            toast.error(t('settings.email_check_failed', 'Failed to verify email'));
-        } finally {
-            setIsCheckingEmail(false);
+        if (!email) {
+            return;
         }
-    };
+
+        if (!EMAIL_REGEX.test(email)) {
+            setEmailValidationError(t('registration.invalid_email', 'Email is invalid'));
+            return;
+        }
+
+        setIsCheckingEmail(true);
+        const timer = setTimeout(async () => {
+            try {
+                const isUnique = await checkEmailUniqueness(email);
+                setEmailAvailable(isUnique);
+                if (!isUnique) {
+                    setEmailValidationError(t('registration.email_taken', 'Email is already in use'));
+                }
+            } catch (error) {
+                console.error("Error checking email uniqueness:", error);
+                setEmailAvailable(false); // Assume not available on error for safety
+                setEmailValidationError(t('settings.email_check_failed', 'Failed to verify email availability.'));
+            } finally {
+                setIsCheckingEmail(false);
+            }
+        }, 500); // Debounce time
+
+        return () => clearTimeout(timer);
+    }, [newEmail, checkEmailUniqueness, t]);
 
     const handleUpdateEmail = async () => {
         if (!currentUser) return;
@@ -210,9 +405,14 @@ export function SettingsModal() {
             toast.error(t('team.internet_required', 'Active internet connection required for this action'));
             return;
         }
+        if (emailValidationError || emailAvailable === false || !newEmail.trim()) {
+            toast.error(t('settings.email_validation_error', 'Please provide a valid and available email.'));
+            return;
+        }
         try {
             await changeCurrentUserEmail(newEmail);
-            setEmailAvailable(true);
+            setEmailAvailable(true); // Should be true if update successful
+            setEmailValidationError(null);
             toast.success(t('settings.email_updated', 'Email updated successfully'));
         } catch (e: any) {
             toast.error(e?.message || t('settings.update_failed', 'Failed to update settings'));
@@ -277,8 +477,13 @@ export function SettingsModal() {
                 <DialogTitle className="text-3xl font-black">{t('dashboard.settings', 'Settings')}</DialogTitle>
             </DialogHeader>
 
-            <Tabs defaultValue="profile" className="flex flex-1 overflow-hidden" orientation="vertical">
-                <TabsList className="flex flex-col w-64 bg-gray-50/50 p-4 gap-2 h-full border-e border-gray-100 justify-start rounded-none">
+            <Tabs defaultValue="profile" value={activeTab} onValueChange={(value) => {
+                setActiveTab(value);
+                // Reset edit modes when switching tabs
+                setIsEditingPersonal(false);
+                setIsEditingOrganization(false);
+            }} className="flex flex-1 overflow-hidden" orientation="vertical">
+                <TabsList className="flex flex-col w-64 bg-gray-50/50 p-4 gap-2 h-full border-e border-gray-100 justify-start rounded-none" dir={i18n.dir()}>
                     <TabsTrigger value="profile" className="w-full justify-start gap-3 px-4 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm transition-all font-bold">
                         <User className="w-4 h-4" /> {t('settings.profile', 'Profile')}
                     </TabsTrigger>
@@ -296,28 +501,19 @@ export function SettingsModal() {
                     </div>
                 </TabsList>
 
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-hidden" dir={i18n.dir()}>
                     <ScrollArea className="h-full">
                         <div className="p-8 space-y-8">
-                            <Alert className="bg-primary/5 border-primary/20 rounded-2xl">
-                                <Globe className="h-4 w-4 text-primary" />
-                                <AlertDescription className="text-primary font-bold text-xs uppercase tracking-wide">
-                                    {t('settings.sync_requirement', 'Active internet connection required to synchronize settings with your cloud account')}
-                                </AlertDescription>
-                            </Alert>
 
                             <TabsContent value="profile" className="m-0 space-y-6">
                                 <div className="flex items-center gap-6 pb-4">
                                     <div className="relative group">
-                                        <Avatar className="w-24 h-24 border-4 border-white shadow-xl">
+                                        <Avatar className="w-24 h-24 border-2 border-primary shadow-xl">
                                             <AvatarImage src={currentUser?.business_logo} />
-                                            <AvatarFallback className="bg-primary/10 text-primary text-2xl font-black">
+                                            <AvatarFallback className="bg-primary/10 text-primary text-3xl font-black">
                                                 {currentUser?.username?.charAt(0).toUpperCase()}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <button className="absolute bottom-0 end-0 bg-primary text-white p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Upload className="w-4 h-4" />
-                                        </button>
                                     </div>
                                     <div>
                                         <h3 className="text-xl font-black text-neutral/80">{currentUser?.username}</h3>
@@ -344,7 +540,7 @@ export function SettingsModal() {
                                                                     variant="ghost"
                                                                     size="icon"
                                                                     onClick={handleSavePersonalProfile}
-                                                                    disabled={isSavingPersonal}
+                                                                    disabled={isSavingPersonal || !!usernameError}
                                                                     className="h-7 w-7 text-green-600 hover:text-green-700"
                                                                 >
                                                                     <Save className="h-4 w-4" />
@@ -382,31 +578,49 @@ export function SettingsModal() {
                                         <h4 className="text-sm font-black text-neutral/80 uppercase tracking-wider">
                                             {t('settings.personal_profile', 'Personal Profile')}
                                         </h4>
-                                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="mt-4 flex flex-col md:grid-cols-2 gap-6">
                                             <div className="space-y-2">
                                                 <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.username', 'Username')}</Label>
                                                 {isEditingPersonal ? (
-                                                    <Input
-                                                        value={personalDraft.username}
-                                                        onChange={(e) => setPersonalDraft((p) => ({ ...p, username: e.target.value }))}
-                                                        className="bg-gray-50 border-none rounded-xl h-12 font-medium"
-                                                    />
+                                                    <>
+                                                        <Input
+                                                            value={personalDraft.username}
+                                                            onChange={(e) => {
+                                                                setPersonalDraft((p) => ({ ...p, username: e.target.value }));
+                                                                if (e.target.value.trim() === '') {
+                                                                    setUsernameError(t('settings.username_required', 'Username is required.'));
+                                                                } else {
+                                                                    setUsernameError(null);
+                                                                }
+                                                            }}
+                                                            className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium"
+                                                        />
+                                                        {usernameError && (
+                                                            <p className="text-xs text-red-500 mt-1 ps-1 flex items-center gap-1">
+                                                                {usernameError}
+                                                            </p>
+                                                        )}
+                                                    </>
                                                 ) : (
                                                     <p className="h-12 flex items-center font-bold text-neutral/80">{currentUser?.username || "—"}</p>
                                                 )}
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('dashboard.city_label', 'City / Location')}</Label>
+
+
+                                            <div className="flex flex-row gap-6">
+                                                <div className="space-y-2 w-1/2">
+                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.state', 'State')}</Label>
                                                 {isEditingPersonal ? (
-                                                    <Input
-                                                        value={personalDraft.location}
-                                                        onChange={(e) => setPersonalDraft((p) => ({ ...p, location: e.target.value }))}
+                                                    <SearchableSelect
+                                                        items={uniqueStates.map(s => ({ value: s.value, label: i18n.language === 'ar' ? s.label_ar : s.label_en }))}
+                                                        value={personalDraft.locationState}
+                                                        onValueChange={(val: string) => setPersonalDraft((p) => ({ ...p, locationState: val, locationCity: '' }))}
+                                                        placeholder={t('registration.select_state', 'Select state')}
                                                         disabled={isEmployee}
-                                                        className="bg-gray-50 border-none rounded-xl h-12 font-medium"
                                                     />
                                                 ) : (
-                                                    <p className="h-12 flex items-center font-bold text-neutral/80">{currentUser?.location || "—"}</p>
+                                                    <p className="h-12 flex items-center font-bold text-neutral/80">{currentUser?.location?.split(', ')[1] || "—"}</p>
                                                 )}
                                                 {isEmployee && (
                                                     <p className="text-[10px] text-semantic-warning font-bold uppercase">
@@ -415,18 +629,25 @@ export function SettingsModal() {
                                                 )}
                                             </div>
 
-                                            <div className="space-y-2">
-                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.language.placeholder', 'Language')}</Label>
-                                                <Select onValueChange={handleLanguageChange} defaultValue={i18n.language} dir={i18n.dir()}>
-                                                    <SelectTrigger className="bg-gray-50 border-none rounded-xl h-12 font-medium">
-                                                        <SelectValue placeholder={t('settings.select_language_placeholder', 'Select language')} />
-                                                    </SelectTrigger>
-                                                    <SelectContent dir={i18n.dir()}>
-                                                        <SelectItem value="en">{t('registration.language.en', 'English')}</SelectItem>
-                                                        <SelectItem value="ar">{t('registration.language.ar', 'العربية')}</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                            <div className="space-y-2 w-1/2">
+                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.city', 'City')}</Label>
+                                                {isEditingPersonal ? (
+                                                    <SearchableSelect
+                                                        items={cities.map(c => ({ value: c.value, label: i18n.language === 'ar' ? c.label_ar : c.label_en }))}
+                                                        value={personalDraft.locationCity}
+                                                        onValueChange={(val: string) => setPersonalDraft((p) => ({ ...p, locationCity: val }))}
+                                                        placeholder={t('registration.select_city', 'Select city')}
+                                                        disabled={isEmployee || !personalDraft.locationState}
+                                                    />
+                                                ) : (
+                                                    <p className="h-12 flex items-center font-bold text-neutral/80">{currentUser?.location?.split(', ')[0] || "—"}</p>
+                                                )}
                                             </div>
+                                            </div>
+
+
+
+
                                         </div>
                                     </div>
 
@@ -488,7 +709,7 @@ export function SettingsModal() {
                                                     <Input
                                                         value={organizationDraft.business_name}
                                                         onChange={(e) => setOrganizationDraft((p) => ({ ...p, business_name: e.target.value }))}
-                                                        className="bg-gray-50 border-none rounded-xl h-12 font-medium"
+                                                        className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium"
                                                     />
                                                 ) : (
                                                     <p className="h-12 flex items-center font-bold text-neutral/80">{currentUser?.business_name || "—"}</p>
@@ -510,17 +731,70 @@ export function SettingsModal() {
                                     <div className="space-y-4 max-w-sm">
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold text-neutral/40 uppercase">{t('auth.current_password', 'Current Password')}</Label>
-                                            <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="bg-gray-50 border-none rounded-xl h-12 font-medium" />
+                                            <div className="relative">
+                                                <Input type={showPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
+                                                >
+                                                    {showPassword ? (
+                                                        <EyeOff className="w-6 h-6 opacity-70" />
+                                                    ) : (
+                                                        <Eye className="w-6 h-6 opacity-70" />
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold text-neutral/40 uppercase">{t('auth.new_password', 'New Password')}</Label>
-                                            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-gray-50 border-none rounded-xl h-12 font-medium" />
+                                            <div className="relative">
+                                                <Input type={showPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
+                                                >
+                                                    {showPassword ? (
+                                                        <EyeOff className="w-6 h-6 opacity-70" />
+                                                    ) : (
+                                                        <Eye className="w-6 h-6 opacity-70" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                            {newPasswordError && (
+                                                <p className="text-xs text-red-500 mt-1 ps-1 flex items-center gap-1">
+                                                    {newPasswordError}
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.confirm_password', 'Confirm Password')}</Label>
-                                            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-gray-50 border-none rounded-xl h-12 font-medium" />
+                                            <div className="relative">
+                                                <Input type={showPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
+                                                >
+                                                    {showPassword ? (
+                                                        <EyeOff className="w-6 h-6 opacity-70" />
+                                                    ) : (
+                                                        <Eye className="w-6 h-6 opacity-70" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                            {confirmPasswordError && (
+                                                <p className="text-xs text-red-500 mt-1 ps-1 flex items-center gap-1">
+                                                    {confirmPasswordError}
+                                                </p>
+                                            )}
                                         </div>
-                                        <Button onClick={handlePasswordChange} className="w-full h-12 rounded-xl font-bold gap-2">
+                                        <Button
+                                            onClick={handlePasswordChange}
+                                            disabled={!!newPasswordError || !!confirmPasswordError || !currentPassword || !newPassword || !confirmPassword}
+                                            className="w-full h-12 rounded-xl font-bold gap-2"
+                                        >
                                             <KeyRound className="w-4 h-4" /> {t('auth.change_password_now', 'Update Password')}
                                         </Button>
                                     </div>
@@ -533,33 +807,29 @@ export function SettingsModal() {
                                     <div className="space-y-4 max-w-sm">
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.email', 'Email')}</Label>
-                                            <Input
-                                                type="email"
-                                                value={newEmail}
-                                                onChange={(e) => {
-                                                    setNewEmail(e.target.value);
-                                                    setEmailAvailable(null);
-                                                }}
-                                                className="bg-gray-50 border-none rounded-xl h-12 font-medium"
-                                            />
-                                            {emailAvailable !== null && (
-                                                <p className={`text-[10px] font-bold uppercase ${emailAvailable ? "text-green-600" : "text-red-500"}`}>
-                                                    {emailAvailable ? t('settings.email_available', 'Email is available') : t('settings.email_taken', 'Email is already in use')}
+                                            <div className="relative">
+                                                <Input
+                                                    type="email"
+                                                    value={newEmail}
+                                                    onChange={(e) => {
+                                                        setNewEmail(e.target.value);
+                                                    }}
+                                                    className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium"
+                                                />
+                                                {isCheckingEmail && (
+                                                    <Mail className="w-4 h-4 absolute end-3 top-1/2 -translate-y-1/2 text-neutral/50" />
+                                                )}
+                                            </div>
+                                            {emailValidationError && (
+                                                <p className="text-xs text-red-500 mt-1 ps-1 flex items-center gap-1">
+                                                    {emailValidationError}
                                                 </p>
                                             )}
                                         </div>
                                         <div className="flex gap-2">
                                             <Button
-                                                onClick={handleCheckEmail}
-                                                variant="outline"
-                                                disabled={isCheckingEmail || !newEmail.trim()}
-                                                className="h-12 rounded-xl font-bold flex-1 gap-2"
-                                            >
-                                                <Mail className="w-4 h-4" /> {t('settings.check_email', 'Check')}
-                                            </Button>
-                                            <Button
                                                 onClick={handleUpdateEmail}
-                                                disabled={!newEmail.trim()}
+                                                disabled={isCheckingEmail || !!emailValidationError || emailAvailable === false || !newEmail.trim()}
                                                 className="h-12 rounded-xl font-bold flex-1 gap-2"
                                             >
                                                 <Save className="w-4 h-4" /> {t('settings.update_email', 'Update')}
@@ -577,16 +847,7 @@ export function SettingsModal() {
                                                 <div className="flex items-start justify-between gap-6">
                                                     <div className="space-y-0.5">
                                                         <Label className="font-bold text-red-600">{t('settings.deactivate', 'Deactivate Account')}</Label>
-                                                        <p className="text-xs text-red-400 font-medium">{t('settings.deactivate_desc', 'Temporarily disable your account and data access.')}</p>
                                                     </div>
-                                                    <Button
-                                                        onClick={() => setIsDeactivateOpen(true)}
-                                                        variant="destructive"
-                                                        disabled={!isDeactivatePasswordVerified}
-                                                        className="gap-2 rounded-xl font-bold"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" /> {t('settings.deactivate_button', 'Deactivate')}
-                                                    </Button>
                                                 </div>
 
                                                 <div className="space-y-3 max-w-sm">
@@ -601,18 +862,36 @@ export function SettingsModal() {
                                                                 setDeactivatePassword(e.target.value);
                                                                 setIsDeactivatePasswordVerified(false);
                                                             }}
-                                                            className="bg-white border-none rounded-xl h-12 font-medium"
+                                                            className="bg-gray border-[1px] border-primary-gray rounded-xl h-12 font-medium"
                                                         />
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            onClick={handleVerifyDeactivatePassword}
-                                                            disabled={isVerifyingDeactivatePassword || !deactivatePassword.trim()}
-                                                            className="h-10 rounded-xl font-bold"
-                                                        >
-                                                            {t('common.verify', 'Verify')}
+                                                        onClick={() => {
+                                                            handleVerifyDeactivatePassword().then(() => {
+                                                                if (isDeactivatePasswordVerified) {
+                                                                setIsDeactivateOpen(true)
+                                                            }
+                                                            })
+
+
+                                                        }}
+                                                        variant="outline"
+                                                        disabled={isVerifyingDeactivatePassword || !deactivatePassword.trim()}
+                                                        className="gap-2 rounded-xl font-bold"
+                                                    >
+                                                        {
+                                                            isDeactivatePasswordVerified ? (
+                                                                <div className="flex flex-row gap-2 h-12 items-center">
+                                                                    <Trash2 className="w-4 h-4" /> {t('settings.deactivate_button', 'Deactivate')}
+                                                                </div>
+                                                            ) : (
+                                                                <div>
+                                                                    {t('common.verify', 'Verify')}
+                                                                </div>
+                                                            )
+                                                        }
+
                                                         </Button>
                                                         {isDeactivatePasswordVerified && (
                                                             <p className="text-[10px] font-bold uppercase text-green-600">
@@ -657,26 +936,41 @@ export function SettingsModal() {
 
                             <TabsContent value="system" className="m-0 space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <Card className="border-none bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
+                                    <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
                                         <p className="text-xs font-bold text-neutral/40 uppercase">{t('settings.app_version', 'App Version')}</p>
                                         <p className="text-2xl font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : (systemInfo?.app_version || "—")}
                                         </p>
                                     </Card>
-                                    <Card className="border-none bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
+                                    <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
                                         <p className="text-xs font-bold text-neutral/40 uppercase">{t('settings.db_size', 'Local DB Size')}</p>
                                         <p className="text-2xl font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : formatBytes(systemInfo?.local_db_size_bytes ?? 0)}
                                         </p>
                                     </Card>
-                                    <Card className="border-none bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
+                                    <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
                                         <p className="text-xs font-bold text-neutral/40 uppercase">{t('settings.last_sync', 'Last Sync')}</p>
                                         <p className="text-lg font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : formatRelativeTime(systemInfo?.last_sync_utc ?? null)}
                                         </p>
                                     </Card>
                                 </div>
-
+                                <div className="space-y-2 w-1/2">
+                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.language.placeholder', 'Language')}</Label>
+                                                <Select onValueChange={handleLanguageChange} defaultValue={i18n.language} dir={i18n.dir()}>
+                                                    <SelectTrigger className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium">
+                                                        <SelectValue placeholder={t('settings.select_language_placeholder', 'Select language')} />
+                                                    </SelectTrigger>
+                                                    <SelectContent dir={i18n.dir()}>
+                                                        <SelectItem value='en'>
+                                                            {t('registration.language.en', 'English')}
+                                                        </SelectItem>
+                                                        <SelectItem value='ar'>
+                                                            {t('registration.language.ar', 'العربية')}
+                                                        </SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
                             </TabsContent>
 
                         </div>
