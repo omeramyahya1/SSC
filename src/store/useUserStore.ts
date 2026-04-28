@@ -89,6 +89,11 @@ export const useUserStore = create<UserStore>()(persist((set, get) => ({
       }
 
       const updated = await get().updateUser(current.user_id, { email: email.trim().toLowerCase() });
+
+      if (!updated) {
+        throw new Error("Failed to change email")
+      }
+
       set({ isLoading: false });
       return updated;
     } catch (e: any) {

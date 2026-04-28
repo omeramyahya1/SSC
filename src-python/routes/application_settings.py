@@ -4,7 +4,8 @@ from utils import get_db, get_by_id_or_uuid, require_internet
 from models import ApplicationSettings, Authentication
 from schemas import ApplicationSettingsCreate, ApplicationSettingsUpdate
 from serializer import model_to_dict
-from routes.sync_log import sync, trigger_immediate_sync, generic_mapper
+from routes.sync_log import generic_mapper
+from supabase_client import get_user_client
 
 application_settings_bp = Blueprint('application_settings_bp', __name__, url_prefix='/application_settings')
 
@@ -15,7 +16,7 @@ def get_appliance_library():
         auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
         if not auth_record:
             return jsonify({"error": "Unauthorized"}), 401
-        
+
         app_settings = db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == auth_record.user_uuid).first()
 
         if app_settings and app_settings.other_settings and 'appliance_library' in app_settings.other_settings:
@@ -39,15 +40,15 @@ def create_application_settings():
     with get_db() as db:
         # Create the SQLAlchemy model from validated data
         new_item = ApplicationSettings(**validated_data.dict())
-        
+
         # --- Supabase Direct Sync ---
         try:
             payload = generic_mapper(new_item)
             payload['is_dirty'] = False
-            
+
             supabase = get_user_client()
             supabase.table('application_settings').upsert(payload).execute()
-            
+
             new_item.is_dirty = False
             db.add(new_item)
             db.commit()
@@ -90,10 +91,10 @@ def update_application_settings(item_id):
         try:
             payload = generic_mapper(item)
             payload['is_dirty'] = False
-            
+
             supabase = get_user_client()
             supabase.table('application_settings').upsert(payload).execute()
-            
+
             item.is_dirty = False
             db.commit()
             db.refresh(item)

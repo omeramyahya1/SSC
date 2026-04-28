@@ -457,7 +457,7 @@ def create_employee():
                 return jsonify({"error": "Invalid branch for this organization."}), 400
 
         role = data.get('role', 'employee')
-        if role not in ['employee', 'admin']:
+        if role not in ['employee']:
             return jsonify({"error": "Invalid role."}), 400
 
         # Generate temporary password
@@ -530,9 +530,26 @@ def update_user(user_id_or_uuid):
         return err, code
 
     with get_db() as db:
+            active_auth = (
+                db.query(Authentication)
+                .filter(Authentication.is_logged_in.is_(True))
+                .order_by(Authentication.created_at.desc())
+                .first()
+            )
+            if not active_auth:
+                return jsonify({"error": "No active session found"}), 401
+
+            actor_user = db.query(User).filter(User.uuid == active_auth.user_uuid).first()
+            if not actor_user:
+                return jsonify({"error": "User not found"}), 404
+
+
             item = get_by_id_or_uuid(db, User, User.user_id, User.uuid, user_id_or_uuid)
             if not item:
                 return jsonify({"error": "Not found"}), 404
+
+            if active_auth.user_uuid != item.uuid and actor_user.role != "admin":
+                return jsonify({"error": "Forbidden"}), 403
 
             try:
                 validated_data = UserUpdate(**request.json)

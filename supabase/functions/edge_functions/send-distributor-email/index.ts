@@ -105,6 +105,8 @@ serve(async (_req) => {
     });
   }
 
+  const sentDeactivationJobIds: string[] = [];
+
   // 2. Group jobs by Distributor ID
   const jobsByDistributor = jobs.reduce((acc: any, job) => {
     const distId = job.recipient_user_id;
@@ -134,6 +136,8 @@ serve(async (_req) => {
       // Separate deactivation jobs from other types
       const deactivationJobs = distributorJobs.filter((job: any) => job.event_type === 'account_deactivated_distributor');
       const otherDistributorJobs = distributorJobs.filter((job: any) => job.event_type !== 'account_deactivated_distributor');
+
+
 
       // Process deactivation jobs individually
       for (const job of deactivationJobs) {
@@ -169,6 +173,7 @@ serve(async (_req) => {
           status: "sent",
           sent_at: new Date().toISOString(),
         }).eq("id", job.id);
+        sentDeactivationJobIds.push(job.id);
       }
 
       // Continue with summary report for other distributor jobs
@@ -268,7 +273,11 @@ serve(async (_req) => {
     } catch (e: any) {
       console.error(`Failed batch for distributor ${distId}:`, e);
 
-      const jobIds = distributorJobs.map((j: any) => j.id);
+      // Only mark jobs that weren't already successfully sent
+      const jobIds = distributorJobs
+        .map((j: any) => j.id)
+        .filter((id: string) => !sentDeactivationJobIds.includes(id));
+      if (jobIds.length === 0) continue;
       await supabase.from("notification_jobs").update({
         status: "failed",
         error: e.message || String(e),

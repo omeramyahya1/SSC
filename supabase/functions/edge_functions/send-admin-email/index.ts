@@ -358,19 +358,28 @@ const templates: Templates = {
       throw new Error(`Brevo API Error: ${errText}`);
     }
 
-    // 6. Batch Update: Mark all processed jobs as "sent"
-    const jobIds = allJobs.map((j) => j.id);
+    // 6. Batch Update: Mark only summary-related jobs as "sent"
+    // Deactivation jobs were already marked individually above
+    const summaryJobIds = [...registrationJobs, ...tamperJobs, ...ticketJobs].map((j) => j.id);
+
+   if (summaryJobIds.length === 0) {
+      return new Response(JSON.stringify({ success: true, count: deactivatedJobs.length }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const { error: updateError } = await supabase
       .from("notification_jobs")
       .update({
         status: "sent",
         sent_at: new Date().toISOString(),
       })
-      .in("id", jobIds);
+      .in("id", summaryJobIds);
 
     if (updateError) throw updateError;
 
-    return new Response(JSON.stringify({ success: true, count: totalJobs }), {
+    return new Response(JSON.stringify({ success: true, count: summaryJobIds.length + deactivatedJobs.length }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });

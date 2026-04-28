@@ -433,17 +433,19 @@ export function SettingsModal() {
         }
     };
 
-    const handleVerifyDeactivatePassword = async () => {
+    const handleVerifyDeactivatePassword = async (): Promise<boolean | undefined> => {
         if (!deactivatePassword.trim()) return;
         setIsVerifyingDeactivatePassword(true);
         try {
             await api.post("/authentications/verify-password", { password: deactivatePassword });
             setIsDeactivatePasswordVerified(true);
             toast.success(t('settings.password_verified', 'Password verified'));
+            return true;
         } catch (e: any) {
             setIsDeactivatePasswordVerified(false);
             const msg = t('settings.invalid_password', 'Invalid password');
             toast.error(msg);
+            return false;
         } finally {
             setIsVerifyingDeactivatePassword(false);
         }
@@ -867,14 +869,10 @@ export function SettingsModal() {
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <Button
-                                                        onClick={() => {
-                                                            handleVerifyDeactivatePassword().then(() => {
-                                                                if (isDeactivatePasswordVerified) {
-                                                                setIsDeactivateOpen(true)
+                                                            onClick={async () => {
+                                                            if (await handleVerifyDeactivatePassword()) {
+                                                                setIsDeactivateOpen(true);
                                                             }
-                                                            })
-
-
                                                         }}
                                                         variant="outline"
                                                         disabled={isVerifyingDeactivatePassword || !deactivatePassword.trim()}
