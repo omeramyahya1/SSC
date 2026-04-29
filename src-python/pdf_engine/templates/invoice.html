@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #333;
+        }
+        .header {
+            width: 100%;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 5mm;
+            margin-bottom: 10mm;
+        }
+        .header table {
+            width: 100%;
+            border: none;
+        }
+        .header td {
+            border: none;
+            vertical-align: top;
+            padding: 0;
+        }
+        .customer-info h1 {
+            color: #3b82f6;
+            margin: 0 0 3mm 0;
+            font-size: 20pt;
+        }
+        .invoice-meta {
+            text-align: {{ 'right' if dir == 'ltr' else 'left' }};
+        }
+        .invoice-no {
+            color: #ef4444;
+            font-weight: bold;
+            font-size: 16pt;
+        }
+        .main-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10mm;
+        }
+        .main-table th {
+            background-color: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 3mm;
+            text-align: {{ 'left' if dir == 'ltr' else 'right' }};
+            font-weight: bold;
+        }
+        .main-table td {
+            border-bottom: 1px solid #f3f4f6;
+            padding: 3mm;
+        }
+        .totals-wrapper {
+            width: 100%;
+        }
+        .totals-table {
+            width: 40%;
+            float: {{ 'right' if dir == 'ltr' else 'left' }};
+            border-collapse: collapse;
+        }
+        .totals-table td {
+            border: none;
+            padding: 1.5mm 3mm;
+        }
+        .grand-total {
+            border-top: 1px solid #3b82f6 !important;
+            font-weight: bold;
+            font-size: 12pt;
+            color: #3b82f6;
+        }
+        .terms {
+            clear: both;
+            margin-top: 20mm;
+            font-size: 9pt;
+            color: #6b7280;
+            white-space: pre-wrap;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .config-section {
+            margin-bottom: 8mm;
+            break-inside: avoid;
+        }
+        .config-section h3 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 1mm;
+            margin-bottom: 3mm;
+            color: #3b82f6;
+        }
+        .config-table {
+            width: 100%;
+            font-size: 9pt;
+        }
+        .config-table td {
+            padding: 1mm 0;
+            border-bottom: 1px solid #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <table>
+            <tr>
+                <td>
+                    <div class="customer-info">
+                        <h1>{{ project.customer.full_name }}</h1>
+                        <p><strong>{{ t.address }}:</strong> {{ project.project_location }}</p>
+                        <p><strong>{{ t.email }}:</strong> {{ project.customer.email }}</p>
+                        <p><strong>{{ t.phone }}:</strong> {{ project.customer.phone_number }}</p>
+                    </div>
+                </td>
+                <td class="invoice-meta">
+                    <p><span style="text-transform: uppercase; font-size: 7pt; color: #9ca3af;">{{ t.invoice_no }}</span><br>
+                    <span class="invoice-no">{{ invoice_number }}</span></p>
+                    <p><span style="text-transform: uppercase; font-size: 7pt; color: #9ca3af;">{{ t.issue_date }}</span><br>
+                    <strong>{{ issue_date }}</strong></p>
+                    <p><span style="text-transform: uppercase; font-size: 7pt; color: #9ca3af;">{{ t.due_date }}</span><br>
+                    <strong>{{ due_date }}</strong></p>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th>{{ t.item }}</th>
+                <th style="text-align: center;">{{ t.unit_price }}</th>
+                <th style="text-align: center;">{{ t.qty }}</th>
+                <th style="text-align: {{ 'right' if dir == 'ltr' else 'left' }};">{{ t.total }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>
+                    <strong>{{ item.name }}</strong><br>
+                    <span style="font-size: 8pt; color: #6b7280;">{{ item.brand }} | {{ item.model }}</span>
+                </td>
+                <td style="text-align: center;">{{ item.unit_price }}</td>
+                <td style="text-align: center;">{{ item.quantity }}</td>
+                <td style="text-align: {{ 'right' if dir == 'ltr' else 'left' }};">{{ item.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals-wrapper">
+        <table class="totals-table">
+            <tr>
+                <td>{{ t.subtotal }}</td>
+                <td style="text-align: {{ 'right' if dir == 'ltr' else 'left' }};">{{ subtotal }}</td>
+            </tr>
+            <tr>
+                <td>{{ t.shipping }}</td>
+                <td style="text-align: {{ 'right' if dir == 'ltr' else 'left' }};">+ {{ shipping_fee }}</td>
+            </tr>
+            <tr>
+                <td>{{ t.installation }}</td>
+                <td style="text-align: {{ 'right' if dir == 'ltr' else 'left' }};">+ {{ installation_fee }}</td>
+            </tr>
+            <tr style="color: #ef4444;">
+                <td>{{ t.discount }}</td>
+                <td style="text-align: {{ 'right' if dir == 'ltr' else 'left' }};">- {{ discount_amount }}</td>
+            </tr>
+            <tr class="grand-total">
+                <td>{{ t.grand_total }}</td>
+                <td style="text-align: {{ 'right' if dir == 'ltr' else 'left' }};">{{ grand_total }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="terms">
+        <h4 style="margin-bottom: 2mm; color: #333;">{{ t.terms }}</h4>
+        {{ terms }}
+    </div>
+
+    {% if config %}
+    <div class="page-break"></div>
+    <div class="system-config">
+        <h2 style="border-bottom: 2px solid #3b82f6; padding-bottom: 2mm; margin-bottom: 8mm;">{{ t.system_config }}</h2>
+        
+        {% for section_title, section_data in config.items() %}
+        <div class="config-section">
+            <h3>{{ section_title }}</h3>
+            <table class="config-table">
+                {% for param, val in section_data.items() %}
+                <tr>
+                    <td style="color: #6b7280; width: 60%;">{{ param }}</td>
+                    <td style="font-weight: bold; text-align: {{ 'right' if dir == 'ltr' else 'left' }};">{{ val }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</body>
+</html>
