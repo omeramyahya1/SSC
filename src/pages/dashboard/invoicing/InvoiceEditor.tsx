@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import {
@@ -15,7 +15,9 @@ import {
     MapPin,
     Mail,
     Phone,
-    Hash
+    Hash,
+    Settings,
+    Download
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +39,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from 'react-hot-toast';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -49,6 +52,9 @@ import { InventorySelectorModal } from '../components selection/InventorySelecto
 import { HoldToConfirmButton } from '@/components/ui/HoldToConfirmButton';
 import { InventoryItem } from '@/store/useInventoryStore';
 import { Project } from '@/store/useProjectStore';
+import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
+import { SystemConfigSummary } from './SystemConfigSummary';
+import api from '@/api/client';
 
 interface InvoiceEditorProps {
     project: Project;
@@ -77,8 +83,19 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
         removeComponent
     } = useProjectComponentStore();
 
+    const {
+        systemConfiguration,
+        fetchSystemConfiguration
+    } = useSystemConfigurationStore();
+
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+    
+    // Print Settings
+    const [isPlainMode, setIsPlainMode] = useState(false);
+    const [topMargin, setTopMargin] = useState(0);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+    const printRef = useRef<HTMLDivElement>(null);
 
     // Local-only state for fees/discount/date/terms
     const [dueDate, setDueDate] = useState<Date | null>(new Date());
@@ -91,6 +108,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
     // Load initial data
     useEffect(() => {
         fetchComponents(project.uuid);
+        fetchSystemConfiguration(project.uuid);
         fetchInvoiceByProject(project.uuid).then((invoice) => {
             if (invoice) {
                 const details = invoice.invoice_details;
@@ -127,7 +145,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
             }
 
         });
-    }, [project.uuid, resolvedUser, fetchComponents, fetchInvoiceByProject, createInvoice]);
+    }, [project.uuid, resolvedUser, fetchComponents, fetchInvoiceByProject, createInvoice, fetchSystemConfiguration]);
 
     const toNumber = (value: string) => {
         const n = Number(value);
@@ -223,6 +241,22 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
         toast.success(t('components.item_added', 'Item added.'));
     };
 
+    const handleSaveInvoice = async () => {
+        if (!resolvedUser?.uuid || !currentInvoice) return;
+        const details: InvoiceDetails = {
+            shipping_fee: shippingFee,
+            installation_fee: installationFee,
+            discount_percent: discountPercent,
+            due_date: dueDate ? dueDate.toISOString() : undefined,
+            enable_custom_terms: customTermsEnabled,
+            terms_and_conditions: customTermsEnabled ? customTerms : generateDefaultTerms()
+        };
+        await updateInvoice(currentInvoice.uuid, {
+            invoice_details: details,
+            amount: grandTotal
+        });
+    };
+
     const handleIssue = useCallback(async () => {
         if (!resolvedUser?.uuid) {
             toast.error(t('invoicing.error_no_user', 'User not authenticated.'));
@@ -267,6 +301,29 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
 
     }, [currentInvoice, resolvedUser, shippingFee, installationFee, discountPercent, dueDate, customTermsEnabled, customTerms, generateDefaultTerms, grandTotal, t, updateInvoice, issueInvoice, createInvoice, project.uuid]);
 
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleExportExcel = async () => {
+        await handleSaveInvoice();
+        try {
+            const response = await api.get(`/export/excel/${project.uuid}`, {
+                responseType: 'blob'
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Invoice_${project.customer?.full_name || project.uuid.slice(0,8)}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            toast.success(t('invoicing.export_success', 'Excel exported successfully!'));
+        } catch (e) {
+            toast.error(t('invoicing.export_error', 'Failed to export Excel.'));
+        }
+    };
+
     if (isInvoiceLoading && !currentInvoice) {
         return <div className="flex flex-col items-center justify-center h-full"><Spinner className="w-12 h-12" /></div>;
     }
@@ -274,7 +331,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
     return (
         <div className="flex flex-col h-full bg-white" dir={i18n.dir()}>
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-20">
+            <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-20 no-print">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={onBack}>
                         {i18n.dir() === "ltr"? <ArrowLeft className="h-5 w-5" /> : <ArrowRight className="h-5 w-5" />}
@@ -283,368 +340,605 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                         <h2 className="text-xl font-bold">{t('invoicing.title', 'Invoice Editor')}</h2>
                     </div>
                 </div>
-                { currentInvoice?.issued_at &&
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => toast.custom('Preview coming soon!')}>
-                            <Printer className="h-4 w-4 " /> {t('invoicing.preview_print', 'Preview & Print')}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => toast.custom('Sharing coming soon!')}>
-                            <Share2 className="h-4 w-4 " /> {t('invoicing.share', 'Share')}
-                        </Button>
-                    </div>
-                }
+                <div className="flex items-center gap-2">
+                    {/* Print Settings Toggle */}
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm">
+                                <Settings className="h-4 w-4 mr-2" /> {t('invoicing.print_settings', 'Print Settings')}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-4 space-y-4" align="end">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="plain-mode" className="font-bold">{t('invoicing.plain_mode', 'Plain Mode (Data Only)')}</Label>
+                                <Switch id="plain-mode" checked={isPlainMode} onCheckedChange={setIsPlainMode} />
+                            </div>
+                            {isPlainMode && (
+                                <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                        <Label className="text-xs font-bold">{t('invoicing.top_margin', 'Top Margin Offset')}</Label>
+                                        <span className="text-xs font-mono">{topMargin}mm</span>
+                                    </div>
+                                    <Slider 
+                                        value={[topMargin]} 
+                                        onValueChange={([v]) => setTopMargin(v)} 
+                                        max={100} 
+                                        step={1} 
+                                    />
+                                </div>
+                            )}
+                        </PopoverContent>
+                    </Popover>
+
+                    <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(true)}>
+                        <Printer className="h-4 w-4 mr-2" /> {t('invoicing.preview_print', 'Preview & Print')}
+                    </Button>
+
+                    <Button variant="outline" size="sm" onClick={async () => {
+                        await handleSaveInvoice();
+                        try {
+                            const response = await api.get(`/export/pdf/${project.uuid}`, {
+                                params: { lang: i18n.language },
+                                responseType: 'blob'
+                            });
+                            const url = window.URL.createObjectURL(new Blob([response.data]));
+                            const link = document.createElement('a');
+                            link.href = url;
+                            link.setAttribute('download', `Invoice_${project.customer?.full_name || project.uuid.slice(0,8)}.pdf`);
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                            toast.success(t('invoicing.export_pdf_success', 'PDF exported successfully!'));
+                        } catch (e) {
+                            toast.error(t('invoicing.export_pdf_error', 'Failed to export PDF.'));
+                        }
+                    }}>
+                        <Download className="h-4 w-4 mr-2" /> {t('invoicing.download_pdf', 'Download PDF')}
+                    </Button>
+                    
+                    <Button variant="outline" size="sm" onClick={handleExportExcel}>
+                        <Share2 className="h-4 w-4 mr-2" /> {t('invoicing.share', 'Share')}
+                    </Button>
+                </div>
             </div>
 
             <ScrollArea className="flex-grow" dir={i18n.dir()}>
-                <div className="max-w-5xl mx-auto p-8 space-y-10">
+                <div className={cn("max-w-5xl mx-auto p-8 space-y-10", isPlainMode && "print:p-0")}>
+                    
+                    {/* Invoice View Container (The part that will be printed) */}
+                    <div 
+                        id="invoice-print-area" 
+                        className={cn("space-y-10", isPlainMode && "plain-print")}
+                        style={isPlainMode ? { paddingTop: `${topMargin}mm` } : {}}
+                    >
+                        {/* Customer & Invoice Info Header */}
+                        <div className="flex flex-col md:flex-row justify-between gap-8 pb-8 border-b">
+                            {/* Customer Info (Start) */}
+                            <div className="space-y-2">
+                                <h3 className="text-2xl font-black text-primary mb-4 flex items-center gap-2">
+                                    {project.customer?.full_name || t('dashboard.no_customer', 'Customer')}
+                                </h3>
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <MapPin className="h-4 w-4 shrink-0" />
+                                    <span className="text-sm font-bold">{t('invoicing.address', 'Address')}: {displayLocation}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Mail className="h-4 w-4 shrink-0" />
+                                    <span className="text-sm font-bold">{t('invoicing.email', 'Email')}: {project.customer?.email || 'N/A'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Phone className="h-4 w-4 shrink-0" />
+                                    <span className="text-sm font-bold">{t('invoicing.phone_No', 'Phone No')}: {project.customer?.phone_number || 'N/A'}</span>
+                                </div>
+                            </div>
 
-                    {/* Customer & Invoice Info Header */}
-                    <div className="flex flex-col md:flex-row justify-between gap-8 pb-8 border-b">
-                        {/* Customer Info (Start) */}
-                        <div className="space-y-2">
-                            <h3 className="text-2xl font-black text-primary mb-4 flex items-center gap-2">
-                                {project.customer?.full_name || t('dashboard.no_customer', 'Customer')}
-                            </h3>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <MapPin className="h-4 w-4 shrink-0" />
-                                <span className="text-sm font-bold">{t('invoicing.address', 'Address')}: {displayLocation}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Mail className="h-4 w-4 shrink-0" />
-                                <span className="text-sm font-bold">{t('invoicing.email', 'Email')}: {project.customer?.email || 'N/A'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Phone className="h-4 w-4 shrink-0" />
-                                <span className="text-sm font-bold">{t('invoicing.phone_No', 'Phone No')}: {project.customer?.phone_number || 'N/A'}</span>
+                            {/* Invoice Metadata (End) */}
+                            <div className="md:text-end flex flex-col gap-2">
+                                <div className='flex flex-col items-end'>
+                                    <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block '>{t('invoicing.invoice_no', 'Invoice No')}</span>
+                                    <div className="w-fit h-fit inline-flex items-center text-red-500 text-xl font-mono font-bold">
+                                        <Hash className="h-4 w-4 text-neutral" />
+                                        {
+                                            currentInvoice?.issued_at != null
+                                            ? String(currentInvoice.invoice_id).padStart(5, '0')
+                                            : (
+                                                <span className="text-base">
+                                                    PROFORMA | فاتورة مبدئية
+                                                </span>
+                                            )
+                                        }
+                                    </div>
+
+                                </div>
+                                <div>
+                                    <div className='text-[10px] uppercase font-bold text-gray-400 block mb-1'>
+                                        {t('invoicing.issue_date', 'Issue Date')}
+                                    </div>
+                                    <span className="text-sm font-bold"> {currentInvoice?.issued_at ? format(new Date(currentInvoice.issued_at), "dd/MM/yyyy") : format(new Date(), "dd/MM/yyyy")}</span>
+                                </div>
+
+
+
+                                {/* Date Selection Section (Requested to be above summary) */}
+                                <div className="no-print-val">
+                                    <Label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">{t('invoicing.due_date', 'Due Date')}</Label>
+                                    {
+                                        currentInvoice?.issued_at ? (
+                                            <span className="text-sm font-bold">{dueDate ? format(dueDate, "dd/MM/yyyy") : ""}</span>
+                                        ) : (
+                                             <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                className={cn("w-fit justify-end text-left font-bold no-print")}
+                                            >
+                                                <CalendarIcon className="h-4 w-4 text-primary" />
+                                                {dueDate ? format(dueDate, "dd/MM/yyyy") : <span>{t('invoicing.pick_date', 'Pick a date')}</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="end">
+                                            <Calendar
+                                                mode="single"
+                                                className='bg-white'
+                                                disabled={
+                                                    (date) => {
+                                                        const min = currentInvoice?.issued_at ? new Date(currentInvoice.issued_at) : new Date();
+                                                        min.setHours(0, 0, 0, 0);
+                                                        const d = new Date(date);
+                                                        d.setHours(0, 0, 0, 0);
+                                                        return d < min;
+                                                    }
+                                                }
+                                                selected={dueDate ?? undefined}
+                                                onSelect={(date) => {
+                                                    if (date) {
+                                                        setDueDate(date);
+                                                        setIsCalendarOpen(false);
+                                                    }
+                                                }}
+
+                                                />
+                                            </PopoverContent>
+                                    </Popover>
+                                        )
+                                    }
+                                    <span className="text-sm font-bold print-only">{dueDate ? format(dueDate, "dd/MM/yyyy") : ""}</span>
+                                </div>
                             </div>
                         </div>
 
-                        {/* Invoice Metadata (End) */}
-                        <div className="md:text-end flex flex-col gap-2">
-                            <div className='flex flex-col items-end'>
-                                <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block '>{t('invoicing.invoice_no', 'Invoice No')}</span>
-                                <div className="w-fit h-fit inline-flex items-center text-red-500 text-xl font-mono font-bold">
-                                    <Hash className="h-4 w-4 text-neutral" />
-                                    {
-                                        currentInvoice?.invoice_id != null
-                                        ? String(currentInvoice.invoice_id).padStart(5, '0')
-                                        : 'DRAFT'
-                                    }
-                                </div>
-
+                        {/* Items Table */}
+                        <div className="bg-white rounded-xl border shadow-sm overflow-hidden print:border-none">
+                            <div className="p-4 border-b bg-gray-50 flex items-center justify-between no-print">
+                                <h3 className="font-bold text-lg flex items-center gap-2">
+                                    <Package className="h-5 w-5 text-primary" />
+                                    {t('invoicing.summary', 'Invoice Summary')}
+                                </h3>
+                                {!isIssued && (
+                                    <div className="flex gap-2">
+                                        <Button size="sm" variant="default" onClick={() => setIsInventoryModalOpen(true)} >
+                                            <PlusCircle className="h-4 w-4  text-white" /> {t('invoicing.add_item', 'Add Item')}
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
-                            <div>
-                                <div className='text-[10px] uppercase font-bold text-gray-400 block mb-1'>
-                                    {t('invoicing.issue_date', 'Issue Date')}
-                                </div>
-                                <span className="text-sm font-bold"> {currentInvoice?.issued_at ? format(new Date(currentInvoice.issued_at), "dd/MM/yyyy") : format(new Date(), "dd/MM/yyyy")}</span>
-                            </div>
+                            <Table className="print:table-fixed">
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="text-start">{t('invoicing.item', 'Item')}</TableHead>
+                                        <TableHead className="text-center w-[150px]">{t('invoicing.unit_price', 'Unit Price')}</TableHead>
+                                        <TableHead className="text-center w-[120px]">{t('invoicing.quantity', 'Qty')}</TableHead>
+                                        <TableHead className="text-end w-[150px]">{t('invoicing.total', 'Total')}</TableHead>
+                                        {!isIssued && <TableHead className="w-[50px] no-print"></TableHead>}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {components.map((c) => (
+                                        <TableRow key={c.uuid}>
+                                            <TableCell>
+                                                {c.item ? (
+                                                    <div>
+                                                        <div className="font-medium">{c.item.name}</div>
+                                                        <div className="text-xs text-muted-foreground">{c.item.brand} | {c.item.model}</div>
+                                                    </div>
+                                                ) : (
+                                                    <Input
+                                                        value={c.custom_name}
+                                                        onChange={(e) => handleComponentUpdate(c.uuid, { custom_name: e.target.value })}
+                                                        className="h-8 font-medium no-print"
+                                                        disabled={isIssued}
+                                                    />
+                                                )}
+                                                <span className="font-medium print-only">{c.custom_name}</span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className='flex flex-col items-center'>
+                                                    {
+                                                        isIssued ? (
+                                                            <span className='font-bold'>{formatCurrency(c.price_at_sale)}</span>
+                                                        ) : (
+                                                            <Input
+                                                                type="number"
+                                                                value={c.price_at_sale || 0}
+                                                                onChange={(e) => handleComponentUpdate(c.uuid, { price_at_sale: parseFloat(e.target.value) || 0 })}
+                                                                className="h-8 text-center no-print"
+                                                                disabled={isIssued}
+                                                            />
+                                                        )
+                                                    }
+                                                    <span className="font-bold print-only">{formatCurrency(c.price_at_sale)}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className='flex flex-col items-center'>
+                                                    {
+                                                        isIssued ? (
+                                                            <span className='font-bold'>{c.quantity}</span>
+                                                        ) : (
+                                                            <Input
+                                                                type="number"
+                                                                value={c.quantity}
+                                                                onChange={(e) => handleComponentUpdate(c.uuid, { quantity: parseInt(e.target.value) || 1 })}
+                                                                className="h-8 text-center no-print"
+                                                                disabled={isIssued}
+                                                            />
+                                                        )
+                                                    }
+                                                    <span className="font-bold print-only">{c.quantity}</span>
+                                                </div>
 
+                                            </TableCell>
+                                            <TableCell className="text-end font-bold">
+                                                {formatCurrency((c.price_at_sale || 0) * c.quantity)}
+                                            </TableCell>
+                                            {!isIssued && (
+                                                <TableCell className="no-print">
+                                                    <Button variant="ghost" size="icon" onClick={() => removeComponent(c.uuid)}>
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </TableCell>
+                                            )}
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-gray-50/50 print:bg-white">
+                                        <TableCell colSpan={3} className="text-end font-semibold">{t('invoicing.subtotal', 'Subtotal')}</TableCell>
+                                        <TableCell className="text-end font-bold">{formatCurrency(subtotal)}</TableCell>
+                                        {!isIssued && <TableCell className="no-print" />}
+                                    </TableRow>
+                                </TableBody>
+                            </Table>
+                        </div>
 
-
-                            {/* Date Selection Section (Requested to be above summary) */}
-                            <div>
-                                <Label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">{t('invoicing.due_date', 'Due Date')}</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                            {/* Fees & Terms */}
+                            <div className="space-y-8">
                                 {
                                     currentInvoice?.issued_at ? (
-                                        <span className="text-sm font-bold">{dueDate ? format(dueDate, "dd/MM/yyyy") : ""}</span>
+                                        ""
                                     ) : (
-                                         <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className={cn("w-fit justify-end text-left font-bold")}
-
-                                        >
-                                            <CalendarIcon className="h-4 w-4 text-primary" />
-                                            {dueDate ? format(dueDate, "dd/MM/yyyy") : <span>{t('invoicing.pick_date', 'Pick a date')}</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="end">
-                                        <Calendar
-                                            mode="single"
-                                            className='bg-white'
-                                            disabled={
-                                                (date) => {
-                                                    const min = currentInvoice?.issued_at ? new Date(currentInvoice.issued_at) : new Date();
-                                                    min.setHours(0, 0, 0, 0);
-                                                    const d = new Date(date);
-                                                    d.setHours(0, 0, 0, 0);
-                                                    return d < min;
-                                                }
-                                            }
-                                            selected={dueDate ?? undefined}
-                                            onSelect={(date) => {
-                                                if (date) {
-                                                    setDueDate(date);
-                                                    setIsCalendarOpen(false);
-                                                }
-                                            }}
-
+                                        <div className="no-print">
+                                    <h3 className="font-bold text-lg flex items-center gap-2 mb-4">
+                                        <PlusCircle className="h-5 w-5 text-primary" />
+                                        {t('invoicing.add_ons', 'Fees & Discounts')}
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs">{t('invoicing.shipping_fee', 'Shipping Fee')}</Label>
+                                            <Input
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={shippingFeeInput}
+                                                onChange={(e) => handleNumberInputChange(setShippingFeeInput, e.target.value)}
+                                                onBlur={() => normalizeNumberInput(shippingFeeInput, setShippingFeeInput)}
+                                                disabled={isIssued}
+                                                className="font-medium"
                                             />
-                                        </PopoverContent>
-                                </Popover>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs">{t('invoicing.installation_fee', 'Installation Fee')}</Label>
+                                            <Input
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={installationFeeInput}
+                                                onChange={(e) => handleNumberInputChange(setInstallationFeeInput, e.target.value)}
+                                                onBlur={() => normalizeNumberInput(installationFeeInput, setInstallationFeeInput)}
+                                                disabled={isIssued}
+                                                className="font-medium"
+                                            />
+                                        </div>
+                                        <div className="space-y-2 col-span-2">
+                                            <Label className="text-xs">{t('invoicing.discount', 'Discount (%)')}</Label>
+                                            <Input
+                                                type="text"
+                                                inputMode="decimal"
+                                                value={discountPercentInput}
+                                                onChange={(e) => handleNumberInputChange(setDiscountPercentInput, e.target.value)}
+                                                onBlur={() => normalizeNumberInput(discountPercentInput, setDiscountPercentInput, { clampMax: 100 })}
+                                                disabled={isIssued}
+                                                className="font-medium"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                                     )
                                 }
 
-                            </div>
-                        </div>
-                    </div>
 
-                    {/* Items Table */}
-                    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                        <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
-                            <h3 className="font-bold text-lg flex items-center gap-2">
-                                <Package className="h-5 w-5 text-primary" />
-                                {t('invoicing.summary', 'Invoice Summary')}
-                            </h3>
-                            {!isIssued && (
-                                <div className="flex gap-2">
-                                    <Button size="sm" variant="default" onClick={() => setIsInventoryModalOpen(true)} >
-                                        <PlusCircle className="h-4 w-4  text-white" /> {t('invoicing.add_item', 'Add Item')}
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="text-start">{t('invoicing.item', 'Item')}</TableHead>
-                                    <TableHead className="text-center w-[150px]">{t('invoicing.unit_price', 'Unit Price')}</TableHead>
-                                    <TableHead className="text-center w-[120px]">{t('invoicing.quantity', 'Qty')}</TableHead>
-                                    <TableHead className="text-end w-[150px]">{t('invoicing.total', 'Total')}</TableHead>
-                                    {!isIssued && <TableHead className="w-[50px]"></TableHead>}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {components.map((c) => (
-                                    <TableRow key={c.uuid}>
-                                        <TableCell>
-                                            {c.item ? (
-                                                <div>
-                                                    <div className="font-medium">{c.item.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{c.item.brand} | {c.item.model}</div>
-                                                </div>
-                                            ) : (
-                                                <Input
-                                                    value={c.custom_name}
-                                                    onChange={(e) => handleComponentUpdate(c.uuid, { custom_name: e.target.value })}
-                                                    className="h-8 font-medium"
+                                <div className={`space-y-4 ${!currentInvoice?.issued_at && "pt-6 border-t print:border-none"}`}>
+                                    <div className="flex items-center justify-between">
+                                        <Label className="font-bold text-lg">{t('invoicing.terms_title', 'Terms & Conditions')}</Label>
+                                        { !currentInvoice?.issued_at &&
+                                            <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-md no-print">
+                                                <Switch
+                                                    checked={customTermsEnabled}
+                                                    onCheckedChange={(v) => {
+                                                        setCustomTermsEnabled(v);
+                                                        if (v && !customTerms) {
+                                                            setCustomTerms(generateDefaultTerms());
+                                                        }
+                                                    }}
                                                     disabled={isIssued}
                                                 />
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className='flex flex-col items-center'>
-                                                {
-                                                    isIssued ? (
-                                                        <span className='font-bold'>{formatCurrency(c.price_at_sale)}</span>
-                                                    ) : (
-                                                        <Input
-                                                            type="number"
-                                                            value={c.price_at_sale || 0}
-                                                            onChange={(e) => handleComponentUpdate(c.uuid, { price_at_sale: parseFloat(e.target.value) || 0 })}
-                                                            className="h-8 text-center"
-                                                            disabled={isIssued}
-                                                        />
-                                                    )
-                                                }
+                                                <span className="text-xs font-bold">{t('invoicing.enable_custom_terms', 'Custom')}</span>
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className='flex flex-col items-center'>
-                                                {
-                                                    isIssued ? (
-                                                        <span className='font-bold'>{c.quantity}</span>
-                                                    ) : (
-                                                        <Input
-                                                            type="number"
-                                                            value={c.quantity}
-                                                            onChange={(e) => handleComponentUpdate(c.uuid, { quantity: parseInt(e.target.value) || 1 })}
-                                                            className="h-8 text-center"
-                                                            disabled={isIssued}
-                                                        />
-                                                    )
-                                                }
-                                            </div>
-
-                                        </TableCell>
-                                        <TableCell className="text-end font-bold">
-                                            {formatCurrency((c.price_at_sale || 0) * c.quantity)}
-                                        </TableCell>
-                                        {!isIssued && (
-                                            <TableCell>
-                                                <Button variant="ghost" size="icon" onClick={() => removeComponent(c.uuid)}>
-                                                    <Trash2 className="h-4 w-4 text-red-500" />
-                                                </Button>
-                                            </TableCell>
-                                        )}
-                                    </TableRow>
-                                ))}
-                                <TableRow className="bg-gray-50/50">
-                                    <TableCell colSpan={3} className="text-end font-semibold">{t('invoicing.subtotal', 'Subtotal')}</TableCell>
-                                    <TableCell className="text-end font-bold">{formatCurrency(subtotal)}</TableCell>
-                                    {!isIssued && <TableCell />}
-                                </TableRow>
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                        {/* Fees & Terms */}
-                        <div className="space-y-8">
-                            {
-                                currentInvoice?.issued_at ? (
-                                    ""
-                                ) : (
-                                    <div>
-                                <h3 className="font-bold text-lg flex items-center gap-2 mb-4">
-                                    <PlusCircle className="h-5 w-5 text-primary" />
-                                    {t('invoicing.add_ons', 'Fees & Discounts')}
-                                </h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-xs">{t('invoicing.shipping_fee', 'Shipping Fee')}</Label>
-                                        <Input
-                                            type="text"
-                                            inputMode="decimal"
-                                            value={shippingFeeInput}
-                                            onChange={(e) => handleNumberInputChange(setShippingFeeInput, e.target.value)}
-                                            onBlur={() => normalizeNumberInput(shippingFeeInput, setShippingFeeInput)}
-                                            disabled={isIssued}
-                                            className="font-medium"
-                                        />
+                                        }
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs">{t('invoicing.installation_fee', 'Installation Fee')}</Label>
-                                        <Input
-                                            type="text"
-                                            inputMode="decimal"
-                                            value={installationFeeInput}
-                                            onChange={(e) => handleNumberInputChange(setInstallationFeeInput, e.target.value)}
-                                            onBlur={() => normalizeNumberInput(installationFeeInput, setInstallationFeeInput)}
-                                            disabled={isIssued}
-                                            className="font-medium"
-                                        />
-                                    </div>
-                                    <div className="space-y-2 col-span-2">
-                                        <Label className="text-xs">{t('invoicing.discount', 'Discount (%)')}</Label>
-                                        <Input
-                                            type="text"
-                                            inputMode="decimal"
-                                            value={discountPercentInput}
-                                            onChange={(e) => handleNumberInputChange(setDiscountPercentInput, e.target.value)}
-                                            onBlur={() => normalizeNumberInput(discountPercentInput, setDiscountPercentInput, { clampMax: 100 })}
-                                            disabled={isIssued}
-                                            className="font-medium"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                                )
-                            }
-
-
-                            <div className={`space-y-4 ${!currentInvoice?.issued_at && "pt-6 border-t"}`}>
-                                <div className="flex items-center justify-between">
-                                    <Label className="font-bold text-lg">{t('invoicing.terms_title', 'Terms & Conditions')}</Label>
-                                    { !currentInvoice?.issued_at &&
-                                        <div className="flex items-center gap-2 bg-gray-100 px-2 py-1 rounded-md">
-                                            <Switch
-                                                checked={customTermsEnabled}
-                                                onCheckedChange={(v) => {
-                                                    setCustomTermsEnabled(v);
-                                                    if (v && !customTerms) {
-                                                        setCustomTerms(generateDefaultTerms());
-                                                    }
-                                                }}
+                                    {customTermsEnabled ? (
+                                        <div className="space-y-2">
+                                            <Textarea
+                                                placeholder={t('invoicing.custom_terms_ph', 'Enter terms...')}
+                                                value={customTerms}
+                                                onChange={(e) => setCustomTerms(e.target.value)}
+                                                className="h-40 font-mono text-sm leading-relaxed no-print"
                                                 disabled={isIssued}
                                             />
-                                            <span className="text-xs font-bold">{t('invoicing.enable_custom_terms', 'Custom')}</span>
+                                            <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap print-only">
+                                                {customTerms}
+                                            </div>
                                         </div>
-                                    }
+                                    ) : (
+                                        <div
+                                            className={`${!currentInvoice?.issued_at? "p-4 bg-gray-50 border rounded-md h-40 overflow-y-auto font-mono text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap print:border-none print:bg-white print:h-auto print:p-0" : "font-bold font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap text-[16px]"}`}
+                                        >
+                                            {generateDefaultTerms()}
+                                        </div>
+                                    )}
                                 </div>
-                                {customTermsEnabled ? (
-                                    <Textarea
-                                        placeholder={t('invoicing.custom_terms_ph', 'Enter terms...')}
-                                        value={customTerms}
-                                        onChange={(e) => setCustomTerms(e.target.value)}
-                                        className="h-40 font-mono text-sm leading-relaxed"
-                                        disabled={isIssued}
-                                    />
-                                ) : (
-                                    <div
-                                        className={`${!currentInvoice?.issued_at? "p-4 bg-gray-50 border rounded-md h-40 overflow-y-auto font-mono text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap" : "font-bold font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap text-[16px]"}`}
+                            </div>
+
+                            {/* Grand Total & Confirmation */}
+                            <div className="bg-gray-50 p-8 rounded-2xl border border-primary-gray flex flex-col h-fit sticky top-24 print:static print:border-none print:bg-white print:p-0">
+                                <div className="space-y-4 mb-8 text-primary print:mb-0">
+                                    <div className="flex justify-between text-base">
+                                        <span className="font-medium">{t('invoicing.subtotal', 'Subtotal')}</span>
+                                        <span className="font-bold">{formatCurrency(subtotal)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-base">
+                                        <span className="font-medium">{t('invoicing.shipping_fee', 'Shipping')}</span>
+                                            <span className="font-bold">+ {formatCurrency(shippingFee)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-base">
+                                            <span className="font-medium">{t('invoicing.installation_fee', 'Installation')}</span>
+                                            <span className="font-bold">+ {formatCurrency(installationFee)}</span>
+                                        </div>
+
+                                        <div className="flex justify-between text-base text-red-600">
+                                            <span className="font-medium">{t('invoicing.discount', 'Discount')}</span>
+                                            <span className="font-bold">- {formatCurrency(discountAmount)}</span>
+                                        </div>
+
+                                    <div className="pt-6 border-t border-primary-gray flex justify-between text-3xl font-black text-primary print:text-xl">
+                                        <span>Total</span>
+                                        <span>{formatCurrency(grandTotal)}</span>
+                                    </div>
+                                </div>
+
+                                {!isIssued ? (
+                                    <HoldToConfirmButton
+                                        onConfirm={handleIssue}
+                                        variant="default"
+                                        className="bg-primary h-14 text-xl font-bold no-print"
+                                        confirmationLabel={t('invoicing.issuing', 'Issuing...')}
                                     >
-                                        {generateDefaultTerms()}
+                                        {t('invoicing.confirm_issue', 'Confirm & Issue')}
+                                    </HoldToConfirmButton>
+                                ) : (
+                                    <div className="px-4 py-4 bg-green-100 text-green-800 border border-green-200 rounded-xl flex items-center gap-4 no-print">
+                                        <FileText className="h-14 w-14" />
+                                        <div>
+                                            <p className="font-black text-lg leading-none mb-1">{t('invoicing.issued', 'Invoice Issued')}</p>
+                                            <p className="text-sm opacity-80">{format(new Date(currentInvoice?.issued_at!), "PPP")}</p>
+                                            <p className="text-sm opacity-80">{t('invoicing.issued_by', "by") + ": " + (resolvedUser?.username || t('common.unknown', 'Unknown'))}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!currentInvoice?.issued_at &&
+                                    <p className="text-[13px] text-muted-foreground mt-6 text-start flex flex-row no-print">
+                                        <Info className="h-3 w-3 inline me-1 mt-0.5" />
+                                        {t('invoicing.issue_disclaimer', 'Issuing an invoice will deduct items from inventory and finalize prices.')}
+                                    </p>
+                                }
+                            </div>
+                        </div>
+
+                        {/* System Configuration (Last Page) */}
+                        {systemConfiguration && (
+                            <div className="page-break-before pt-10">
+                                <SystemConfigSummary data={systemConfiguration.config_items} />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </ScrollArea>
+
+            {/* Print Preview Modal */}
+            <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+                <DialogContent className="max-w-[800px] h-[90vh] flex flex-col p-0 overflow-hidden bg-gray-100">
+                    <DialogHeader className="p-4 bg-white border-b">
+                        <DialogTitle className="flex items-center justify-between">
+                            <span>{t('invoicing.print_preview', 'Print Preview (A4)')}</span>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(false)}>
+                                    {t('common.cancel', 'Cancel')}
+                                </Button>
+                                <Button size="sm" onClick={handlePrint}>
+                                    <Printer className="h-4 w-4 mr-2" /> {t('common.print', 'Print')}
+                                </Button>
+                            </div>
+                        </DialogTitle>
+                    </DialogHeader>
+                    
+                    <div className="flex-grow overflow-auto p-8">
+                        {/* Scaled Preview */}
+                        <div 
+                            className={cn(
+                                "bg-white mx-auto shadow-2xl origin-top transition-all duration-300",
+                                isPlainMode && "plain-print"
+                            )}
+                            style={{ 
+                                width: '210mm', 
+                                minHeight: '297mm',
+                                padding: '10mm',
+                                transform: 'scale(0.8)',
+                                paddingTop: isPlainMode ? `${10 + topMargin}mm` : '10mm'
+                            }}
+                        >
+                            {/* Re-render the printable content here or use cloneNode logic */}
+                            {/* For simplicity, I'll just use the same content structure but styled for preview */}
+                            <div className="space-y-8">
+                                {/* Header */}
+                                <div className="flex justify-between border-b pb-4">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-primary">{project.customer?.full_name}</h3>
+                                        <p className="text-xs text-gray-500">{displayLocation}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-lg font-mono font-bold text-red-500">
+                                            {currentInvoice?.issued_at ? `#${String(currentInvoice.invoice_id).padStart(5, '0')}` : "PROFORMA"}
+                                        </p>
+                                        <p className="text-xs text-gray-500">{format(new Date(), "dd/MM/yyyy")}</p>
+                                    </div>
+                                </div>
+                                
+                                {/* Items */}
+                                <Table className="text-xs">
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>{t('invoicing.item', 'Item')}</TableHead>
+                                            <TableHead className="text-center">{t('invoicing.unit_price', 'Price')}</TableHead>
+                                            <TableHead className="text-center">{t('invoicing.quantity', 'Qty')}</TableHead>
+                                            <TableHead className="text-right">{t('invoicing.total', 'Total')}</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {components.map((c) => (
+                                            <TableRow key={c.uuid}>
+                                                <TableCell>{c.item?.name || c.custom_name}</TableCell>
+                                                <TableCell className="text-center">{formatCurrency(c.price_at_sale)}</TableCell>
+                                                <TableCell className="text-center">{c.quantity}</TableCell>
+                                                <TableCell className="text-right">{formatCurrency((c.price_at_sale || 0) * c.quantity)}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+
+                                {/* Totals */}
+                                <div className="flex justify-end pt-4">
+                                    <div className="w-1/2 space-y-1 text-xs">
+                                        <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                                        <div className="flex justify-between"><span>Shipping</span><span>{formatCurrency(shippingFee)}</span></div>
+                                        <div className="flex justify-between"><span>Installation</span><span>{formatCurrency(installationFee)}</span></div>
+                                        <div className="flex justify-between text-red-600"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>
+                                        <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Total</span><span>{formatCurrency(grandTotal)}</span></div>
+                                    </div>
+                                </div>
+
+                                {/* Terms */}
+                                <div className="pt-8 text-[10px] text-gray-500">
+                                    <h4 className="font-bold mb-1">Terms & Conditions</h4>
+                                    <p className="whitespace-pre-wrap">{customTermsEnabled ? customTerms : generateDefaultTerms()}</p>
+                                </div>
+                                
+                                {/* System Config Page hint */}
+                                {systemConfiguration && (
+                                    <div className="mt-20 border-t pt-4 text-center text-xs text-gray-400">
+                                        [ Page 2: System Configuration Summary ]
                                     </div>
                                 )}
                             </div>
                         </div>
-
-                        {/* Grand Total & Confirmation */}
-                        <div className="bg-gray-50 p-8 rounded-2xl border border-primary-gray flex flex-col h-fit sticky top-24">
-                            <div className="space-y-4 mb-8 text-primary">
-                                <div className="flex justify-between text-base">
-                                    <span className="font-medium">{t('invoicing.subtotal', 'Subtotal')}</span>
-                                    <span className="font-bold">{formatCurrency(subtotal)}</span>
-                                </div>
-                                <div className="flex justify-between text-base">
-                                    <span className="font-medium">{t('invoicing.shipping_fee', 'Shipping')}</span>
-                                        <span className="font-bold">+ {formatCurrency(shippingFee)}</span>
-                                    </div>
-                                    <div className="flex justify-between text-base">
-                                        <span className="font-medium">{t('invoicing.installation_fee', 'Installation')}</span>
-                                        <span className="font-bold">+ {formatCurrency(installationFee)}</span>
-                                    </div>
-
-                                    <div className="flex justify-between text-base text-red-600">
-                                        <span className="font-medium">{t('invoicing.discount', 'Discount')}</span>
-                                        <span className="font-bold">- {formatCurrency(discountAmount)}</span>
-                                    </div>
-
-                                <div className="pt-6 border-t border-primary-gray flex justify-between text-3xl font-black text-primary">
-                                    <span>Total</span>
-                                    <span>{formatCurrency(grandTotal)}</span>
-                                </div>
-                            </div>
-
-                            {!isIssued ? (
-                                <HoldToConfirmButton
-                                    onConfirm={handleIssue}
-                                    variant="default"
-                                    className="bg-primary h-14 text-xl font-bold"
-                                    confirmationLabel={t('invoicing.issuing', 'Issuing...')}
-                                >
-                                    {t('invoicing.confirm_issue', 'Confirm & Issue')}
-                                </HoldToConfirmButton>
-                            ) : (
-                                <div className="px-4 py-4 bg-green-100 text-green-800 border border-green-200 rounded-xl flex items-center gap-4">
-                                    <FileText className="h-14 w-14" />
-                                    <div>
-                                        <p className="font-black text-lg leading-none mb-1">{t('invoicing.issued', 'Invoice Issued')}</p>
-                                        <p className="text-sm opacity-80">{format(new Date(currentInvoice?.issued_at!), "PPP")}</p>
-                                        <p className="text-sm opacity-80">{t('invoicing.issued_by', "by") + ": " + (resolvedUser?.username || t('common.unknown', 'Unknown'))}</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {!currentInvoice?.issued_at &&
-                                <p className="text-[13px] text-muted-foreground mt-6 text-start flex flex-row">
-                                    <Info className="h-3 w-3 inline me-1 mt-0.5" />
-                                    {t('invoicing.issue_disclaimer', 'Issuing an invoice will deduct items from inventory and finalize prices.')}
-                                </p>
-                            }
-                        </div>
                     </div>
-                </div>
-            </ScrollArea>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={isInventoryModalOpen} onOpenChange={setIsInventoryModalOpen}>
                 <InventorySelectorModal
                     onSelect={handleSelectItem}
                 />
             </Dialog>
+
+            <style dangerouslySetInnerHTML={{ __html: `
+                @media print {
+                    body * {
+                        visibility: hidden;
+                    }
+                    #invoice-print-area, #invoice-print-area * {
+                        visibility: visible;
+                    }
+                    #invoice-print-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                    }
+                    .no-print {
+                        display: none !important;
+                    }
+                    .print-only {
+                        display: block !important;
+                    }
+                    .no-print-val {
+                        display: none !important;
+                    }
+                    @page {
+                        size: A4;
+                        margin: 10mm;
+                    }
+                    .page-break-before {
+                        break-before: page;
+                    }
+                    .plain-print * {
+                        border-color: #e5e7eb !important;
+                        background-color: transparent !important;
+                        color: black !important;
+                        box-shadow: none !important;
+                    }
+                    .plain-print .text-primary, 
+                    .plain-print .text-blue-600, 
+                    .plain-print .text-orange-500, 
+                    .plain-print .text-yellow-500, 
+                    .plain-print .text-green-500 {
+                        color: black !important;
+                    }
+                    .plain-print .bg-gray-50, 
+                    .plain-print .bg-white {
+                        background-color: transparent !important;
+                    }
+                    .plain-print border, 
+                    .plain-print .border-b, 
+                    .plain-print .border-t {
+                        border-color: #000 !important;
+                    }
+                    .plain-print .rounded-xl, 
+                    .plain-print .rounded-2xl {
+                        border-radius: 0 !important;
+                    }
+                }
+                .print-only {
+                    display: none;
+                }
+            `}} />
         </div>
     );
 }
