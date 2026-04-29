@@ -26,6 +26,7 @@ import {
     ShoppingCart,
     ArrowRight,
     FileText,
+    DollarSign,
 } from 'lucide-react';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
@@ -332,7 +333,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                     {
                         !currentInvoice?.issued_at &&  (
                              <div className="h-10 px-4 flex items-center bg-green-600 text-white rounded-lg font-bold shadow-sm">
-                                <ShoppingCart className="me-2 h-5 w-5" />
+                                <DollarSign className="me-2 h-5 w-5" />
                                 {formatCurrency(totalCost)}
                             </div>
                         )

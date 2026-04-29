@@ -883,7 +883,7 @@ export function SettingsModal() {
                                                 <div className="space-y-3 max-w-sm">
                                                     <div className="space-y-2">
                                                         <Label className="text-xs font-bold text-neutral/40 uppercase">
-                                                            {t('auth.current_password', 'Current Password')}
+                                                            {t('registration.password', 'Password')}
                                                         </Label>
                                                         <Input
                                                             type="password"
@@ -919,16 +919,6 @@ export function SettingsModal() {
                                                         }
 
                                                         </Button>
-                                                        {isDeactivatePasswordVerified && (
-                                                            <p className="text-[10px] font-bold uppercase text-green-600">
-                                                                {t('settings.verified', 'Verified')}
-                                                            </p>
-                                                        )}
-                                                        {!isDeactivatePasswordVerified && !!deactivatePassword.trim() && (
-                                                            <p className="text-[10px] font-bold uppercase text-red-500">
-                                                                {t('settings.verify_required', 'Verify required')}
-                                                            </p>
-                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
