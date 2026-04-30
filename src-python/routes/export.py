@@ -6,6 +6,7 @@ import pandas as pd
 import io
 import json
 import os
+from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 
 try:
@@ -100,9 +101,9 @@ def export_excel(project_uuid):
                 {"Field": "Invoice No", "Value": str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA"},
                 {"Field": "Issue Date", "Value": invoice.issued_at.isoformat() if invoice.issued_at else "N/A"},
                 {"Field": "Subtotal", "Value": float(df_items['Total'].sum()) if not df_items.empty else 0.0},
-                {"Field": "Shipping Fee", "Value": float(details.get('shipping_fee', 0))},
-                {"Field": "Installation Fee", "Value": float(details.get('installation_fee', 0))},
-                {"Field": "Discount Percent", "Value": f"{details.get('discount_percent', 0)}%"},
+                {"Field": "Shipping Fee", "Value": float(details.get('shipping_fee') or 0)},
+                {"Field": "Installation Fee", "Value": float(details.get('installation_fee') or 0)},
+                {"Field": "Discount Percent", "Value": f"{details.get('discount_percent') or 0}%"},
                 {"Field": "Grand Total", "Value": float(invoice.amount or 0)},
             ]
             df_summary = pd.DataFrame(summary_data)
@@ -145,79 +146,84 @@ def export_pdf(project_uuid):
     lang = request.args.get('lang', 'en')
     direction = 'rtl' if lang == 'ar' else 'ltr'
     
-    with get_db() as db:
-        project = db.query(Project).filter(Project.uuid == project_uuid).options(
-            joinedload(Project.customer),
-            joinedload(Project.system_config),
-            joinedload(Project.project_components).joinedload(ProjectComponent.item)
-        ).first()
+    try:
+        with get_db() as db:
+            project = db.query(Project).filter(Project.uuid == project_uuid).options(
+                joinedload(Project.customer),
+                joinedload(Project.system_config),
+                joinedload(Project.project_components).joinedload(ProjectComponent.item)
+            ).first()
 
-        if not project:
-            return jsonify({"error": "Project not found"}), 404
+            if not project:
+                return jsonify({"error": "Project not found"}), 404
 
-        invoice = db.query(Invoice).filter(Invoice.project_uuid == project_uuid).first()
-        if not invoice:
-            return jsonify({"error": "Invoice not found"}), 404
+            invoice = db.query(Invoice).filter(Invoice.project_uuid == project_uuid).first()
+            if not invoice:
+                return jsonify({"error": "Invoice not found"}), 404
 
-        details = invoice.invoice_details or {}
-        
-        items = []
-        subtotal = 0
-        for comp in project.project_components:
-            name = comp.item.name if comp.item else comp.custom_name
-            total = (comp.price_at_sale or 0) * comp.quantity
-            items.append({
-                "name": name,
-                "brand": comp.item.brand if comp.item else "N/A",
-                "model": comp.item.model if comp.item else "N/A",
-                "unit_price": f"{comp.price_at_sale:,.2f}",
-                "quantity": comp.quantity,
-                "total": f"{total:,.2f}"
-            })
-            subtotal += total
+            details = invoice.invoice_details or {}
+            
+            items = []
+            subtotal = 0
+            for comp in project.project_components:
+                name = comp.item.name if comp.item else comp.custom_name
+                price = comp.price_at_sale or 0
+                total = price * comp.quantity
+                items.append({
+                    "name": name,
+                    "brand": comp.item.brand if comp.item else "N/A",
+                    "model": comp.item.model if comp.item else "N/A",
+                    "unit_price": f"{float(price):,.2f}",
+                    "quantity": comp.quantity,
+                    "total": f"{float(total):,.2f}"
+                })
+                subtotal += total
 
-        discount_pct = details.get('discount_percent', 0)
-        discount_amount = (subtotal * discount_pct) / 100
-        
-        # Prepare System Config Data for Template
-        config_render = None
-        if project.system_config and project.system_config.config_items:
-            config_render = {}
-            raw_config = project.system_config.config_items
-            for section, data in raw_config.items():
-                if section in ['metadata', 'solar_panels', 'inverter', 'battery_bank']:
-                    section_title = section.replace('_', ' ').capitalize()
-                    config_render[section_title] = { k.replace('_', ' ').capitalize(): v for k, v in data.items() }
+            discount_pct = details.get('discount_percent') or 0
+            discount_amount = (subtotal * float(discount_pct)) / 100
+            
+            # Prepare System Config Data for Template
+            config_render = None
+            if project.system_config and project.system_config.config_items:
+                config_render = {}
+                raw_config = project.system_config.config_items
+                for section, data in raw_config.items():
+                    if section in ['metadata', 'solar_panels', 'inverter', 'battery_bank']:
+                        section_title = section.replace('_', ' ').capitalize()
+                        if isinstance(data, dict):
+                            config_render[section_title] = { k.replace('_', ' ').capitalize(): v for k, v in data.items() }
 
-        template = jinja_env.get_template('invoice.html')
-        html_string = template.render(
-            project=project,
-            invoice_number=str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA | فاتورة مبدئية",
-            issue_date=invoice.issued_at.strftime('%d/%m/%Y') if invoice.issued_at else os.popen('date +%d/%m/%Y').read().strip(),
-            due_date=details.get('due_date', '').split('T')[0],
-            items=items,
-            subtotal=f"{subtotal:,.2f}",
-            shipping_fee=f"{details.get('shipping_fee', 0):,.2f}",
-            installation_fee=f"{details.get('installation_fee', 0):,.2f}",
-            discount_amount=f"{discount_amount:,.2f}",
-            grand_total=f"{invoice.amount:,.2f}",
-            terms=details.get('terms_and_conditions', ''),
-            config=config_render,
-            t=TRANSLATIONS.get(lang, TRANSLATIONS['en']),
-            dir=direction,
-            lang=lang
-        )
+            template = jinja_env.get_template('invoice.html')
+            html_string = template.render(
+                project=project,
+                invoice_number=str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA | فاتورة مبدئية",
+                issue_date=invoice.issued_at.strftime('%d/%m/%Y') if invoice.issued_at else datetime.now().strftime('%d/%m/%Y'),
+                due_date=(details.get('due_date') or '').split('T')[0],
+                items=items,
+                subtotal=f"{float(subtotal):,.2f}",
+                shipping_fee=f"{float(details.get('shipping_fee') or 0):,.2f}",
+                installation_fee=f"{float(details.get('installation_fee') or 0):,.2f}",
+                discount_amount=f"{float(discount_amount):,.2f}",
+                grand_total=f"{float(invoice.amount or 0):,.2f}",
+                terms=details.get('terms_and_conditions', ''),
+                config=config_render,
+                t=TRANSLATIONS.get(lang, TRANSLATIONS['en']),
+                dir=direction,
+                lang=lang
+            )
 
-        pdf_io = io.BytesIO()
-        HTML(string=html_string).write_pdf(pdf_io)
-        pdf_io.seek(0)
+            pdf_io = io.BytesIO()
+            HTML(string=html_string).write_pdf(pdf_io)
+            pdf_io.seek(0)
 
-        return send_file(
-            pdf_io,
-            as_attachment=True,
-            download_name=f"Invoice_{project_uuid[:8]}.pdf",
-            mimetype='application/pdf'
-        )
+            return send_file(
+                pdf_io,
+                as_attachment=True,
+                download_name=f"Invoice_{project_uuid[:8]}.pdf",
+                mimetype='application/pdf'
+            )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate PDF: {str(e)}"}), 500
 
 @export_bp.route('/csv/<string:project_uuid>', methods=['GET'])
 def export_csv(project_uuid):
@@ -240,13 +246,14 @@ def export_csv(project_uuid):
             })
 
         df = pd.DataFrame(items_data)
-        output = io.StringIO()
-        df.to_csv(output, index=False)
+        output = io.BytesIO()
+        df.to_csv(output, index=False, encoding='utf-8')
         output.seek(0)
         
         return send_file(
-            io.BytesIO(output.getvalue().encode('utf-8')),
+            output,
             as_attachment=True,
             download_name=f"Invoice_{project_uuid[:8]}.csv",
             mimetype='text/csv'
         )
+

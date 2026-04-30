@@ -17,7 +17,10 @@ import {
     Phone,
     Hash,
     Settings,
-    Download
+    Download,
+    ChevronDown,
+    Table as TableIcon,
+    FileSpreadsheet
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,10 +39,16 @@ import {
     PopoverContent,
     PopoverTrigger
 } from "@/components/ui/popover";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Slider } from "@/components/ui/slider";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from 'react-hot-toast';
@@ -55,6 +64,11 @@ import { Project } from '@/store/useProjectStore';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
 import { SystemConfigSummary } from './SystemConfigSummary';
 import api from '@/api/client';
+
+// Tauri API imports
+// Using global window.__TAURI__ if available, or direct imports if using @tauri-apps/api
+const tauriDialog = (window as any).__TAURI__?.dialog;
+const tauriFs = (window as any).__TAURI__?.fs;
 
 interface InvoiceEditorProps {
     project: Project;
@@ -90,12 +104,12 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
 
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-    
+
     // Print Settings
     const [isPlainMode, setIsPlainMode] = useState(false);
     const [topMargin, setTopMargin] = useState(0);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-    const printRef = useRef<HTMLDivElement>(null);
+    const [isExporting, setIsExporting] = useState<string | null>(null);
 
     // Local-only state for fees/discount/date/terms
     const [dueDate, setDueDate] = useState<Date | null>(new Date());
@@ -305,22 +319,60 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
         window.print();
     };
 
-    const handleExportExcel = async () => {
+    const handleExport = async (type: 'pdf' | 'excel' | 'csv') => {
+        setIsExporting(type);
         await handleSaveInvoice();
+        const fileName = `${project.customer?.full_name || 'Invoice'}_${type.toUpperCase()}_${format(new Date(), 'yyyy-MM-dd')}.${type === 'excel' ? 'xlsx' : type}`;
+
         try {
-            const response = await api.get(`/export/excel/${project.uuid}`, {
+            const response = await api.get(`/export/${type === 'excel' ? 'excel' : type}/${project.uuid}`, {
+                params: type === 'pdf' ? { lang: i18n.language } : {},
                 responseType: 'blob'
             });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Invoice_${project.customer?.full_name || project.uuid.slice(0,8)}.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            toast.success(t('invoicing.export_success', 'Excel exported successfully!'));
+
+            const blob = response.data;
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = async () => {
+                const base64data = (reader.result as string).split(',')[1];
+
+                // 1. Upsert to DB
+                await api.post('/documents/upsert', {
+                    project_uuid: project.uuid,
+                    doc_type: type === 'pdf' ? 'Invoice' : 'Project Breakdown',
+                    file_name: fileName,
+                    file_blob: base64data
+                });
+
+                // 2. Open Save Dialog (Tauri)
+                if (tauriDialog && tauriFs) {
+                    const savePath = await tauriDialog.save({
+                        defaultPath: fileName,
+                        filters: [{ name: type.toUpperCase(), extensions: [type === 'excel' ? 'xlsx' : type] }]
+                    });
+
+                    if (savePath) {
+                        const uint8Array = new Uint8Array(await blob.arrayBuffer());
+                        await tauriFs.writeBinaryFile(savePath, uint8Array);
+                        toast.success(t('invoicing.export_success', 'File saved successfully!'));
+                    }
+                } else {
+                    // Fallback to browser download if not in Tauri
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', fileName);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    toast.success(t('invoicing.export_success', 'File exported successfully!'));
+                }
+            };
         } catch (e) {
-            toast.error(t('invoicing.export_error', 'Failed to export Excel.'));
+            console.error("Export failed:", e);
+            toast.error(t('invoicing.export_error', 'Failed to export file.'));
+        } finally {
+            setIsExporting(null);
         }
     };
 
@@ -341,76 +393,36 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Print Settings Toggle */}
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm">
-                                <Settings className="h-4 w-4 mr-2" /> {t('invoicing.print_settings', 'Print Settings')}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" disabled={!!isExporting}>
+                                {isExporting ? <Spinner className=" h-4 w-4" /> : <Download className="h-4 w-4 " />}
+                                {t('invoicing.export', 'Export')}
+                                <ChevronDown className="h-4 w-4" />
                             </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 p-4 space-y-4" align="end">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="plain-mode" className="font-bold">{t('invoicing.plain_mode', 'Plain Mode (Data Only)')}</Label>
-                                <Switch id="plain-mode" checked={isPlainMode} onCheckedChange={setIsPlainMode} />
-                            </div>
-                            {isPlainMode && (
-                                <div className="space-y-2">
-                                    <div className="flex justify-between">
-                                        <Label className="text-xs font-bold">{t('invoicing.top_margin', 'Top Margin Offset')}</Label>
-                                        <span className="text-xs font-mono">{topMargin}mm</span>
-                                    </div>
-                                    <Slider 
-                                        value={[topMargin]} 
-                                        onValueChange={([v]) => setTopMargin(v)} 
-                                        max={100} 
-                                        step={1} 
-                                    />
-                                </div>
-                            )}
-                        </PopoverContent>
-                    </Popover>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className='bg-white'>
+                            <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                                <FileText className=" h-4 w-4" /> PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('excel')}>
+                                <FileSpreadsheet className=" h-4 w-4" /> Excel
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport('csv')}>
+                                <TableIcon className=" h-4 w-4" /> CSV
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
 
-                    <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(true)}>
-                        <Printer className="h-4 w-4 mr-2" /> {t('invoicing.preview_print', 'Preview & Print')}
-                    </Button>
-
-                    <Button variant="outline" size="sm" onClick={async () => {
-                        await handleSaveInvoice();
-                        try {
-                            const response = await api.get(`/export/pdf/${project.uuid}`, {
-                                params: { lang: i18n.language },
-                                responseType: 'blob'
-                            });
-                            const url = window.URL.createObjectURL(new Blob([response.data]));
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.setAttribute('download', `Invoice_${project.customer?.full_name || project.uuid.slice(0,8)}.pdf`);
-                            document.body.appendChild(link);
-                            link.click();
-                            link.remove();
-                            toast.success(t('invoicing.export_pdf_success', 'PDF exported successfully!'));
-                        } catch (e) {
-                            toast.error(t('invoicing.export_pdf_error', 'Failed to export PDF.'));
-                        }
-                    }}>
-                        <Download className="h-4 w-4 mr-2" /> {t('invoicing.download_pdf', 'Download PDF')}
-                    </Button>
-                    
-                    <Button variant="outline" size="sm" onClick={handleExportExcel}>
-                        <Share2 className="h-4 w-4 mr-2" /> {t('invoicing.share', 'Share')}
+                    <Button variant="default" size="sm" onClick={() => setIsPreviewOpen(true)}>
+                        <Printer className="h-4 w-4" /> {t('common.print', 'Print')}
                     </Button>
                 </div>
             </div>
 
             <ScrollArea className="flex-grow" dir={i18n.dir()}>
-                <div className={cn("max-w-5xl mx-auto p-8 space-y-10", isPlainMode && "print:p-0")}>
-                    
-                    {/* Invoice View Container (The part that will be printed) */}
-                    <div 
-                        id="invoice-print-area" 
-                        className={cn("space-y-10", isPlainMode && "plain-print")}
-                        style={isPlainMode ? { paddingTop: `${topMargin}mm` } : {}}
-                    >
+                <div className="max-w-5xl mx-auto p-8 space-y-10">
+                    <div className="space-y-10">
                         {/* Customer & Invoice Info Header */}
                         <div className="flex flex-col md:flex-row justify-between gap-8 pb-8 border-b">
                             {/* Customer Info (Start) */}
@@ -443,7 +455,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                             ? String(currentInvoice.invoice_id).padStart(5, '0')
                                             : (
                                                 <span className="text-base">
-                                                    PROFORMA | فاتورة مبدئية
+                                                    {i18n.dir() === 'ltr' ? "PROFORMA" : "فاتورة مبدئية"}
                                                 </span>
                                             )
                                         }
@@ -502,7 +514,6 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                     </Popover>
                                         )
                                     }
-                                    <span className="text-sm font-bold print-only">{dueDate ? format(dueDate, "dd/MM/yyyy") : ""}</span>
                                 </div>
                             </div>
                         </div>
@@ -566,7 +577,6 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                                             />
                                                         )
                                                     }
-                                                    <span className="font-bold print-only">{formatCurrency(c.price_at_sale)}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell>
@@ -584,7 +594,6 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                                             />
                                                         )
                                                     }
-                                                    <span className="font-bold print-only">{c.quantity}</span>
                                                 </div>
 
                                             </TableCell>
@@ -683,19 +692,14 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                             </div>
                                         }
                                     </div>
-                                    {customTermsEnabled ? (
-                                        <div className="space-y-2">
-                                            <Textarea
-                                                placeholder={t('invoicing.custom_terms_ph', 'Enter terms...')}
-                                                value={customTerms}
-                                                onChange={(e) => setCustomTerms(e.target.value)}
-                                                className="h-40 font-mono text-sm leading-relaxed no-print"
-                                                disabled={isIssued}
-                                            />
-                                            <div className="font-mono text-sm leading-relaxed whitespace-pre-wrap print-only">
-                                                {customTerms}
-                                            </div>
-                                        </div>
+                                    {customTermsEnabled && !currentInvoice?.issued_at ? (
+                                                <Textarea
+                                                    placeholder={t('invoicing.custom_terms_ph', 'Enter terms...')}
+                                                    value={customTerms}
+                                                    onChange={(e) => setCustomTerms(e.target.value)}
+                                                    className="h-40 font-mono text-sm leading-relaxed no-print"
+                                                    disabled={isIssued}
+                                                />
                                     ) : (
                                         <div
                                             className={`${!currentInvoice?.issued_at? "p-4 bg-gray-50 border rounded-md h-40 overflow-y-auto font-mono text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap print:border-none print:bg-white print:h-auto print:p-0" : "font-bold font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap text-[16px]"}`}
@@ -761,114 +765,195 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                 }
                             </div>
                         </div>
-
-                        {/* System Configuration (Last Page) */}
-                        {systemConfiguration && (
-                            <div className="page-break-before pt-10">
-                                <SystemConfigSummary data={systemConfiguration.config_items} />
-                            </div>
-                        )}
                     </div>
                 </div>
             </ScrollArea>
 
             {/* Print Preview Modal */}
             <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                <DialogContent className="max-w-[800px] h-[90vh] flex flex-col p-0 overflow-hidden bg-gray-100">
-                    <DialogHeader className="p-4 bg-white border-b">
-                        <DialogTitle className="flex items-center justify-between">
-                            <span>{t('invoicing.print_preview', 'Print Preview (A4)')}</span>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => setIsPreviewOpen(false)}>
-                                    {t('common.cancel', 'Cancel')}
-                                </Button>
-                                <Button size="sm" onClick={handlePrint}>
-                                    <Printer className="h-4 w-4 mr-2" /> {t('common.print', 'Print')}
-                                </Button>
-                            </div>
+                <DialogContent className="max-w-[850px] h-[95vh] flex flex-col p-0 overflow-hidden bg-gray-100">
+                    <DialogHeader className="p-4 bg-white border-b flex flex-row items-center justify-between no-print">
+                        <DialogTitle className="text-xl font-bold">
+                            {t('invoicing.print_preview', 'Print Preview')}
                         </DialogTitle>
+                        <div className="flex items-center gap-4">
+                            {/* Settings inside Preview */}
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                        <Settings className="h-4 w-4 " /> {t('invoicing.settings', 'Settings')}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 p-4 space-y-4 bg-white" align="end">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="preview-plain-mode" className="font-bold">{t('invoicing.plain_mode', 'Plain Mode (Data Only)')}</Label>
+                                        <Switch id="preview-plain-mode" checked={isPlainMode} onCheckedChange={setIsPlainMode} />
+                                    </div>
+                                    {isPlainMode && (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between">
+                                                <Label className="text-xs font-bold">{t('invoicing.top_margin', 'Top Margin Offset')}</Label>
+                                                <span className="text-xs font-mono">{topMargin}mm</span>
+                                            </div>
+                                            <Slider
+                                                value={[topMargin]}
+                                                onValueChange={([v]) => setTopMargin(v)}
+                                                max={100}
+                                                step={1}
+                                            />
+                                        </div>
+                                    )}
+                                </PopoverContent>
+                            </Popover>
+
+                            <Button size="sm" onClick={handlePrint} className="me-10">
+                                <Printer className="h-4 w-4 " /> {t('common.print', 'Print')}
+                            </Button>
+                        </div>
                     </DialogHeader>
-                    
-                    <div className="flex-grow overflow-auto p-8">
-                        {/* Scaled Preview */}
-                        <div 
+
+                    <ScrollArea className="flex-grow p-8 bg-gray-200">
+                        {/* A4 Document Wrapper */}
+                        <div
                             className={cn(
-                                "bg-white mx-auto shadow-2xl origin-top transition-all duration-300",
-                                isPlainMode && "plain-print"
+                                "bg-white mx-auto shadow-2xl transition-all duration-300 origin-top",
+                                isPlainMode && "plain-print-preview"
                             )}
-                            style={{ 
-                                width: '210mm', 
+                            style={{
+                                width: '210mm',
                                 minHeight: '297mm',
-                                padding: '10mm',
-                                transform: 'scale(0.8)',
-                                paddingTop: isPlainMode ? `${10 + topMargin}mm` : '10mm'
+                                padding: '15mm',
+                                paddingTop: isPlainMode ? `${15 + topMargin}mm` : '15mm'
                             }}
                         >
-                            {/* Re-render the printable content here or use cloneNode logic */}
-                            {/* For simplicity, I'll just use the same content structure but styled for preview */}
-                            <div className="space-y-8">
-                                {/* Header */}
-                                <div className="flex justify-between border-b pb-4">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-primary">{project.customer?.full_name}</h3>
-                                        <p className="text-xs text-gray-500">{displayLocation}</p>
+                            {/* Invoice Content */}
+                            <div className="space-y-10">
+                                {/* Header with icons and full details */}
+                                <div className="flex flex-col md:flex-row justify-between gap-8 pb-8 border-b">
+                                    <div className="space-y-2">
+                                        <h3 className="text-2xl font-black text-primary mb-4 flex items-center gap-2">
+                                            {project.customer?.full_name || t('dashboard.no_customer', 'Customer')}
+                                        </h3>
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <MapPin className="h-4 w-4 shrink-0" />
+                                            <span className="text-sm font-bold">{t('invoicing.address', 'Address')}: {displayLocation}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <Mail className="h-4 w-4 shrink-0" />
+                                            <span className="text-sm font-bold">{t('invoicing.email', 'Email')}: {project.customer?.email || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <Phone className="h-4 w-4 shrink-0" />
+                                            <span className="text-sm font-bold">{t('invoicing.phone_No', 'Phone No')}: {project.customer?.phone_number || 'N/A'}</span>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-lg font-mono font-bold text-red-500">
-                                            {currentInvoice?.issued_at ? `#${String(currentInvoice.invoice_id).padStart(5, '0')}` : "PROFORMA"}
-                                        </p>
-                                        <p className="text-xs text-gray-500">{format(new Date(), "dd/MM/yyyy")}</p>
+
+                                    <div className="md:text-end flex flex-col gap-2">
+                                        <div className='flex flex-col items-end'>
+                                            <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block '>{t('invoicing.invoice_no', 'Invoice No')}</span>
+                                            <div className="w-fit h-fit inline-flex items-center text-red-500 text-xl font-mono font-bold">
+                                                <Hash className="h-4 w-4 text-neutral" />
+                                                {
+                                                    currentInvoice?.issued_at != null
+                                                    ? String(currentInvoice.invoice_id).padStart(5, '0')
+                                                    : (
+                                                        <span className="text-base">
+                                                            {i18n.dir() === 'ltr' ? "PROFORMA" : "فاتورة مبدئية"}
+                                                        </span>
+                                                    )
+                                                }
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className='text-[10px] uppercase font-bold text-gray-400 block mb-1'>
+                                                {t('invoicing.issue_date', 'Issue Date')}
+                                            </div>
+                                            <span className="text-sm font-bold"> {currentInvoice?.issued_at ? format(new Date(currentInvoice.issued_at), "dd/MM/yyyy") : format(new Date(), "dd/MM/yyyy")}</span>
+                                        </div>
+                                        <div>
+                                            <div className='text-[10px] uppercase font-bold text-gray-400 block mb-1'>
+                                                {t('invoicing.due_date', 'Due Date')}
+                                            </div>
+                                            <span className="text-sm font-bold">{dueDate ? format(dueDate, "dd/MM/yyyy") : ""}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                
-                                {/* Items */}
-                                <Table className="text-xs">
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>{t('invoicing.item', 'Item')}</TableHead>
-                                            <TableHead className="text-center">{t('invoicing.unit_price', 'Price')}</TableHead>
-                                            <TableHead className="text-center">{t('invoicing.quantity', 'Qty')}</TableHead>
-                                            <TableHead className="text-right">{t('invoicing.total', 'Total')}</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {components.map((c) => (
-                                            <TableRow key={c.uuid}>
-                                                <TableCell>{c.item?.name || c.custom_name}</TableCell>
-                                                <TableCell className="text-center">{formatCurrency(c.price_at_sale)}</TableCell>
-                                                <TableCell className="text-center">{c.quantity}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency((c.price_at_sale || 0) * c.quantity)}</TableCell>
+
+                                {/* Items Table */}
+                                <div className="bg-white border-b overflow-hidden">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="text-start">{t('invoicing.item', 'Item')}</TableHead>
+                                                <TableHead className="text-center w-[150px]">{t('invoicing.unit_price', 'Unit Price')}</TableHead>
+                                                <TableHead className="text-center w-[120px]">{t('invoicing.quantity', 'Qty')}</TableHead>
+                                                <TableHead className="text-end w-[150px]">{t('invoicing.total', 'Total')}</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {components.map((c) => (
+                                                <TableRow key={c.uuid}>
+                                                    <TableCell>
+                                                        <div>
+                                                            <div className="font-medium">{c.item?.name || c.custom_name}</div>
+                                                            <div className="text-xs text-muted-foreground">{c.item?.brand} | {c.item?.model}</div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-bold">
+                                                        {formatCurrency(c.price_at_sale)}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-bold">
+                                                        {c.quantity}
+                                                    </TableCell>
+                                                    <TableCell className="text-end font-bold">
+                                                        {formatCurrency((c.price_at_sale || 0) * c.quantity)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            <TableRow className="border-t">
+                                                <TableCell colSpan={3} className="text-end font-semibold">{t('invoicing.subtotal', 'Subtotal')}</TableCell>
+                                                <TableCell className="text-end font-bold">{formatCurrency(subtotal)}</TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </div>
 
-                                {/* Totals */}
-                                <div className="flex justify-end pt-4">
-                                    <div className="w-1/2 space-y-1 text-xs">
-                                        <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-                                        <div className="flex justify-between"><span>Shipping</span><span>{formatCurrency(shippingFee)}</span></div>
-                                        <div className="flex justify-between"><span>Installation</span><span>{formatCurrency(installationFee)}</span></div>
-                                        <div className="flex justify-between text-red-600"><span>Discount</span><span>-{formatCurrency(discountAmount)}</span></div>
-                                        <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Total</span><span>{formatCurrency(grandTotal)}</span></div>
+                                <div className="grid grid-cols-2 gap-12">
+                                    <div className="space-y-4">
+                                        <Label className="font-bold text-lg">{t('invoicing.terms_title', 'Terms & Conditions')}</Label>
+                                        <div className="font-mono text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                                            {customTermsEnabled ? customTerms : generateDefaultTerms()}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-base">
+                                            <span className="font-medium">{t('invoicing.shipping_fee', 'Shipping')}</span>
+                                            <span className="font-bold">+ {formatCurrency(shippingFee)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-base">
+                                            <span className="font-medium">{t('invoicing.installation_fee', 'Installation')}</span>
+                                            <span className="font-bold">+ {formatCurrency(installationFee)}</span>
+                                        </div>
+                                        <div className="flex justify-between text-base text-red-600">
+                                            <span className="font-medium">{t('invoicing.discount', 'Discount')}</span>
+                                            <span className="font-bold">- {formatCurrency(discountAmount)}</span>
+                                        </div>
+                                        <div className="pt-4 border-t flex justify-between text-2xl font-black text-primary">
+                                            <span>Total</span>
+                                            <span>{formatCurrency(grandTotal)}</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                {/* Terms */}
-                                <div className="pt-8 text-[10px] text-gray-500">
-                                    <h4 className="font-bold mb-1">Terms & Conditions</h4>
-                                    <p className="whitespace-pre-wrap">{customTermsEnabled ? customTerms : generateDefaultTerms()}</p>
-                                </div>
-                                
-                                {/* System Config Page hint */}
+                                {/* System Config Page (appended) */}
                                 {systemConfiguration && (
-                                    <div className="mt-20 border-t pt-4 text-center text-xs text-gray-400">
-                                        [ Page 2: System Configuration Summary ]
+                                    <div className="page-break-before pt-10 border-t mt-20">
+                                        <SystemConfigSummary data={systemConfiguration.config_items} />
                                     </div>
                                 )}
                             </div>
                         </div>
-                    </div>
+                    </ScrollArea>
                 </DialogContent>
             </Dialog>
 
@@ -883,60 +968,58 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                     body * {
                         visibility: hidden;
                     }
-                    #invoice-print-area, #invoice-print-area * {
-                        visibility: visible;
-                    }
-                    #invoice-print-area {
-                        position: absolute;
+                    /* We only print the PREVIEW container when printing */
+                    [role="dialog"] [class*="plain-print-preview"],
+                    [role="dialog"] [class*="bg-white mx-auto shadow-2xl"] {
+                        visibility: visible !important;
+                        position: fixed;
                         left: 0;
                         top: 0;
                         width: 100%;
+                        margin: 0;
+                        box-shadow: none !important;
+                    }
+                    [role="dialog"] [class*="plain-print-preview"] *,
+                    [role="dialog"] [class*="bg-white mx-auto shadow-2xl"] * {
+                        visibility: visible !important;
+                    }
+                    @page {
+                        size: A4;
+                        margin: 0;
                     }
                     .no-print {
                         display: none !important;
                     }
-                    .print-only {
-                        display: block !important;
-                    }
-                    .no-print-val {
-                        display: none !important;
-                    }
-                    @page {
-                        size: A4;
-                        margin: 10mm;
-                    }
                     .page-break-before {
                         break-before: page;
                     }
-                    .plain-print * {
-                        border-color: #e5e7eb !important;
-                        background-color: transparent !important;
-                        color: black !important;
-                        box-shadow: none !important;
-                    }
-                    .plain-print .text-primary, 
-                    .plain-print .text-blue-600, 
-                    .plain-print .text-orange-500, 
-                    .plain-print .text-yellow-500, 
-                    .plain-print .text-green-500 {
-                        color: black !important;
-                    }
-                    .plain-print .bg-gray-50, 
-                    .plain-print .bg-white {
-                        background-color: transparent !important;
-                    }
-                    .plain-print border, 
-                    .plain-print .border-b, 
-                    .plain-print .border-t {
-                        border-color: #000 !important;
-                    }
-                    .plain-print .rounded-xl, 
-                    .plain-print .rounded-2xl {
-                        border-radius: 0 !important;
-                    }
                 }
-                .print-only {
-                    display: none;
+
+                /* Plain Mode Styling for Preview Modal */
+                .plain-print-preview * {
+                    border-color: #000 !important;
+                    background-color: transparent !important;
+                    color: black !important;
+                    box-shadow: none !important;
+                    fill: black !important;
+                }
+                .plain-print-preview svg {
+                    stroke: black !important;
+                }
+                .plain-print-preview .text-primary,
+                .plain-print-preview .text-blue-600,
+                .plain-print-preview .text-orange-500,
+                .plain-print-preview .text-yellow-500,
+                .plain-print-preview .text-green-500 {
+                    color: black !important;
+                }
+                /* Exceptions for Plain Mode: RED */
+                .plain-print-preview .text-red-500,
+                .plain-print-preview .text-red-600 {
+                    color: #ef4444 !important;
+                }
+                .plain-print-preview .font-mono.font-bold.text-red-500 {
+                    color: #ef4444 !important;
                 }
             `}} />
         </div>
