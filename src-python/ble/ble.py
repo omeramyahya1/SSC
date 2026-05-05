@@ -298,7 +298,7 @@ class BLE:
         else:
             total_pv_capacity_kw = "N/A"
         if isinstance(self.battery_capacity_ah, (int, float)) and isinstance(self.system_voltage, (int, float)):
-            total_storage_kwh = convert_units(self.battery_capacity_ah * self.system_voltage, 'w_to_kw')
+            total_storage_kwh = round(convert_units(self.battery_capacity_ah * self.system_voltage, 'w_to_kw'), 2)
 
         return {
             "status": "success",

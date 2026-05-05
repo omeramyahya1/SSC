@@ -137,7 +137,7 @@ def export_excel(project_uuid):
         config_data = []
         if project.system_config and project.system_config.config_items:
             config = project.system_config.config_items
-            
+
             def add_section(title, data_dict):
                 if not data_dict: return
                 for k, v in data_dict.items():
@@ -155,9 +155,9 @@ def export_excel(project_uuid):
             df_items.to_excel(writer, sheet_name='Invoice Items', index=False)
             df_summary.to_excel(writer, sheet_name='Invoice Summary', index=False)
             df_config.to_excel(writer, sheet_name='System Configuration', index=False)
-        
+
         output.seek(0)
-        
+
         filename = f"Invoice_{project_uuid[:8]}.xlsx"
         return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
@@ -178,7 +178,7 @@ def export_pdf(project_uuid):
     margin_right_mm = base_margin_mm
     ssc_logo_svg = _load_ssc_logo_svg()
     ssc_logo_data_uri = _svg_to_data_uri(ssc_logo_svg)
-    
+
     try:
         with get_db() as db:
             project = db.query(Project).filter(Project.uuid == project_uuid).options(
@@ -195,7 +195,7 @@ def export_pdf(project_uuid):
                 return jsonify({"error": "Invoice not found"}), 404
 
             details = invoice.invoice_details or {}
-            
+
             items = []
             subtotal = 0.0
             for comp in project.project_components:
@@ -216,7 +216,7 @@ def export_pdf(project_uuid):
 
             discount_pct = details.get('discount_percent') or 0
             discount_amount = (float(subtotal) * float(discount_pct)) / 100
-            
+
             # Prepare System Config Data for Template
             config_render = None
             if project.system_config and project.system_config.config_items:
@@ -231,9 +231,9 @@ def export_pdf(project_uuid):
             template = jinja_env.get_template('invoice.html')
             html_string = template.render(
                 project=project,
-                invoice_number=str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA | فاتورة مبدئية",
+                invoice_number=str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA",
                 issue_date=invoice.issued_at.strftime('%d/%m/%Y') if invoice.issued_at else datetime.now().strftime('%d/%m/%Y'),
-                due_date=(details.get('due_date') or '').split('T')[0],
+                due_date=(details.get('due_date') or '').split('T')[0] if invoice.issued_at else "n/a",
                 items=items,
                 subtotal=f"{float(subtotal):,.2f}",
                 shipping_fee=f"{float(details.get('shipping_fee') or 0):,.2f}",
@@ -290,7 +290,7 @@ def export_csv(project_uuid):
         output = io.BytesIO()
         df.to_csv(output, index=False, encoding='utf-8')
         output.seek(0)
-        
+
         return send_file(
             output,
             as_attachment=True,
