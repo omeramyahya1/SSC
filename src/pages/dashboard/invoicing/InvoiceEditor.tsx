@@ -9,7 +9,6 @@ import {
     Calendar as CalendarIcon,
     Info,
     PlusCircle,
-    Package,
     MapPin,
     Mail,
     Phone,
@@ -18,7 +17,9 @@ import {
     Download,
     ChevronDown,
     Table as TableIcon,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Archive,
+    ClipboardList
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +95,8 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
         removeComponent
     } = useProjectComponentStore();
 
+    const [manualItems, setManualItems] = useState<{ id: string; name: string; quantity: number; price: number }[]>([]);
+
     const {
         fetchSystemConfiguration
     } = useSystemConfigurationStore();
@@ -117,9 +120,12 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
 
     // Load initial data
     useEffect(() => {
-        fetchComponents(project.uuid);
-        fetchSystemConfiguration(project.uuid);
-        fetchInvoiceByProject(project.uuid).then((invoice) => {
+        if (project.uuid) {
+            fetchComponents(project.uuid);
+            fetchSystemConfiguration(project.uuid);
+        }
+
+        fetchInvoiceByProject(project.uuid || "").then((invoice) => {
             if (invoice) {
                 const details = invoice.invoice_details;
                 setShippingFeeInput(String(details.shipping_fee ?? 0));
@@ -128,6 +134,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                 setDueDate(details.due_date ? new Date(details.due_date) : new Date());
                 setCustomTermsEnabled(!!details.enable_custom_terms);
                 setCustomTerms(details.terms_and_conditions || '');
+                setManualItems(invoice.invoice_items?.manual || []);
                 return;
             }
 
@@ -146,16 +153,17 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                 setDueDate(new Date(initialDetails.due_date!));
                 setCustomTermsEnabled(false);
                 setCustomTerms('');
+                setManualItems([]);
                 createInvoice({
-                    project_uuid: project.uuid,
+                    project_uuid: project.uuid || undefined,
                     user_uuid: resolvedUser.uuid,
                     status: 'pending',
-                    invoice_details: initialDetails
+                    invoice_details: initialDetails,
+                    amount: 0
                 });
             }
-
         });
-    }, [project.uuid, resolvedUser, fetchComponents, fetchInvoiceByProject, createInvoice, fetchSystemConfiguration]);
+    }, [project.uuid, project.customer_uuid, resolvedUser, fetchComponents, fetchInvoiceByProject, createInvoice, fetchSystemConfiguration]);
 
     const toNumber = (value: string) => {
         const n = Number(value);
@@ -184,8 +192,27 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
 
     // Totals Calculation
     const subtotal = useMemo(() => {
-        return components.reduce((sum, c) => sum + (c.price_at_sale || 0) * c.quantity, 0);
-    }, [components]);
+        const inventoryTotal = components.reduce((sum, c) => sum + (c.price_at_sale || 0) * c.quantity, 0);
+        const manualTotal = (manualItems || []).reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0);
+        return inventoryTotal + manualTotal;
+    }, [components, manualItems]);
+
+    const handleAddManualItem = () => {
+        setManualItems(prev => [...(prev || []), {
+            id: crypto.randomUUID(),
+            name: '',
+            quantity: 1,
+            price: 0
+        }]);
+    };
+
+    const updateManualItem = (id: string, updates: any) => {
+        setManualItems(prev => (prev || []).map(item => item.id === id ? { ...item, ...updates } : item));
+    };
+
+    const removeManualItem = (id: string) => {
+        setManualItems(prev => (prev || []).filter(item => item.id !== id));
+    };
 
     const discountAmount = useMemo(() => {
         const pct = discountPercent;
@@ -243,11 +270,15 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
     };
 
     const handleSelectItem = async (item: InventoryItem) => {
+        if (!project.uuid) {
+             toast.error("Inventory items require a project. Use 'Add Item' for standalone entries.");
+             return;
+        }
         await addComponent({
             project_uuid: project.uuid,
             item_uuid: item.uuid,
             quantity: 1,
-            price_at_sale: item.sell_price,
+            price_at_sale: item.sell_price || 0,
             is_recommended: false
         });
         setIsInventoryModalOpen(false);
@@ -266,6 +297,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
         };
         await updateInvoice(currentInvoice.uuid, {
             invoice_details: details,
+            invoice_items: { manual: manualItems },
             amount: grandTotal
         });
     };
@@ -285,14 +317,19 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
             terms_and_conditions: customTermsEnabled ? customTerms : generateDefaultTerms()
         };
 
+        const invoiceItems = {
+            manual: manualItems
+        };
+
         try {
             let invoice = currentInvoice;
             if (!invoice) {
                 const created = await createInvoice({
-                    project_uuid: project.uuid,
+                    project_uuid: project.uuid || undefined,
                     user_uuid: resolvedUser.uuid,
                     status: 'pending',
                     invoice_details: details,
+                    invoice_items: invoiceItems,
                     amount: grandTotal
                 });
                 if (!created) {
@@ -300,9 +337,20 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                     return;
                 }
                 invoice = created;
+                // Defensive: `/invoices` POST is idempotent by project_uuid and may return an
+                // existing invoice. Ensure manual items are persisted before issuance.
+                const createdManual = created?.invoice_items?.manual;
+                if (JSON.stringify(createdManual ?? null) !== JSON.stringify(manualItems ?? null)) {
+                    await updateInvoice(invoice.uuid, {
+                        invoice_details: details,
+                        invoice_items: invoiceItems,
+                        amount: grandTotal
+                    });
+                }
             } else {
                 await updateInvoice(invoice.uuid, {
                     invoice_details: details,
+                    invoice_items: invoiceItems,
                     amount: grandTotal
                 });
             }
@@ -312,7 +360,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
             toast.error(e.message || t('invoicing.issue_error', 'Failed to issue invoice.'));
         }
 
-    }, [currentInvoice, resolvedUser, shippingFee, installationFee, discountPercent, dueDate, customTermsEnabled, customTerms, generateDefaultTerms, grandTotal, t, updateInvoice, issueInvoice, createInvoice, project.uuid]);
+    }, [currentInvoice, resolvedUser, shippingFee, installationFee, discountPercent, dueDate, customTermsEnabled, customTerms, generateDefaultTerms, grandTotal, t, updateInvoice, issueInvoice, createInvoice, project.uuid, project.customer_uuid, manualItems]);
 
     const sanitizeFileName = (name: string) => {
         // Replace characters that are invalid on Windows/macOS/Linux filesystems.
@@ -594,13 +642,16 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                         <div className="bg-white rounded-xl border shadow-sm overflow-hidden print:border-none">
                             <div className="p-4 border-b bg-gray-50 flex items-center justify-between no-print">
                                 <h3 className="font-bold text-lg flex items-center gap-2">
-                                    <Package className="h-5 w-5 text-primary" />
+                                    <ClipboardList className="h-5 w-5 text-primary" />
                                     {t('invoicing.summary', 'Invoice Summary')}
                                 </h3>
                                 {!isIssued && (
                                     <div className="flex gap-2">
-                                        <Button size="sm" variant="default" onClick={() => setIsInventoryModalOpen(true)} >
-                                            <PlusCircle className="h-4 w-4  text-white" /> {t('invoicing.add_item', 'Add Item')}
+                                        <Button size="sm" variant="default" onClick={() => setIsInventoryModalOpen(true)} className="border-primary text-white" >
+                                            <Archive className="h-4 w-4" />{t('invoicing.select_from_inventory', 'Select from Inventory')}
+                                        </Button>
+                                        <Button size="sm" variant="default" onClick={handleAddManualItem} >
+                                            <PlusCircle className="h-4 w-4 text-white" /> {t('invoicing.add_item', 'Add Item')}
                                         </Button>
                                     </div>
                                 )}
@@ -616,23 +667,14 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
+                                    {/* Inventory Items */}
                                     {components.map((c) => (
-                                        <TableRow key={c.uuid}>
+                                        <TableRow key={c.uuid} data-comp-id={c.uuid}>
                                             <TableCell>
-                                                {c.item ? (
-                                                    <div>
-                                                        <div className="font-medium">{c.item.name}</div>
-                                                        <div className="text-xs text-muted-foreground">{c.item.brand} | {c.item.model}</div>
-                                                    </div>
-                                                ) : (
-                                                    <Input
-                                                        value={c.custom_name}
-                                                        onChange={(e) => handleComponentUpdate(c.uuid, { custom_name: e.target.value })}
-                                                        className="h-8 font-medium no-print"
-                                                        disabled={isIssued}
-                                                    />
-                                                )}
-                                                <span className="font-medium print-only">{c.custom_name}</span>
+                                                <div>
+                                                    <div className="font-medium">{c.item?.name || c.custom_name}</div>
+                                                    {c.item && <div className="text-xs text-muted-foreground">{c.item.brand} | {c.item.model}</div>}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className='flex flex-col items-center'>
@@ -641,6 +683,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                                             <span className='font-bold'>{formatCurrency(c.price_at_sale)}</span>
                                                         ) : (
                                                             <Input
+                                                                name="price"
                                                                 type="number"
                                                                 value={c.price_at_sale || 0}
                                                                 onChange={(e) => handleComponentUpdate(c.uuid, { price_at_sale: parseFloat(e.target.value) || 0 })}
@@ -667,7 +710,6 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                                         )
                                                     }
                                                 </div>
-
                                             </TableCell>
                                             <TableCell className="text-end font-bold">
                                                 {formatCurrency((c.price_at_sale || 0) * c.quantity)}
@@ -675,6 +717,73 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                             {!isIssued && (
                                                 <TableCell className="no-print">
                                                     <Button variant="ghost" size="icon" onClick={() => removeComponent(c.uuid)}>
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </TableCell>
+                                            )}
+                                        </TableRow>
+                                    ))}
+
+                                    {/* Manual Items */}
+                                    {manualItems.map((item) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell>
+                                                {
+                                                    isIssued ? (
+                                                        <span>{item.name}</span>
+                                                    ) : (
+                                                        <Input
+                                                        placeholder={t('invoicing.item_name_ph', 'Item Name')}
+                                                        value={item.name}
+                                                        onChange={(e) => updateManualItem(item.id, { name: e.target.value })}
+                                                        className="h-8 font-medium no-print"
+                                                        disabled={isIssued}
+                                                    />
+                                                    )
+                                                }
+
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className='flex flex-col items-center'>
+                                                    {
+                                                        isIssued ? (
+                                                            <span className='font-bold'>{formatCurrency(item.price)}</span>
+                                                        ) : (
+                                                            <Input
+                                                                type="number"
+                                                                value={item.price}
+                                                                onChange={(e) => updateManualItem(item.id, { price: parseFloat(e.target.value) || 0 })}
+                                                                className="h-8 text-center no-print"
+                                                                disabled={isIssued}
+                                                            />
+                                                        )
+                                                    }
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className='flex flex-col items-center'>
+                                                    {
+                                                        isIssued ? (
+                                                            <span className='font-bold'>{item.quantity}</span>
+                                                        ) : (
+                                                            <Input
+                                                                type="number"
+                                                                value={item.quantity}
+                                                                onChange={(e) => updateManualItem(item.id, { quantity: parseInt(e.target.value) || 1 })}
+                                                                className="h-8 text-center no-print"
+                                                                disabled={isIssued}
+                                                            />
+                                                        )
+                                                    }
+
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-end font-bold">
+                                                {formatCurrency(item.price * item.quantity)}
+                                            </TableCell>
+                                            {!isIssued && (
+                                                <TableCell className="no-print">
+                                                    <Button variant="ghost" size="icon" onClick={() => removeManualItem(item.id)}>
                                                         <Trash2 className="h-4 w-4 text-red-500" />
                                                     </Button>
                                                 </TableCell>

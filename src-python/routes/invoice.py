@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 from utils import get_db
-from models import Invoice, Project, Customer, Payment
+from models import Invoice, Project, Customer, Payment, Authentication
 from finances.finances import reverse_stock_deduction
 from schemas import InvoiceCreate, InvoiceUpdate
 from serializer import model_to_dict
@@ -23,6 +24,17 @@ def create_invoice():
             if validated_data.project_uuid:
                 existing = db.query(Invoice).filter(Invoice.project_uuid == validated_data.project_uuid).first()
             if existing:
+                # Idempotent create-by-project: if an invoice already exists for the project,
+                # apply any provided fields (e.g. invoice_details / invoice_items / amount)
+                # instead of silently discarding them.
+                update_data = validated_data.dict(exclude_unset=True)
+                # Never alter the project linkage for an existing invoice here.
+                update_data.pop("project_uuid", None)
+                for key, value in update_data.items():
+                    setattr(existing, key, value)
+                existing.is_dirty = True
+                db.commit()
+                db.refresh(existing)
                 return jsonify(model_to_dict(existing)), 200
             new_item = Invoice(**validated_data.dict(exclude_unset=True))
             new_item.is_dirty = True
@@ -59,12 +71,22 @@ def update_invoice(uuid):
 @invoice_bp.route('/', methods=['GET'])
 def get_all_invoices():
     with get_db() as db:
+        auth_record = (
+            db.query(Authentication)
+            .filter(Authentication.is_logged_in.is_(True))
+            .order_by(Authentication.last_active.desc())
+            .first()
+        )
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
         project_uuid = request.args.get('project_uuid')
         org_uuid = request.args.get('org_uuid')
         branch_uuid = request.args.get('branch_uuid')
         status = request.args.get('status')
 
-        query = db.query(Invoice).join(Project, Invoice.project_uuid == Project.uuid).join(Customer, Project.customer_uuid == Customer.uuid)
+        # Use outerjoin to include invoices without projects
+        query = db.query(Invoice).outerjoin(Project, Invoice.project_uuid == Project.uuid).outerjoin(Customer, Invoice.customer_uuid == Customer.uuid)
 
         if org_uuid:
             query = query.filter(Project.organization_uuid == org_uuid)
@@ -75,13 +97,19 @@ def get_all_invoices():
         if status:
             query = query.filter(Invoice.status == status)
 
-        items = query.all()
+        # Filter by user if no org/branch filter
+        if not org_uuid and not branch_uuid:
+            query = query.filter(Invoice.user_uuid == auth_record.user_uuid)
+
+        items = query.order_by(Invoice.created_at.desc()).all()
         results = []
         for i in items:
             d = model_to_dict(i)
             # Add Customer Info
             if i.project and i.project.customer:
                 d['customer_name'] = i.project.customer.full_name
+            elif i.customer:
+                d['customer_name'] = i.customer.full_name
 
             # Add Payment Stats
             paid = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == i.uuid).scalar() or 0.0
