@@ -6,7 +6,6 @@ import {
     ArrowRight,
     Trash2,
     FileText,
-    Printer,
     Calendar as CalendarIcon,
     Info,
     PlusCircle,
@@ -61,7 +60,6 @@ import { HoldToConfirmButton } from '@/components/ui/HoldToConfirmButton';
 import { InventoryItem } from '@/store/useInventoryStore';
 import { Project } from '@/store/useProjectStore';
 import { useSystemConfigurationStore } from '@/store/useSystemConfigurationStore';
-import { SystemConfigSummary } from './SystemConfigSummary';
 import api from '@/api/client';
 
 // Tauri API imports
@@ -104,9 +102,9 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-    // Print Settings
-    const [isPlainMode, setIsPlainMode] = useState(false);
+    // Preview margin settings (for letterhead spacing)
     const [topMargin, setTopMargin] = useState(0);
+    const [bottomMargin, setBottomMargin] = useState(0);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [isExporting, setIsExporting] = useState<string | null>(null);
 
@@ -204,18 +202,21 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
         const validityDate = dueDate ? format(dueDate, "dd/MM/yyyy") : "dd/mm/yyyy";
         const discount = discountPercent;
 
-        return (i18n.dir() === "ltr") ? (
-                    `- Payment Terms: Payment is due within 7 days of the invoice date.\n` +
-                    `- Validity: This quotation is valid until ${validityDate}.\n` +
-                    `- Discount: A ${discount}% discount has been applied.\n` +
-                    `- Additional Costs: Any additional costs after the invoice issuance will be quoted separately.`
-        ) : (
-                    `- شروط الدفع: يستحق الدفع خلال 7 أيام من تاريخ الفاتورة.\n` +
-                    `- الصلاحية: هذا العرض صالح حتى ${validityDate}.\n` +
-                    `- الخصم: تم تطبيق خصم بنسبة ${discount}%.\n` +
-                    `- تكاليف إضافية: سيتم تسعير أي تكاليف إضافية بعد إصدار الفاتورة بشكل منفصل.`
+        if (i18n.dir() === "ltr") {
+            return [
+                `- Payment Terms: Payment is due within 7 days of the invoice date.`,
+                `- Validity: This quotation is valid until ${validityDate}.`,
+                `- Discount: A ${discount}% discount has been applied.`,
+                `- Additional Costs: Any additional costs after the invoice issuance will be quoted separately.`
+            ].join('\n');
+        }
 
-        )
+        return [
+            `- شروط الدفع: يستحق الدفع خلال 7 أيام من تاريخ الفاتورة.`,
+            `- الصلاحية: هذا العرض صالح حتى ${validityDate}.`,
+            `- الخصم: تم تطبيق خصم بنسبة ${discount}%.`,
+            `- تكاليف إضافية: سيتم تسعير أي تكاليف إضافية بعد إصدار الفاتورة بشكل منفصل.`
+        ].join('\n');
     }, [dueDate, discountPercent]);
 
     const handleNumberInputChange = (
@@ -314,10 +315,6 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
 
     }, [currentInvoice, resolvedUser, shippingFee, installationFee, discountPercent, dueDate, customTermsEnabled, customTerms, generateDefaultTerms, grandTotal, t, updateInvoice, issueInvoice, createInvoice, project.uuid]);
 
-    const handlePrint = () => {
-        window.print();
-    };
-
     const sanitizeFileName = (name: string) => {
         // Replace characters that are invalid on Windows/macOS/Linux filesystems.
         // Also strip ASCII control characters.
@@ -375,8 +372,10 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
             const rawFileName = `${project.customer?.full_name || 'Invoice'}_${type.toUpperCase()}_${format(new Date(), 'yyyy-MM-dd')}.${type === 'excel' ? 'xlsx' : type}`;
             const fileName = sanitizeFileName(rawFileName);
 
+            const pdfMarginParams = type === 'pdf' ? { top_mm: topMargin, bottom_mm: bottomMargin } : {};
+
             const response = await api.get(`/export/${type === 'excel' ? 'excel' : type}/${project.uuid}`, {
-                params: type === 'pdf' ? { lang: i18n.language } : {},
+                params: type === 'pdf' ? { lang: i18n.language, ...pdfMarginParams } : {},
                 responseType: 'blob'
             });
 
@@ -466,7 +465,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className='bg-white'>
-                            <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                            <DropdownMenuItem onClick={() => setIsPreviewOpen(true)}>
                                 <FileText className=" h-4 w-4" /> PDF
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleExport('excel')}>
@@ -478,11 +477,8 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <Button variant="default" size="sm" onClick={() => setIsPreviewOpen(true)}>
-                        <Printer className="h-4 w-4" /> {t('common.print', 'Print')}
-                    </Button>
-                </div>
-            </div>
+	                </div>
+	            </div>
 
             <ScrollArea className="flex-grow" dir={i18n.dir()}>
                 <div className="max-w-5xl mx-auto p-8 space-y-10">
@@ -848,48 +844,74 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                         <Settings className="h-4 w-4 " /> {t('invoicing.settings', 'Settings')}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-80 p-4 space-y-4 bg-white" align="end">
-                                    <div className="flex items-center justify-between">
-                                        <Label htmlFor="preview-plain-mode" className="font-bold">{t('invoicing.plain_mode', 'Plain Mode (Data Only)')}</Label>
-                                        <Switch id="preview-plain-mode" checked={isPlainMode} onCheckedChange={setIsPlainMode} />
-                                    </div>
-                                    {isPlainMode && (
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between">
-                                                <Label className="text-xs font-bold">{t('invoicing.top_margin', 'Top Margin Offset')}</Label>
-                                                <span className="text-xs font-mono">{topMargin}mm</span>
-                                            </div>
-                                            <Slider
-                                                value={[topMargin]}
-                                                onValueChange={([v]) => setTopMargin(v)}
-                                                max={100}
-                                                step={1}
-                                            />
-                                        </div>
-                                    )}
-                                </PopoverContent>
-                            </Popover>
+	                                <PopoverContent className="w-80 p-4 space-y-4 bg-white" align="end">
+	                                    <div className="space-y-2">
+	                                        <div className="flex justify-between">
+	                                            <Label className="text-xs font-bold">{t('invoicing.top_margin', 'Top Margin Offset')}</Label>
+	                                            <span className="text-xs font-mono">{topMargin}mm</span>
+	                                        </div>
+	                                        <Slider
+	                                            value={[topMargin]}
+	                                            onValueChange={([v]) => setTopMargin(v)}
+	                                            max={40}
+	                                            step={1}
+	                                        />
+	                                        <div className="flex justify-between pt-2">
+	                                            <Label className="text-xs font-bold">{t('invoicing.bottom_margin', 'Bottom Margin Offset')}</Label>
+	                                            <span className="text-xs font-mono">{bottomMargin}mm</span>
+	                                        </div>
+	                                        <Slider
+	                                            value={[bottomMargin]}
+	                                            onValueChange={([v]) => setBottomMargin(v)}
+	                                            max={40}
+	                                            step={1}
+	                                        />
+	                                        <div className="pt-2">
+	                                            <Button
+	                                                variant="outline"
+	                                                size="sm"
+	                                                className="w-full"
+	                                                onClick={() => {
+	                                                    setTopMargin(0);
+	                                                    setBottomMargin(0);
+	                                                }}
+	                                            >
+	                                                {t('invoicing.reset_margins', 'Reset margins')}
+	                                            </Button>
+	                                        </div>
+	                                    </div>
+	                                </PopoverContent>
+	                            </Popover>
 
-                            <Button size="sm" onClick={handlePrint} className="me-10">
-                                <Printer className="h-4 w-4 " /> {t('common.print', 'Print')}
-                            </Button>
-                        </div>
-                    </DialogHeader>
+	                            <Button
+	                                size="sm"
+	                                onClick={async () => {
+	                                    await handleExport('pdf');
+	                                    setIsPreviewOpen(false);
+	                                }}
+	                                className="me-10"
+	                                disabled={!!isExporting}
+	                            >
+	                                {isExporting === 'pdf' ? <Spinner className=" h-4 w-4" /> : <FileText className=" h-4 w-4" />}
+	                                {t('invoicing.export_pdf', 'Export PDF')}
+	                            </Button>
+	                        </div>
+	                    </DialogHeader>
 
                     <ScrollArea className="flex-grow p-8 bg-gray-200">
                         {/* A4 Document Wrapper */}
-                        <div
-                            className={cn(
-                                "bg-white mx-auto shadow-2xl transition-all duration-300 origin-top",
-                                isPlainMode && "plain-print-preview"
-                            )}
-                            style={{
-                                width: '210mm',
-                                minHeight: '297mm',
-                                padding: '15mm',
-                                paddingTop: isPlainMode ? `${15 + topMargin}mm` : '15mm'
-                            }}
-                        >
+	                        <div
+	                            className={cn(
+	                                "bg-white mx-auto shadow-2xl transition-all duration-300 origin-top"
+	                            )}
+	                            style={{
+	                                width: '210mm',
+	                                minHeight: '297mm',
+	                                padding: '15mm',
+	                                paddingTop: `${15 + topMargin}mm`,
+	                                paddingBottom: `${15 + bottomMargin}mm`
+	                            }}
+	                        >
                             {/* Invoice Content */}
                             <div className="space-y-10">
                                 {/* Header with icons and full details */}
@@ -1008,13 +1030,6 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* System Config Page (appended) */}
-                                {systemConfiguration && (
-                                    <div className="page-break-before pt-10 border-t mt-20">
-                                        <SystemConfigSummary data={systemConfiguration.config_items} />
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </ScrollArea>
@@ -1028,25 +1043,23 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
             </Dialog>
 
             <style dangerouslySetInnerHTML={{ __html: `
-                @media print {
-                    body * {
-                        visibility: hidden;
-                    }
-                    /* We only print the PREVIEW container when printing */
-                    [role="dialog"] [class*="plain-print-preview"],
-                    [role="dialog"] [class*="bg-white mx-auto shadow-2xl"] {
-                        visibility: visible !important;
-                        position: fixed;
-                        left: 0;
+	                @media print {
+	                    body * {
+	                        visibility: hidden;
+	                    }
+	                    /* We only print the PREVIEW container when printing */
+	                    [role="dialog"] [class*="bg-white mx-auto shadow-2xl"] {
+	                        visibility: visible !important;
+	                        position: fixed;
+	                        left: 0;
                         top: 0;
                         width: 100%;
                         margin: 0;
                         box-shadow: none !important;
                     }
-                    [role="dialog"] [class*="plain-print-preview"] *,
-                    [role="dialog"] [class*="bg-white mx-auto shadow-2xl"] * {
-                        visibility: visible !important;
-                    }
+	                    [role="dialog"] [class*="bg-white mx-auto shadow-2xl"] * {
+	                        visibility: visible !important;
+	                    }
                     @page {
                         size: A4;
                         margin: 0;
@@ -1059,33 +1072,8 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                     }
                 }
 
-                /* Plain Mode Styling for Preview Modal */
-                .plain-print-preview * {
-                    border-color: #000 !important;
-                    background-color: transparent !important;
-                    color: black !important;
-                    box-shadow: none !important;
-                    fill: black !important;
-                }
-                .plain-print-preview svg {
-                    stroke: black !important;
-                }
-                .plain-print-preview .text-primary,
-                .plain-print-preview .text-blue-600,
-                .plain-print-preview .text-orange-500,
-                .plain-print-preview .text-yellow-500,
-                .plain-print-preview .text-green-500 {
-                    color: black !important;
-                }
-                /* Exceptions for Plain Mode: RED */
-                .plain-print-preview .text-red-500,
-                .plain-print-preview .text-red-600 {
-                    color: #ef4444 !important;
-                }
-                .plain-print-preview .font-mono.font-bold.text-red-500 {
-                    color: #ef4444 !important;
-                }
-            `}} />
+
+	            `}} />
         </div>
     );
 }

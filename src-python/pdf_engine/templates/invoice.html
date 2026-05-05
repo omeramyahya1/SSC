@@ -2,17 +2,43 @@
 <html lang="{{ lang }}" dir="{{ dir }}">
 <head>
     <meta charset="UTF-8">
-    <style>
-        @page {
-            size: A4;
-            margin: 15mm;
-        }
-        body {
-            font-family: 'Arial', sans-serif;
-            font-size: 10pt;
-            line-height: 1.4;
-            color: #333;
-        }
+	    <style>
+	        @page {
+	            size: A4;
+	            margin: {{ margin_top_mm }}mm {{ margin_right_mm }}mm {{ margin_bottom_mm }}mm {{ margin_left_mm }}mm;
+	        }
+	        body {
+	            font-family: 'Arial', sans-serif;
+	            font-size: 10pt;
+	            line-height: 1.4;
+	            color: #333;
+	        }
+	        /* Fixed watermark in the page margin box (not affected by invoice content margins). */
+	        @page {
+	            @bottom-center {
+	                content: element(ssc_footer);
+	            }
+	        }
+	        .ssc-footer {
+	            position: running(ssc_footer);
+	            width: 100%;
+	            text-align: center;
+	            font-size: 9pt;
+	            color: #9ca3af;
+	            opacity: 0.55;
+	        }
+	        .ssc-footer-inner {
+	            display: inline-flex;
+	            align-items: center;
+	            justify-content: center;
+	            gap: 2mm;
+	            white-space: nowrap;
+	        }
+	        .ssc-footer img {
+	            width: 10pt;
+	            height: 10pt;
+	            object-fit: contain;
+	        }
         .header {
             width: 100%;
             border-bottom: 2px solid #3b82f6;
@@ -82,6 +108,9 @@
             color: #6b7280;
             white-space: pre-wrap;
         }
+        .terms span {
+            font-family: monospace;
+        }
         .page-break {
             page-break-before: always;
         }
@@ -105,8 +134,16 @@
         }
     </style>
 </head>
-<body>
-    <div class="header">
+	<body>
+	    <div class="ssc-footer">
+	        <div class="ssc-footer-inner">
+	            {% if ssc_logo_data_uri %}
+	                <img src="{{ ssc_logo_data_uri }}" alt="SSC" />
+	            {% endif %}
+	            <span>{{ watermark_text }}</span>
+	        </div>
+	    </div>
+	    <div class="header">
         <table>
             <tr>
                 <td>
@@ -180,14 +217,16 @@
 
     <div class="terms">
         <h4 style="margin-bottom: 2mm; color: #333;">{{ t.terms }}</h4>
-        {{ terms }}
+        <span>
+            {{ terms }}
+        </span>
     </div>
 
     {% if config %}
     <div class="page-break"></div>
     <div class="system-config">
         <h2 style="border-bottom: 2px solid #3b82f6; padding-bottom: 2mm; margin-bottom: 8mm;">{{ t.system_config }}</h2>
-        
+
         {% for section_title, section_data in config.items() %}
         <div class="config-section">
             <h3>{{ section_title }}</h3>

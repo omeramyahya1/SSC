@@ -8,6 +8,7 @@ import json
 import os
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
+from urllib.parse import quote
 
 try:
     from weasyprint import HTML
@@ -60,6 +61,28 @@ TRANSLATIONS = {
         'system_config': 'ملخص تهيئة النظام'
     }
 }
+
+def _clamp_margin_mm(value, *, default=0.0, min_value=0.0, max_value=40.0):
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return float(default)
+    return max(min_value, min(max_value, v))
+
+def _load_ssc_logo_svg():
+    try:
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+        svg_path = os.path.join(repo_root, 'public', 'ssc.svg')
+        with open(svg_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception:
+        return None
+
+def _svg_to_data_uri(svg_text: str | None):
+    if not svg_text:
+        return None
+    # Encode as a data URI so the PDF generator doesn't rely on filesystem paths/URLs.
+    return f"data:image/svg+xml;charset=utf-8,{quote(svg_text)}"
 
 @export_bp.route('/excel/<string:project_uuid>', methods=['GET'])
 def export_excel(project_uuid):
@@ -145,6 +168,16 @@ def export_pdf(project_uuid):
 
     lang = request.args.get('lang', 'en')
     direction = 'rtl' if lang == 'ar' else 'ltr'
+    top_mm = _clamp_margin_mm(request.args.get('top_mm'), default=0.0)
+    bottom_mm = _clamp_margin_mm(request.args.get('bottom_mm'), default=0.0)
+
+    base_margin_mm = 15.0
+    margin_top_mm = base_margin_mm + top_mm
+    margin_bottom_mm = base_margin_mm + bottom_mm
+    margin_left_mm = base_margin_mm
+    margin_right_mm = base_margin_mm
+    ssc_logo_svg = _load_ssc_logo_svg()
+    ssc_logo_data_uri = _svg_to_data_uri(ssc_logo_svg)
     
     try:
         with get_db() as db:
@@ -211,7 +244,13 @@ def export_pdf(project_uuid):
                 config=config_render,
                 t=TRANSLATIONS.get(lang, TRANSLATIONS['en']),
                 dir=direction,
-                lang=lang
+                lang=lang,
+                margin_top_mm=margin_top_mm,
+                margin_bottom_mm=margin_bottom_mm,
+                margin_left_mm=margin_left_mm,
+                margin_right_mm=margin_right_mm,
+                watermark_text='Made with SSC',
+                ssc_logo_data_uri=ssc_logo_data_uri
             )
 
             pdf_io = io.BytesIO()
