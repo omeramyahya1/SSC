@@ -8,10 +8,18 @@
 	            margin: {{ margin_top_mm }}mm {{ margin_right_mm }}mm {{ margin_bottom_mm }}mm {{ margin_left_mm }}mm;
 	        }
 	        body {
-	            font-family: 'Arial', sans-serif;
+	            font-family: {{'Inter' if dir == 'ltr' else 'Noto Kufi Arabic'}};
 	            font-size: 10pt;
 	            line-height: 1.4;
 	            color: #333;
+	        }
+	        .system-config {
+	            direction: {{ dir }};
+	            text-align: {{ 'left' if dir == 'ltr' else 'right' }};
+	        }
+	        .system-config h2,
+	        .system-config h3 {
+	            text-align: {{ 'left' if dir == 'ltr' else 'right' }};
 	        }
 	        /* Fixed watermark in the page margin box (not affected by invoice content margins). */
 	        @page {
@@ -227,18 +235,18 @@
     <div class="system-config">
         <h2 style="border-bottom: 2px solid #3b82f6; padding-bottom: 2mm; margin-bottom: 8mm;">{{ t.system_config }}</h2>
 
-        {% for section_title, section_data in config.items() %}
-        <div class="config-section">
-            <h3>{{ section_title }}</h3>
-            <table class="config-table">
-                {% for param, val in section_data.items() %}
-                <tr>
-                    <td style="color: #6b7280; width: 60%;">{{ param }}</td>
-                    <td style="font-weight: bold; text-align: {{ 'right' if dir == 'ltr' else 'left' }};">{{ val }}</td>
-                </tr>
-                {% endfor %}
-            </table>
-        </div>
+	        {% for section_title, section_data in config.items() %}
+	        <div class="config-section">
+	            <h3>{{ section_title }}</h3>
+	            <table class="config-table">
+	                {% for param, val in section_data.items() %}
+	                <tr>
+	                    <td style="color: #6b7280; width: 60%; text-align: {{ 'left' if dir == 'ltr' else 'right' }};">{{ param }}</td>
+	                    <td style="font-weight: bold; text-align: {{ 'right' if dir == 'ltr' else 'left' }};">{{ val }}</td>
+	                </tr>
+	                {% endfor %}
+	            </table>
+	        </div>
         {% endfor %}
     </div>
     {% endif %}

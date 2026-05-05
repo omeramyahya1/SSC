@@ -456,7 +456,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <DropdownMenu>
+                    <DropdownMenu dir={i18n.dir()}>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" size="sm" disabled={!!isExporting}>
                                 {isExporting ? <Spinner className=" h-4 w-4" /> : <Download className="h-4 w-4 " />}
@@ -831,12 +831,12 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
 
             {/* Print Preview Modal */}
             <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                <DialogContent className="max-w-[850px] h-[95vh] flex flex-col p-0 overflow-hidden bg-gray-100">
+                <DialogContent dir={i18n.dir()} className="max-w-[850px] h-[95vh] flex flex-col p-0 overflow-hidden bg-gray-100">
                     <DialogHeader className="p-4 bg-white border-b flex flex-row items-center justify-between no-print">
                         <DialogTitle className="text-xl font-bold">
                             {t('invoicing.print_preview', 'Print Preview')}
                         </DialogTitle>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4" dir={i18n.dir()}>
                             {/* Settings inside Preview */}
                             <Popover>
                                 <PopoverTrigger asChild>
@@ -844,7 +844,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                         <Settings className="h-4 w-4 " /> {t('invoicing.settings', 'Settings')}
                                     </Button>
                                 </PopoverTrigger>
-	                                <PopoverContent className="w-80 p-4 space-y-4 bg-white" align="end">
+	                                <PopoverContent className="w-80 p-4 space-y-4 bg-white" align="end" dir={i18n.dir()}>
 	                                    <div className="space-y-2">
 	                                        <div className="flex justify-between">
 	                                            <Label className="text-xs font-bold">{t('invoicing.top_margin', 'Top Margin Offset')}</Label>
@@ -898,7 +898,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
 	                        </div>
 	                    </DialogHeader>
 
-                    <ScrollArea className="flex-grow p-8 bg-gray-200">
+                    <ScrollArea className="flex-grow p-8 bg-gray-200" dir={i18n.dir()} >
                         {/* A4 Document Wrapper */}
 	                        <div
 	                            className={cn(

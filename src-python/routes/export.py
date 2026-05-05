@@ -222,11 +222,27 @@ def export_pdf(project_uuid):
             if project.system_config and project.system_config.config_items:
                 config_render = {}
                 raw_config = project.system_config.config_items
-                for section, data in raw_config.items():
-                    if section in ['metadata', 'solar_panels', 'inverter', 'battery_bank']:
-                        section_title = section.replace('_', ' ').capitalize()
-                        if isinstance(data, dict):
-                            config_render[section_title] = { k.replace('_', ' ').capitalize(): v for k, v in data.items() }
+                section_order = ['metadata', 'solar_panels', 'inverter', 'battery_bank']
+                section_titles = {
+                    'metadata': {'en': 'Metadata', 'ar': 'البيانات'},
+                    'solar_panels': {'en': 'Solar Panels', 'ar': 'الألواح الشمسية'},
+                    'inverter': {'en': 'Inverters', 'ar': 'العاكسات'},
+                    'battery_bank': {'en': 'Battery Bank', 'ar': 'بنك البطاريات'},
+                }
+
+                def _humanize_param(key: str):
+                    # For Arabic, avoid English capitalization and just space-separate the snake_case.
+                    label = str(key).replace('_', ' ')
+                    if lang == 'ar':
+                        return label
+                    return label.capitalize()
+
+                for section in section_order:
+                    data = raw_config.get(section)
+                    if not isinstance(data, dict) or not data:
+                        continue
+                    section_title = section_titles.get(section, {}).get(lang) or section.replace('_', ' ').capitalize()
+                    config_render[section_title] = { _humanize_param(k): v for k, v in data.items() }
 
             template = jinja_env.get_template('invoice.html')
             html_string = template.render(
