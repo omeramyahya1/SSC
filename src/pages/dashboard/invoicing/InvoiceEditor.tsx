@@ -95,7 +95,6 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
     } = useProjectComponentStore();
 
     const {
-        systemConfiguration,
         fetchSystemConfiguration
     } = useSystemConfigurationStore();
 
@@ -366,7 +365,13 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
     };
 
     const handleExport = async (type: 'pdf' | 'excel' | 'csv') => {
+
+        if (!project.uuid) {
+            return;
+        }
+
         setIsExporting(type);
+
         try {
             await handleSaveInvoice();
             const rawFileName = `${project.customer?.full_name || 'Invoice'}_${type.toUpperCase()}_${format(new Date(), 'yyyy-MM-dd')}.${type === 'excel' ? 'xlsx' : type}`;
@@ -468,12 +473,19 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                             <DropdownMenuItem onClick={() => setIsPreviewOpen(true)}>
                                 <FileText className=" h-4 w-4" /> PDF
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleExport('excel')}>
-                                <FileSpreadsheet className=" h-4 w-4" /> Excel
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleExport('csv')}>
-                                <TableIcon className=" h-4 w-4" /> CSV
-                            </DropdownMenuItem>
+                            {
+                                currentInvoice?.issued_at && (
+                                    <>
+                                    <DropdownMenuItem onClick={() => handleExport('excel')}>
+                                        <FileSpreadsheet className=" h-4 w-4" /> Excel
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExport('csv')}>
+                                        <TableIcon className=" h-4 w-4" /> CSV
+                                    </DropdownMenuItem>
+                                    </>
+                                )
+                            }
+
                         </DropdownMenuContent>
                     </DropdownMenu>
 

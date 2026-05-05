@@ -1,13 +1,12 @@
 from flask import Blueprint, request, send_file, jsonify
 from utils import get_db
-from models import Project, Invoice, ProjectComponent, InventoryItem, SystemConfiguration, Customer
+from models import Project, Invoice, ProjectComponent
 from sqlalchemy.orm import joinedload
 import pandas as pd
 import io
-import json
 import os
 from datetime import datetime
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from urllib.parse import quote
 
 try:
@@ -18,7 +17,10 @@ except ImportError:
 export_bp = Blueprint('export_bp', __name__, url_prefix='/export')
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), '..', 'pdf_engine', 'templates')
-jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
+jinja_env = Environment(
+    loader=FileSystemLoader(TEMPLATE_DIR),
+    autoescape=select_autoescape(enabled_extensions=('html', 'xml')),
+)
 
 # Basic translations for PDF
 TRANSLATIONS = {
@@ -122,7 +124,7 @@ def export_excel(project_uuid):
                 {"Field": "Customer Name", "Value": project.customer.full_name if project.customer else "N/A"},
                 {"Field": "Project Location", "Value": project.project_location or "N/A"},
                 {"Field": "Invoice No", "Value": str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA"},
-                {"Field": "Issue Date", "Value": invoice.issued_at.isoformat() if invoice.issued_at else "N/A"},
+                {"Field": "Issue Date", "Value": invoice.issued_at.isoformat() or "N/A"},
                 {"Field": "Subtotal", "Value": float(df_items['Total'].sum()) if not df_items.empty else 0.0},
                 {"Field": "Shipping Fee", "Value": float(details.get('shipping_fee') or 0)},
                 {"Field": "Installation Fee", "Value": float(details.get('installation_fee') or 0)},

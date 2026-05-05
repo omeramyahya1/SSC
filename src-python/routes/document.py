@@ -9,7 +9,10 @@ document_bp = Blueprint('document_bp', __name__, url_prefix='/documents')
 
 @document_bp.route('/upsert', methods=['POST'])
 def upsert_document():
-    data = request.json
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid JSON body"}), 400
+
     project_uuid = data.get('project_uuid')
     doc_type = data.get('doc_type')
     file_name = data.get('file_name')
@@ -19,9 +22,11 @@ def upsert_document():
         return jsonify({"error": "Missing required fields"}), 400
 
     import base64
+    import binascii
+
     try:
-        blob_data = base64.b64decode(file_blob)
-    except Exception:
+        blob_data = base64.b64decode(file_blob, validate=True)
+    except (binascii.Error, ValueError, TypeError):
         return jsonify({"error": "Invalid base64 data"}), 400
 
     with get_db() as db:
@@ -74,7 +79,7 @@ def update_document(item_id):
         item = get_by_id_or_uuid(db, Document, Document.doc_id, Document.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
         try:
             # Validate request data
             validated_data = DocumentUpdate(**request.json)
@@ -85,7 +90,7 @@ def update_document(item_id):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))
