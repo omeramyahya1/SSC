@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
 import {
@@ -7,7 +7,6 @@ import {
     Trash2,
     FileText,
     Printer,
-    Share2,
     Calendar as CalendarIcon,
     Info,
     PlusCircle,
@@ -319,58 +318,123 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
         window.print();
     };
 
+    const sanitizeFileName = (name: string) => {
+        // Replace characters that are invalid on Windows/macOS/Linux filesystems.
+        // Also strip ASCII control characters.
+        return name
+            .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
+
+    const writeBinaryFileCompat = async (path: string, data: Uint8Array) => {
+        const fsApi: any = tauriFs;
+        if (!fsApi) throw new Error('Tauri FS API not available');
+
+        if (typeof fsApi.writeBinaryFile === 'function') {
+            return await fsApi.writeBinaryFile(path, data);
+        }
+
+        // Some Tauri setups expose `writeFile` instead (often taking an object payload).
+        if (typeof fsApi.writeFile === 'function') {
+            try {
+                return await fsApi.writeFile({ path, contents: data });
+            } catch {
+                return await fsApi.writeFile(path, data);
+            }
+        }
+
+        throw new Error('Tauri FS write method not available');
+    };
+
+    const extractExportErrorMessage = async (e: any) => {
+        const fallback = t('invoicing.export_error', 'Failed to export file.');
+
+        const maybeBlob: unknown = e?.response?.data;
+        if (typeof Blob !== 'undefined' && maybeBlob instanceof Blob) {
+            try {
+                const text = await maybeBlob.text();
+                try {
+                    const json = JSON.parse(text);
+                    return json?.error || json?.message || fallback;
+                } catch {
+                    return text || fallback;
+                }
+            } catch {
+                return fallback;
+            }
+        }
+
+        return e?.response?.data?.error || e?.message || fallback;
+    };
+
     const handleExport = async (type: 'pdf' | 'excel' | 'csv') => {
         setIsExporting(type);
-        await handleSaveInvoice();
-        const fileName = `${project.customer?.full_name || 'Invoice'}_${type.toUpperCase()}_${format(new Date(), 'yyyy-MM-dd')}.${type === 'excel' ? 'xlsx' : type}`;
-
         try {
+            await handleSaveInvoice();
+            const rawFileName = `${project.customer?.full_name || 'Invoice'}_${type.toUpperCase()}_${format(new Date(), 'yyyy-MM-dd')}.${type === 'excel' ? 'xlsx' : type}`;
+            const fileName = sanitizeFileName(rawFileName);
+
             const response = await api.get(`/export/${type === 'excel' ? 'excel' : type}/${project.uuid}`, {
                 params: type === 'pdf' ? { lang: i18n.language } : {},
                 responseType: 'blob'
             });
 
             const blob = response.data;
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend = async () => {
-                const base64data = (reader.result as string).split(',')[1];
 
-                // 1. Upsert to DB
+            // 1) Save/download the file first (don't block file delivery on DB upsert)
+            if (tauriDialog && tauriFs) {
+                const savePath = await tauriDialog.save({
+                    defaultPath: fileName,
+                    filters: [{ name: type.toUpperCase(), extensions: [type === 'excel' ? 'xlsx' : type] }]
+                });
+
+                if (!savePath) {
+                    toast.error(t('invoicing.export_cancelled', 'Export cancelled.'));
+                    return;
+                }
+
+                const uint8Array = new Uint8Array(await blob.arrayBuffer());
+                await writeBinaryFileCompat(savePath, uint8Array);
+                toast.success(t('invoicing.export_success', 'File saved successfully!'));
+            } else {
+                // Fallback to browser download if not in Tauri
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', fileName);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+                toast.success(t('invoicing.export_success', 'File exported successfully!'));
+            }
+
+            // 2) Best-effort: store in Documents table for in-app access/sync.
+            try {
+                const base64data = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64 = (reader.result as string).split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+
                 await api.post('/documents/upsert', {
                     project_uuid: project.uuid,
                     doc_type: type === 'pdf' ? 'Invoice' : 'Project Breakdown',
                     file_name: fileName,
                     file_blob: base64data
                 });
-
-                // 2. Open Save Dialog (Tauri)
-                if (tauriDialog && tauriFs) {
-                    const savePath = await tauriDialog.save({
-                        defaultPath: fileName,
-                        filters: [{ name: type.toUpperCase(), extensions: [type === 'excel' ? 'xlsx' : type] }]
-                    });
-
-                    if (savePath) {
-                        const uint8Array = new Uint8Array(await blob.arrayBuffer());
-                        await tauriFs.writeBinaryFile(savePath, uint8Array);
-                        toast.success(t('invoicing.export_success', 'File saved successfully!'));
-                    }
-                } else {
-                    // Fallback to browser download if not in Tauri
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.setAttribute('download', fileName);
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    toast.success(t('invoicing.export_success', 'File exported successfully!'));
-                }
-            };
-        } catch (e) {
+            } catch (upsertErr: any) {
+                console.error("Document upsert failed (export still succeeded):", upsertErr);
+                toast.error(t('invoicing.export_doc_save_failed', 'File exported, but failed to save in Documents.'));
+            }
+        } catch (e: any) {
             console.error("Export failed:", e);
-            toast.error(t('invoicing.export_error', 'Failed to export file.'));
+            toast.error(await extractExportErrorMessage(e));
         } finally {
             setIsExporting(null);
         }

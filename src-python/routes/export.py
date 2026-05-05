@@ -164,11 +164,13 @@ def export_pdf(project_uuid):
             details = invoice.invoice_details or {}
             
             items = []
-            subtotal = 0
+            subtotal = 0.0
             for comp in project.project_components:
                 name = comp.item.name if comp.item else comp.custom_name
-                price = comp.price_at_sale or 0
-                total = price * comp.quantity
+                # Avoid Decimal/float mixing during arithmetic (common source of 500s).
+                # Normalize everything to float for PDF rendering.
+                price = float(comp.price_at_sale or 0)
+                total = price * float(comp.quantity or 0)
                 items.append({
                     "name": name,
                     "brand": comp.item.brand if comp.item else "N/A",
@@ -180,7 +182,7 @@ def export_pdf(project_uuid):
                 subtotal += total
 
             discount_pct = details.get('discount_percent') or 0
-            discount_amount = (subtotal * float(discount_pct)) / 100
+            discount_amount = (float(subtotal) * float(discount_pct)) / 100
             
             # Prepare System Config Data for Template
             config_render = None
@@ -256,4 +258,3 @@ def export_csv(project_uuid):
             download_name=f"Invoice_{project_uuid[:8]}.csv",
             mimetype='text/csv'
         )
-
