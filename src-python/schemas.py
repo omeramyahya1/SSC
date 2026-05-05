@@ -107,7 +107,7 @@ class CustomerUpdate(BaseModel):
 
 
 class DocumentCreate(BaseModel):
-    project_id: Optional[int] = None
+    project_uuid: Optional[str] = None
     doc_type: Optional[str] = None
     file_name: Optional[str] = None
     file_blob: Optional[Any] = None
@@ -116,7 +116,7 @@ class DocumentCreate(BaseModel):
     is_dirty: Optional[bool] = None
 
 class DocumentUpdate(BaseModel):
-    project_id: Optional[int] = None
+    project_uuid: Optional[str] = None
     doc_type: Optional[str] = None
     file_name: Optional[str] = None
     file_blob: Optional[Any] = None

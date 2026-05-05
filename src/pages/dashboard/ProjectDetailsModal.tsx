@@ -1017,7 +1017,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                         !isInvoiceIssued && (
                             <Button
                                 onClick={handleRunCalculation}
-                                disabled={isBleLoading || hasBleSettingsErrors || hasApplianceInputErrors}
+                                disabled={isBleLoading || hasBleSettingsErrors || hasApplianceInputErrors || projectAppliances.length == 0}
                                 className="w-full mt-auto text-white"
                             >
                                 {isBleLoading ? <Spinner className="" /> : <Calculator className="h-4 w-4 " />}

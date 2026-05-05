@@ -7,6 +7,55 @@ from serializer import model_to_dict
 
 document_bp = Blueprint('document_bp', __name__, url_prefix='/documents')
 
+@document_bp.route('/upsert', methods=['POST'])
+def upsert_document():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid JSON body"}), 400
+
+    project_uuid = data.get('project_uuid')
+    doc_type = data.get('doc_type')
+    file_name = data.get('file_name')
+    file_blob = data.get('file_blob') # Base64 string
+
+    if not all([project_uuid, doc_type, file_name, file_blob]):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    import base64
+    import binascii
+
+    try:
+        blob_data = base64.b64decode(file_blob, validate=True)
+    except (binascii.Error, ValueError, TypeError):
+        return jsonify({"error": "Invalid base64 data"}), 400
+
+    with get_db() as db:
+        # Check for existing document of same type for this project
+        existing = db.query(Document).filter(
+            Document.project_uuid == project_uuid,
+            Document.doc_type == doc_type
+        ).first()
+
+        if existing:
+            existing.file_name = file_name
+            existing.file_blob = blob_data
+            existing.is_dirty = True
+            db.commit()
+            db.refresh(existing)
+            return jsonify(model_to_dict(existing)), 200
+        else:
+            new_doc = Document(
+                project_uuid=project_uuid,
+                doc_type=doc_type,
+                file_name=file_name,
+                file_blob=blob_data,
+                is_dirty=True
+            )
+            db.add(new_doc)
+            db.commit()
+            db.refresh(new_doc)
+            return jsonify(model_to_dict(new_doc)), 201
+
 @document_bp.route('/', methods=['POST'])
 def create_document():
     try:
@@ -30,7 +79,7 @@ def update_document(item_id):
         item = get_by_id_or_uuid(db, Document, Document.doc_id, Document.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
-            
+
         try:
             # Validate request data
             validated_data = DocumentUpdate(**request.json)
@@ -41,7 +90,7 @@ def update_document(item_id):
         update_data = validated_data.dict(exclude_unset=True)
         for key, value in update_data.items():
             setattr(item, key, value)
-        
+
         db.commit()
         db.refresh(item)
         return jsonify(model_to_dict(item))

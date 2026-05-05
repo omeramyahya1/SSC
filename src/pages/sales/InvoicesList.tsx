@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import {
     Search,
     MoreVertical,
-    Printer,
     Trash2,
     CheckCircle2,
     Clock,
@@ -286,10 +285,6 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                             }} className="cursor-pointer rounded-lg hover:bg-gray-100 font-bold gap-2">
                                                 <Eye className="h-4 w-4" />
                                                 {t('invoicing.view', 'View Invoice')}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => toast.success('Printing coming soon!')} className="cursor-pointer rounded-lg hover:bg-gray-100 font-bold gap-2">
-                                                <Printer className="h-4 w-4 text-gray-500" />
-                                                {t('invoicing.print', 'Print PDF')}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => setInvoiceToDelete(invoice)} className="cursor-pointer rounded-lg text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2">
                                                 <Trash2 className="h-4 w-4" />
