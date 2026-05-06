@@ -4,8 +4,9 @@ import {
     LayoutDashboard,
     FileText,
     Receipt,
-    Plus,
-    Building2
+    Building2,
+    DollarSign,
+    FilePlus
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -23,15 +24,26 @@ import { FinancesDashboard } from './FinancesDashboard';
 import { InvoicesList } from './InvoicesList';
 import { PaymentsList } from './PaymentsList';
 import { AddPaymentModal } from './AddPaymentModal';
+import { InvoiceEditorModal } from './InvoiceEditorModal';
+import { CreateIndependentInvoiceModal } from './CreateIndependentInvoiceModal';
 import { SubscriptionBanner } from '../dashboard/SubscriptionBanner';
+import { Dialog } from '@/components/ui/dialog';
+import { useInvoiceStore } from '@/store/useInvoiceStore';
+import { useCustomerStore } from '@/store/useCustomerStore';
+import { toast } from 'react-hot-toast';
 
 export default function Sales() {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
     const { branches, fetchBranches } = useBranchStore();
+    const { createInvoice } = useInvoiceStore();
+    const { createCustomer } = useCustomerStore();
 
     const [activeTab, setActiveTab] = useState('reports');
     const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
+    const [isCreateInvoiceModalOpen, setIsCreateInvoiceModalOpen] = useState(false);
+    const [selectedInvoiceUuid, setSelectedInvoiceUuid] = useState<string | null>(null);
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
 
     // Filtering state for Admin/HQ views
     const [selectedBranch, setSelectedBranch] = useState<string>('all');
@@ -44,8 +56,51 @@ export default function Sales() {
         }
     }, [isAdmin, currentUser?.organization_uuid, fetchBranches]);
 
-    // We can assume branches are available from the user's organization if needed,
-    // but for now let's keep it simple or fetch them if isAdmin.
+    const handleCreateIndependentInvoice = async (data: any) => {
+        try {
+            let customerUuid = data.customer_uuid;
+
+            // 1. Create Customer if it doesn't exist
+            if (!customerUuid) {
+                const newCustomer = await createCustomer({
+                    full_name: data.customer_name,
+                    email: data.email,
+                    phone_number: data.phone_number,
+                    organization_uuid: currentUser?.organization_uuid,
+                });
+                if (!newCustomer) throw new Error("Failed to create customer");
+                customerUuid = newCustomer.uuid;
+            }
+
+            // 2. Create the Invoice directly linked to a customer
+            const newInvoice = await createInvoice({
+                user_uuid: currentUser?.uuid,
+                customer_uuid: customerUuid,
+                status: 'pending',
+                invoice_details: {
+                    shipping_fee: 0,
+                    installation_fee: 0,
+                    discount_percent: 0,
+                    due_date: new Date().toISOString()
+                },
+                invoice_items: { manual: [] },
+                amount: 0
+            });
+
+            if (!newInvoice) throw new Error("Failed to create invoice");
+
+            // 3. Open the Editor
+            setSelectedInvoiceUuid(newInvoice.uuid);
+            setIsEditorOpen(true);
+            setIsCreateInvoiceModalOpen(false);
+
+            // Switch to invoices tab to see the new entry if they close the editor
+            setActiveTab('invoices');
+
+        } catch (error: any) {
+            toast.error(error.message || "Failed to create invoice");
+        }
+    };
 
     const filterParams = useMemo(() => {
         const params: any = {
@@ -86,9 +141,13 @@ export default function Sales() {
                                 </SelectContent>
                             </Select>
                         )}
-                        <Button onClick={() => setIsAddPaymentModalOpen(true)} className="text-white">
-                            <Plus className="h-4 w-4" />
+                        <Button onClick={() => setIsAddPaymentModalOpen(true)} className="text-white bg-green-600">
+                            <DollarSign className="h-4 w-4" />
                             {t('finances.add_payment', 'Add Payment')}
+                        </Button>
+                        <Button onClick={() => setIsCreateInvoiceModalOpen(true)} variant="default" className="text-white hover:bg-primary/5">
+                            <FilePlus className="h-4 w-4" />
+                            {t('finances.create_invoice', 'Create Invoice')}
                         </Button>
                     </div>
                 </div>
@@ -129,6 +188,24 @@ export default function Sales() {
                 onClose={() => setIsAddPaymentModalOpen(false)}
                 orgUuid={currentUser?.organization_uuid}
             />
+
+            <Dialog open={isCreateInvoiceModalOpen} onOpenChange={setIsCreateInvoiceModalOpen}>
+                <CreateIndependentInvoiceModal
+                    onOpenChange={setIsCreateInvoiceModalOpen}
+                    onSubmit={handleCreateIndependentInvoice}
+                />
+            </Dialog>
+
+            {selectedInvoiceUuid && (
+                <InvoiceEditorModal
+                    isOpen={isEditorOpen}
+                    onClose={() => {
+                        setIsEditorOpen(false);
+                        setSelectedInvoiceUuid(null);
+                    }}
+                    invoiceUuid={selectedInvoiceUuid}
+                />
+            )}
         </main>
     );
 }
