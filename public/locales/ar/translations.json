@@ -853,5 +853,11 @@
   "settings.update_email": "تحديث",
   "settings.username_required": "اسم المستخدم مطلوب.",
   "settings.verified": "تم التحقق",
-  "settings.verify_required": "التحقق مطلوب"
+  "settings.verify_required": "التحقق مطلوب",
+  "inventory.add_item": "إضافة عنصر",
+  "inventory.add_from_inventory": "إضافة من المخزون",
+  "invoicing.confirm_delete.cascade_payments": "حذف الدفعات المرتبطة أيضًا",
+  "invoicing.margin_top": "الهامش العلوي (مم)",
+  "invoicing.margin_bottom": "الهامش السفلي (مم)",
+  "invoicing.phone": "رقم الهاتف"
 }

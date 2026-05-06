@@ -853,5 +853,11 @@
   "settings.update_email": "Update",
   "settings.username_required": "Username is required.",
   "settings.verified": "Verified",
-  "settings.verify_required": "Verify required"
+  "settings.verify_required": "Verify required",
+  "inventory.add_item": "Add Item",
+  "inventory.add_from_inventory": "Add from Inventory",
+  "invoicing.confirm_delete.cascade_payments": "Also delete related payments",
+  "invoicing.margin_top": "Top margin (mm)",
+  "invoicing.margin_bottom": "Bottom margin (mm)",
+  "invoicing.phone": "Phone No"
 }
