@@ -17,7 +17,8 @@ export interface InvoiceDetails {
 export interface Invoice {
   uuid: string;
   invoice_id: number;
-  project_uuid: string;
+  project_uuid?: string | null;
+  customer_uuid?: string | null;
   user_uuid: string;
   amount: number;
   status: "paid" | "pending" | "partial";
@@ -59,7 +60,7 @@ export interface InvoiceStore {
   fetchInvoiceByProject: (projectUuid: string) => Promise<Invoice | undefined>;
   createInvoice: (data: NewInvoiceData) => Promise<Invoice | undefined>;
   updateInvoice: (uuid: string, data: Partial<NewInvoiceData>) => Promise<Invoice | undefined>;
-  deleteInvoice: (uuid: string, userUuid?: string) => Promise<void>;
+  deleteInvoice: (uuid: string, userUuid?: string, cascadePayments?: boolean) => Promise<void>;
   issueInvoice: (invoiceUuid: string, userUuid: string) => Promise<void>;
   setCurrentInvoice: (invoice: Invoice | null) => void;
 }
@@ -174,11 +175,11 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     }
   },
 
-  deleteInvoice: async (uuid, userUuid) => {
+  deleteInvoice: async (uuid, userUuid, cascadePayments) => {
     set({ isLoading: true, error: null });
     try {
       await api.delete(`${resource}/${uuid}`, {
-          params: { user_uuid: userUuid }
+          params: { user_uuid: userUuid, cascade_payments: cascadePayments ?? false }
       });
       set((state) => ({
         invoices: state.invoices.filter((i) => i.uuid !== uuid),

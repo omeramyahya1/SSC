@@ -185,6 +185,13 @@ def confirm_and_issue_invoice(db: Session, invoice_uuid: str, user_uuid: str):
     if invoice.status != "pending":
         return {"error": "Only pending invoices can be confirmed"}, 400
 
+    # Independent invoices are allowed (no project_uuid / no components / no inventory deduction).
+    if not invoice.project_uuid:
+        invoice.issued_at = datetime.utcnow()
+        invoice.status = "pending"
+        invoice.is_dirty = True
+        return {"message": "Independent invoice confirmed successfully"}, 200
+
     project = db.query(Project).filter(Project.uuid == invoice.project_uuid).first()
     if not project:
         return {"error": "Project not found"}, 404
@@ -222,33 +229,37 @@ def apply_payment_to_invoice(db: Session, invoice_uuid: str):
     if not invoice:
         raise ValueError("Invoice not found")
 
-    project = db.query(Project).filter(Project.uuid == invoice.project_uuid).first()
-    if not project:
-        raise ValueError("Project not found")
-
     # Calculate total paid with Decimal-safe arithmetic
     total_paid_raw = db.query(func.sum(Payment.amount)).filter(Payment.invoice_uuid == invoice_uuid).scalar()
     total_paid = Decimal(str(total_paid_raw or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     invoice_amount = Decimal(str(invoice.amount or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
+    if invoice.project_uuid:
+        project = db.query(Project).filter(Project.uuid == invoice.project_uuid).first()
+        if not project:
+            raise ValueError("Project not found")
+        if total_paid >= invoice_amount:
+            project.status = 'done'
+            project.is_dirty = True
+        elif total_paid > 0 and total_paid < invoice_amount:
+            if project.status == "done":
+                project.status = "execution"  # or your agreed non-terminal status
+                project.is_dirty = True
+        else:
+            if project.status == "done":
+                project.status = "execution"  # align with business state machine
+                project.is_dirty = True
+
     if total_paid >= invoice_amount:
         invoice.status = "paid"
-        project.status = 'done'
-        project.is_dirty = True
     elif total_paid > 0 and total_paid < invoice_amount:
         invoice.status = "partial"
-        if project.status == "done":
-            project.status = "execution"  # or your agreed non-terminal status
-            project.is_dirty = True
     else:
         # If it was issued, it stays as is or pending
         if invoice.issued_at:
              invoice.status = "pending" # Or keep current if we don't want to revert issued state
         else:
              invoice.status = "pending"
-        if project.status == "done":
-            project.status = "execution"  # align with business state machine
-            project.is_dirty = True
 
     invoice.is_dirty = True
     return invoice.status
