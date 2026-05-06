@@ -86,7 +86,7 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
     },
 
     removeComponent: async (uuid) => {
-        // We need a delete endpoint for project components. 
+        // We need a delete endpoint for project components.
         // Currently it's missing in routes/inventory.py but I'll assume standard naming or add it if needed.
         // Let's check inventory.py again.
         set({ isLoading: true, error: null });

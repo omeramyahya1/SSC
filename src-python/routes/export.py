@@ -1,6 +1,6 @@
 from flask import Blueprint, request, send_file, jsonify
 from utils import get_db
-from models import Project, Invoice, ProjectComponent
+from models import Project, Invoice, ProjectComponent, Customer
 from sqlalchemy.orm import joinedload
 import pandas as pd
 import io
@@ -86,6 +86,50 @@ def _svg_to_data_uri(svg_text: str | None):
     # Encode as a data URI so the PDF generator doesn't rely on filesystem paths/URLs.
     return f"data:image/svg+xml;charset=utf-8,{quote(svg_text)}"
 
+def _normalize_invoice_items(invoice: Invoice):
+    raw = invoice.invoice_items or {}
+    if not isinstance(raw, dict):
+        return {"inventory": [], "manual": []}
+    return {
+        "inventory": raw.get("inventory") or [],
+        "manual": raw.get("manual") or []
+    }
+
+def _build_independent_items(invoice: Invoice):
+    payload = _normalize_invoice_items(invoice)
+    items = []
+    subtotal = 0.0
+
+    for it in payload.get("inventory", []) or []:
+        unit_price = float((it or {}).get("unit_price") or 0)
+        qty = float((it or {}).get("quantity") or 0)
+        total = unit_price * qty
+        items.append({
+            "name": (it or {}).get("name") or "N/A",
+            "brand": (it or {}).get("brand") or "N/A",
+            "model": (it or {}).get("model") or "N/A",
+            "unit_price": f"{float(unit_price):,.2f}",
+            "quantity": int(qty),
+            "total": f"{float(total):,.2f}",
+        })
+        subtotal += total
+
+    for it in payload.get("manual", []) or []:
+        unit_price = float((it or {}).get("price") or 0)
+        qty = float((it or {}).get("quantity") or 0)
+        total = unit_price * qty
+        items.append({
+            "name": (it or {}).get("name") or "N/A",
+            "brand": "N/A",
+            "model": "N/A",
+            "unit_price": f"{float(unit_price):,.2f}",
+            "quantity": int(qty),
+            "total": f"{float(total):,.2f}",
+        })
+        subtotal += total
+
+    return items, float(subtotal)
+
 @export_bp.route('/excel/<string:project_uuid>', methods=['GET'])
 def export_excel(project_uuid):
     with get_db() as db:
@@ -161,6 +205,53 @@ def export_excel(project_uuid):
         output.seek(0)
 
         filename = f"Invoice_{project_uuid[:8]}.xlsx"
+        return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@export_bp.route('/excel/invoice/<string:invoice_uuid>', methods=['GET'])
+def export_excel_invoice(invoice_uuid):
+    with get_db() as db:
+        invoice = db.query(Invoice).filter(Invoice.uuid == invoice_uuid, Invoice.deleted_at.is_(None)).first()
+        if not invoice:
+            return jsonify({"error": "Invoice not found"}), 404
+
+        details = invoice.invoice_details or {}
+        customer_uuid = details.get("customer_uuid")
+        customer = db.query(Customer).filter(Customer.uuid == customer_uuid, Customer.deleted_at.is_(None)).first() if customer_uuid else None
+
+        items, subtotal = _build_independent_items(invoice)
+        df_items = pd.DataFrame([{
+            "Item": i["name"],
+            "Brand": i["brand"],
+            "Model": i["model"],
+            "Unit Price": float(str(i["unit_price"]).replace(",", "")),
+            "Quantity": i["quantity"],
+            "Total": float(str(i["total"]).replace(",", "")),
+        } for i in items])
+
+        discount_pct = float(details.get("discount_percent") or 0)
+        discount_amount = (float(subtotal) * float(discount_pct)) / 100
+
+        summary_data = [
+            {"Field": "Customer Name", "Value": customer.full_name if customer else "N/A"},
+            {"Field": "Address", "Value": details.get("project_location") or "N/A"},
+            {"Field": "Invoice No", "Value": str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA"},
+            {"Field": "Issue Date", "Value": invoice.issued_at.isoformat() if invoice.issued_at else "N/A"},
+            {"Field": "Subtotal", "Value": float(subtotal)},
+            {"Field": "Shipping Fee", "Value": float(details.get("shipping_fee") or 0)},
+            {"Field": "Installation Fee", "Value": float(details.get("installation_fee") or 0)},
+            {"Field": "Discount Percent", "Value": f"{details.get('discount_percent') or 0}%"},
+            {"Field": "Discount Amount", "Value": float(discount_amount)},
+            {"Field": "Grand Total", "Value": float(invoice.amount or 0)},
+        ]
+        df_summary = pd.DataFrame(summary_data)
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df_items.to_excel(writer, sheet_name='Invoice Items', index=False)
+            df_summary.to_excel(writer, sheet_name='Invoice Summary', index=False)
+
+        output.seek(0)
+        filename = f"Invoice_{invoice_uuid[:8]}.xlsx"
         return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @export_bp.route('/pdf/<string:project_uuid>', methods=['GET'])
@@ -284,6 +375,81 @@ def export_pdf(project_uuid):
     except Exception as e:
         return jsonify({"error": f"Failed to generate PDF: {str(e)}"}), 500
 
+@export_bp.route('/pdf/invoice/<string:invoice_uuid>', methods=['GET'])
+def export_pdf_invoice(invoice_uuid):
+    if HTML is None:
+        return jsonify({"error": "WeasyPrint is not installed or configured on the server"}), 500
+
+    lang = request.args.get('lang', 'en')
+    direction = 'rtl' if lang == 'ar' else 'ltr'
+    top_mm = _clamp_margin_mm(request.args.get('top_mm'), default=0.0)
+    bottom_mm = _clamp_margin_mm(request.args.get('bottom_mm'), default=0.0)
+
+    base_margin_mm = 15.0
+    margin_top_mm = base_margin_mm + top_mm
+    margin_bottom_mm = base_margin_mm + bottom_mm
+    margin_left_mm = base_margin_mm
+    margin_right_mm = base_margin_mm
+    ssc_logo_svg = _load_ssc_logo_svg()
+    ssc_logo_data_uri = _svg_to_data_uri(ssc_logo_svg)
+
+    try:
+        with get_db() as db:
+            invoice = db.query(Invoice).filter(Invoice.uuid == invoice_uuid, Invoice.deleted_at.is_(None)).first()
+            if not invoice:
+                return jsonify({"error": "Invoice not found"}), 404
+
+            details = invoice.invoice_details or {}
+            customer_uuid = details.get("customer_uuid")
+            customer = db.query(Customer).filter(Customer.uuid == customer_uuid, Customer.deleted_at.is_(None)).first() if customer_uuid else None
+            if not customer:
+                return jsonify({"error": "Customer not found"}), 404
+
+            items, subtotal = _build_independent_items(invoice)
+            discount_pct = details.get('discount_percent') or 0
+            discount_amount = (float(subtotal) * float(discount_pct)) / 100
+
+            template = jinja_env.get_template('invoice.html')
+            html_string = template.render(
+                project={
+                    "customer": customer,
+                    "project_location": details.get("project_location") or "—"
+                },
+                invoice_number=str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA",
+                issue_date=invoice.issued_at.strftime('%d/%m/%Y') if invoice.issued_at else datetime.now().strftime('%d/%m/%Y'),
+                due_date=(details.get('due_date') or '').split('T')[0] if invoice.issued_at else "n/a",
+                items=items,
+                subtotal=f"{float(subtotal):,.2f}",
+                shipping_fee=f"{float(details.get('shipping_fee') or 0):,.2f}",
+                installation_fee=f"{float(details.get('installation_fee') or 0):,.2f}",
+                discount_amount=f"{float(discount_amount):,.2f}",
+                grand_total=f"{float(invoice.amount or 0):,.2f}",
+                terms=details.get('terms_and_conditions', ''),
+                config=None,
+                t=TRANSLATIONS.get(lang, TRANSLATIONS['en']),
+                dir=direction,
+                lang=lang,
+                margin_top_mm=margin_top_mm,
+                margin_bottom_mm=margin_bottom_mm,
+                margin_left_mm=margin_left_mm,
+                margin_right_mm=margin_right_mm,
+                watermark_text='Made with SSC',
+                ssc_logo_data_uri=ssc_logo_data_uri
+            )
+
+            pdf_io = io.BytesIO()
+            HTML(string=html_string).write_pdf(pdf_io)
+            pdf_io.seek(0)
+
+            return send_file(
+                pdf_io,
+                as_attachment=True,
+                download_name=f"Invoice_{invoice_uuid[:8]}.pdf",
+                mimetype='application/pdf'
+            )
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate PDF: {str(e)}"}), 500
+
 @export_bp.route('/csv/<string:project_uuid>', methods=['GET'])
 def export_csv(project_uuid):
     with get_db() as db:
@@ -313,5 +479,33 @@ def export_csv(project_uuid):
             output,
             as_attachment=True,
             download_name=f"Invoice_{project_uuid[:8]}.csv",
+            mimetype='text/csv'
+        )
+
+@export_bp.route('/csv/invoice/<string:invoice_uuid>', methods=['GET'])
+def export_csv_invoice(invoice_uuid):
+    with get_db() as db:
+        invoice = db.query(Invoice).filter(Invoice.uuid == invoice_uuid, Invoice.deleted_at.is_(None)).first()
+        if not invoice:
+            return jsonify({"error": "Invoice not found"}), 404
+
+        items, _subtotal = _build_independent_items(invoice)
+        df = pd.DataFrame([{
+            "Item": i["name"],
+            "Brand": i["brand"],
+            "Model": i["model"],
+            "Unit Price": float(str(i["unit_price"]).replace(",", "")),
+            "Quantity": i["quantity"],
+            "Total": float(str(i["total"]).replace(",", "")),
+        } for i in items])
+
+        output = io.BytesIO()
+        df.to_csv(output, index=False, encoding='utf-8')
+        output.seek(0)
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=f"Invoice_{invoice_uuid[:8]}.csv",
             mimetype='text/csv'
         )

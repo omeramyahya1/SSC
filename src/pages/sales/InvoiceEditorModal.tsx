@@ -11,7 +11,8 @@ import api from '@/api/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Project } from '@/store/useProjectStore';
 import { useProjectStore } from '@/store/useProjectStore';
-import { User, useUserStore } from '@/store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
+import { IndependentInvoiceEditor } from './IndependentInvoiceEditor';
 
 interface InvoiceEditorModalProps {
     isOpen: boolean;
@@ -22,6 +23,7 @@ interface InvoiceEditorModalProps {
 export function InvoiceEditorModal({ isOpen, onClose, invoiceUuid }: InvoiceEditorModalProps) {
     const { t, i18n } = useTranslation();
     const [project, setProject] = useState<Project | null>(null);
+    const [isIndependent, setIsIndependent] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const { projects, fetchProjects } = useProjectStore();
     const { currentUser } = useUserStore();
@@ -30,9 +32,15 @@ export function InvoiceEditorModal({ isOpen, onClose, invoiceUuid }: InvoiceEdit
         const fetchContext = async () => {
             if (!isOpen || !invoiceUuid) return;
             setIsLoading(true);
+            setIsIndependent(false);
+            setProject(null);
             try {
                 // 1. Get the invoice details
                 const { data: invoice } = await api.get(`/invoices/${invoiceUuid}`);
+                if (!invoice?.project_uuid) {
+                    setIsIndependent(true);
+                    return;
+                }
                 // 2. Prefer project from store (includes customer data)
                 const projectFromStore = projects.find((p) => p.uuid === invoice.project_uuid);
                 if (projectFromStore?.customer) {
@@ -69,6 +77,10 @@ export function InvoiceEditorModal({ isOpen, onClose, invoiceUuid }: InvoiceEdit
                 {isLoading ? (
                     <div className="h-full flex items-center justify-center">
                         <Spinner className="w-12 h-12" />
+                    </div>
+                ) : isIndependent ? (
+                    <div className="h-full overflow-hidden flex flex-col">
+                        <IndependentInvoiceEditor invoiceUuid={invoiceUuid} user={currentUser} onBack={onClose} />
                     </div>
                 ) : project ? (
                     <div className="h-full overflow-hidden flex flex-col">
