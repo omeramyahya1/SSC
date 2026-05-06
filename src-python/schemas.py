@@ -132,6 +132,8 @@ class InvoiceDetails(BaseModel):
     due_date: Optional[str] = None
     terms_and_conditions: Optional[str] = None
     enable_custom_terms: Optional[bool] = False
+    customer_uuid: Optional[str] = None
+    project_location: Optional[str] = None
 
 class InvoiceCreate(BaseModel):
     project_uuid: Optional[str] = None

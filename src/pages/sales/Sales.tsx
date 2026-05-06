@@ -72,18 +72,19 @@ export default function Sales() {
                 customerUuid = newCustomer.uuid;
             }
 
-            // 2. Create the Invoice directly linked to a customer
+            // 2. Create the Independent Invoice (no project association).
             const newInvoice = await createInvoice({
                 user_uuid: currentUser?.uuid,
-                customer_uuid: customerUuid,
                 status: 'pending',
                 invoice_details: {
+                    customer_uuid: customerUuid,
+                    project_location: data.project_location,
                     shipping_fee: 0,
                     installation_fee: 0,
                     discount_percent: 0,
                     due_date: new Date().toISOString()
                 },
-                invoice_items: { manual: [] },
+                invoice_items: { manual: [], inventory: [] },
                 amount: 0
             });
 

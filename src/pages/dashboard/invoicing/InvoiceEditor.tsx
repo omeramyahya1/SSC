@@ -659,10 +659,10 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                             <Table className="print:table-fixed">
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="text-start">{t('invoicing.item', 'Item')}</TableHead>
-                                        <TableHead className="text-center w-[150px]">{t('invoicing.unit_price', 'Unit Price')}</TableHead>
-                                        <TableHead className="text-center w-[120px]">{t('invoicing.quantity', 'Qty')}</TableHead>
-                                        <TableHead className="text-end w-[150px]">{t('invoicing.total', 'Total')}</TableHead>
+                                        <TableHead className="font-bold text-start">{t('invoicing.item', 'Item')}</TableHead>
+                                        <TableHead className="font-bold text-center w-[150px]">{t('invoicing.unit_price', 'Unit Price')}</TableHead>
+                                        <TableHead className="font-bold text-center w-[120px]">{t('invoicing.quantity', 'Qty')}</TableHead>
+                                        <TableHead className="font-bold text-end w-[150px]">{t('invoicing.total', 'Total')}</TableHead>
                                         {!isIssued && <TableHead className="w-[50px] no-print"></TableHead>}
                                     </TableRow>
                                 </TableHeader>

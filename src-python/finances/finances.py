@@ -4,6 +4,7 @@ from models import Invoice, Payment, InventoryItem, ProjectComponent, StockAdjus
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
+import json
 
 def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = None, branch_uuid: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, user_uuid: Optional[str] = None):
     """
@@ -93,7 +94,46 @@ def execute_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
     if not invoice:
         raise ValueError("Invoice not found")
 
-    # Get components associated with the project
+    # Independent invoice: deduct based on invoice_items.inventory snapshots
+    if not invoice.project_uuid:
+        raw_items = invoice.invoice_items or {}
+        if isinstance(raw_items, str):
+            try:
+                raw_items = json.loads(raw_items)
+            except Exception:
+                raw_items = {}
+        inventory_lines = (raw_items or {}).get("inventory") or []
+        for line in inventory_lines:
+            item_uuid = (line or {}).get("item_uuid")
+            qty = int((line or {}).get("quantity") or 0)
+            if not item_uuid or qty <= 0:
+                continue
+
+            item = db.query(InventoryItem).filter(InventoryItem.uuid == item_uuid).with_for_update().first()
+            if not item:
+                continue
+
+            if item.quantity_on_hand < qty:
+                raise ValueError(
+                    f"Insufficient stock for item: {item.name}. Available: {item.quantity_on_hand}, Required: {qty}"
+                )
+
+            item.quantity_on_hand -= qty
+            item.is_dirty = True
+
+            adjustment = StockAdjustment(
+                organization_uuid=item.organization_uuid,
+                branch_uuid=item.branch_uuid,
+                item_uuid=item.uuid,
+                adjustment=-qty,
+                reason=f"Sale for Invoice {invoice.invoice_id}",
+                user_uuid=user_uuid,
+                is_dirty=True
+            )
+            db.add(adjustment)
+        return
+
+    # Project invoice: deduct based on ProjectComponents
     components = db.query(ProjectComponent).filter(ProjectComponent.project_uuid == invoice.project_uuid).all()
 
     for component in components:
@@ -130,7 +170,41 @@ def reverse_stock_deduction(db: Session, invoice_uuid: str, user_uuid: str):
     if not invoice:
         return
 
-    # Get components associated with the project
+    # Independent invoice: reverse based on invoice_items.inventory snapshots
+    if not invoice.project_uuid:
+        raw_items = invoice.invoice_items or {}
+        if isinstance(raw_items, str):
+            try:
+                raw_items = json.loads(raw_items)
+            except Exception:
+                raw_items = {}
+        inventory_lines = (raw_items or {}).get("inventory") or []
+        for line in inventory_lines:
+            item_uuid = (line or {}).get("item_uuid")
+            qty = int((line or {}).get("quantity") or 0)
+            if not item_uuid or qty <= 0:
+                continue
+
+            item = db.query(InventoryItem).filter(InventoryItem.uuid == item_uuid).with_for_update().first()
+            if not item:
+                continue
+
+            item.quantity_on_hand += qty
+            item.is_dirty = True
+
+            adjustment = StockAdjustment(
+                organization_uuid=item.organization_uuid,
+                branch_uuid=item.branch_uuid,
+                item_uuid=item.uuid,
+                adjustment=qty,
+                reason=f"Reversal for Deleted Invoice {invoice.invoice_id}",
+                user_uuid=user_uuid,
+                is_dirty=True
+            )
+            db.add(adjustment)
+        return
+
+    # Project invoice: reverse based on ProjectComponents
     components = db.query(ProjectComponent).filter(ProjectComponent.project_uuid == invoice.project_uuid).all()
 
     for component in components:
@@ -185,11 +259,20 @@ def confirm_and_issue_invoice(db: Session, invoice_uuid: str, user_uuid: str):
     if invoice.status != "pending":
         return {"error": "Only pending invoices can be confirmed"}, 400
 
-    # Independent invoices are allowed (no project_uuid / no components / no inventory deduction).
+    # Independent invoices are allowed (no project_uuid).
+    # If the invoice contains inventory snapshot lines, we deduct stock from inventory.
     if not invoice.project_uuid:
         invoice.issued_at = datetime.utcnow()
         invoice.status = "pending"
         invoice.is_dirty = True
+        try:
+            execute_stock_deduction(db, invoice_uuid, user_uuid)
+        except ValueError as e:
+            db.rollback()
+            return {"error": str(e)}, 400
+        except Exception as e:
+            db.rollback()
+            return {"error": f"Stock deduction failed: {str(e)}"}, 500
         return {"message": "Independent invoice confirmed successfully"}, 200
 
     project = db.query(Project).filter(Project.uuid == invoice.project_uuid).first()

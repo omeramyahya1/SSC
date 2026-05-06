@@ -12,6 +12,8 @@ export interface InvoiceDetails {
   due_date?: string;
   terms_and_conditions?: string;
   enable_custom_terms?: boolean;
+  customer_uuid?: string;
+  project_location?: string;
 }
 
 export interface Invoice {

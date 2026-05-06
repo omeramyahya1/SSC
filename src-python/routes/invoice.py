@@ -5,7 +5,7 @@ from sqlalchemy.orm import joinedload
 from datetime import datetime
 from typing import Optional
 from utils import get_db
-from models import Invoice, Project, Payment, Authentication, User
+from models import Invoice, Project, Payment, Authentication, User, Customer
 from finances.finances import reverse_stock_deduction
 from schemas import InvoiceCreate, InvoiceUpdate
 from serializer import model_to_dict
@@ -145,9 +145,31 @@ def get_all_invoices():
             query = query.filter(Invoice.status == status)
 
         items = query.order_by(Invoice.created_at.desc()).all()
+
+        independent_customer_uuids = {
+            (i.invoice_details or {}).get("customer_uuid")
+            for i in items
+            if not i.project_uuid and (i.invoice_details or {}).get("customer_uuid")
+        }
+        customers_by_uuid = {}
+        if independent_customer_uuids:
+            customers_by_uuid = {
+                c.uuid: c
+                for c in db.query(Customer)
+                .filter(Customer.uuid.in_(independent_customer_uuids), Customer.deleted_at.is_(None))
+                .all()
+            }
+
         results = []
         for i in items:
             d = model_to_dict(i)
+            if i.project and i.project.customer:
+                d["customer_name"] = i.project.customer.full_name
+            else:
+                cust_uuid = (i.invoice_details or {}).get("customer_uuid")
+                cust = customers_by_uuid.get(cust_uuid) if cust_uuid else None
+                if cust:
+                    d["customer_name"] = cust.full_name
 
             # Add Payment Stats
             paid = (

@@ -65,15 +65,13 @@ export function CreateIndependentInvoiceModal({ onOpenChange, onSubmit }: Create
             customer_name: customerName,
             email: customerEmail || undefined,
             phone_number: customerPhone || undefined,
-            project_location: `${locationCity}, ${locationState}`,
+            project_location: locationState && locationCity ? `${locationCity}, ${locationState}` : "",
         };
 
         onSubmit(data);
     };
 
     const isFormValid =
-        locationState.trim() !== '' &&
-        locationCity.trim() !== '' &&
         (useExistingCustomer ? selectedCustomerId !== '' : customerName.trim() !== '');
 
     return (
@@ -111,7 +109,7 @@ export function CreateIndependentInvoiceModal({ onOpenChange, onSubmit }: Create
                         </Label>
                         <SearchableSelect
                             items={customers.map(c => ({
-                                value: c.uuid || String(c.customer_id),
+                                value: c.uuid,
                                 label: c.full_name
                             }))}
                             value={selectedCustomerId}
@@ -166,7 +164,7 @@ export function CreateIndependentInvoiceModal({ onOpenChange, onSubmit }: Create
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="grid gap-2">
                         <Label htmlFor="locationState" className="font-semibold">
-                            {t('dashboard.state_label', 'State')} <span className="text-red-500">*</span>
+                            {t('dashboard.state_label', 'State')}
                         </Label>
                         <SearchableSelect
                             items={states.map(s => ({ value: s.value, label: s.label }))}
@@ -180,7 +178,7 @@ export function CreateIndependentInvoiceModal({ onOpenChange, onSubmit }: Create
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="locationCity" className="font-semibold">
-                            {t('dashboard.city_label', 'City')} <span className="text-red-500">*</span>
+                            {t('dashboard.city_label', 'City')}
                         </Label>
                         <SearchableSelect
                             items={cities.map(c => ({ value: c.value, label: c.label }))}
@@ -204,4 +202,3 @@ export function CreateIndependentInvoiceModal({ onOpenChange, onSubmit }: Create
         </DialogContent>
     );
 }
-
