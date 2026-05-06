@@ -150,6 +150,7 @@ def seed_inventory(
     seed: int | None,
     organization_uuid: str | None,
     branch_uuid: str | None,
+    user_uuid: str,
     clear: bool,
 ) -> None:
     if seed is not None:
@@ -220,6 +221,7 @@ def seed_inventory(
                 item = InventoryItem(
                     organization_uuid=organization_uuid,
                     branch_uuid=branch_uuid,
+                    user_uuid=user_uuid,
                     name=f"{brand} {category.name} {model}",
                     sku=sku,
                     brand=brand,
@@ -255,8 +257,9 @@ def main() -> None:
     seed_inventory(
         items_per_category=args.items_per_category,
         seed=args.seed,
-        organization_uuid="857a50fe-a918-4823-a464-84a67e032065",
-        branch_uuid="4ea07606-4916-47d1-9259-3139deab43ba",
+        organization_uuid=None,
+        branch_uuid=None,
+        user_uuid="a681ef0e-00de-45de-b4ae-fa93200531ca",
         clear=args.clear,
     )
 

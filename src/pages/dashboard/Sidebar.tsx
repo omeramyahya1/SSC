@@ -126,7 +126,7 @@ const SubscriptionDetails = ({ onOpenModal }: { onOpenModal: () => void }) => {
 
 export function Sidebar() {
     const { t, i18n } = useTranslation();
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(true);
     const [isHovering, setIsHovering] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [nonNavSelected, setNonNavSelected] = useState<string | null>(null);

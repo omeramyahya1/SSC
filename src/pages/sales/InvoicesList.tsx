@@ -46,6 +46,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Select,
     SelectContent,
@@ -72,12 +73,17 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+    const [cascadePayments, setCascadePayments] = useState(false);
     const [invoiceForPayment, setInvoiceForPayment] = useState<Invoice | null>(null);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
     useEffect(() => {
         fetchInvoices(filterParams);
     }, [filterParams, fetchInvoices]);
+
+    useEffect(() => {
+        if (invoiceToDelete) setCascadePayments(false);
+    }, [invoiceToDelete]);
 
     const filteredAndSortedInvoices = useMemo(() => {
         let filtered = invoices.filter(inv => {
@@ -117,7 +123,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
     const handleConfirmDelete = async () => {
         if (!invoiceToDelete || !currentUser) return;
         try {
-            await deleteInvoice(invoiceToDelete.uuid, currentUser.uuid);
+            await deleteInvoice(invoiceToDelete.uuid, currentUser.uuid, cascadePayments);
             toast.success(t('invoicing.delete_success', 'Invoice deleted successfully.'));
             fetchInvoices(filterParams);
         } catch (error: any) {
@@ -340,6 +346,16 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                         <AlertDialogDescription>
                             {t('invoicing.confirm_delete.description', 'This action will reverse inventory deductions for issued invoices. This cannot be undone.')}
                         </AlertDialogDescription>
+                        <div className="mt-3 flex items-center gap-2">
+                            <Checkbox
+                                id="cascade-payments"
+                                checked={cascadePayments}
+                                onCheckedChange={(v) => setCascadePayments(v === true)}
+                            />
+                            <label htmlFor="cascade-payments" className="text-sm text-muted-foreground">
+                                {t('invoicing.confirm_delete.cascade_payments', 'Also delete related payments')}
+                            </label>
+                        </div>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setInvoiceToDelete(null)}>{t('common.cancel', 'Cancel')}</AlertDialogCancel>

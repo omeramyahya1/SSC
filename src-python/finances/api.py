@@ -73,7 +73,7 @@ def get_payments(db):
     from sqlalchemy.orm import joinedload
     payments = query.options(
         joinedload(Payment.invoice).joinedload(Invoice.project).joinedload(Project.customer)
-    ).order_by(Payment.created_at.desc()).all()
+    ).filter(Payment.deleted_at.is_(None)).order_by(Payment.created_at.desc()).all()
 
     results = []
     for p in payments:
