@@ -473,7 +473,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
         }
 
         if (field === 'qty') {
-            if (value < 0) {
+            if (value <= 0) {
                 error = t('common.must_be_0_or_greater', 'Must be 0 or greater');
             } else if (!Number.isInteger(value)) {
                 error = t('common.must_be_whole_number', 'Must be a whole number');
@@ -642,8 +642,8 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
             <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-2xl">{project.customer?.full_name ?? t('dashboard.no_customer', 'No Customer')}</DialogTitle>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Select value={project.status} onValueChange={(value: Project['status']) => handleStatusChange(value)}>
-                        <SelectTrigger className={cn(`w-[150px] border px-2 py-1 rounded-full text-xs font-semibold flex justify-center items-center gap-1`, statusColors[project.status] || 'bg-gray-100', project.is_pending && "animate-pulse")}>
+                    <Select value={project.status} onValueChange={(value: Project['status']) => handleStatusChange(value)} dir={i18n.dir()}>
+                        <SelectTrigger className={cn(`w-[100px] border px-2 py-1 rounded-xl text-xs font-semibold flex justify-center items-center gap-1`, statusColors[project.status] || 'bg-gray-100', project.is_pending && "animate-pulse")}>
                             <SelectValue>
                                 {project.is_pending ? t('dashboard.pending', 'Saving...') : t(`dashboard.status.${project.status}`, project.status)}
                             </SelectValue>
@@ -673,7 +673,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                      {/* System Design Parameters */}
                     {!isInvoiceIssued && (
                         <div>
-                            <Accordion type="single" collapsible defaultValue="ble-settings">
+                            <Accordion type="single" collapsible defaultValue="">
                                 <AccordionItem value="ble-settings">
                                     <AccordionTrigger className="text-xl font-bold flex flex-row w-full">
                                         <Sliders className='text-primary' />
@@ -797,7 +797,7 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                                     label={t('ble.battery_bank.autonomy_days_label', 'Days of Autonomy')}
                                                     value={bleSettings.autonomy_days}
                                                     onChange={v => handleBleSettingChange('autonomy_days', v)}
-                                                    step={1} min={0}
+                                                    step={1} min={1}
                                                     error={bleSettingsErrors.autonomy_days}
                                                     disabled={isArchived}
                                                 />
