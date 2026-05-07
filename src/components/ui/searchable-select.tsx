@@ -53,9 +53,9 @@ export function SearchableSelect({ items, value, onValueChange, placeholder, dis
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0 bg-white rounded-lg overflow-y-auto">
                 <Command>
                     <CommandInput placeholder={placeholder || t('registration.search.placeholder', 'Search...')} />
-                    <CommandList className="max-h-[200px] overflow-y-auto">
+                    <CommandList className="max-h-[200px] overflow-y-auto no-scrollbar">
                         <CommandEmpty>{t('registration.search.no_results', 'No results found.')}</CommandEmpty>
-                        <CommandGroup className='scrollable-true'>
+                        <CommandGroup>
                             {items.map((item) => (
                                 <CommandItem
                                     key={item.value}
