@@ -32,7 +32,6 @@ def create_customer():
 
     with get_db() as db:
         # Create the SQLAlchemy model from validated data
-        print(validated_data)
         new_item = Customer(**validated_data.dict(exclude_unset=True))
         new_item.is_dirty = True
         db.add(new_item)

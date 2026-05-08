@@ -4,6 +4,7 @@ from datetime import datetime
 
 class ProjectWithCustomerCreate(BaseModel):
     customer_name: str
+    customer_uuid: Optional[str] = None
     phone_number: Optional[str] = None
     email: Optional[str] = None
     project_location: str
@@ -27,7 +28,7 @@ class ApplianceBatchCreate(BaseModel):
     appliances: List[ApplianceCreate]
 
 class ApplianceUpdate(BaseModel):
-    project_id: Optional[int] = None
+    project_uuid: Optional[str] = None
     appliance_name: Optional[str] = None
     type: Optional[str] = None
     qty: Optional[int] = None
@@ -43,7 +44,7 @@ class ApplicationSettingsCreate(BaseModel):
     language: Optional[str] = None
     last_saved_path: Optional[str] = None
     other_settings: Optional[Any] = None
-    user_id: Optional[int] = None
+    user_uuid: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -52,14 +53,14 @@ class ApplicationSettingsUpdate(BaseModel):
     language: Optional[str] = None
     last_saved_path: Optional[str] = None
     other_settings: Optional[Any] = None
-    user_id: Optional[int] = None
+    user_uuid: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
 
 
 class AuthenticationCreate(BaseModel):
-    user_id: Optional[int] = None
+    user_uuid: Optional[str] = None
     password_hash: Optional[str] = None
     password_salt: Optional[str] = None
     current_jwt: Optional[str] = None
@@ -72,7 +73,7 @@ class AuthenticationCreate(BaseModel):
     is_dirty: Optional[bool] = None
 
 class AuthenticationUpdate(BaseModel):
-    user_id: Optional[int] = None
+    user_uuid: Optional[str] = None
     password_hash: Optional[str] = None
     password_salt: Optional[str] = None
     current_jwt: Optional[str] = None
@@ -89,8 +90,9 @@ class CustomerCreate(BaseModel):
     full_name: str
     phone_number: Optional[str] = None
     email: Optional[str] = None
-    org_id: Optional[int] = None
-    user_id: Optional[int] = None
+    organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -99,8 +101,9 @@ class CustomerUpdate(BaseModel):
     full_name: Optional[str] = None
     phone_number: Optional[str] = None
     email: Optional[str] = None
-    org_id: Optional[int] = None
-    user_id: Optional[int] = None
+    organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -171,7 +174,7 @@ class PaymentCreate(BaseModel):
     is_dirty: Optional[bool] = None
 
 class PaymentUpdate(BaseModel):
-    invoice_id: Optional[int] = None
+    invoice_uuid: Optional[str] = None
     amount: Optional[float] = None
     method: Optional[str] = None
     payment_reference: Optional[str] = None
@@ -196,22 +199,22 @@ class ProjectStatusUpdate(BaseModel):
     status: str
 
 class ProjectCreate(BaseModel):
-    customer_id: Optional[int] = None
+    customer_uuid: Optional[str] = None
     status: Optional[str] = None
-    system_config_id: Optional[int] = None
-    user_id: Optional[int] = None
-    org_id: Optional[int] = None
+    system_config_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
+    org_uuid: Optional[str] = None
     project_location: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
 
 class ProjectUpdate(BaseModel):
-    customer_id: Optional[int] = None
+    customer_uuid: Optional[str] = None
     status: Optional[str] = None
-    system_config_id: Optional[int] = None
-    user_id: Optional[int] = None
-    org_id: Optional[int] = None
+    system_config_uuid: Optional[str] = None
+    user_uuid: Optional[str] = None
+    org_uuid: Optional[str] = None
     project_location: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -219,7 +222,7 @@ class ProjectUpdate(BaseModel):
 
 
 class SubscriptionCreate(BaseModel):
-    user_id: Optional[int] = None
+    user_uuid: Optional[str] = None
     expiration_date: Optional[datetime] = None
     grace_period_end: Optional[datetime] = None
     type: Optional[str] = None
@@ -231,7 +234,7 @@ class SubscriptionCreate(BaseModel):
     is_dirty: Optional[bool] = None
 
 class SubscriptionUpdate(BaseModel):
-    user_id: Optional[int] = None
+    user_uuid: Optional[str] = None
     expiration_date: Optional[datetime] = None
     grace_period_end: Optional[datetime] = None
     type: Optional[str] = None
@@ -272,7 +275,7 @@ class SyncLogCreate(BaseModel):
     sync_type: Optional[str] = None
     table_name: Optional[str] = None
     status: Optional[str] = None
-    user_id: Optional[int] = None
+    user_uuid: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -281,7 +284,7 @@ class SyncLogUpdate(BaseModel):
     sync_type: Optional[str] = None
     table_name: Optional[str] = None
     status: Optional[str] = None
-    user_id: Optional[int] = None
+    user_uuid: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     is_dirty: Optional[bool] = None
@@ -313,9 +316,9 @@ class UserCreate(BaseModel):
     status: Optional[str] = None
     organization_uuid: Optional[str] = None
     branch_uuid: Optional[str] = None
-    org_id: Optional[int] = None
+    org_uuid: Optional[str] = None
     org_name: Optional[str] = None
-    branch_id: Optional[int] = None
+    branch_uuid: Optional[str] = None
     branch_location: Optional[str] = None
     role: Optional[str] = None
     distributor_id: Optional[str] = None
@@ -334,9 +337,9 @@ class UserUpdate(BaseModel):
     status: Optional[str] = None
     organization_uuid: Optional[str] = None
     branch_uuid: Optional[str] = None
-    org_id: Optional[int] = None
+    org_uuid: Optional[str] = None
     org_name: Optional[str] = None
-    branch_id: Optional[int] = None
+    branch_uuid: Optional[str] = None
     branch_location: Optional[str] = None
     role: Optional[str] = None
     distributor_id: Optional[str] = None

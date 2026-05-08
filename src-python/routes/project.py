@@ -25,23 +25,30 @@ def create_project_with_customer():
         except ValidationError as e:
             return jsonify({"errors": e.errors()}), 400
 
+        print(data)
+
         try:
-            # 1. Create Customer
-            new_customer = Customer(
-                full_name=data.customer_name,
-                phone_number=data.phone_number,
-                email=data.email,
-                user_uuid=current_user.uuid,
-                organization_uuid=current_user.organization_uuid,
-                branch_uuid=current_user.branch_uuid,
-                is_dirty=True
-            )
-            db.add(new_customer)
-            db.flush()
+
+            if not data.customer_uuid:
+                # 1. Create Customer
+                customer = Customer(
+                    full_name=data.customer_name,
+                    phone_number=data.phone_number,
+                    email=data.email,
+                    user_uuid=current_user.uuid,
+                    organization_uuid=current_user.organization_uuid,
+                    branch_uuid=current_user.branch_uuid,
+                    is_dirty=True
+                )
+                db.add(customer)
+                db.flush()
+
+            else:
+                customer = db.query(Customer).filter(Customer.uuid == data.customer_uuid).first()
 
             # 2. Create Project and link to Customer
             new_project = Project(
-                customer_uuid=new_customer.uuid,
+                customer_uuid=customer.uuid,
                 status='planning',
                 project_location=data.project_location,
                 user_uuid=current_user.uuid,
