@@ -1106,23 +1106,28 @@ export function ProjectDetailsModal({ project: projectProp }: ProjectDetailsModa
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
-                                <AccordionItem value="battery_bank">
-                                    <AccordionTrigger className={cn('font-bold flex w-full', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}><BatteryCharging className="h-6 w-6 text-green-500 static" /><span>{t('project_modal.battery_bank', 'Battery Bank')}</span></AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                            <DataRow label={t('ble.battery_bank.battery_type', 'Battery Type')} value={displayResults.battery_bank.battery_type} />
-                                            <DataRow label={t('ble.battery_bank.capacity_per_unit', 'Capacity per Unit')} value={`${displayResults.battery_bank.capacity_per_unit_ah} Ah`} />
-                                            <DataRow label={t('ble.battery_bank.voltage_per_unit', 'Voltage per Unit')} value={`${displayResults.battery_bank.voltage_per_unit_v} V`} />
-                                            <DataRow label={t('ble.battery_bank.quantity', 'Quantity')} value={displayResults.battery_bank.quantity} />
-                                            <DataRow label={t('ble.battery_bank.num_in_series', 'Num in Series')} value={displayResults.battery_bank.num_in_series} />
-                                            <DataRow label={t('ble.battery_bank.num_in_parallel', 'Num in Parallel')} value={displayResults.battery_bank.num_in_parallel} />
-                                            <DataRow label={t('ble.battery_bank.total_storage', 'Total Storage')} value={parseFloat(String(displayResults.battery_bank.total_storage_kwh))} unit="kWh" formatter={(val: number) => val.toFixed(2)} />
-                                            <DataRow label={t('ble.battery_bank.depth_of_discharge', 'Depth of Discharge')} value={`${displayResults.battery_bank.depth_of_discharge_percent}%`} />
-                                            <DataRow label={t('ble.battery_bank.system_voltage', 'System Voltage')} value={`${displayResults.battery_bank.system_voltage_v} V`} />
-                                            <DataRow label={t('ble.battery_bank.connection', 'Connection Type')} value={displayResults.battery_bank.connection_type} />
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
+                                {
+                                    displayResults.battery_bank.quantity != 0 && (
+                                        <AccordionItem value="battery_bank">
+                                            <AccordionTrigger className={cn('font-bold flex w-full', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}><BatteryCharging className="h-6 w-6 text-green-500 static" /><span>{t('project_modal.battery_bank', 'Battery Bank')}</span></AccordionTrigger>
+                                            <AccordionContent>
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                                    <DataRow label={t('ble.battery_bank.battery_type', 'Battery Type')} value={displayResults.battery_bank.battery_type} />
+                                                    <DataRow label={t('ble.battery_bank.capacity_per_unit', 'Capacity per Unit')} value={`${displayResults.battery_bank.capacity_per_unit_ah} Ah`} />
+                                                    <DataRow label={t('ble.battery_bank.voltage_per_unit', 'Voltage per Unit')} value={`${displayResults.battery_bank.voltage_per_unit_v} V`} />
+                                                    <DataRow label={t('ble.battery_bank.quantity', 'Quantity')} value={displayResults.battery_bank.quantity} />
+                                                    <DataRow label={t('ble.battery_bank.num_in_series', 'Num in Series')} value={displayResults.battery_bank.num_in_series} />
+                                                    <DataRow label={t('ble.battery_bank.num_in_parallel', 'Num in Parallel')} value={displayResults.battery_bank.num_in_parallel} />
+                                                    <DataRow label={t('ble.battery_bank.total_storage', 'Total Storage')} value={parseFloat(String(displayResults.battery_bank.total_storage_kwh))} unit="kWh" formatter={(val: number) => val.toFixed(2)} />
+                                                    <DataRow label={t('ble.battery_bank.depth_of_discharge', 'Depth of Discharge')} value={`${displayResults.battery_bank.depth_of_discharge_percent}%`} />
+                                                    <DataRow label={t('ble.battery_bank.system_voltage', 'System Voltage')} value={`${displayResults.battery_bank.system_voltage_v} V`} />
+                                                    <DataRow label={t('ble.battery_bank.connection', 'Connection Type')} value={displayResults.battery_bank.connection_type} />
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    )
+                                }
+
                             </Accordion>
                             {!isArchived && (
     <div className="flex flex-col gap-2 mt-4" dir={i18n.dir()}>
@@ -1224,12 +1229,12 @@ const DataRow = ({ label, value, unit = '', formatter }: { label: string; value:
         <div className="py-1 border-b border-gray-100">
             { i18n.dir() === 'ltr' ? (
                 <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">{label}</span>
-                    <span className="text-sm font-semibold text-gray-800">{displayValue} {unit}</span>
+                    <span className="text-sm text-gray-500 text-start">{label}</span>
+                    <span className="text-sm font-semibold text-gray-800 text-end">{displayValue} {unit}</span>
                 </div>
             ) : (
                 <div className="flex justify-between">
-                    <span className="text-sm font-semibold text-gray-800">{displayValue} {unit}</span>
+                    <span className="text-sm font-semibold text-gray-800 text-start">{displayValue} {unit}</span>
                     <span className="text-sm text-gray-500 text-end">{label}</span>
                 </div>
 
