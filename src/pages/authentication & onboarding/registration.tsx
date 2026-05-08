@@ -180,7 +180,7 @@ export default function RegistrationScreen() {
   const calculatedPrice = useMemo(() => {
     const { stage2, stage3, stage6 } = formData;
 
-    if (stage3.plan === 'Free Trial') {
+    if (stage3.plan === 'free_trial') {
         return 0;
     }
 
@@ -236,7 +236,7 @@ export default function RegistrationScreen() {
 
         if (stage2.accountType === 'Standard') {
             backendAccountType = 'standard';
-            if (stage3.plan === 'Free Trial') {
+            if (stage3.plan === 'free_trial') {
                 backendPlanType = 'trial';
             } else {
                 backendPlanType = stage3.plan.toLowerCase();
@@ -313,9 +313,9 @@ export default function RegistrationScreen() {
   }
 
   const handleNext = () => {
-    const isFreeTrial = formData.stage3.plan === 'Free Trial';
+    const isFreeTrial = formData.stage3.plan === 'free_trial';
 
-    // If on Summary (Stage 5) and it's a Free Trial, submit now.
+    // If on Summary (Stage 5) and it's a 'free_trial', submit now.
     if (currentStage === 5 && isFreeTrial) {
         handleSubmit();
         return;
@@ -442,7 +442,7 @@ export default function RegistrationScreen() {
                     )}
                   >
                     {isSubmitting ? <Spinner /> :
-                        (currentStage === 7 || (currentStage === 5 && formData.stage3.plan === 'Free Trial')) ? t('registration.finish', 'Finish') :
+                        (currentStage === 7 || (currentStage === 5 && formData.stage3.plan === 'free_trial')) ? t('registration.finish', 'Finish') :
                         currentStage === 4 && !areStage4FieldsFilled(formData.stage4)
                         ? t('registration.skip', 'Skip')
                         : t('registration.next', 'Next')}
@@ -982,7 +982,7 @@ const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData }: { setValid: (
         // Recalculate original price without referral discount
         const { stage2, stage3 } = formData;
 
-        if (stage3.plan === 'Free Trial') {
+        if (stage3.plan === 'free_trial') {
             return 0;
         }
 
@@ -1261,7 +1261,7 @@ const Stage8 = () => {
     const [error, setError] = useState<string | null>(null);
     const [syncStatus, setSyncStatus] = useState<'syncing' | 'success' | 'error'>('syncing');
 
-    const isFreeTrial = formData.stage3.plan === 'Free Trial';
+    const isFreeTrial = formData.stage3.plan === 'free_trial';
 
     const handleSync = async () => {
         setSyncStatus('syncing');

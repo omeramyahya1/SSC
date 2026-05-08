@@ -246,7 +246,7 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
 
         if (field === 'qty') {
             if (value <= 0) {
-                error = t('common.must_be_0_or_greater', 'Must be 0 or greater');
+                error = t('common.must_be_positive_number', 'Must be a positive number');
             } else if (!Number.isInteger(value)) {
                 error = t('common.must_be_whole_number', 'Must be a whole number');
             }

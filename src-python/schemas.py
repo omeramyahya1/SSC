@@ -203,7 +203,8 @@ class ProjectCreate(BaseModel):
     status: Optional[str] = None
     system_config_uuid: Optional[str] = None
     user_uuid: Optional[str] = None
-    org_uuid: Optional[str] = None
+    organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
     project_location: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -214,7 +215,8 @@ class ProjectUpdate(BaseModel):
     status: Optional[str] = None
     system_config_uuid: Optional[str] = None
     user_uuid: Optional[str] = None
-    org_uuid: Optional[str] = None
+    organization_uuid: Optional[str] = None
+    branch_uuid: Optional[str] = None
     project_location: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -316,9 +318,7 @@ class UserCreate(BaseModel):
     status: Optional[str] = None
     organization_uuid: Optional[str] = None
     branch_uuid: Optional[str] = None
-    org_uuid: Optional[str] = None
     org_name: Optional[str] = None
-    branch_uuid: Optional[str] = None
     branch_location: Optional[str] = None
     role: Optional[str] = None
     distributor_id: Optional[str] = None

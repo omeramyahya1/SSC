@@ -245,7 +245,7 @@ export function SettingsModal() {
     }, [fetchSystemInfo]);
 
     const handleSavePersonalProfile = async () => {
-        if (!currentUser) return;currentOrganization
+        if (!currentUser) return;
         if (!navigator.onLine) {
             toast.error(t('settings.internet_required_save', 'Internet connection required to save changes'));
             return;
@@ -742,7 +742,7 @@ export function SettingsModal() {
                                                 <Label className="text-xs font-bold text-neutral/40 ">{t('registration.business_name', 'Business Name')}</Label>
                                                 {isEditingOrganization ? (
                                                     <Input
-                                                        value={organizationDraft.business_name || currentOrganization?.name}
+                                                        value={organizationDraft.business_name}
                                                         onChange={(e) => setOrganizationDraft((p) => ({ ...p, business_name: e.target.value }))}
                                                         className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium"
                                                     />

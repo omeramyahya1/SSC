@@ -94,7 +94,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
                 <DialogTitle className="text-2xl font-bold">{t('dashboard.create_project_title', 'Create a New Project')}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-6 py-4">
-                { customers.length !== 0 && (<div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
                     <Label htmlFor="use-existing-customer" className="font-semibold">
                         {t('dashboard.use_existing_customer', 'Choose from existing customer?')}
                     </Label>
@@ -108,7 +108,7 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
                             }
                         }}
                     />
-                </div>)}
+                </div>
 
                 {useExistingCustomer && (
                     <div className="grid gap-2">

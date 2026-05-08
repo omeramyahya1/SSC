@@ -227,6 +227,8 @@ class BLE:
             self.num_batteries_parallel = math.ceil(self.battery_capacity_ah / c_battery_rated)
             self.num_batteries_series = math.ceil(self.system_voltage / v_battery_rated)
             self.total_num_batteries = self.num_batteries_parallel * self.num_batteries_series
+        else:
+            self.battery_capacity_ah = 0.0
 
     def _calculate_temp_derating_factor(self):
         if not self.settings['calculate_temp_derating']: self.temp_derating_factor = 1.0; return
@@ -247,7 +249,7 @@ class BLE:
             eta_sys_losses = self.settings['system_losses']
             self._calculate_temp_derating_factor()
             f_temp = self.temp_derating_factor if self.temp_derating_factor != 0 else 1.0
-            
+
             # Required PV watts considering losses and temperature
             required_pv_watts = (self.total_peak_power / (eta_sys_losses * f_temp)) * 1.2
             p_panel_rated = self.settings.get('panel_rated_power', 400)

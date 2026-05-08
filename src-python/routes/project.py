@@ -25,8 +25,6 @@ def create_project_with_customer():
         except ValidationError as e:
             return jsonify({"errors": e.errors()}), 400
 
-        print(data)
-
         try:
 
             if not data.customer_uuid:
@@ -44,7 +42,16 @@ def create_project_with_customer():
                 db.flush()
 
             else:
-                customer = db.query(Customer).filter(Customer.uuid == data.customer_uuid).first()
+                customer_q = db.query(Customer).filter(Customer.uuid == data.customer_uuid)
+                if current_user.organization_uuid:
+                    customer_q = customer_q.filter(
+                        Customer.organization_uuid == current_user.organization_uuid
+                    )
+                else:
+                    customer_q = customer_q.filter(Customer.user_uuid == current_user.uuid)
+                customer = customer_q.first()
+                if not customer:
+                    return jsonify({"error": "Customer not found or not accessible"}), 404
 
             # 2. Create Project and link to Customer
             new_project = Project(

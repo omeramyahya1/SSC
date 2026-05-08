@@ -35,20 +35,20 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
         e.preventDefault();
         if (!formData.full_name) return;
 
-        if (currentUser?.branch_uuid && currentUser?.organization_uuid) {
-            formData['organization_uuid'] = currentUser.organization_uuid;
-            formData['branch_uuid'] = currentUser.branch_uuid;
-        }
-
         setIsSubmitting(true);
         try {
-            const result = await createCustomer(formData);
-            if (result) {
-                toast.success(t('customers.add_success', 'Customer added successfully'));
-                onOpenChange(false);
-            } else {
-                toast.error(t('customers.add_error', 'Failed to add customer'));
-            }
+                const payload: NewCustomerData = {
+                    ...formData,
+                    organization_uuid: currentUser?.organization_uuid ?? formData.organization_uuid ?? null,
+                    branch_uuid: currentUser?.branch_uuid ?? null,
+                };
+                const result = await createCustomer(payload);
+                if (result) {
+                    toast.success(t('customers.add_success', 'Customer added successfully'));
+                    onOpenChange(false);
+                } else {
+                    toast.error(t('customers.add_error', 'Failed to add customer'));
+                }
         } catch {
             toast.error(t('customers.add_error', 'Failed to add customer'));
         } finally {

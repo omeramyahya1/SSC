@@ -140,7 +140,7 @@ def main() -> int:
     unused_in_code_en = sorted(k for k in en_keys if k not in t_keys)
     unused_in_code_ar = sorted(k for k in ar_keys if k not in t_keys)
 
-    print(f"t() keys found in src/pages: {len(t_keys)}")
+    print(f"t() keys found in src: {len(t_keys)}")
     print(f"EN translation keys: {len(en_keys)}")
     print(f"AR translation keys: {len(ar_keys)}")
     print()

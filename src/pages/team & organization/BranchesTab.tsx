@@ -35,13 +35,14 @@ export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranc
         });
     }, [branches, searchQuery]);
 
-    const formatProjectLocation = (location: string | null) => {
+    const formatBranchLocation = (location: string | null) => {
         if (!location) return '';
         const [city, state] = location.split(',').map(s => s.trim());
         const locationData = getClimateDataForCity(city, state);
 
         if (i18n.language === 'ar' && locationData) {
-            return `${locationData.city_ar}, ${locationData.state_ar}`;
+            const arParts = [locationData.city_ar, locationData.state_ar].filter(Boolean);
+            if (arParts.length > 0) return arParts.join(', ');
         }
 
         return [city, state].filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
@@ -91,7 +92,7 @@ export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranc
                                     </h3>
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         <img src="/eva-icons (2)/outline/pin.png" alt="location" className="w-4 h-4 opacity-60" />
-                                        <span>{formatProjectLocation(branch.location ?? null) || t('common.no_location', 'No location')}</span>
+                                        <span>{formatBranchLocation(branch.location ?? null) || t('common.no_location', 'No location')}</span>
                                     </div>
                                 </div>
 
