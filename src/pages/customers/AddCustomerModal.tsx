@@ -56,9 +56,7 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
             <form onSubmit={handleSubmit} noValidate>
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold">{t('customers.add_customer_title', 'Add New Customer')}</DialogTitle>
-                    <DialogDescription>
-                        {t('customers.add_customer_desc', 'Fill in the details to register a new customer.')}
-                    </DialogDescription>
+
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">

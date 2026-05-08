@@ -107,7 +107,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
 
                 <div className="grid gap-4 py-6 space-y-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="username" className="font-semibold">{t('common.username', 'Username')} *</Label>
+                        <Label htmlFor="username" className="font-semibold">{t('common.username', 'Username')} <span className="text-red-500">*</span></Label>
                         <Input
                             id="username"
                             value={formData.username}
@@ -117,7 +117,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="email" className="font-semibold">{t('common.email', 'Email')} *</Label>
+                        <Label htmlFor="email" className="font-semibold">{t('common.email', 'Email')} <span className="text-red-500">*</span></Label>
                         <Input
                             id="email"
                             type="email"

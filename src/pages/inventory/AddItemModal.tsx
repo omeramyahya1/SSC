@@ -132,14 +132,13 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
         <DialogContent className="sm:max-w-[600px] bg-white max-h-[90vh] overflow-y-auto" dir={i18n.dir()}>
             <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">{t('inventory.add_item_title', 'Add New Inventory Item')}</DialogTitle>
-                <DialogDescription>
-                </DialogDescription>
+
             </DialogHeader>
 
             <div className="grid gap-6 py-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="category" className="font-semibold">{t('inventory.col.category', 'Category')} *</Label>
+                        <Label htmlFor="category" className="font-semibold">{t('inventory.col.category', 'Category')} <span className="text-red-500">*</span></Label>
                         <Select onValueChange={handleCategoryChange} value={formData.category_uuid} dir={i18n.dir()}>
                             <SelectTrigger id="category">
                                 <SelectValue placeholder={t('inventory.select_category_ph', 'Select category')} />
@@ -152,7 +151,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                         </Select>
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="sku" className="font-semibold">{t('inventory.col.sku', 'SKU')} *</Label>
+                        <Label htmlFor="sku" className="font-semibold">{t('inventory.col.sku', 'SKU')} <span className="text-red-500">*</span></Label>
                         <div className="flex gap-2">
                             <Input
                                 id="sku"
@@ -174,7 +173,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="name" className="font-semibold">{t('inventory.col.name', 'Item Name')} *</Label>
+                    <Label htmlFor="name" className="font-semibold">{t('inventory.col.name', 'Item Name')} <span className="text-red-500">*</span></Label>
                     <Input
                         id="name"
                         value={formData.name}
@@ -307,7 +306,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="buy_price" className="font-semibold">{t('inventory.col.buy_price', 'Buy Price')} *</Label>
+                        <Label htmlFor="buy_price" className="font-semibold">{t('inventory.col.buy_price', 'Buy Price')} <span className="text-red-500">*</span></Label>
                         <Input
                             id="buy_price"
                             type="number"
@@ -317,7 +316,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="sell_price" className="font-semibold">{t('inventory.col.sell_price', 'Sell Price')} *</Label>
+                        <Label htmlFor="sell_price" className="font-semibold">{t('inventory.col.sell_price', 'Sell Price')} <span className="text-red-500">*</span></Label>
                         <Input
                             id="sell_price"
                             type="number"

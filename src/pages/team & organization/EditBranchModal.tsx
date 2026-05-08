@@ -73,14 +73,12 @@ export function EditBranchModal({ branch, onOpenChange }: EditBranchModalProps) 
             <form onSubmit={handleSubmit}>
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold">{t('team.edit_branch_title', 'Edit Branch')}</DialogTitle>
-                    <DialogDescription>
-                        {t('team.edit_branch_desc', 'Update branch name and location.')}
-                    </DialogDescription>
+
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4 space-y-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="edit_branch_name" className="font-semibold">{t('team.branch_name', 'Branch Name')} *</Label>
+                        <Label htmlFor="edit_branch_name" className="font-semibold">{t('team.branch_name', 'Branch Name')} <span className="text-red-500">*</span></Label>
                         <Input
                             id="edit_branch_name"
                             value={formData.name}

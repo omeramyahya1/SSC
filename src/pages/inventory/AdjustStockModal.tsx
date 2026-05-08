@@ -49,7 +49,7 @@ export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) 
 
     return (
         <DialogContent className="sm:max-w-[425px] bg-white" dir={i18n.dir()}>
-            <DialogHeader>
+            <DialogHeader className='gap-3'>
                 <DialogTitle>{t('inventory.adjust_stock_title', 'Adjust Stock')}</DialogTitle>
                 <DialogDescription>
                     {item.name} ({item.sku})

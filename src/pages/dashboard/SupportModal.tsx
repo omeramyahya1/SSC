@@ -235,7 +235,7 @@ export function SupportModal() {
                                         placeholder={t('support.subject_placeholder', 'How can we help?')}
                                         value={subject}
                                         onChange={(e) => setSubject(e.target.value)}
-                                        className="bg-gray-50 border-none rounded-xl h-12 font-medium"
+                                        className="bg-gray-50 border rounded-xl h-12 font-medium"
                                     />
                                 </div>
 
@@ -247,7 +247,7 @@ export function SupportModal() {
                                         placeholder={t('support.message_placeholder', 'Describe your issue in detail...')}
                                         value={body}
                                         onChange={(e) => setBody(e.target.value)}
-                                        className="bg-gray-50 border-none rounded-2xl min-h-[150px] font-medium resize-none p-4"
+                                        className="bg-gray-50 border rounded-2xl min-h-[150px] font-medium resize-none p-4"
                                     />
                                 </div>
 

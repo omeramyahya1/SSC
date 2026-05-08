@@ -64,7 +64,7 @@ export function AddBranchModal({ onOpenChange, organizationUuid }: AddBranchModa
 
                 <div className="grid gap-4 py-8 space-y-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="branch_name" className="font-semibold">{t('team.branch_name', 'Branch Name')} *</Label>
+                        <Label htmlFor="branch_name" className="font-semibold">{t('team.branch_name', 'Branch Name')} <span className="text-red-500">*</span></Label>
                         <Input
                             id="branch_name"
                             value={formData.name}

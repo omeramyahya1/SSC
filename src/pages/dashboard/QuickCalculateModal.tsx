@@ -684,7 +684,7 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                             <Table dir={i18n.dir()} className='overflow-x-scroll'>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[150px] font-bold">{t('project_modal.appliance', 'Appliance')}</TableHead>
+                                        <TableHead className="w-[150px] text-start font-bold">{t('project_modal.appliance', 'Appliance')}</TableHead>
                                         <TableHead className="w-[100px] text-center font-bold">{t('project_modal.wattage', 'Wattage (W)')}</TableHead>
                                         <TableHead className="w-[80px] text-center font-bold">{t('project_modal.qty', 'Qty')}</TableHead>
                                         <TableHead className="w-[100px] text-center font-bold">{t('project_modal.use_hours_night', 'Night/Battery Hrs')}</TableHead>

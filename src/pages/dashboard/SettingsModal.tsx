@@ -381,7 +381,13 @@ export function SettingsModal() {
             setConfirmPassword("");
             toast.success(t('settings.password_updated', 'Password updated successfully'));
         } catch (e: any) {
-            toast.error(e?.message || t('settings.update_failed', 'Failed to update settings'));
+            // 1. Check if the specific error string exists
+            const errorMessage = e?.message?.includes("is incorrect")
+                ? t('settings.incorrect_password', 'The current password you entered is incorrect')
+                : (e?.message || t('settings.update_failed', 'Failed to update settings'));
+
+            // 2. Trigger the toast
+            toast.error(errorMessage);
         }
     };
 

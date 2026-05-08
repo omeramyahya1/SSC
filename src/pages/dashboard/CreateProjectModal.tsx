@@ -92,8 +92,6 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
         <DialogContent className="sm:max-w-[525px] bg-white" dir={i18n.dir()}>
             <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">{t('dashboard.create_project_title', 'Create a New Project')}</DialogTitle>
-                <DialogDescription>
-                </DialogDescription>
             </DialogHeader>
             <div className="grid gap-6 py-4">
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">

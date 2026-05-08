@@ -171,7 +171,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
 
                     <div className="flex items-center gap-2">
                          <Select value={statusFilter} onValueChange={setStatusFilter} dir={i18n.dir()}>
-                            <SelectTrigger className={`w-[140px] h-10 rounded-xl ${statusFilter === 'all'? 'bg-white' : 'bg-primary text-white'}`}>
+                            <SelectTrigger className={`w-fit h-10 rounded-xl ${statusFilter === 'all'? 'bg-white' : 'bg-primary text-white'}`}>
                                 <SelectValue placeholder={t('finances.filter_status', 'Status')} />
                             </SelectTrigger>
                             <SelectContent className="bg-white">
@@ -184,7 +184,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                         </Select>
 
                         <Select value={sortBy} onValueChange={setSortBy} dir={i18n.dir()}>
-                            <SelectTrigger className={`w-[140px] h-10 rounded-xl ${sortBy === 'date-desc'? 'bg-white' : 'bg-primary text-white'}`}>
+                            <SelectTrigger className={`w-fit h-10 rounded-xl ${sortBy === 'date-desc'? 'bg-white' : 'bg-primary text-white'}`}>
                                 <ArrowUpDown className="h-4 w-4 me-2 opacity-60" />
                                 <SelectValue placeholder={t('common.sort_by', 'Sort By')} />
                             </SelectTrigger>
