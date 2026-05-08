@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { HoldToConfirmButton } from "@/components/ui/HoldToConfirmButton";
 import {
@@ -166,6 +166,7 @@ export function SettingsModal() {
     const [organizationDraft, setOrganizationDraft] = useState({
         business_name: currentUser?.business_name || "",
     });
+  const { currentOrganization } = useOrganizationStore();
 
     // Security: email state
     const [newEmail, setNewEmail] = useState("");
@@ -244,7 +245,7 @@ export function SettingsModal() {
     }, [fetchSystemInfo]);
 
     const handleSavePersonalProfile = async () => {
-        if (!currentUser) return;
+        if (!currentUser) return;currentOrganization
         if (!navigator.onLine) {
             toast.error(t('settings.internet_required_save', 'Internet connection required to save changes'));
             return;
@@ -545,7 +546,6 @@ export function SettingsModal() {
                                 <div className="flex items-center gap-6 pb-4">
                                     <div className="relative group">
                                         <Avatar className="w-24 h-24 border-2 border-primary shadow-xl">
-                                            <AvatarImage src={currentUser?.business_logo} />
                                             <AvatarFallback className="bg-primary/10 text-primary text-3xl font-black">
                                                 {currentUser?.username?.charAt(0).toUpperCase()}
                                             </AvatarFallback>
@@ -553,9 +553,8 @@ export function SettingsModal() {
                                     </div>
                                     <div>
                                         <h3 className="text-xl font-black text-neutral/80">{currentUser?.username}</h3>
-                                        <p className="text-sm font-bold text-neutral/40 uppercase">
-                                            {currentUser?.account_type} {t('registration.emp_short', 'Account')}
-                                            {isEnterprise ? ` • ${currentUser?.role}` : ''}
+                                        <p className="text-sm font-bold text-neutral/40 ">
+                                            {t(`registration.type.${currentUser?.account_type}`, `Account Type`)} {isEnterprise ? ` | ${t(`team.role.${currentUser?.role}`, 'Role')}` : ''}
                                         </p>
                                     </div>
                                 </div>
@@ -611,12 +610,12 @@ export function SettingsModal() {
                                             );
                                         })()}
 
-                                        <h4 className="text-sm font-black text-neutral/80 uppercase tracking-wider">
+                                        <h4 className="text-sm font-black text-neutral/80  text-primary">
                                             {t('settings.personal_profile', 'Personal Profile')}
                                         </h4>
                                         <div className="mt-4 flex flex-col md:grid-cols-2 gap-6">
                                             <div className="space-y-2">
-                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.username', 'Username')}</Label>
+                                                <Label className="text-xs font-bold text-neutral/40 ">{t('registration.username', 'Username')}</Label>
                                                 {isEditingPersonal ? (
                                                     <>
                                                         <Input
@@ -646,7 +645,7 @@ export function SettingsModal() {
 
                                             <div className="flex flex-row gap-6">
                                                 <div className="space-y-2 w-1/2">
-                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.state', 'State')}</Label>
+                                                <Label className="text-xs font-bold text-neutral/40 ">{t('registration.state', 'State')}</Label>
                                                 {isEditingPersonal ? (
                                                     <SearchableSelect
                                                         items={uniqueStates.map(s => ({ value: s.value, label: i18n.language === 'ar' ? s.label_ar : s.label_en }))}
@@ -659,14 +658,14 @@ export function SettingsModal() {
                                                     <p className="h-12 flex items-center font-bold text-neutral/80">{currentUser?.location?.split(', ')[1] || "—"}</p>
                                                 )}
                                                 {isEmployee && (
-                                                    <p className="text-[10px] text-semantic-warning font-bold uppercase">
+                                                    <p className="text-[10px] text-semantic-warning font-bold ">
                                                         {t('settings.employee_location_locked', 'Employees cannot edit location')}
                                                     </p>
                                                 )}
                                             </div>
 
                                             <div className="space-y-2 w-1/2">
-                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.city', 'City')}</Label>
+                                                <Label className="text-xs font-bold text-neutral/40 ">{t('registration.city', 'City')}</Label>
                                                 {isEditingPersonal ? (
                                                     <SearchableSelect
                                                         items={cities.map(c => ({ value: c.value, label: i18n.language === 'ar' ? c.label_ar : c.label_en }))}
@@ -735,23 +734,23 @@ export function SettingsModal() {
                                             );
                                         })()}
 
-                                        <h4 className="text-sm font-black text-neutral/80 uppercase tracking-wider">
+                                        <h4 className="text-sm font-black text-neutral/80  text-primary">
                                             {t('settings.organization_profile', 'Organization Profile')}
                                         </h4>
-                                        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="mt-4">
                                             <div className="space-y-2">
-                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.business_name', 'Business Name')}</Label>
+                                                <Label className="text-xs font-bold text-neutral/40 ">{t('registration.business_name', 'Business Name')}</Label>
                                                 {isEditingOrganization ? (
                                                     <Input
-                                                        value={organizationDraft.business_name}
+                                                        value={organizationDraft.business_name || currentOrganization?.name}
                                                         onChange={(e) => setOrganizationDraft((p) => ({ ...p, business_name: e.target.value }))}
                                                         className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium"
                                                     />
                                                 ) : (
-                                                    <p className="h-12 flex items-center font-bold text-neutral/80">{currentUser?.business_name || "—"}</p>
+                                                    <p className="h-12 w-fit flex items-center font-bold text-neutral/80">{ isEnterprise ? currentOrganization?.name : currentUser?.business_name || "—"}</p>
                                                 )}
                                                 {isEnterprise && isEmployee && (
-                                                    <p className="text-[10px] text-neutral/40 font-bold uppercase">
+                                                    <p className="text-[10px] text-neutral/40 font-bold ">
                                                         {t('settings.employee_org_locked', 'Only admins can edit organization profile')}
                                                     </p>
                                                 )}
@@ -763,10 +762,10 @@ export function SettingsModal() {
 
                             <TabsContent value="security" className="m-0 space-y-6">
                                 <div className="space-y-4">
-                                    <h4 className="text-sm font-black text-neutral/80 uppercase tracking-wider">{t('settings.change_password', 'Change Password')}</h4>
+                                    <h4 className="text-sm font-black text-neutral/80  text-primary">{t('settings.change_password', 'Change Password')}</h4>
                                     <div className="space-y-4 max-w-sm">
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-bold text-neutral/40 uppercase">{t('auth.current_password', 'Current Password')}</Label>
+                                            <Label className="text-xs font-bold text-neutral/40 ">{t('auth.current_password', 'Current Password')}</Label>
                                             <div className="relative">
                                                 <Input type={showPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium" />
                                                 <button
@@ -783,7 +782,7 @@ export function SettingsModal() {
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-bold text-neutral/40 uppercase">{t('auth.new_password', 'New Password')}</Label>
+                                            <Label className="text-xs font-bold text-neutral/40 ">{t('auth.new_password', 'New Password')}</Label>
                                             <div className="relative">
                                                 <Input type={showPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium" />
                                                 <button
@@ -805,7 +804,7 @@ export function SettingsModal() {
                                             )}
                                         </div>
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.confirm_password', 'Confirm Password')}</Label>
+                                            <Label className="text-xs font-bold text-neutral/40 ">{t('registration.confirm_password', 'Confirm Password')}</Label>
                                             <div className="relative">
                                                 <Input type={showPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium" />
                                                 <button
@@ -839,10 +838,10 @@ export function SettingsModal() {
                                 <Separator />
 
                                 <div className="space-y-4">
-                                    <h4 className="text-sm font-black text-neutral/80 uppercase tracking-wider">{t('settings.change_email', 'Change Email')}</h4>
+                                    <h4 className="text-sm font-black text-neutral/80  text-primary">{t('settings.change_email', 'Change Email')}</h4>
                                     <div className="space-y-4 max-w-sm">
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.email', 'Email')}</Label>
+                                            <Label className="text-xs font-bold text-neutral/40 ">{t('registration.email', 'Email')}</Label>
                                             <div className="relative">
                                                 <Input
                                                     type="email"
@@ -878,7 +877,7 @@ export function SettingsModal() {
                                     <>
                                         <Separator />
                                         <div className="space-y-4">
-                                            <h4 className="text-sm font-black text-red-500 uppercase tracking-wider">{t('settings.danger_zone', 'Danger Zone')}</h4>
+                                            <h4 className="text-sm font-black text-red-500  text-primary">{t('settings.danger_zone', 'Danger Zone')}</h4>
                                             <div className="p-6 border border-red-100 bg-red-50/30 rounded-2xl space-y-4">
                                                 <div className="flex items-start justify-between gap-6">
                                                     <div className="space-y-0.5">
@@ -888,7 +887,7 @@ export function SettingsModal() {
 
                                                 <div className="space-y-3 max-w-sm">
                                                     <div className="space-y-2">
-                                                        <Label className="text-xs font-bold text-neutral/40 uppercase">
+                                                        <Label className="text-xs font-bold text-neutral/40 ">
                                                             {t('registration.password', 'Password')}
                                                         </Label>
                                                         <Input
@@ -959,26 +958,26 @@ export function SettingsModal() {
                             <TabsContent value="system" className="m-0 space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
-                                        <p className="text-xs font-bold text-neutral/40 uppercase">{t('settings.app_version', 'App Version')}</p>
+                                        <p className="text-xs font-bold text-neutral/40 ">{t('settings.app_version', 'App Version')}</p>
                                         <p className="text-2xl font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : (systemInfo?.app_version || "—")}
                                         </p>
                                     </Card>
                                     <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
-                                        <p className="text-xs font-bold text-neutral/40 uppercase">{t('settings.db_size', 'Local DB Size')}</p>
+                                        <p className="text-xs font-bold text-neutral/40 ">{t('settings.db_size', 'Local DB Size')}</p>
                                         <p className="text-2xl font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : formatBytes(systemInfo?.local_db_size_bytes ?? 0)}
                                         </p>
                                     </Card>
                                     <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
-                                        <p className="text-xs font-bold text-neutral/40 uppercase">{t('settings.last_sync', 'Last Sync')}</p>
+                                        <p className="text-xs font-bold text-neutral/40 ">{t('settings.last_sync', 'Last Sync')}</p>
                                         <p className="text-lg font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : formatRelativeTime(systemInfo?.last_sync_utc ?? null)}
                                         </p>
                                     </Card>
                                 </div>
                                 <div className="space-y-2 w-1/2">
-                                                <Label className="text-xs font-bold text-neutral/40 uppercase">{t('registration.language.placeholder', 'Language')}</Label>
+                                                <Label className="text-xs font-bold text-neutral/40 ">{t('registration.language.placeholder', 'Language')}</Label>
                                                 <Select onValueChange={handleLanguageChange} defaultValue={i18n.language} dir={i18n.dir()}>
                                                     <SelectTrigger className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium">
                                                         <SelectValue placeholder={t('settings.select_language_placeholder', 'Select language')} />
