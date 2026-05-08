@@ -105,8 +105,9 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
             })
 
     # 2. Battery Selection
+    battery_qty = int(safe_float(battery_req.get("quantity"), 0.0))
     battery_cat_uuid = get_category_uuid(db, "batteries", scope)
-    if battery_cat_uuid:
+    if battery_qty > 0 and battery_cat_uuid:
         batteries = _apply_item_scope(db.query(InventoryItem), scope).filter(
             InventoryItem.category_uuid == battery_cat_uuid,
             InventoryItem.quantity_on_hand > 0,

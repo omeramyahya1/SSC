@@ -4,6 +4,8 @@ import * as React from "react"
 import * as ProgressPrimitive from "@radix-ui/react-progress"
 
 import { cn } from "@/lib/utils"
+import { dir } from "i18next"
+import i18n from "@/i18"
 
 const Progress = React.forwardRef<
   React.ElementRef<typeof ProgressPrimitive.Root>,
@@ -13,6 +15,7 @@ const Progress = React.forwardRef<
     ref={ref}
     className={cn(
       "relative h-2 w-full overflow-hidden rounded-full bg-primary/20",
+      i18n.dir() == 'rtl' && 'rotate-180',
       className
     )}
     {...props}

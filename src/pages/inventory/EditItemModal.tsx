@@ -69,7 +69,7 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
         <DialogContent className="sm:max-w-[600px] bg-white max-h-[90vh] overflow-y-auto" dir={i18n.dir()}>
             <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">{t('inventory.edit_item_title', 'Edit Inventory Item')}</DialogTitle>
-                <DialogDescription></DialogDescription>
+
             </DialogHeader>
             <div className="grid gap-6 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -90,7 +90,7 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="edit-name" className="font-semibold">{t('inventory.col.name', 'Item Name')} *</Label>
+                    <Label htmlFor="edit-name" className="font-semibold">{t('inventory.col.name', 'Item Name')} <span className="text-red-500">*</span></Label>
                     <Input
                         id="edit-name"
                         value={formData.name}
@@ -166,7 +166,7 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="edit-buy_price" className="font-semibold">{t('inventory.col.buy_price', 'Buy Price')} *</Label>
+                        <Label htmlFor="edit-buy_price" className="font-semibold">{t('inventory.col.buy_price', 'Buy Price')} <span className="text-red-500">*</span></Label>
                         <Input
                             id="edit-buy_price"
                             type="number"
@@ -176,7 +176,7 @@ export function EditItemModal({ item, onOpenChange }: EditItemModalProps) {
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="edit-sell_price" className="font-semibold">{t('inventory.col.sell_price', 'Sell Price')} *</Label>
+                        <Label htmlFor="edit-sell_price" className="font-semibold">{t('inventory.col.sell_price', 'Sell Price')} <span className="text-red-500">*</span></Label>
                         <Input
                             id="edit-sell_price"
                             type="number"

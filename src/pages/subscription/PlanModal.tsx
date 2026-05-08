@@ -494,7 +494,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                             >
                                 <CardHeader className="p-4 flex flex-row items-center justify-between space-y-0">
                                     <div>
-                                        <CardTitle className="text-lg font-black">{t(`registration.plans.${plan.toLowerCase()}`, plan)}</CardTitle>
+                                        <CardTitle className="text-lg text-start font-black">{t(`registration.plans.${plan.toLowerCase()}`, plan)}</CardTitle>
                                         <CardDescription className="text-xs">
                                             {isEnterprise ? t('registration.plans.tier1_desc', 'Flexible for small to medium teams') : ''}
                                         </CardDescription>

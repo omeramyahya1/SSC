@@ -12,7 +12,7 @@ export type RegistrationState = {
     accountType: 'Standard' | 'Enterprise' | '';
   };
   stage3: {
-    plan: 'Monthly' | 'Annual' | 'Lifetime' | 'Tier1' | 'Tier2' | 'Free Trial' | '';
+    plan: 'Monthly' | 'Annual' | 'Lifetime' | 'Tier1' | 'Tier2' | 'Free Trial' | 'free_trial' |'';
     employees: number; // For Enterprise Tier 1
     tier1Duration: 'Monthly' | 'Annual' | 'Lifetime' | 'Free Trial'; // For Enterprise Tier 1 duration
   };
@@ -37,7 +37,7 @@ export type RegistrationState = {
     distributorId: string | null;
     discountPercent: number | null;
     referralStatus: 'idle' | 'checking' | 'valid' | 'invalid';
-    confirmedTransfer: boolean; 
+    confirmedTransfer: boolean;
   };
   stage7: {
     referenceNumber: string;
@@ -66,7 +66,7 @@ type RegistrationStore = {
   formData: RegistrationState;
   subscriptionConfig: SubscriptionConfig;
   calculatedPrice: number;
-  
+
   // Actions
   updateFormData: <S extends keyof RegistrationState>(stage: S, data: Partial<RegistrationState[S]>) => void;
   fetchSubscriptionConfig: () => Promise<void>;
@@ -114,7 +114,7 @@ export const useRegistrationStore = create<RegistrationStore>((set, get) => ({
   calculatePrice: () => {
     const { formData, subscriptionConfig } = get();
     const { stage2, stage3, stage6 } = formData;
-    
+
     // No free trial for enterprise
     if (stage2.accountType === 'Enterprise' && stage3.tier1Duration === 'Free Trial') {
         set({ calculatedPrice: 0 });
@@ -129,7 +129,7 @@ export const useRegistrationStore = create<RegistrationStore>((set, get) => ({
 
     let base = 0;
     let employeeCost = 0;
-    
+
     if (stage2.accountType === 'Standard') {
         if (stage3.plan === 'Monthly') base = 5000;
         if (stage3.plan === 'Annual') base = 50000;
@@ -147,14 +147,14 @@ export const useRegistrationStore = create<RegistrationStore>((set, get) => ({
     }
 
     let total = base + employeeCost;
-    
+
     let discount = 0;
     if (stage6.discountApplied) {
         discount = 0.1;
     }
 
     total = total * (1 - discount);
-    
+
     set({ calculatedPrice: Math.round(total) });
   },
 

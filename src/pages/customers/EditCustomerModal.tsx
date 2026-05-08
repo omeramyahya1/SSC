@@ -57,9 +57,7 @@ export function EditCustomerModal({ customer, onOpenChange }: EditCustomerModalP
             <form onSubmit={handleSubmit}>
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold">{t('customers.edit_customer_title', 'Edit Customer')}</DialogTitle>
-                    <DialogDescription>
-                        {t('customers.edit_customer_desc', 'Update the details for this customer.')}
-                    </DialogDescription>
+
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">
@@ -100,7 +98,7 @@ export function EditCustomerModal({ customer, onOpenChange }: EditCustomerModalP
                     </div>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className='gap-4'>
                     <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                         {t('common.cancel', 'Cancel')}
                     </Button>

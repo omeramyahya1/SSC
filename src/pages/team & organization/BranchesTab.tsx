@@ -10,6 +10,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Branch } from '@/store/useBranchStore';
+import { useLocationData } from '@/hooks/useLocationData';
 
 interface BranchesTabProps {
     branches: Branch[];
@@ -22,6 +23,7 @@ interface BranchesTabProps {
 export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranch }: BranchesTabProps) {
     const { t, i18n } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
+    const { getClimateDataForCity } = useLocationData();
 
     const filteredBranches = useMemo(() => {
         return branches.filter(branch => {
@@ -32,6 +34,19 @@ export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranc
             );
         });
     }, [branches, searchQuery]);
+
+    const formatBranchLocation = (location: string | null) => {
+        if (!location) return '';
+        const [city, state] = location.split(',').map(s => s.trim());
+        const locationData = getClimateDataForCity(city, state);
+
+        if (i18n.language === 'ar' && locationData) {
+            const arParts = [locationData.city_ar, locationData.state_ar].filter(Boolean);
+            if (arParts.length > 0) return arParts.join(', ');
+        }
+
+        return [city, state].filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
+    };
 
     return (
         <div className="space-y-4" dir={i18n.dir()}>
@@ -77,7 +92,7 @@ export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranc
                                     </h3>
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         <img src="/eva-icons (2)/outline/pin.png" alt="location" className="w-4 h-4 opacity-60" />
-                                        <span>{branch.location || t('common.no_location', 'No location')}</span>
+                                        <span>{formatBranchLocation(branch.location ?? null) || t('common.no_location', 'No location')}</span>
                                     </div>
                                 </div>
 

@@ -80,9 +80,7 @@ export function CreateIndependentInvoiceModal({ onOpenChange, onSubmit }: Create
                 <DialogTitle className="text-2xl font-bold">
                     {t('finances.create_independent_invoice', 'Create New Invoice')}
                 </DialogTitle>
-                <DialogDescription>
-                    {t('finances.create_invoice_desc', 'Enter customer details to start a new standalone invoice.')}
-                </DialogDescription>
+
             </DialogHeader>
 
             <div className="grid gap-6 py-4">

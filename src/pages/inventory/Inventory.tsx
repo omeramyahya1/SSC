@@ -44,6 +44,7 @@ export default function Inventory() {
     }, [fetchItems, fetchCategories]);
 
     const filteredAndSortedItems = useMemo(() => {
+        if (!items || isLoading) return [];
         const filtered = items.filter(item => {
             const q = searchQuery.toLowerCase();
             const matchesSearch =
@@ -87,10 +88,12 @@ export default function Inventory() {
     };
 
     const renderContent = () => {
-        if (isLoading && items.length === 0) {
+        // 1. Critical: Always show loading state if isLoading is true
+        if (isLoading) {
             return (
-                <div className="flex justify-center items-center h-64">
-                    <Spinner className="w-12 h-12" />
+                <div className="flex flex-col justify-center items-center h-64 bg-white rounded-xl border border-dashed border-gray-200">
+                    <Spinner className="w-10 h-10 text-primary" />
+                    <p className="text-sm text-muted-foreground mt-2">{t('common.loading', 'Loading...')}</p>
                 </div>
             );
         }
@@ -102,6 +105,15 @@ export default function Inventory() {
                         <AlertTitle>{t('inventory.error_title', 'Failed to Load Inventory')}</AlertTitle>
                         <AlertDescription>{error}</AlertDescription>
                     </Alert>
+                </div>
+            );
+        }
+
+        // 2. Empty State (Add this for better UX)
+        if (filteredAndSortedItems.length === 0) {
+            return (
+                <div className="flex flex-col justify-center items-center h-64 bg-white rounded-xl border">
+                    <p className="text-gray-400">{t('inventory.no_items', 'No items found')}</p>
                 </div>
             );
         }
@@ -148,7 +160,7 @@ export default function Inventory() {
                     </div>
 
                     <div className='flex flex-row justify-between'>
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap w-full items-center gap-3">
                         {/* Search */}
                         <div className="relative flex-grow max-w-md">
                             <img src="/eva-icons (2)/outline/search.png" alt="search" className="w-5 h-5 absolute ltr:left-3 rtl:right-3 top-1/2 -translate-y-1/2 text-muted-foreground opacity-60" />

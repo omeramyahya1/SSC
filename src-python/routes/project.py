@@ -26,22 +26,36 @@ def create_project_with_customer():
             return jsonify({"errors": e.errors()}), 400
 
         try:
-            # 1. Create Customer
-            new_customer = Customer(
-                full_name=data.customer_name,
-                phone_number=data.phone_number,
-                email=data.email,
-                user_uuid=current_user.uuid,
-                organization_uuid=current_user.organization_uuid,
-                branch_uuid=current_user.branch_uuid,
-                is_dirty=True
-            )
-            db.add(new_customer)
-            db.flush()
+
+            if not data.customer_uuid:
+                # 1. Create Customer
+                customer = Customer(
+                    full_name=data.customer_name,
+                    phone_number=data.phone_number,
+                    email=data.email,
+                    user_uuid=current_user.uuid,
+                    organization_uuid=current_user.organization_uuid,
+                    branch_uuid=current_user.branch_uuid,
+                    is_dirty=True
+                )
+                db.add(customer)
+                db.flush()
+
+            else:
+                customer_q = db.query(Customer).filter(Customer.uuid == data.customer_uuid)
+                if current_user.organization_uuid:
+                    customer_q = customer_q.filter(
+                        Customer.organization_uuid == current_user.organization_uuid
+                    )
+                else:
+                    customer_q = customer_q.filter(Customer.user_uuid == current_user.uuid)
+                customer = customer_q.first()
+                if not customer:
+                    return jsonify({"error": "Customer not found or not accessible"}), 404
 
             # 2. Create Project and link to Customer
             new_project = Project(
-                customer_uuid=new_customer.uuid,
+                customer_uuid=customer.uuid,
                 status='planning',
                 project_location=data.project_location,
                 user_uuid=current_user.uuid,
@@ -161,8 +175,7 @@ def get_all_project():
             db.query(Project)
             .options(joinedload(Project.customer))
             .filter(
-                Project.user_uuid == auth_record.user_uuid,
-                Project.deleted_at.is_(None),
+                Project.user_uuid == auth_record.user_uuid
             )
             .order_by(Project.created_at.desc())
             .all()

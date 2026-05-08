@@ -103,7 +103,7 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
                             </Button>
                         </div>
                     ) : (
-                        <DropdownMenu>
+                        <DropdownMenu dir={i18n.dir()}>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
                                     <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />

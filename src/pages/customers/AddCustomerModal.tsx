@@ -37,13 +37,18 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
 
         setIsSubmitting(true);
         try {
-            const result = await createCustomer(formData);
-            if (result) {
-                toast.success(t('customers.add_success', 'Customer added successfully'));
-                onOpenChange(false);
-            } else {
-                toast.error(t('customers.add_error', 'Failed to add customer'));
-            }
+                const payload: NewCustomerData = {
+                    ...formData,
+                    organization_uuid: currentUser?.organization_uuid ?? formData.organization_uuid ?? null,
+                    branch_uuid: currentUser?.branch_uuid ?? null,
+                };
+                const result = await createCustomer(payload);
+                if (result) {
+                    toast.success(t('customers.add_success', 'Customer added successfully'));
+                    onOpenChange(false);
+                } else {
+                    toast.error(t('customers.add_error', 'Failed to add customer'));
+                }
         } catch {
             toast.error(t('customers.add_error', 'Failed to add customer'));
         } finally {
@@ -56,9 +61,7 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
             <form onSubmit={handleSubmit} noValidate>
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold">{t('customers.add_customer_title', 'Add New Customer')}</DialogTitle>
-                    <DialogDescription>
-                        {t('customers.add_customer_desc', 'Fill in the details to register a new customer.')}
-                    </DialogDescription>
+
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">

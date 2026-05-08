@@ -128,7 +128,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
 
                     <div className="flex items-center gap-2">
                         <Select value={methodFilter} onValueChange={setMethodFilter} dir={i18n.dir()}>
-                            <SelectTrigger className="w-[160px] bg-white h-10 rounded-xl">
+                            <SelectTrigger className={`w-fit bg-white h-10 rounded-xl ${methodFilter === 'all'? 'bg-white' : 'bg-primary text-white'}`}>
                                 <SelectValue placeholder={t('finances.filter_method', 'Payment Method')} />
                             </SelectTrigger>
                             <SelectContent className="bg-white">
@@ -140,7 +140,7 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                         </Select>
 
                         <Select value={sortBy} onValueChange={setSortBy} dir={i18n.dir()}>
-                            <SelectTrigger className="w-[160px] bg-white h-10 rounded-xl">
+                            <SelectTrigger className={`w-fit bg-white h-10 rounded-xl ${sortBy === 'date-desc'? 'bg-white' : 'bg-primary text-white'}`}>
                                 <ArrowUpDown className="h-4 w-4 me-2 opacity-60" />
                                 <SelectValue placeholder={t('common.sort_by', 'Sort By')} />
                             </SelectTrigger>

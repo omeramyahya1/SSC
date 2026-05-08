@@ -15,6 +15,7 @@ export interface Customer {
   phone_number?: string | null;
   email?: string | null;
   organization_uuid?: string | null;
+  branch_uuid?: string | null;
   user_uuid?: string | null;
   project_stats?: Record<string, number>;
   deleted_at?: string | null;

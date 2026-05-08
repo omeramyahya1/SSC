@@ -21,9 +21,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useLocationData } from '@/hooks/useLocationData';
 import { ProjectAppliance } from '@/store/useApplianceStore'; // Keep ProjectAppliance interface
-import { useBleStore, BleCalculationResults, BleSettingsPayload } from '@/store/useBleStore';
+import { useBleStore } from '@/store/useBleStore';
 import { cn } from "@/lib/utils";
-import { PlusIcon, MinusIcon, Calculator, AlertCircle } from 'lucide-react';
+import { PlusIcon, MinusIcon, Calculator, AlertCircle, Sliders, Sheet, Info, Sun, Zap, BatteryCharging } from 'lucide-react';
 import { QuickCalcConvertedData } from './CreateProjectModal'; // Import for type
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { toast } from 'react-hot-toast';
@@ -91,7 +91,7 @@ const DataRow = ({ label, value, unit = '', formatter }: { label: string; value:
             ) : (
                 <div className="flex justify-between">
                     <span className="text-sm font-semibold text-gray-800">{displayValue} {unit}</span>
-                    <span className="text-sm text-gray-500">{label}</span>
+                    <span className="text-sm text-gray-500 text-end">{label}</span>
                 </div>
 
             ) }
@@ -236,10 +236,67 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
         }
     };
 
+
+
+    const validateApplianceInput = (field: 'qty' | 'use_hours_night' | 'wattage', value: number): string | null => {
+        let error: string | null = null;
+        if (isNaN(value)) {
+            return t('common.invalid_number', 'Invalid number');
+        }
+
+        if (field === 'qty') {
+            if (value <= 0) {
+                error = t('common.must_be_positive_number', 'Must be a positive number');
+            } else if (!Number.isInteger(value)) {
+                error = t('common.must_be_whole_number', 'Must be a whole number');
+            }
+        } else if (field === 'use_hours_night') {
+            if (value < 0 || value > 24) {
+                 error = t('common.must_be_between_0_24', 'Must be between 0 and 24');
+            }
+        } else if (field === 'wattage') {
+            if (value <= 0) {
+                error = t('common.must_be_positive', 'Must be positive');
+            }
+        }
+        return error;
+    };
+
     const handleUpdateAppliance = (appliance_id: number, updates: Partial<ProjectAppliance>) => {
-        setAppliances(prev =>
-            prev.map(app => (app.appliance_id === appliance_id ? { ...app, ...updates } : app))
-        );
+        let hasError = false;
+        const newErrors = {...applianceInputErrors};
+
+        for (const key in updates) {
+            if (key === 'qty' || key === 'use_hours_night' || key === 'wattage') {
+                const value = updates[key] as number;
+                const error = validateApplianceInput(key as 'qty' | 'use_hours_night' | 'wattage', value);
+                if (error) {
+                    if (!newErrors[appliance_id]) newErrors[appliance_id] = {};
+                    newErrors[appliance_id][key] = error;
+                    hasError = true;
+                } else {
+                    if (newErrors[appliance_id]) {
+                        newErrors[appliance_id][key] = null;
+                    }
+                }
+            }
+        }
+        setApplianceInputErrors(newErrors);
+
+        if (hasError) return;
+
+
+        try {
+            setAppliances(prev =>
+                prev.map(appliance =>
+                    appliance.appliance_id === appliance_id
+                        ? { ...appliance, ...updates } // Merge existing data with updates
+                        : appliance // Keep other appliances as they are
+                )
+            );
+        } catch (error) {
+            console.error("Failed to update appliance:", error);
+        }
     };
 
     const handleRemoveAppliance = (appliance_id: number) => {
@@ -339,7 +396,7 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
     };
 
     // Validation state for appliance inputs - same as ProjectDetailsModal
-    const [applianceInputErrors] = useState<{[key: number]: {[field: string]: string | null}}>({});
+    const [applianceInputErrors, setApplianceInputErrors] = useState<{[key: string]: {[field: string]: string | null}}>({});
 
     const hasApplianceInputErrors = useMemo(() => {
         return Object.values(applianceInputErrors).some(fieldErrors =>
@@ -395,10 +452,13 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
 
                      {/* System Design Parameters */}
                     <div>
-                        <Accordion type="single" collapsible defaultValue="ble-settings">
+                        <Accordion type="single" collapsible defaultValue="">
                             <AccordionItem value="ble-settings">
-                                <AccordionTrigger className="text-xl font-bold flex flex-row justify-between w-full">
-                                    {t('project_modal.design_parameters', 'System Design Parameters')}
+                                <AccordionTrigger className="text-xl font-bold flex flex-row w-full">
+                                    <Sliders className='text-primary' />
+                                        <span>
+                                            {t('project_modal.design_parameters', 'System Design Parameters')}
+                                        </span>
                                 </AccordionTrigger>
                                 <AccordionContent>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 pt-4">
@@ -578,8 +638,12 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                     </div>
 
                     <div>
-                        <h3 className="text-xl font-bold mb-4">{t('project_modal.appliances_breakdown', 'Appliances Breakdown')}</h3>
-
+                        <h3 className="flex flex-row gap-2 text-xl font-bold mb-4">
+                            <Sheet className='text-primary'/>
+                            <span>
+                                {t('project_modal.appliances_breakdown', 'Appliances Breakdown')}
+                            </span>
+                        </h3>
                         {/* Custom Appliance Input Form */}
                         <div className="grid grid-cols-12 gap-2 p-3 mb-4 border rounded-lg bg-gray-50">
                             <div className="col-span-7">
@@ -617,10 +681,10 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                         {isBleLoading && appliances.length === 0 && <Spinner className="w-8 h-8 mx-auto" />}
 
                         <ScrollArea className="flex-grow h-[300px] mb-4 rounded-md border">
-                            <Table>
+                            <Table dir={i18n.dir()} className='overflow-x-scroll'>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[150px] font-bold">{t('project_modal.appliance', 'Appliance')}</TableHead>
+                                        <TableHead className="w-[150px] text-start font-bold">{t('project_modal.appliance', 'Appliance')}</TableHead>
                                         <TableHead className="w-[100px] text-center font-bold">{t('project_modal.wattage', 'Wattage (W)')}</TableHead>
                                         <TableHead className="w-[80px] text-center font-bold">{t('project_modal.qty', 'Qty')}</TableHead>
                                         <TableHead className="w-[100px] text-center font-bold">{t('project_modal.use_hours_night', 'Night/Battery Hrs')}</TableHead>
@@ -726,7 +790,10 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                         <ScrollArea className="flex-grow">
                             <Accordion type="multiple" defaultValue={['metadata', 'solar_panels', 'inverter', 'battery_bank']} className="w-full">
                                 <AccordionItem value="metadata">
-                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.metadata_accordion_title', 'Metadata')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>
+                                        <Info className="h-4 w-4" />
+                                        <span>{t('project_modal.metadata_accordion_title', 'Metadata')}</span>
+                                    </AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.metadata.peak_sun_hours', 'Peak Sun Hours')} value={displayResults.metadata.peak_sun_hours} />
@@ -739,7 +806,7 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="solar_panels">
-                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.solar_panels', 'Solar Panels')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}><Sun className="h-6 w-6 text-orange-500" /><span>{t('project_modal.solar_panels', 'Solar Panels')}</span></AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.solar_panels.power_rating', 'Power Rating')} value={displayResults.solar_panels.power_rating_w} formatter={formatPowerValue} />
@@ -753,7 +820,10 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                                     </AccordionContent>
                                 </AccordionItem>
                                 <AccordionItem value="inverter">
-                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.inverter', 'Inverter')}</AccordionTrigger>
+                                    <AccordionTrigger className={cn('font-bold flex w-full justify-start', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>
+                                        <Zap className="h-6 w-6 text-yellow-500" />
+                                        <span>{t('project_modal.inverter', 'Inverter')}</span>
+                                    </AccordionTrigger>
                                     <AccordionContent>
                                         <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                             <DataRow label={t('ble.inverter.power_rating', 'Power Rating')} value={displayResults.inverter.power_rating_w} formatter={formatPowerValue} />
@@ -766,32 +836,36 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                                         </div>
                                     </AccordionContent>
                                 </AccordionItem>
-                                <AccordionItem value="battery_bank">
-                                    <AccordionTrigger className={cn('font-bold flex w-full justify-between', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}>{t('project_modal.battery_bank', 'Battery Bank')}</AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                            <DataRow label={t('ble.battery_bank.battery_type', 'Battery Type')} value={displayResults.battery_bank.battery_type} />
-                                            <DataRow label={t('ble.battery_bank.capacity_per_unit', 'Capacity per Unit')} value={`${displayResults.battery_bank.capacity_per_unit_ah} Ah`} />
-                                            <DataRow label={t('ble.battery_bank.voltage_per_unit', 'Voltage per Unit')} value={`${displayResults.battery_bank.voltage_per_unit_v} V`} />
-                                            <DataRow label={t('ble.battery_bank.quantity', 'Quantity')} value={displayResults.battery_bank.quantity} />
-                                            <DataRow label={t('ble.battery_bank.num_in_series', 'Num in Series')} value={displayResults.battery_bank.num_in_series} />
-                                            <DataRow label={t('ble.battery_bank.num_in_parallel', 'Num in Parallel')} value={displayResults.battery_bank.num_in_parallel} />
-                                            <DataRow label={t('ble.battery_bank.total_storage', 'Total Storage')} value={parseFloat(String(displayResults.battery_bank.total_storage_kwh))} unit="kWh" formatter={(val: number) => val.toFixed(2)} />
-                                            <DataRow label={t('ble.battery_bank.depth_of_discharge', 'Depth of Discharge')} value={`${displayResults.battery_bank.depth_of_discharge_percent}%`} />
-                                            <DataRow label={t('ble.battery_bank.system_voltage', 'System Voltage')} value={`${displayResults.battery_bank.system_voltage_v} V`} />
-                                            <DataRow label={t('ble.battery_bank.connection', 'Connection Type')} value={displayResults.battery_bank.connection_type} />
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
+                                {
+                                displayResults.battery_bank.quantity != 0 && (
+                                    <AccordionItem value="battery_bank">
+                                        <AccordionTrigger className={cn('font-bold flex w-full', i18n.dir() === 'rtl' ? 'flex-row-reverse' : '')}><BatteryCharging className="h-6 w-6 text-green-500 static" /><span>{t('project_modal.battery_bank', 'Battery Bank')}</span></AccordionTrigger>
+                                        <AccordionContent>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                                <DataRow label={t('ble.battery_bank.battery_type', 'Battery Type')} value={displayResults.battery_bank.battery_type} />
+                                                <DataRow label={t('ble.battery_bank.capacity_per_unit', 'Capacity per Unit')} value={`${displayResults.battery_bank.capacity_per_unit_ah} Ah`} />
+                                                <DataRow label={t('ble.battery_bank.voltage_per_unit', 'Voltage per Unit')} value={`${displayResults.battery_bank.voltage_per_unit_v} V`} />
+                                                <DataRow label={t('ble.battery_bank.quantity', 'Quantity')} value={displayResults.battery_bank.quantity} />
+                                                <DataRow label={t('ble.battery_bank.num_in_series', 'Num in Series')} value={displayResults.battery_bank.num_in_series} />
+                                                <DataRow label={t('ble.battery_bank.num_in_parallel', 'Num in Parallel')} value={displayResults.battery_bank.num_in_parallel} />
+                                                <DataRow label={t('ble.battery_bank.total_storage', 'Total Storage')} value={parseFloat(String(displayResults.battery_bank.total_storage_kwh))} unit="kWh" formatter={(val: number) => val.toFixed(2)} />
+                                                <DataRow label={t('ble.battery_bank.depth_of_discharge', 'Depth of Discharge')} value={`${displayResults.battery_bank.depth_of_discharge_percent}%`} />
+                                                <DataRow label={t('ble.battery_bank.system_voltage', 'System Voltage')} value={`${displayResults.battery_bank.system_voltage_v} V`} />
+                                                <DataRow label={t('ble.battery_bank.connection', 'Connection Type')} value={displayResults.battery_bank.connection_type} />
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                )
+                                }
                             </Accordion>
-                            <div className="flex gap-2 mt-4">
+                            <div className="flex gap-2 mt-4" dir={i18n.dir()}>
                                 <Button
                                     onClick={handleConvertClick}
                                     disabled={!bleResults?.data || !bleSettings.project_location_state || !bleSettings.project_location_city}
                                     className="w-full text-white bg-green-600 hover:bg-green-700"
                                 >
                                     <img src="/eva-icons (2)/outline/trending-up.png" alt="convert" className="w-5 h-5 invert ltr:mr-2 rtl:ml-2" />
-                                    {t('project_modal.convert_to_project', 'Convert to Project')}
+                                    <span>{t('project_modal.convert_to_project', 'Convert to Project')}</span>
                                 </Button>
                                 <Button
                                     onClick={handleCopyResults}
@@ -800,7 +874,7 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                                     className="w-full"
                                 >
                                     <img src="/eva-icons (2)/outline/copy.png" alt="copy" className="w-5 h-5 ltr:mr-2 rtl:ml-2" />
-                                    {t('project_modal.copy_results', 'Copy Results')}
+                                    <span>{t('project_modal.copy_results', 'Copy Results')}</span>
                                 </Button>
                             </div>
                         </ScrollArea>

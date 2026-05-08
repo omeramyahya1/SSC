@@ -180,7 +180,7 @@ export default function RegistrationScreen() {
   const calculatedPrice = useMemo(() => {
     const { stage2, stage3, stage6 } = formData;
 
-    if (stage3.plan === 'Free Trial') {
+    if (stage3.plan === 'free_trial') {
         return 0;
     }
 
@@ -236,7 +236,7 @@ export default function RegistrationScreen() {
 
         if (stage2.accountType === 'Standard') {
             backendAccountType = 'standard';
-            if (stage3.plan === 'Free Trial') {
+            if (stage3.plan === 'free_trial') {
                 backendPlanType = 'trial';
             } else {
                 backendPlanType = stage3.plan.toLowerCase();
@@ -313,9 +313,9 @@ export default function RegistrationScreen() {
   }
 
   const handleNext = () => {
-    const isFreeTrial = formData.stage3.plan === 'Free Trial';
+    const isFreeTrial = formData.stage3.plan === 'free_trial';
 
-    // If on Summary (Stage 5) and it's a Free Trial, submit now.
+    // If on Summary (Stage 5) and it's a 'free_trial', submit now.
     if (currentStage === 5 && isFreeTrial) {
         handleSubmit();
         return;
@@ -442,7 +442,7 @@ export default function RegistrationScreen() {
                     )}
                   >
                     {isSubmitting ? <Spinner /> :
-                        (currentStage === 7 || (currentStage === 5 && formData.stage3.plan === 'Free Trial')) ? t('registration.finish', 'Finish') :
+                        (currentStage === 7 || (currentStage === 5 && formData.stage3.plan === 'free_trial')) ? t('registration.finish', 'Finish') :
                         currentStage === 4 && !areStage4FieldsFilled(formData.stage4)
                         ? t('registration.skip', 'Skip')
                         : t('registration.next', 'Next')}
@@ -775,7 +775,7 @@ const Stage3 = ({ setValid, pricingIsLoading, calculatedPrice }: { setValid: (v:
     }
 
     // Standard Plans
-    const plans = ['Free Trial', 'Monthly', 'Annual', 'Lifetime'];
+    const plans = ['free_trial', 'Monthly', 'Annual', 'Lifetime'];
     return (
       <div className="max-w-4xl mx-auto">
         <CommonHeader title='registration.stage3.standard_title' text='Select a Plan' />
@@ -893,26 +893,7 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
                onValueChange={handleCityChange} placeholder={t('registration.select_city', 'Select city')} disabled={!data.locationState} />
         </div>
 
-        <div className="space-y-1.5">
-          <Label className="block text-sm font-bold text-neutral/80 ps-1">{t('registration.logo', 'Upload Logo')}</Label>
-          <div className="border-2 bg-white border-dashed border-neutral/30 rounded-lg shadow-sm p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-neutral/5 transition-colors relative"
-              onClick={() => fileInputRef.current?.click()} >
-              {data.logoPreview ? (
-                  <>
-                      <button onClick={removeLogo} className="absolute top-2 right-2 p-1 bg-neutral/10 rounded-full hover:bg-neutral/20">
-                          <X className="w-4 h-4 text-neutral/70" />
-                      </button>
-                      <img src={data.logoPreview} alt={t('registration.logo_preview_alt', "Preview")} className="h-24 object-contain" />
-                  </>
-              ) : (
-                  <>
-                      <img src="/eva-icons (2)/fill/file-add.png" className="w-8 h-8 opacity-40 mb-2" alt={t('registration.upload_alt', "upload")} />
-                      <span className="text-sm text-neutral/50">{t('registration.click_upload', 'Click to upload')}</span>
-                  </>
-              )}
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-          </div>
-        </div>
+
       </div>
     );
 };
@@ -1001,7 +982,7 @@ const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData }: { setValid: (
         // Recalculate original price without referral discount
         const { stage2, stage3 } = formData;
 
-        if (stage3.plan === 'Free Trial') {
+        if (stage3.plan === 'free_trial') {
             return 0;
         }
 
@@ -1280,7 +1261,7 @@ const Stage8 = () => {
     const [error, setError] = useState<string | null>(null);
     const [syncStatus, setSyncStatus] = useState<'syncing' | 'success' | 'error'>('syncing');
 
-    const isFreeTrial = formData.stage3.plan === 'Free Trial';
+    const isFreeTrial = formData.stage3.plan === 'free_trial';
 
     const handleSync = async () => {
         setSyncStatus('syncing');
