@@ -179,7 +179,7 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
   }, [dueDate, discountPercent, i18n]);
 
   const handleAddManualItem = () => {
-    setManualItems((prev) => [...(prev || []), { id: crypto.randomUUID(), name: "", quantity: 1, price: 0 }]);
+    setManualItems((prev) => [...(prev || []), { id: crypto.randomUUID(), name: "", quantity: 1, price: 1 }]);
   };
 
   const updateManualItem = (id: string, updates: Partial<Pick<ManualItem, "name" | "quantity" | "price">>) => {
@@ -539,7 +539,8 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                           <Input
                             type="number"
                             value={item.unit_price}
-                            onChange={(e) => updateInventoryItem(item.id, { unit_price: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => updateInventoryItem(item.id, { unit_price: parseFloat(e.target.value) || 1 })}
+                            min={1}
                             className="h-8 text-center no-print"
                             disabled={isIssued}
                           />
@@ -556,6 +557,7 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                             value={item.quantity}
                             onChange={(e) => updateInventoryItem(item.id, { quantity: parseInt(e.target.value) || 1 })}
                             className="h-8 text-center no-print"
+                            min={1}
                             disabled={isIssued}
                           />
                         )}
@@ -595,7 +597,8 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                           <Input
                             type="number"
                             value={item.price}
-                            onChange={(e) => updateManualItem(item.id, { price: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => updateManualItem(item.id, { price: parseFloat(e.target.value) || 1 })}
+                            min={1}
                             className="h-8 text-center no-print"
                             disabled={isIssued}
                           />
@@ -611,6 +614,7 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                             type="number"
                             value={item.quantity}
                             onChange={(e) => updateManualItem(item.id, { quantity: parseInt(e.target.value) || 1 })}
+                            min={1}
                             className="h-8 text-center no-print"
                             disabled={isIssued}
                           />
@@ -759,6 +763,7 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                                         onConfirm={handleIssue}
                                         variant="default"
                                         className="bg-primary h-14 text-xl font-bold no-print"
+                                        disabled={manualItems.length == 0 && inventoryItems.length == 0}
                                         confirmationLabel={t('invoicing.issuing', 'Issuing...')}
                                     >
                                         {t('invoicing.confirm_issue', 'Confirm & Issue')}

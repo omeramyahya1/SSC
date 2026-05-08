@@ -84,7 +84,7 @@ export function CreateIndependentInvoiceModal({ onOpenChange, onSubmit }: Create
             </DialogHeader>
 
             <div className="grid gap-6 py-4">
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                { customers.length !== 0 && (<div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
                     <Label htmlFor="use-existing-customer" className="font-semibold">
                         {t('dashboard.use_existing_customer', 'Choose from existing customer?')}
                     </Label>
@@ -98,7 +98,7 @@ export function CreateIndependentInvoiceModal({ onOpenChange, onSubmit }: Create
                             }
                         }}
                     />
-                </div>
+                </div>)}
 
                 {useExistingCustomer && (
                     <div className="grid gap-2">

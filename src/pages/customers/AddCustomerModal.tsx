@@ -35,6 +35,11 @@ export function AddCustomerModal({ onOpenChange }: AddCustomerModalProps) {
         e.preventDefault();
         if (!formData.full_name) return;
 
+        if (currentUser?.branch_uuid && currentUser?.organization_uuid) {
+            formData['organization_uuid'] = currentUser.organization_uuid;
+            formData['branch_uuid'] = currentUser.branch_uuid;
+        }
+
         setIsSubmitting(true);
         try {
             const result = await createCustomer(formData);
