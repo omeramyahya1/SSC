@@ -900,20 +900,50 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 
 // --- STAGE 5: Summary ---
 const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void, calculatedPrice: number }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { formData, updateFormData } = useRegistrationStore();
     const { stage2, stage3, stage5 } = formData;
+    const [tcData, setTcData] = useState<any>(null);
+    const [tcLoading, setTcLoading] = useState(false);
 
     useEffect(() => {
        setValid(stage5.acceptedTerms && stage5.acceptedProcessing);
     }, [stage5, setValid]);
+
+    useEffect(() => {
+        const fetchTC = async () => {
+            setTcLoading(true);
+            try {
+                const { data, error } = await supabase
+                    .from('terms_and_conditions')
+                    .select('id, content')
+                    .eq('is_active', true)
+                    .order('version', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (data) {
+                    setTcData(data.content);
+                    updateFormData('stage5', { acceptedTcId: data.id });
+                }
+            } catch (err) {
+                console.error("Error fetching T&C:", err);
+            } finally {
+                setTcLoading(false);
+            }
+        };
+        fetchTC();
+    }, []);
 
     const toggleTerms = (checked: boolean) => updateFormData('stage5', { acceptedTerms: checked });
     const toggleProcessing = (checked: boolean) => updateFormData('stage5', { acceptedProcessing: checked });
 
     const priceDisplay = calculatedPrice > 0 ? formatCurrency(calculatedPrice) : t('plans.free', 'Free');
 
-    // ... same as before but using calculatedPrice
+    const lang = i18n.language === 'ar' ? 'ar' : 'en';
+    const content = tcData?.[lang];
+
     return (
         <div className="space-y-4 w-full mx-auto md:mx-0">
             <CommonHeader title='registration.stage5.title' text='Summary & Review' />
@@ -946,15 +976,59 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
                             <DialogTrigger asChild>
                                 <span className="text-xs text-primary cursor-pointer hover:underline">{t('registration.read_terms', 'Read Terms')}</span>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl max-h-[80vh] bg-neutral-bg">
+                            <DialogContent className="max-w-2xl max-h-[80vh] bg-neutral-bg flex flex-col">
                                 <DialogHeader>
                                     <DialogTitle>{t('registration.terms_title', 'Terms and Conditions')}</DialogTitle>
                                 </DialogHeader>
-                                <ScrollArea className="h-full mt-4 border-2 p-4 rounded-base bg-neutral/5">
-                                    <p className="text-sm text-neutral/70">
-                                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-                                        {/* ... more dummy text ... */}
-                                    </p>
+                                <ScrollArea className="flex-1 mt-4 border-2 p-4 rounded-base bg-neutral/5 overflow-y-auto">
+                                    {tcLoading ? (
+                                        <div className="flex items-center justify-center py-10">
+                                            <Spinner />
+                                        </div>
+                                    ) : content ? (
+                                        <div className="space-y-6 text-neutral/80 p-4" dir={i18n.dir()}>
+                                            <div className="space-y-2">
+                                                <h2 className="text-2xl font-bold text-primary">{content.title}</h2>
+                                                <p className="text-sm italic leading-relaxed text-neutral/60">{content.preamble}</p>
+                                            </div>
+
+                                            <div className="space-y-8">
+                                                {content.sections.map((section: any, idx: number) => (
+                                                    <div key={idx} className="space-y-4">
+                                                        <h3 className="text-lg font-bold border-b border-neutral/20 pb-2 text-neutral">{section.header}</h3>
+                                                        {Object.entries(section.body).map(([subHeader, points]: [string, any], sIdx) => (
+                                                            <div key={sIdx} className="space-y-3">
+                                                                <h4 className="text-xs font-bold text-primary/70 uppercase tracking-widest">{subHeader}</h4>
+                                                                <ul className="list-disc ps-5 space-y-2">
+                                                                    {points.map((point: string, pIdx: number) => (
+                                                                        <li key={pIdx} className="text-sm leading-relaxed text-neutral/70">
+                                                                            {point}
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="pt-8 border-t border-neutral/20 space-y-4">
+                                                <p className="text-sm font-bold text-primary text-center uppercase tracking-tight">
+                                                    {content.agreement_text}
+                                                </p>
+                                                {tcData.metadata?.last_updated && (
+                                                    <p className="text-[10px] text-center text-neutral/40 uppercase tracking-widest">
+                                                        {t('settings.last_sync', 'Last Updated')}: {tcData.metadata.last_updated}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center py-10 text-neutral/50">
+                                            <p>{t('common.error', 'Error')}</p>
+                                            <p className="text-xs">Failed to load Terms & Conditions.</p>
+                                        </div>
+                                    )}
                                 </ScrollArea>
                             </DialogContent>
                         </Dialog>

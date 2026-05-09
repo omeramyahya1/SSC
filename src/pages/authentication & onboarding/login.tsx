@@ -131,14 +131,14 @@ export default function LoginScreen() {
 
         {/* Bottom: Footer links */}
         <div className="flex items-center justify-between text-sm font-medium relative z-10 pt-6 border-t border-white/30 text-start">
-          <button type="button" className="hover:text-primary-lighter transition-colors hover:underline"
+          <button type="button" className="hover:text-primary-lighter text-start transition-colors hover:underline"
             onClick={() => {
               navigate("/registration")
             }}
           >
             {t('login.create_account_link', "Create a new account")}
           </button>
-          <button type="button" className="hover:text-primary-lighter transition-colors hover:underline"
+          <button type="button" className="hover:text-primary-lighter text-end transition-colors hover:underline"
             onClick={() => {
               navigate("/help")
             }}

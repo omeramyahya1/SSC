@@ -23,6 +23,11 @@ class Stage4Payload(BaseModel):
     longitude: Optional[str] = None
     logo: Optional[str] = None # Base64
 
+class Stage5Payload(BaseModel):
+    acceptedTerms: bool
+    acceptedProcessing: bool
+    acceptedTcId: Optional[str] = None
+
 class Stage6Payload(BaseModel):
     paymentMethod: Optional[str] = None
     referralCode: Optional[str] = None
@@ -41,6 +46,7 @@ class RegistrationPayload(BaseModel):
     language: str
     stage3: Optional[Stage3Payload] = None
     stage4: Stage4Payload
+    stage5: Optional[Stage5Payload] = None
     stage6: Stage6Payload
     stage7: Stage7Payload
     distributor_id: Optional[str] = None

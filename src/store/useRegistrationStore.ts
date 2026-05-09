@@ -29,6 +29,7 @@ export type RegistrationState = {
   stage5: {
     acceptedTerms: boolean;
     acceptedProcessing: boolean;
+    acceptedTcId: string | null;
   };
   stage6: {
     paymentMethod: string;
@@ -51,7 +52,7 @@ export const INITIAL_STATE: RegistrationState = {
   stage2: { accountType: '' },
   stage3: { plan: '', employees: 1, tier1Duration: 'Monthly' },
   stage4: { businessName: '', locationState: '', locationCity: '', latitude: '', longitude: '', logo: null, logoPreview: null, isSkipped: false },
-  stage5: { acceptedTerms: false, acceptedProcessing: false },
+  stage5: { acceptedTerms: false, acceptedProcessing: false, acceptedTcId: null },
   stage6: { paymentMethod: '', referralCode: '', discountApplied: false, distributorId: null, discountPercent: null, referralStatus: 'idle', confirmedTransfer: false },
   stage7: { referenceNumber: '', receipt: null, receiptPreview: null },
 };
