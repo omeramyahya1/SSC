@@ -21,6 +21,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
+import { TCContent } from '@/components/ui/TCContent';
 import {
   Command,
   CommandEmpty,
@@ -45,6 +46,7 @@ import geoDataCsv from '@/assets/dataset/geo_data.csv?raw';
 import { useAuthenticationStore } from '@/store/useAuthenticationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useApplicationSettingsStore } from '@/store/useApplicationSettingsStore';
+import toast from 'react-hot-toast';
 
 // --- Constants ---
 const TOTAL_STAGES = 8;
@@ -900,20 +902,51 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 
 // --- STAGE 5: Summary ---
 const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void, calculatedPrice: number }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { formData, updateFormData } = useRegistrationStore();
     const { stage2, stage3, stage5 } = formData;
+    const [tcData, setTcData] = useState<any>(null);
+    const [tcLoading, setTcLoading] = useState(false);
 
     useEffect(() => {
        setValid(stage5.acceptedTerms && stage5.acceptedProcessing);
     }, [stage5, setValid]);
+
+    useEffect(() => {
+        const fetchTC = async () => {
+            setTcLoading(true);
+            try {
+                const { data, error } = await supabase
+                    .from('terms_and_conditions')
+                    .select('id, content')
+                    .eq('is_active', true)
+                    .order('version', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (data) {
+                    setTcData(data.content);
+                    // Store the ID but don't mark as accepted until user checks the box
+                    updateFormData('stage5', { acceptedTcId: data.id });
+                }
+            } catch (err) {
+                toast("Error fetching T&C");
+            } finally {
+                setTcLoading(false);
+            }
+        };
+        fetchTC();
+    }, [updateFormData]); // Add dependency
 
     const toggleTerms = (checked: boolean) => updateFormData('stage5', { acceptedTerms: checked });
     const toggleProcessing = (checked: boolean) => updateFormData('stage5', { acceptedProcessing: checked });
 
     const priceDisplay = calculatedPrice > 0 ? formatCurrency(calculatedPrice) : t('plans.free', 'Free');
 
-    // ... same as before but using calculatedPrice
+    const lang = i18n.language === 'ar' ? 'ar' : 'en';
+    const content = tcData?.[lang] ?? tcData?.en; // Fallback to English
+
     return (
         <div className="space-y-4 w-full mx-auto md:mx-0">
             <CommonHeader title='registration.stage5.title' text='Summary & Review' />
@@ -946,15 +979,16 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
                             <DialogTrigger asChild>
                                 <span className="text-xs text-primary cursor-pointer hover:underline">{t('registration.read_terms', 'Read Terms')}</span>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl max-h-[80vh] bg-neutral-bg">
+                            <DialogContent className="max-w-2xl max-h-[80vh] bg-neutral-bg flex flex-col">
                                 <DialogHeader>
-                                    <DialogTitle>{t('registration.terms_title', 'Terms and Conditions')}</DialogTitle>
+                                    <DialogTitle>{t('tc.terms_title', 'Terms and Conditions')}</DialogTitle>
                                 </DialogHeader>
-                                <ScrollArea className="h-full mt-4 border-2 p-4 rounded-base bg-neutral/5">
-                                    <p className="text-sm text-neutral/70">
-                                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-                                        {/* ... more dummy text ... */}
-                                    </p>
+                                <ScrollArea className="flex-1 mt-4 border-2 p-4 rounded-base bg-neutral/5 overflow-y-auto">
+                                    <TCContent
+                                        content={content}
+                                        isLoading={tcLoading}
+                                        metadata={tcData?.metadata}
+                                    />
                                 </ScrollArea>
                             </DialogContent>
                         </Dialog>

@@ -39,10 +39,22 @@ function App() {
       if (preloadedSettings) {
         try {
           const settingsData = JSON.parse(preloadedSettings);
-          useApplicationSettingsStore.setState({ settings: [settingsData], isLoading: false });
+          useApplicationSettingsStore.setState({ 
+            settings: [settingsData], 
+            currentSetting: settingsData,
+            isLoading: false 
+          });
         } catch (e) {
           console.error("Failed to parse preloaded settings data:", e);
         }
+      } else {
+        useApplicationSettingsStore.setState({
+          settings: [],
+          currentSetting: null,
+          isLoading: false,
+          latestTC: null,
+          needsTCUpdate: false
+        });
       }
 
       // Clean up localStorage

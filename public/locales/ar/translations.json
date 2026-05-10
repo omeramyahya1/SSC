@@ -862,5 +862,17 @@
   "invoicing.confirm_delete.cascade_payments": "حذف الدفعات المرتبطة أيضًا",
   "invoicing.margin_top": "الهامش العلوي (مم)",
   "invoicing.margin_bottom": "الهامش السفلي (مم)",
-  "invoicing.phone": "رقم الهاتف"
+  "invoicing.phone": "رقم الهاتف",
+  "inventory.no_items": "لم يتم العثور على عناصر.",
+  "tc.accept_terms": "أوافق",
+  "tc.action_required": "تحديث مطلوب",
+  "tc.error": "خطأ في تحميل الشروط والأحكام",
+  "tc.legal": "الشؤون القانونية والامتثال",
+  "tc.success.title": "تم قبول الشروط",
+  "tc.terms_title": "الشروط والأحكام",
+  "tc.updated_tc": "لقد قمنا بتحديث شروطنا لخدمتكم بشكل أفضل. يرجى المراجعة والموافقة للمتابعة.",
+  "tc.updated_terms_title": "شروط وأحكام جديدة",
+  "tc.verified": "محدث",
+  "tc.view": "عرض الشروط",
+  "tc.error_details": "فشل تحميل الشروط والأحكام."
 }

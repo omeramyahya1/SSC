@@ -350,6 +350,23 @@ CREATE TABLE public.system_configurations (
   CONSTRAINT system_configurations_pkey PRIMARY KEY (id),
   CONSTRAINT system_configurations_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id)
 );
+CREATE TABLE public.terms_and_conditions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  version integer NOT NULL DEFAULT nextval('terms_and_conditions_version_seq'::regclass) UNIQUE,
+  content jsonb NOT NULL,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT terms_and_conditions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.user_tc_agreements (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid,
+  tc_id uuid,
+  agreed_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_tc_agreements_pkey PRIMARY KEY (id),
+  CONSTRAINT user_tc_agreements_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT user_tc_agreements_tc_id_fkey FOREIGN KEY (tc_id) REFERENCES public.terms_and_conditions(id)
+);
 CREATE TABLE public.users (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   username character varying,
