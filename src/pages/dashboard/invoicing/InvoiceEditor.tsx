@@ -858,8 +858,27 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                                 type="text"
                                                 inputMode="decimal"
                                                 value={discountPercentInput}
-                                                onChange={(e) => handleNumberInputChange(setDiscountPercentInput, e.target.value)}
-                                                onBlur={() => normalizeNumberInput(discountPercentInput, setDiscountPercentInput, { clampMax: 100 })}
+                                                onChange={(e) => {
+                                                const val = e.target.value;
+                                                const num = parseFloat(val);
+
+                                                // 1. Allow empty input so the user can backspace/clear it
+                                                if (val === "") {
+                                                    handleNumberInputChange(setDiscountPercentInput, "");
+                                                    return;
+                                                }
+
+                                                // 2. Only update if the value is a valid number AND <= 100
+                                                // This prevents entering 101+, but allows 100 (3 digits)
+                                                if (!isNaN(num) && num <= 100) {
+                                                    handleNumberInputChange(setDiscountPercentInput, val);
+                                                }
+                                                }}
+                                                onBlur={() =>
+                                                normalizeNumberInput(discountPercentInput, setDiscountPercentInput, {
+                                                    clampMax: 100,
+                                                })
+                                                }
                                                 disabled={isIssued}
                                                 className="font-medium"
                                             />
@@ -924,13 +943,13 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                         </div>
 
                                         <div className="flex justify-between text-base text-red-600">
-                                            <span className="font-medium">{t('invoicing.discount', 'Discount')}</span>
+                                            <span className="font-medium">{t('invoicing.discount_no_percent', 'Discount')}</span>
                                             <span className="font-bold">- {formatCurrency(discountAmount)}</span>
                                         </div>
 
                                     <div className="pt-6 border-t border-primary-gray flex justify-between text-3xl font-black text-primary print:text-xl">
-                                        <span>Total</span>
-                                        <span>{formatCurrency(grandTotal)}</span>
+                                        <span>{t('invoicing.grand_total', 'Total')}</span>
+                                        <span className="text-end">{formatCurrency(grandTotal)}</span>
                                     </div>
                                 </div>
 
