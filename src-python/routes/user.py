@@ -13,21 +13,6 @@ from supabase_client import get_anon_client, get_service_role_client, get_user_c
 
 user_bp = Blueprint('user_bp', __name__, url_prefix='/users')
 
-DEFAULT_APPLIANCE_LIBRARY = [
-    {"name": "LED Bulb", "wattage": 10, "surge_power": 10, "type": "light"},
-    {"name": "Incandescent Bulb", "wattage": 60, "surge_power": 60, "type": "light"},
-    {"name": "Fan", "wattage": 75, "surge_power": 150, "type": "standard"},
-    {"name": "Laptop", "wattage": 65, "surge_power": 65, "type": "standard"},
-    {"name": "Desktop Computer", "wattage": 300, "surge_power": 300, "type": "standard"},
-    {"name": "Refrigerator (Medium)", "wattage": 200, "surge_power": 800, "type": "heavy"},
-    {"name": "Freezer", "wattage": 100, "surge_power": 400, "type": "heavy"},
-    {"name": "TV (LED)", "wattage": 100, "surge_power": 100, "type": "standard"},
-    {"name": "Microwave", "wattage": 1200, "surge_power": 1200, "type": "heavy"},
-    {"name": "Washing Machine", "wattage": 500, "surge_power": 1500, "type": "heavy"},
-    {"name": "Air Conditioner (1 Ton)", "wattage": 1500, "surge_power": 4500, "type": "heavy"},
-    {"name": "Water Pump (1 HP)", "wattage": 750, "surge_power": 2250, "type": "heavy"},
-    {"name": "Phone Charger", "wattage": 10, "surge_power": 10, "type": "standard"},
-]
 
 @user_bp.route('/pricing', methods=['GET'])
 def get_pricing_data():
@@ -306,7 +291,6 @@ def register_user():
 
         new_settings = ApplicationSettings(
             uuid=new_settings_uuid, user_uuid=new_user_uuid, language=payload.language,
-            other_settings={"appliance_library": DEFAULT_APPLIANCE_LIBRARY},
             is_dirty=True
         )
         db.add(new_settings)
@@ -375,6 +359,54 @@ def register_user():
             "user_uuid": new_user.uuid,
             "jwt": jwt_token
         }), 201
+
+@user_bp.route('/check-tc-status', methods=['POST'])
+def check_tc_status():
+    data = request.get_json()
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    try:
+        service_client = get_service_role_client()
+        response = service_client.rpc('check_user_tc_status', {'p_user_id': user_id}).execute()
+
+        if not response.data:
+            return jsonify({"error": "Failed to fetch TC status"}), 500
+
+        # RPC returns a list of one object
+        result = response.data[0]
+        return jsonify(result), 200
+    except Exception as e:
+        print(f"Error checking TC status: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@user_bp.route('/record-tc-agreement', methods=['POST'])
+def record_tc_agreement():
+    data = request.get_json()
+    tc_id = data.get('tc_id')
+    if not tc_id:
+        return jsonify({"error": "tc_id is required"}), 400
+
+    with get_db() as db:
+        auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+        if not auth_record:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        user_uuid = auth_record.user_uuid
+
+        try:
+            service_client = get_service_role_client()
+            service_client.table('user_tc_agreements').upsert({
+                'user_id': user_uuid,
+                'tc_id': tc_id,
+                'agreed_at': datetime.utcnow().isoformat()
+            }).execute()
+
+            return jsonify({"message": "Agreement recorded"}), 200
+        except Exception as e:
+            print(f"Error recording TC agreement: {e}")
+            return jsonify({"error": str(e)}), 500
 
 @user_bp.route("/<string:user_id_or_uuid>", methods=['GET'])
 def get_user(user_id_or_uuid):
@@ -514,7 +546,6 @@ def create_employee():
             uuid=str(uuid.uuid4()),
             user_uuid=new_user_uuid,
             language='en', # Default
-            other_settings={"appliance_library": DEFAULT_APPLIANCE_LIBRARY},
             is_dirty=True
         )
         db.add(new_settings)
