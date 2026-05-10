@@ -50,19 +50,115 @@ TRANSLATIONS = {
         'invoice_no': 'رقم الفاتورة',
         'issue_date': 'تاريخ الإصدار',
         'due_date': 'تاريخ الاستحقاق',
-        'item': 'البند',
+        'item': 'العنصر',
         'unit_price': 'سعر الوحدة',
         'qty': 'الكمية',
-        'total': 'المجموع',
-        'subtotal': 'المجموع الفرعي',
-        'shipping': 'الشحن',
-        'installation': 'التركيب',
+        'total': 'المبلغ',
+        'subtotal': 'الإجمالي الفرعي',
+        'shipping': 'رسوم الشحن',
+        'installation': 'رسوم التركيب',
         'discount': 'الخصم',
-        'grand_total': 'الإجمالي',
+        'grand_total': 'الإجمالي الكلي',
         'terms': 'الشروط والأحكام',
-        'system_config': 'ملخص تهيئة النظام'
+        'system_config': 'تكوين المنظومة'
     }
 }
+
+# Mapping of BLE keys to labels and units
+BLE_LABELS = {
+    'en': {
+        'peak_sun_hours': ('Peak Sun Hours', 'hrs'),
+        'total_system_size_kw': ('Total System Size', 'kW'),
+        'peak_surge_power_w': ('Peak Surge Power', 'W'),
+        'autonomy_days': ('Autonomy Days', 'days'),
+        'total_daily_energy_wh': ('Total Daily Energy', 'Wh'),
+        'total_peak_power_w': ('Total Peak Power', 'W'),
+        'power_rating_w': ('Power Rating', 'W'),
+        'quantity': ('Quantity', ''),
+        'total_pv_capacity_kw': ('Total PV Capacity', 'kW'),
+        'panels_per_string': ('Panels per String', ''),
+        'num_parallel_strings': ('Parallel Strings', ''),
+        'connection_type': ('Connection Type', ''),
+        'tilt_angle': ('Tilt Angle', '°'),
+        'efficiency_percent': ('Efficiency', '%'),
+        'recommended_rating': ('Recommended Rating', 'W'),
+        'surge_rating_w': ('Surge Rating', 'W'),
+        'output_voltage_v': ('Output Voltage', 'V'),
+        'capacity_per_unit_ah': ('Capacity per Unit', 'Ah'),
+        'voltage_per_unit_v': ('Voltage per Unit', 'V'),
+        'num_in_series': ('Number in Series', ''),
+        'num_in_parallel': ('Number in Parallel', ''),
+        'total_storage_kwh': ('Total Storage', 'kWh'),
+        'depth_of_discharge_percent': ('Depth of Discharge', '%'),
+        'system_voltage_v': ('System Voltage', 'V'),
+        'battery_type': ('Battery Type', ''),
+    },
+    'ar': {
+        'peak_sun_hours': ('ساعات ذروة الشمس', 'ساعة'),
+        'total_system_size_kw': ('إجمالي حجم المنظومة', 'كيلوواط'),
+        'peak_surge_power_w': ('ذروة القدرة', 'واط'),
+        'autonomy_days': ('أيام الاستقلالية', 'يوم'),
+        'total_daily_energy_wh': ('إجمالي الطاقة اليومية', 'واط ساعة'),
+        'total_peak_power_w': ('إجمالي ذروة القدرة', 'واط'),
+        'power_rating_w': ('القدرة', 'واط'),
+        'quantity': ('الكمية', ''),
+        'total_pv_capacity_kw': ('إجمالي قدرة الطاقة الشمسية', 'كيلوواط'),
+        'panels_per_string': ('الألواح لكل سلسلة', ''),
+        'num_parallel_strings': ('عدد السلاسل المتوازية', ''),
+        'connection_type': ('توصيل', ''),
+        'tilt_angle': ('زاوية الميل', '°'),
+        'efficiency_percent': ('الكفاءة', '%'),
+        'recommended_rating': ('التقييم الموصى به', 'واط'),
+        'surge_rating_w': ('أقصى قدرة', 'واط'),
+        'output_voltage_v': ('جهد الخرج', 'فولت'),
+        'capacity_per_unit_ah': ('السعة لكل وحدة', 'أمبير-ساعة'),
+        'voltage_per_unit_v': ('الجهد لكل وحدة', 'فولت'),
+        'num_in_series': ('العدد على التوالي', ''),
+        'num_in_parallel': ('العدد على التوازي', ''),
+        'total_storage_kwh': ('التخزين الكلي', 'كيلوواط ساعة'),
+        'depth_of_discharge_percent': ('عمق التفريغ', '%'),
+        'system_voltage_v': ('جهد المنظومة', 'فولت'),
+        'battery_type': ('نوع البطارية', ''),
+    }
+}
+
+GEO_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ble', 'dataset', 'geo_data.csv'))
+_geo_df = None
+
+def _load_geo_data():
+    global _geo_df
+    if _geo_df is None:
+        try:
+            _geo_df = pd.read_csv(GEO_DATA_PATH)
+        except Exception as e:
+            print(f"Warning: Could not load geo_data.csv for export localization: {e}")
+            _geo_df = pd.DataFrame()
+    return _geo_df
+
+def _get_localized_location(location_str, lang):
+    if not location_str or lang != 'ar':
+        return location_str
+
+    df = _load_geo_data()
+    if df.empty:
+        return location_str
+
+    # Standard format is "City, State"
+    parts = [p.strip().lower() for p in location_str.split(',')]
+
+    if len(parts) >= 2:
+        city_en, state_en = parts[0], parts[1]
+        match = df[(df['city'].str.lower() == city_en) & (df['state'].str.lower() == state_en)]
+        if not match.empty:
+            row = match.iloc[0]
+            return f"{row['city_ar']}, {row['state_ar']}"
+
+    # Fallback: Try matching just the city
+    match = df[df['city'].str.lower() == parts[0]]
+    if not match.empty:
+        return match.iloc[0]['city_ar']
+
+    return location_str
 
 def _clamp_margin_mm(value, *, default=0.0, min_value=0.0, max_value=40.0):
     try:
@@ -105,9 +201,9 @@ def _build_independent_items(invoice: Invoice):
         qty = float((it or {}).get("quantity") or 0)
         total = unit_price * qty
         items.append({
-            "name": (it or {}).get("name") or "N/A",
-            "brand": (it or {}).get("brand") or "N/A",
-            "model": (it or {}).get("model") or "N/A",
+            "name": (it or {}).get("name") or "",
+            "brand": (it or {}).get("brand") or "",
+            "model": (it or {}).get("model") or "",
             "unit_price": f"{float(unit_price):,.2f}",
             "quantity": int(qty),
             "total": f"{float(total):,.2f}",
@@ -119,9 +215,9 @@ def _build_independent_items(invoice: Invoice):
         qty = float((it or {}).get("quantity") or 0)
         total = unit_price * qty
         items.append({
-            "name": (it or {}).get("name") or "N/A",
-            "brand": "N/A",
-            "model": "N/A",
+            "name": (it or {}).get("name") or "",
+            "brand": "",
+            "model": "",
             "unit_price": f"{float(unit_price):,.2f}",
             "quantity": int(qty),
             "total": f"{float(total):,.2f}",
@@ -145,11 +241,14 @@ def export_excel(project_uuid):
         invoice = db.query(Invoice).filter(Invoice.project_uuid == project_uuid).first()
 
         # Sheet 1: Invoice / Items
+        lang = request.args.get('lang', 'en')
+        localized_location = _get_localized_location(project.project_location, lang)
+
         items_data = []
         for comp in project.project_components:
             item_name = comp.item.name if comp.item else comp.custom_name
-            brand = comp.item.brand if comp.item else "N/A"
-            model = comp.item.model if comp.item else "N/A"
+            brand = comp.item.brand if comp.item else ""
+            model = comp.item.model if comp.item else ""
             items_data.append({
                 "Item": item_name,
                 "Brand": brand,
@@ -166,7 +265,7 @@ def export_excel(project_uuid):
             details = invoice.invoice_details or {}
             summary_data = [
                 {"Field": "Customer Name", "Value": project.customer.full_name if project.customer else "N/A"},
-                {"Field": "Project Location", "Value": project.project_location or "N/A"},
+                {"Field": "Project Location", "Value": localized_location or "N/A"},
                 {"Field": "Invoice No", "Value": str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA"},
                 {"Field": "Issue Date", "Value": invoice.issued_at.isoformat() or "N/A"},
                 {"Field": "Subtotal", "Value": float(df_items['Total'].sum()) if not df_items.empty else 0.0},
@@ -219,6 +318,9 @@ def export_excel_invoice(invoice_uuid):
         customer = db.query(Customer).filter(Customer.uuid == customer_uuid, Customer.deleted_at.is_(None)).first() if customer_uuid else None
 
         items, subtotal = _build_independent_items(invoice)
+        lang = request.args.get('lang', 'en')
+        localized_location = _get_localized_location(details.get("project_location"), lang)
+
         df_items = pd.DataFrame([{
             "Item": i["name"],
             "Brand": i["brand"],
@@ -233,7 +335,7 @@ def export_excel_invoice(invoice_uuid):
 
         summary_data = [
             {"Field": "Customer Name", "Value": customer.full_name if customer else "N/A"},
-            {"Field": "Address", "Value": details.get("project_location") or "N/A"},
+            {"Field": "Address", "Value": localized_location or "N/A"},
             {"Field": "Invoice No", "Value": str(invoice.invoice_id).zfill(5) if invoice.issued_at else "PROFORMA"},
             {"Field": "Issue Date", "Value": invoice.issued_at.isoformat() if invoice.issued_at else "N/A"},
             {"Field": "Subtotal", "Value": float(subtotal)},
@@ -288,6 +390,10 @@ def export_pdf(project_uuid):
                 return jsonify({"error": "Invoice not found"}), 404
 
             details = invoice.invoice_details or {}
+            lang = request.args.get('lang', 'en')
+
+            if project.project_location:
+                project.project_location = _get_localized_location(project.project_location, lang)
 
             items = []
             subtotal = 0.0
@@ -299,8 +405,8 @@ def export_pdf(project_uuid):
                 total = price * float(comp.quantity or 0)
                 items.append({
                     "name": name,
-                    "brand": comp.item.brand if comp.item else "N/A",
-                    "model": comp.item.model if comp.item else "N/A",
+                    "brand": comp.item.brand if comp.item else "",
+                    "model": comp.item.model if comp.item else "",
                     "unit_price": f"{float(price):,.2f}",
                     "quantity": comp.quantity,
                     "total": f"{float(total):,.2f}"
@@ -311,31 +417,45 @@ def export_pdf(project_uuid):
             discount_amount = (float(subtotal) * float(discount_pct)) / 100
 
             # Prepare System Config Data for Template
+            # --- START OF UPDATED SECTION ---
             config_render = None
             if project.system_config and project.system_config.config_items:
                 config_render = {}
                 raw_config = project.system_config.config_items
                 section_order = ['metadata', 'solar_panels', 'inverter', 'battery_bank']
+
+                # Use your localized section titles
                 section_titles = {
-                    'metadata': {'en': 'Metadata', 'ar': 'البيانات'},
+                    'metadata': {'en': 'Metadata', 'ar': 'البيانات الوصفية'},
                     'solar_panels': {'en': 'Solar Panels', 'ar': 'الألواح الشمسية'},
-                    'inverter': {'en': 'Inverters', 'ar': 'العاكسات'},
+                    'inverter': {'en': 'Inverters', 'ar': 'المحول'},
                     'battery_bank': {'en': 'Battery Bank', 'ar': 'بنك البطاريات'},
                 }
-
-                def _humanize_param(key: str):
-                    # For Arabic, avoid English capitalization and just space-separate the snake_case.
-                    label = str(key).replace('_', ' ')
-                    if lang == 'ar':
-                        return label
-                    return label.capitalize()
 
                 for section in section_order:
                     data = raw_config.get(section)
                     if not isinstance(data, dict) or not data:
                         continue
+
                     section_title = section_titles.get(section, {}).get(lang) or section.replace('_', ' ').capitalize()
-                    config_render[section_title] = { _humanize_param(k): v for k, v in data.items() }
+                    section_dict = {}
+
+                    for k, v in data.items():
+                        # 1. Look up translated label and unit
+                        label_info = BLE_LABELS.get(lang, {}).get(k)
+
+                        if label_info:
+                            label, unit = label_info
+                            # 2. Append unit to value if it exists and value is numeric
+                            display_val = f"{v} {unit}".strip() if unit and isinstance(v, (int, float)) else v
+                            section_dict[label] = display_val
+                        else:
+                            # Fallback if key is missing from BLE_LABELS
+                            label = k.replace('_', ' ').capitalize() if lang == 'en' else k.replace('_', ' ')
+                            section_dict[label] = v
+
+                    config_render[section_title] = section_dict
+            # --- END OF UPDATED SECTION ---
 
             template = jinja_env.get_template('invoice.html')
             html_string = template.render(
