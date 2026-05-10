@@ -136,18 +136,13 @@ const MainContent = () => {
           </div>
 
           <AlertDialogFooter className="p-6 bg-gray-50/50 mt-4">
-            <AlertDialogAction
-              asChild
-              className="bg-primary text-white hover:bg-primary/90 min-w-[120px]"
+            <Button
+              onClick={handleAgreeTC}
+              disabled={isAgreeing || !latestTC?.id}
+              className="bg-primary text-white hover:bg-primary/90 min-w-[120px] font-bold"
             >
-              <Button
-                onClick={handleAgreeTC}
-                disabled={isAgreeing || !latestTC?.id}
-                className="font-bold"
-              >
-                {isAgreeing ? <Spinner /> : t('tc.accept_terms', 'I Accept')}
-              </Button>
-            </AlertDialogAction>
+              {isAgreeing ? <Spinner /> : t('tc.accept_terms', 'I Accept')}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

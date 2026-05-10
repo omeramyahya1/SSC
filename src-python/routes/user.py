@@ -362,10 +362,19 @@ def register_user():
 
 @user_bp.route('/check-tc-status', methods=['POST'])
 def check_tc_status():
-    data = request.get_json()
+    data = request.get_json(silet=True)
     user_id = data.get('user_id')
+
     if not user_id:
         return jsonify({"error": "user_id is required"}), 400
+
+    with get_db() as db:
+        auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
+        if not auth_record:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        elif user_id != auth_record.user_uuid:
+            return jsonify({"error": "Unauthorized"}), 401
 
     try:
         service_client = get_service_role_client()
@@ -378,7 +387,7 @@ def check_tc_status():
         result = response.data[0]
         return jsonify(result), 200
     except Exception as e:
-        print(f"Error checking TC status: {e}")
+        print(f"Error checking TC status")
         return jsonify({"error": str(e)}), 500
 
 @user_bp.route('/record-tc-agreement', methods=['POST'])

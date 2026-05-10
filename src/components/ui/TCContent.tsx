@@ -2,10 +2,27 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from './spinner';
 
+interface TCSection {
+  header: string;
+  body: Record<string, string[]>;
+}
+
+interface TCMetadata {
+  last_updated?: string;
+  version?: number;
+}
+
+interface TCContent {
+  title: string;
+  preamble: string;
+  sections: TCSection[];
+  agreement_text: string;
+}
+
 interface TCContentProps {
-  content: any;
+  content: TCContent | null;
   isLoading?: boolean;
-  metadata?: any;
+  metadata?: TCMetadata;
 }
 
 export const TCContent: React.FC<TCContentProps> = ({ content, isLoading, metadata }) => {
@@ -23,7 +40,7 @@ export const TCContent: React.FC<TCContentProps> = ({ content, isLoading, metada
     return (
       <div className="flex flex-col items-center justify-center py-10 text-neutral/50">
         <p>{t('tc.error', 'Error')}</p>
-        <p className="text-xs">Failed to load Terms & Conditions.</p>
+        <p className="text-xs">{t('tc.error_details', 'Failed to load Terms & Conditions.')}</p>
       </div>
     );
   }
@@ -36,24 +53,26 @@ export const TCContent: React.FC<TCContentProps> = ({ content, isLoading, metada
       </div>
 
       <div className="space-y-8">
-        {content.sections.map((section: any, idx: number) => (
-          <div key={idx} className="space-y-4">
-            <h3 className="text-lg font-bold border-b border-neutral/20 pb-2 text-neutral">{section.header}</h3>
-            {Object.entries(section.body).map(([subHeader, points]: [string, any], sIdx) => (
-              <div key={sIdx} className="space-y-3">
-                <h4 className="text-xs font-bold text-primary/70 uppercase tracking-widest">{subHeader}</h4>
-                <ul className="list-disc ps-5 space-y-2">
-                  {points.map((point: string, pIdx: number) => (
-                    <li key={pIdx} className="text-sm leading-relaxed text-neutral/70">
-                      {point}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
+  {Array.isArray(content.sections) && content.sections.map((section: any, idx: number) => (
+    <div key={idx} className="space-y-4">
+      <h3 className="text-lg font-bold border-b border-neutral/20 pb-2 text-neutral">{section.header}</h3>
+      {section.body && typeof section.body === 'object' && Object.entries(section.body).map(([subHeader, points]: [string, any], sIdx) => (
+        <div key={sIdx} className="space-y-3">
+          <h4 className="text-xs font-bold text-primary/70 uppercase tracking-widest">{subHeader}</h4>
+          {Array.isArray(points) && (
+            <ul className="list-disc ps-5 space-y-2">
+              {points.map((point: string, pIdx: number) => (
+                <li key={pIdx} className="text-sm leading-relaxed text-neutral/70">
+                  {point}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
+  ))}
+</div>
 
       <div className="pt-8 border-t border-neutral/20 space-y-4">
         <p className="text-sm font-bold text-primary text-center uppercase tracking-tight">

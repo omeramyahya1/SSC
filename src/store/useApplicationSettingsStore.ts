@@ -60,6 +60,8 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
       set({ settings: data, isLoading: false });
       if (data.length > 0) {
         set({ currentSetting: data[0] });
+      } else if (data.length === 0) {
+        set({ currentSetting: null });
       }
     } catch (e: any) {
       const errorMsg = e.response?.data?.error || e.message || "Failed to fetch settings";
@@ -73,26 +75,25 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
     try {
       console.log("checkTCStatus called for userId", userId);
       const { data } = await api.post('/users/check-tc-status', { user_id: userId });
-      
+
       console.log("checkTCStatus result", data);
       const { needs_update, latest_tc_id, latest_tc_content } = data;
-      
+
       // Double check against local settings in case sync is pending
       let currentSetting = get().currentSetting;
       if (!currentSetting && get().settings.length > 0) {
         currentSetting = get().settings[0];
         set({ currentSetting });
       }
-      
+
       const localAgreedId = currentSetting?.other_settings?.agreed_tc_id;
       console.log("Local agreed ID:", localAgreedId, "Latest TC ID:", latest_tc_id);
-      
-      const finalNeedsUpdate = needs_update || (localAgreedId !== latest_tc_id);
+
+      const finalNeedsUpdate = needs_update || (currentSetting && localAgreedId !== latest_tc_id);
       console.log("Final needs update:", finalNeedsUpdate);
-      
-      set({ 
-        needsTCUpdate: finalNeedsUpdate, 
-        latestTC: { id: latest_tc_id, content: latest_tc_content } 
+      set({
+        needsTCUpdate: finalNeedsUpdate,
+        latestTC: { id: latest_tc_id, content: latest_tc_content }
       });
     } catch (e) {
       console.error("Failed to check TC status", e);
@@ -102,7 +103,7 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
   recordTCAgreement: async (tcId) => {
     console.log("recordTCAgreement called with tcId", tcId);
     let setting = get().currentSetting;
-    
+
     if (!setting && get().settings.length > 0) {
       setting = get().settings[0];
       set({ currentSetting: setting });
@@ -137,13 +138,13 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
       }
 
       console.log("Agreement recorded locally in SQLite");
-      
+
       // 2. Record in cloud agreement table for legal audit
       await api.post('/users/record-tc-agreement', { tc_id: tcId });
       console.log("Agreement recorded in cloud Supabase table");
-      
+
       set({ needsTCUpdate: false });
-      
+
     } catch (e: any) {
       const errorMsg = e.response?.data?.error || e.message || "Failed to record agreement";
       console.error("Failed to record TC agreement:", errorMsg, e);

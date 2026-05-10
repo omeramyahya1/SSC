@@ -47,6 +47,14 @@ function App() {
         } catch (e) {
           console.error("Failed to parse preloaded settings data:", e);
         }
+      } else {
+        useApplicationSettingsStore.setState({
+          settings: [],
+          currentSetting: null,
+          isLoading: false,
+          latestTC: null,
+          needsTCUpdate: false
+        });
       }
 
       // Clean up localStorage

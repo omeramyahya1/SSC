@@ -46,6 +46,7 @@ import geoDataCsv from '@/assets/dataset/geo_data.csv?raw';
 import { useAuthenticationStore } from '@/store/useAuthenticationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useApplicationSettingsStore } from '@/store/useApplicationSettingsStore';
+import toast from 'react-hot-toast';
 
 // --- Constants ---
 const TOTAL_STAGES = 8;
@@ -926,16 +927,17 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
                 if (error) throw error;
                 if (data) {
                     setTcData(data.content);
+                    // Store the ID but don't mark as accepted until user checks the box
                     updateFormData('stage5', { acceptedTcId: data.id });
                 }
             } catch (err) {
-                console.error("Error fetching T&C:", err);
+                toast("Error fetching T&C");
             } finally {
                 setTcLoading(false);
             }
         };
         fetchTC();
-    }, []);
+    }, [updateFormData]); // Add dependency
 
     const toggleTerms = (checked: boolean) => updateFormData('stage5', { acceptedTerms: checked });
     const toggleProcessing = (checked: boolean) => updateFormData('stage5', { acceptedProcessing: checked });
@@ -943,7 +945,7 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
     const priceDisplay = calculatedPrice > 0 ? formatCurrency(calculatedPrice) : t('plans.free', 'Free');
 
     const lang = i18n.language === 'ar' ? 'ar' : 'en';
-    const content = tcData?.[lang];
+    const content = tcData?.[lang] ?? tcData?.en; // Fallback to English
 
     return (
         <div className="space-y-4 w-full mx-auto md:mx-0">

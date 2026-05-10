@@ -873,5 +873,6 @@
   "tc.updated_tc": "We have updated our terms to better serve our users. Please review and agree to continue.",
   "tc.updated_terms_title": "New Terms and Conditions",
   "tc.verified": "Up to Date",
-  "tc.view": "View Terms"
+  "tc.view": "View Terms",
+  "tc.error_details": "Failed to load Terms & Conditions."
 }
