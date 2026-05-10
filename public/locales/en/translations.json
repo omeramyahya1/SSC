@@ -862,5 +862,16 @@
   "invoicing.confirm_delete.cascade_payments": "Also delete related payments",
   "invoicing.margin_top": "Top margin (mm)",
   "invoicing.margin_bottom": "Bottom margin (mm)",
-  "invoicing.phone": "Phone No"
+  "invoicing.phone": "Phone No",
+  "inventory.no_items": "No items found.",
+  "tc.accept_terms": "I Accept",
+  "tc.action_required": "Action Required",
+  "tc.error": "Error loading Terms & Conditions",
+  "tc.legal": "Legal & Compliance",
+  "tc.success.title": "Terms Accepted",
+  "tc.terms_title": "Terms and Conditions",
+  "tc.updated_tc": "We have updated our terms to better serve our users. Please review and agree to continue.",
+  "tc.updated_terms_title": "New Terms and Conditions",
+  "tc.verified": "Up to Date",
+  "tc.view": "View Terms"
 }

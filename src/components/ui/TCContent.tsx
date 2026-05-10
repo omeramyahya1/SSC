@@ -22,7 +22,7 @@ export const TCContent: React.FC<TCContentProps> = ({ content, isLoading, metada
   if (!content) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-neutral/50">
-        <p>{t('common.error', 'Error')}</p>
+        <p>{t('tc.error', 'Error')}</p>
         <p className="text-xs">Failed to load Terms & Conditions.</p>
       </div>
     );
