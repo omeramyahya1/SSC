@@ -2,7 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import { useUserStore } from "@/store/useUserStore";
 import { useOrganizationStore } from "@/store/useOrganizationStore";
-import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useApplicationSettingsStore } from "@/store/useApplicationSettingsStore";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,12 +24,13 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useSystemInfoStore } from "@/store/useSystemInfoStore";
-import { User, Shield, Database, LogOut, Trash2, Save, Pencil, X, Mail, KeyRound, ChevronsUpDown, Check, Eye, EyeOff } from "lucide-react";
+import { User, Shield, Database, LogOut, Trash2, Save, Pencil, X, Mail, KeyRound, ChevronsUpDown, Check, Eye, EyeOff, FileText, BadgeCheck, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import { Card } from "@/components/ui/card";
 import api from "@/api/client";
 import { cn } from "@/lib/utils";
+import { TCContent } from "@/components/ui/TCContent";
 import {
   Command,
   CommandEmpty,
@@ -143,6 +145,7 @@ export function SettingsModal() {
     const { setCurrentAuthentication, logout, changePassword } = useAuthenticationStore();
     const { updateOrganization } = useOrganizationStore();
     const { systemInfo, isLoading: isSystemInfoLoading, fetchSystemInfo } = useSystemInfoStore();
+    const { needsTCUpdate, latestTC } = useApplicationSettingsStore();
 
     const isEmployee = currentUser?.role === "employee";
     const isEnterprise = currentUser ? currentUser.account_type !== "standard" : false;
@@ -958,40 +961,89 @@ export function SettingsModal() {
                             <TabsContent value="system" className="m-0 space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
-                                        <p className="text-xs font-bold text-neutral/40 ">{t('settings.app_version', 'App Version')}</p>
+                                        <p className="text-center text-primary text-xs font-bold text-neutral/40 ">{t('settings.app_version', 'App Version')}</p>
                                         <p className="text-2xl font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : (systemInfo?.app_version || "—")}
                                         </p>
                                     </Card>
                                     <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
-                                        <p className="text-xs font-bold text-neutral/40 ">{t('settings.db_size', 'Local DB Size')}</p>
+                                        <p className="text-center text-primary text-xs font-bold text-neutral/40 ">{t('settings.db_size', 'Local DB Size')}</p>
                                         <p className="text-2xl font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : formatBytes(systemInfo?.local_db_size_bytes ?? 0)}
                                         </p>
                                     </Card>
                                     <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
-                                        <p className="text-xs font-bold text-neutral/40 ">{t('settings.last_sync', 'Last Sync')}</p>
+                                        <p className="text-center text-primary text-xs font-bold text-neutral/40 ">{t('settings.last_sync', 'Last Sync')}</p>
                                         <p className="text-lg font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : formatRelativeTime(systemInfo?.last_sync_utc ?? null)}
                                         </p>
                                     </Card>
                                 </div>
                                 <div className="space-y-2 w-1/2">
-                                                <Label className="text-xs font-bold text-neutral/40 ">{t('registration.language.placeholder', 'Language')}</Label>
-                                                <Select onValueChange={handleLanguageChange} defaultValue={i18n.language} dir={i18n.dir()}>
-                                                    <SelectTrigger className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium">
-                                                        <SelectValue placeholder={t('settings.select_language_placeholder', 'Select language')} />
-                                                    </SelectTrigger>
-                                                    <SelectContent dir={i18n.dir()}>
-                                                        <SelectItem value='en'>
-                                                            {t('registration.language.en', 'English')}
-                                                        </SelectItem>
-                                                        <SelectItem value='ar'>
-                                                            {t('registration.language.ar', 'العربية')}
-                                                        </SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                    <Label className="text-xs text-primary font-bold ">{t('registration.language.placeholder', 'Language')}</Label>
+                                    <Select onValueChange={handleLanguageChange} defaultValue={i18n.language} dir={i18n.dir()}>
+                                        <SelectTrigger className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium">
+                                            <SelectValue placeholder={t('settings.select_language_placeholder', 'Select language')} />
+                                        </SelectTrigger>
+                                        <SelectContent dir={i18n.dir()}>
+                                            <SelectItem value='en'>
+                                                {t('registration.language.en', 'English')}
+                                            </SelectItem>
+                                            <SelectItem value='ar'>
+                                                {t('registration.language.ar', 'العربية')}
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-4 relative-end">
+                                    <Label className="text-xs text-primary font-bold">
+                                        {t('tc.legal', 'Legal & Compliance')}
+                                    </Label>
+                                    <div className="p-4 border border-primary-gray bg-white rounded-2xl flex items-center justify-between group hover:border-primary/30 transition-all">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                                <FileText className="w-5 h-5" />
                                             </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-neutral/80">{t('tc.terms_title', 'Terms and Conditions')}</p>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    {needsTCUpdate ? (
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                                            <AlertTriangle className="w-2.5 h-2.5" />
+                                                            {t('tc.action_required', 'Review & Approve')}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                                            <BadgeCheck className="w-2.5 h-2.5" />
+                                                            {t('tc.verified', 'Up to Date')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Dialog>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="rounded-xl font-bold h-10 border-primary-gray hover:bg-primary hover:text-white transition-all">
+                                                    {t('tc.view', 'View')}
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="max-w-2xl max-h-[85vh] bg-white border-none rounded-3xl shadow-2xl flex flex-col pb-6 overflow-hidden">
+                                                <DialogHeader className="p-6 pb-2 bg-gray-50/50">
+                                                    <DialogTitle className="text-2xl font-black text-neutral/80">{t('tc.terms_title', 'Terms and Conditions')}</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="flex-1 overflow-hidden px-6">
+                                                    <ScrollArea className="h-[60vh] mt-4 border-2 p-4 rounded-2xl bg-neutral/5">
+                                                        <TCContent
+                                                            content={latestTC?.content?.[i18n.language === 'ar' ? 'ar' : 'en']}
+                                                            metadata={latestTC?.content?.metadata}
+                                                        />
+                                                    </ScrollArea>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                </div>
                             </TabsContent>
 
                         </div>
