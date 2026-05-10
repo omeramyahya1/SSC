@@ -43,6 +43,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocationData } from "@/hooks/useLocationData";
 
 interface IndependentInvoiceEditorProps {
   invoiceUuid: string;
@@ -64,6 +65,7 @@ type InventoryLineItem = {
 export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: IndependentInvoiceEditorProps) {
   const { t, i18n } = useTranslation();
   const { currentInvoice, fetchInvoice, updateInvoice, issueInvoice, isLoading } = useInvoiceStore();
+  const { getClimateDataForCity } = useLocationData();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [manualItems, setManualItems] = useState<ManualItem[]>([]);
@@ -134,6 +136,20 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
   };
+
+  const formatProjectLocation = (location: string | null) => {
+        if (!location) return '';
+        const [city, state] = location.split(',').map(s => s.trim());
+        const locationData = getClimateDataForCity(city, state);
+
+        if (i18n.language === 'ar' && locationData) {
+            return `${locationData.city_ar}, ${locationData.state_ar}`;
+        }
+
+        return [city, state].filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
+    };
+
+  const displayLocation = formatProjectLocation(projectLocation);
 
   const shippingFee = useMemo(() => toNumber(shippingFeeInput), [shippingFeeInput]);
   const installationFee = useMemo(() => toNumber(installationFeeInput), [installationFeeInput]);
@@ -434,7 +450,7 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MapPin className="h-4 w-4 shrink-0" />
                 <span className="text-sm font-bold">
-                  {t("invoicing.address", "Address")}: {projectLocation || "—"}
+                  {t("invoicing.address", "Address")}: {displayLocation}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">

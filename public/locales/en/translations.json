@@ -608,6 +608,7 @@
   "invoicing.shipping_fee": "Shipping Fee",
   "invoicing.installation_fee": "Installation Fee",
   "invoicing.discount": "Discount (%)",
+  "invoicing.discount_no_percent": "Discount",
   "invoicing.summary": "Invoice Summary",
   "invoicing.subtotal": "Subtotal",
   "invoicing.grand_total": "Grand Total",
