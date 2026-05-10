@@ -390,6 +390,7 @@ def export_pdf(project_uuid):
                 return jsonify({"error": "Invoice not found"}), 404
 
             details = invoice.invoice_details or {}
+            manual_items = invoice.invoice_items["manual"] or []
             lang = request.args.get('lang', 'en')
 
             if project.project_location:
@@ -409,6 +410,18 @@ def export_pdf(project_uuid):
                     "model": comp.item.model if comp.item else "",
                     "unit_price": f"{float(price):,.2f}",
                     "quantity": comp.quantity,
+                    "total": f"{float(total):,.2f}"
+                })
+                subtotal += total
+
+            for item in manual_items:
+                name = item["name"] if item["name"] else next
+                price = float(item["price"] or 0)
+                total = price * float(item["quantity"] or 0)
+                items.append({
+                    "name": name,
+                    "unit_price": f"{float(price):,.2f}",
+                    "quantity": item["quantity"],
                     "total": f"{float(total):,.2f}"
                 })
                 subtotal += total

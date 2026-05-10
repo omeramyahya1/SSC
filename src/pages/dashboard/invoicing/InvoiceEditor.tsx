@@ -1153,6 +1153,28 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
+                                            {/* Manual Items */}
+                                    {manualItems.map((item) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell>
+                                                <span>{item.name}</span>
+
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className='flex flex-col items-center'>
+                                                    <span className='font-bold'>{formatCurrency(item.price)}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className='flex flex-col items-center'>
+                                                    <span className='font-bold'>{item.quantity}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-end font-bold">
+                                                {formatCurrency(item.price * item.quantity)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
                                             <TableRow className="border-t">
                                                 <TableCell colSpan={3} className="text-end font-semibold">{t('invoicing.subtotal', 'Subtotal')}</TableCell>
                                                 <TableCell className="text-end font-bold">{formatCurrency(subtotal)}</TableCell>
@@ -1178,12 +1200,12 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
                                             <span className="font-bold">+ {formatCurrency(installationFee)}</span>
                                         </div>
                                         <div className="flex justify-between text-base text-red-600">
-                                            <span className="font-medium">{t('invoicing.discount', 'Discount')}</span>
+                                            <span className="font-medium">{t('invoicing.discount_no_percent', 'Discount')}</span>
                                             <span className="font-bold">- {formatCurrency(discountAmount)}</span>
                                         </div>
                                         <div className="pt-4 border-t flex justify-between text-2xl font-black text-primary">
-                                            <span>Total</span>
-                                            <span>{formatCurrency(grandTotal)}</span>
+                                            <span>{t('invoicing.grand_total', 'Grand Total')}</span>
+                                            <span className='text-end'>{formatCurrency(grandTotal)}</span>
                                         </div>
                                     </div>
                                 </div>

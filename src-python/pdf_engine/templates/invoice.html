@@ -188,7 +188,9 @@
             <tr>
                 <td>
                     <strong>{{ item.name }}</strong><br>
+                    {% if item.brand or item.model %}
                     <span style="font-size: 8pt; color: #6b7280;">{{ item.brand }} | {{ item.model }}</span>
+                    {% endif %}
                 </td>
                 <td style="text-align: center;">{{ item.unit_price }}</td>
                 <td style="text-align: center;">{{ item.quantity }}</td>
