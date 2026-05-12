@@ -132,6 +132,7 @@
   "common.must_be_positive_number": "Must be a positive number",
   "common.temp_coefficient_power_hint": "Typically a small negative number (e.g., -0.004)",
   "common.invalid_number": "Invalid number",
+  "common.invalid_code": "Invalid or expired code",
   "common.must_be_0_or_greater": "Must be 0 or greater",
   "common.must_be_whole_number": "Must be a whole number",
   "common.must_be_between_0_24": "Must be between 0 and 24",

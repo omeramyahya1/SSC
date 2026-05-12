@@ -377,6 +377,8 @@ def reset_password():
     if not email or not new_password:
         return jsonify({"error": "Email and new_password are required"}), 400
 
+    email = email.lower()
+
     with get_db() as db:
         try:
             supabase = get_service_role_client()

@@ -132,6 +132,7 @@
   "common.must_be_positive_number": "يجب أن يكون رقمًا موجبًا",
   "common.temp_coefficient_power_hint": "عادة ما يكون رقمًا سالبًا صغيرًا (على سبيل المثال، -0.004)",
   "common.invalid_number": "رقم غير صالح",
+  "common.invalid_code": "رمز غير صالح أو منتهي الصلاحية",
   "common.must_be_0_or_greater": "يجب أن يكون 0 أو أكبر",
   "common.must_be_whole_number": "يجب أن يكون رقمًا صحيحًا",
   "common.must_be_between_0_24": "يجب أن يكون بين 0 و 24",

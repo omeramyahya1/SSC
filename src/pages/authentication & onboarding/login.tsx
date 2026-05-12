@@ -218,7 +218,6 @@ export default function LoginScreen() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
                 >
-                   {/* Placeholders for local eye icons */}
                   {showPassword ? (
                      <img src="/eva-icons/fill/png/128/eye.png" alt="Hide" className="w-6 h-6 opacity-70" />
                   ) : (
