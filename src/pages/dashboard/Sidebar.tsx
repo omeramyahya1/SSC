@@ -80,7 +80,7 @@ const SubscriptionDetails = ({ onOpenModal }: { onOpenModal: () => void }) => {
     const isExpired = currentUser?.status === 'expired';
 
     return (
-        <PopoverContent className="w-80 bg-white" dir={i18n.dir()}>
+        <PopoverContent className={`w-80 bg-white ${i18n.dir() === 'ltr' ? 'translate-x-20' : '-translate-x-20'} -translate-y-20`} dir={i18n.dir()}>
             <div className="grid gap-4">
                 <div className="space-y-2">
                     <h2 className="text-sm text-muted-foreground">

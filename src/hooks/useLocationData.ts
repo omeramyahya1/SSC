@@ -69,5 +69,24 @@ export const useLocationData = () => {
         ) || null;
     }, []);
 
-    return { states: uniqueStates, getCitiesByState, getClimateDataForCity };
+    const formatLocation = useCallback((location: string | null) => {
+        if (!location) return '';
+        const parts = location.split(',').map(s => s.trim());
+        if (parts.length !== 2) return toTitleCase(location);
+
+        const [city, state] = parts;
+        const entry = geoDataParsed.find(item => 
+            item.city.toLowerCase() === city.toLowerCase() && 
+            item.state.toLowerCase() === state.toLowerCase()
+        );
+
+        if (!entry) return toTitleCase(location);
+
+        if (i18n.language === 'ar') {
+            return `${entry.city_ar}، ${entry.state_ar}`; // Arabic comma
+        }
+        return `${toTitleCase(entry.city)}, ${toTitleCase(entry.state)}`;
+    }, [i18n.language]);
+
+    return { states: uniqueStates, getCitiesByState, getClimateDataForCity, formatLocation };
 };

@@ -31,6 +31,7 @@ import { useSubscriptionPaymentStore } from '@/store/useSubscriptionPaymentStore
 import { supabase } from '@/lib/supabaseClient';
 import api from '@/api/client';
 import toast from 'react-hot-toast';
+import { useOrganizationStore } from '@/store/useOrganizationStore';
 
 interface PlanModalProps {
     isOpen: boolean;
@@ -50,7 +51,8 @@ type PricingInfo = {
 
 export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     const { t, i18n } = useTranslation();
-    const { currentUser } = useUserStore();
+    const { currentUser, users, fetchEmployees, isLoading: isUsersLoading } = useUserStore();
+    const { currentOrganization, fetchOrganization } = useOrganizationStore();
     const { subscriptions, currentSubscription, fetchSubscriptions } = useSubscriptionStore();
     const { subscriptionPayments, createSubscriptionPayment, fetchSubscriptionPayments } = useSubscriptionPaymentStore();
 
@@ -62,7 +64,9 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
     // Upgrade/Renewal state
     const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-    const [employees, setEmployees] = useState(1);
+    const [employees, setEmployees] = useState(0);
+    const [minAllowed, setMinAllowed] = useState(1);
+    const [hasInitializedEmployees, setHasInitializedEmployees] = useState(false);
     const [tier1Duration, setTier1Duration] = useState<'Monthly' | 'Annual' | 'Lifetime'>('Monthly');
 
     // Payment state
@@ -119,11 +123,42 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     }, []);
 
     useEffect(() => {
+    if (currentUser?.organization_uuid) {
+      fetchEmployees(currentUser.organization_uuid);
+    }
+    }, [currentUser, fetchEmployees])
+
+    useEffect(() => {
+        if (!isOpen) {
+            setHasInitializedEmployees(false);
+            return;
+        }
+
+        const initialize = async () => {
+            if (isOpen && !hasInitializedEmployees && !isUsersLoading) {
+                // Ensure we have the latest org data
+                if (currentUser?.organization_uuid) {
+                    await fetchOrganization(currentUser.organization_uuid);
+                }
+
+                const physicalCount = Math.max(1, users.length);
+                // Read fresh org state after fetch (avoid stale closure snapshot)
+                const latestOrg = useOrganizationStore.getState().currentOrganization;
+                const capacity = latestOrg?.emp_count || physicalCount;
+
+                setMinAllowed(physicalCount);
+                setEmployees(capacity);
+                setHasInitializedEmployees(true);
+            }
+        };
+
+        initialize();
+
         if (isOpen) {
             fetchSubscriptions(currentUser?.uuid);
             fetchSubscriptionPayments();
         }
-    }, [isOpen, currentUser?.uuid]);
+    }, [isOpen, hasInitializedEmployees, isUsersLoading, users.length, currentUser?.uuid, currentUser?.organization_uuid, currentOrganization?.emp_count]);
 
     const latestSubscription = useMemo(() => {
         if (!subscriptions || subscriptions.length === 0) return null;
@@ -499,7 +534,9 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                                             {isEnterprise ? t('registration.plans.tier1_desc', 'Flexible for small to medium teams') : ''}
                                         </CardDescription>
                                     </div>
-                                    <div className="text-right">
+                                    {
+                                        (!isEnterprise || (plan === 'Tier1' && selectedPlan === 'Tier1')) && (
+                                        <div className="text-right">
                                          <div className="font-black text-primary text-xl">
                                              {pricingData.length > 0 ? (
                                                  plan === 'Tier1' ?
@@ -508,12 +545,26 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                                              ) : '...'}
                                          </div>
                                     </div>
+                                        )
+                                    }
+
                                 </CardHeader>
                                 {plan === 'Tier1' && selectedPlan === 'Tier1' && (
                                     <CardContent className="p-4 pt-0 space-y-4">
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-bold">{t('registration.employees_count', 'Employees')}: {employees}</Label>
-                                            <Slider value={[employees]} max={50} min={1} step={1} onValueChange={(v) => setEmployees(v[0])} dir={i18n.dir()} />
+                                            <Label className="text-xs font-bold">{t('registration.allowed_employees', 'Allowed Employees')}: {employees}</Label>
+                                            <Slider
+                                                value={[employees]}
+                                                max={50}
+                                                min={minAllowed}
+                                                step={1}
+                                                onValueChange={(v) => setEmployees(v[0])}
+                                                dir={i18n.dir()} />
+                                            {employees === minAllowed && (
+                                                <p className="text-[10px] text-semantic-error italic ps-1">
+                                                    {t('subscription.min_employees_hint', 'Minimum employees reached. Deactivate employees in the Team section to reduce this count.')}
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-xs font-bold">{t('registration.duration', 'Duration')}</Label>

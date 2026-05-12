@@ -43,6 +43,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { useLocationData } from "@/hooks/useLocationData";
 
 interface IndependentInvoiceEditorProps {
   invoiceUuid: string;
@@ -64,6 +65,7 @@ type InventoryLineItem = {
 export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: IndependentInvoiceEditorProps) {
   const { t, i18n } = useTranslation();
   const { currentInvoice, fetchInvoice, updateInvoice, issueInvoice, isLoading } = useInvoiceStore();
+  const { getClimateDataForCity } = useLocationData();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [manualItems, setManualItems] = useState<ManualItem[]>([]);
@@ -134,6 +136,20 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
   };
+
+  const formatProjectLocation = (location: string | null) => {
+        if (!location) return '';
+        const [city, state] = location.split(',').map(s => s.trim());
+        const locationData = getClimateDataForCity(city, state);
+
+        if (i18n.language === 'ar' && locationData) {
+            return `${locationData.city_ar}, ${locationData.state_ar}`;
+        }
+
+        return [city, state].filter(Boolean).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
+    };
+
+  const displayLocation = formatProjectLocation(projectLocation);
 
   const shippingFee = useMemo(() => toNumber(shippingFeeInput), [shippingFeeInput]);
   const installationFee = useMemo(() => toNumber(installationFeeInput), [installationFeeInput]);
@@ -434,7 +450,7 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
               <div className="flex items-center gap-2 text-muted-foreground">
                 <MapPin className="h-4 w-4 shrink-0" />
                 <span className="text-sm font-bold">
-                  {t("invoicing.address", "Address")}: {projectLocation || "—"}
+                  {t("invoicing.address", "Address")}: {displayLocation}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
@@ -469,15 +485,19 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
               </div>
               <div className="space-y-3">
               <Label className="text-[10px] uppercase font-bold text-gray-400 block">{t("invoicing.due_date", "Due Date")}</Label>
-              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              {
+                currentInvoice?.issued_at ? (
+                  <span className="text-sm font-bold">{dueDate ? format(dueDate, "dd/MM/yyyy") : ""}</span>
+                ) : (
+                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
-                                                variant="outline"
-                                                className={cn("w-fit justify-end text-left font-bold no-print")}
-                                            >
-                                                <CalendarIcon className="h-4 w-4 text-primary" />
-                                                {dueDate ? format(dueDate, "dd/MM/yyyy") : <span>{t('invoicing.pick_date', 'Pick a date')}</span>}
-                                            </Button>
+                    variant="outline"
+                    className={cn("w-fit justify-end text-left font-bold no-print")}
+                  >
+                      <CalendarIcon className="h-4 w-4 text-primary" />
+                      {dueDate ? format(dueDate, "dd/MM/yyyy") : <span>{t('invoicing.pick_date', 'Pick a date')}</span>}
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0 bg-white" align="start">
                   <Calendar
@@ -487,9 +507,21 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                       setDueDate(d || null);
                       setIsCalendarOpen(false);
                     }}
+                    disabled={
+                          (date) => {
+                              const min = currentInvoice?.issued_at ? new Date(currentInvoice.issued_at) : new Date();
+                              min.setHours(0, 0, 0, 0);
+                              const d = new Date(date);
+                              d.setHours(0, 0, 0, 0);
+                              return d < min;
+                          }
+                      }
                   />
                 </PopoverContent>
               </Popover>
+                )
+              }
+
             </div>
             </div>
           </div>
@@ -691,13 +723,32 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                                         <div className="space-y-2 col-span-2">
                                             <Label className="text-xs">{t('invoicing.discount', 'Discount (%)')}</Label>
                                             <Input
-                                                type="text"
-                                                inputMode="decimal"
-                                                value={discountPercentInput}
-                                                onChange={(e) => handleNumberInputChange(setDiscountPercentInput, e.target.value)}
-                                                onBlur={() => normalizeNumberInput(discountPercentInput, setDiscountPercentInput, { clampMax: 100 })}
-                                                disabled={isIssued}
-                                                className="font-medium"
+                                              type="text"
+                                              inputMode="decimal"
+                                              value={discountPercentInput}
+                                              onChange={(e) => {
+                                                const val = e.target.value;
+                                                const num = parseFloat(val);
+
+                                                // 1. Allow empty input so the user can backspace/clear it
+                                                if (val === "") {
+                                                  handleNumberInputChange(setDiscountPercentInput, "");
+                                                  return;
+                                                }
+
+                                                // 2. Only update if the value is a valid number AND <= 100
+                                                // This prevents entering 101+, but allows 100 (3 digits)
+                                                if (!isNaN(num) && num <= 100) {
+                                                  handleNumberInputChange(setDiscountPercentInput, val);
+                                                }
+                                              }}
+                                              onBlur={() =>
+                                                normalizeNumberInput(discountPercentInput, setDiscountPercentInput, {
+                                                  clampMax: 100,
+                                                })
+                                              }
+                                              disabled={isIssued}
+                                              className="font-medium"
                                             />
                                         </div>
                                     </div>
@@ -760,13 +811,13 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                                         </div>
 
                                         <div className="flex justify-between text-base text-red-600">
-                                            <span className="font-medium">{t('invoicing.discount', 'Discount')}</span>
+                                            <span className="font-medium">{t('invoicing.discount_no_percent', 'Discount')}</span>
                                             <span className="font-bold">- {formatCurrency(discountAmount)}</span>
                                         </div>
 
                                     <div className="pt-6 border-t border-primary-gray flex justify-between text-3xl font-black text-primary print:text-xl">
-                                        <span>Total</span>
-                                        <span>{formatCurrency(grandTotal)}</span>
+                                        <span>{t('invoicing.grand_total', 'Total')}</span>
+                                        <span className="text-end">{formatCurrency(grandTotal)}</span>
                                     </div>
                                 </div>
 

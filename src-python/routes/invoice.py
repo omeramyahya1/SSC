@@ -237,11 +237,16 @@ def delete_invoice(uuid):
             if not item:
                 return jsonify({"error": "Not found"}), 404
 
+            project = db.query(Project).filter(Project.uuid == item.project_uuid, Project.deleted_at.is_(None)).first()
+            if project and project.status == 'done':
+                project.status = 'planning'
+
             # Rollback stock if issued
             if item.issued_at and user_uuid:
                 reverse_stock_deduction(db, item.uuid, user_uuid)
 
             now = datetime.utcnow()
+            item.issued_at = None
             item.deleted_at = now
             item.is_dirty = True
 

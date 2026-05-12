@@ -353,9 +353,9 @@ class BLE:
                     "autonomy_days": autonomy_days,
                     "total_daily_energy_wh": self.total_daily_energy_demand,
                     "total_peak_power_w": self.total_peak_power,
+                    "location": f"{self.geo_data['city']}, {self.geo_data['state']}"
                 },
                 "solar_panels": {
-                    "brand": "N/A", "panel_type": "N/A", "mount_type": "N/A",
                     "power_rating_w": panel_power,
                     "quantity": self.num_panels,
                     "total_pv_capacity_kw": total_pv_capacity_kw,
@@ -365,7 +365,6 @@ class BLE:
                     "tilt_angle": tilt_angle
                 },
                 "inverter": {
-                    "brand": "N/A", "type": "Hybrid", "phase_type": "Single Phase",
                     "power_rating_w": self.settings.get("inverter_rated_power"),
                     "quantity": self.num_inverters,
                     "surge_rating_w": self.max_surge_power,
@@ -375,7 +374,6 @@ class BLE:
                     "connection_type": self.inverter_connection_type
                 },
                 "battery_bank": {
-                    "brand": "N/A",
                     "battery_type": battery_type,
                     "capacity_per_unit_ah": battery_ah,
                     "voltage_per_unit_v": battery_v,

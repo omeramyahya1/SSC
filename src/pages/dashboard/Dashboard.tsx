@@ -15,6 +15,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from "react-hot-toast";
+import { useLocationData } from '@/hooks/useLocationData';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -32,6 +33,7 @@ type GroupOption = 'none' | 'status' | 'date' | 'location' | 'customer';
 
 export function Dashboard() {
     const { t, i18n } = useTranslation();
+    const { formatLocation } = useLocationData();
     const { currentUser } = useUserStore();
     const isExpired = currentUser?.status === 'expired';
 
@@ -172,7 +174,7 @@ export function Dashboard() {
         filteredProjects.forEach(p => {
             let key = '';
             if (groupBy === 'status') key = t(`dashboard.status.${p.status}`, p.status);
-            else if (groupBy === 'location') key = p.project_location || t('dashboard.no_location', 'No Location');
+            else if (groupBy === 'location') key = p.project_location ? formatLocation(p.project_location) : t('dashboard.no_location', 'No Location');
             else if (groupBy === 'customer') key = p.customer.full_name;
             else if (groupBy === 'date') {
                 const date = new Date(p.created_at);
@@ -184,7 +186,7 @@ export function Dashboard() {
         });
 
         return groups;
-    }, [filteredProjects, groupBy, t, i18n.language]);
+    }, [filteredProjects, groupBy, t, i18n.language, formatLocation]);
 
     const renderGrid = (items: Project[]) => (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
