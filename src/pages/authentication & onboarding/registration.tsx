@@ -1470,9 +1470,9 @@ const StageController = ({ stage, setStepValid, fetchedPricingData, pricingIsLoa
 };
 
 const LanguageSelector = ({ selectedLang, onChangeLang }: { selectedLang: string, onChangeLang: (lang: string) => void }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     return (
-    <Select value={selectedLang} onValueChange={onChangeLang}>
+    <Select value={selectedLang} onValueChange={onChangeLang} dir={i18n.dir()}>
         <SelectTrigger className="flex items-center gap-4 bg-white w-fit">
             <img src="/eva-icons/fill/png/128/globe-2.png" alt={t('registration.language_alt', 'Language')} className="w-5 h-5 opacity-70"
                  onError={(e) => { e.currentTarget.style.backgroundColor = '#ccc'; e.currentTarget.style.borderRadius = '50%' }} />
