@@ -475,9 +475,8 @@ const LeftPanel = ({ isVisible }: { isVisible: boolean }) => {
                 <h2 className="text-4xl font-bold mb-6 leading-tight text-white">{t('registration.banner.title', "Create your account")}</h2>
                 <p className="text-white/80 text-base leading-relaxed max-w-sm">{t('registration.banner.subtitle', "Join us and manage your solar projects efficiently.")}</p>
             </div>
-            <div className="flex items-center justify-between text-sm font-medium relative z-10 pt-6 border-t border-white/30">
+            <div className="flex items-center justify-start text-sm font-medium relative z-10 pt-6 border-t border-white/30">
                 <button type="button" className="hover:text-primary-lighter transition-colors hover:underline" onClick={() => navigate("/")}>{t('registration.login_link', "Login")}</button>
-                <button type="button" className="hover:text-primary-lighter transition-colors hover:underline" onClick={() => navigate("/help")}>{t('login.need_help', "Need Help?")}</button>
             </div>
         </div>
     );
@@ -797,7 +796,7 @@ const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading }: { setValid: 
                         <CardContent className="flex flex-col items-center justify-between h-full gap-6">
                              <div className="text-xl font-bold">{t('registration.custom_pricing', 'Custom Pricing')}</div>
                              <div className={`transition-opacity duration-300 ${data.plan === 'Tier2' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                                  <Link to="/sales">
+                                  <Link to="/contact_sales">
                                       <Button variant="outline" className='rounded-base'>{t('registration.contact_sales', 'Contact Sales')}</Button>
                                   </Link>
                              </div>
@@ -1471,9 +1470,9 @@ const StageController = ({ stage, setStepValid, fetchedPricingData, pricingIsLoa
 };
 
 const LanguageSelector = ({ selectedLang, onChangeLang }: { selectedLang: string, onChangeLang: (lang: string) => void }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     return (
-    <Select value={selectedLang} onValueChange={onChangeLang}>
+    <Select value={selectedLang} onValueChange={onChangeLang} dir={i18n.dir()}>
         <SelectTrigger className="flex items-center gap-4 bg-white w-fit">
             <img src="/eva-icons/fill/png/128/globe-2.png" alt={t('registration.language_alt', 'Language')} className="w-5 h-5 opacity-70"
                  onError={(e) => { e.currentTarget.style.backgroundColor = '#ccc'; e.currentTarget.style.borderRadius = '50%' }} />

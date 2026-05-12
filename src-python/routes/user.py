@@ -419,6 +419,40 @@ def record_tc_agreement():
             print(f"Error recording TC agreement: {e}")
             return jsonify({"error": str(e)}), 500
 
+@user_bp.route('/contact-sales', methods=['POST'])
+def contact_sales():
+    err, code = require_internet()
+    if err:
+        return err, code
+
+    data = request.get_json() or {}
+    enterprise_name = data.get('enterprise_name')
+    location = data.get('location')
+    email = data.get('email')
+    phone = data.get('phone')
+    meeting_preference = data.get('meeting_preference')
+    body = data.get('body')
+
+    if not enterprise_name or not email or not phone:
+        return jsonify({"error": "Enterprise name, email, and phone are required"}), 400
+
+    try:
+        service_client = get_service_role_client()
+        service_client.rpc('tier2_ticket', {
+            'p_enterprise_name': enterprise_name,
+            'p_location': location,
+            'p_email': email,
+            'p_phone': phone,
+            'p_meeting_preference': meeting_preference,
+            'p_body': body
+        }).execute()
+
+        return jsonify({"message": "Sales request submitted successfully"}), 200
+    except Exception as e:
+        print(f"Error submitting sales request: {e}")
+        return jsonify({"error": "Failed to submit sales request. Please try again later."}), 500
+
+
 @user_bp.route("/<string:user_id_or_uuid>", methods=['GET'])
 def get_user(user_id_or_uuid):
     with get_db() as db:

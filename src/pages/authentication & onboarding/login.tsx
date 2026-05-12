@@ -67,7 +67,7 @@ export default function LoginScreen() {
 
       // Update Zustand stores
       setCurrentUser(user);
-      setCurrentAuthentication(authentication);
+      setCurrentAuthentication(authentication); // what is this error?
 
       if (user?.role === "employee") {
         if (user.status !== "active") {
@@ -130,7 +130,7 @@ export default function LoginScreen() {
         </div>
 
         {/* Bottom: Footer links */}
-        <div className="flex items-center justify-between text-sm font-medium relative z-10 pt-6 border-t border-white/30 text-start">
+        <div className="flex items-center justify-start text-sm font-medium relative z-10 pt-6 border-t border-white/30 text-start">
           <button type="button" className="hover:text-primary-lighter text-start transition-colors hover:underline"
             onClick={() => {
               navigate("/registration")
@@ -138,12 +138,6 @@ export default function LoginScreen() {
           >
             {t('login.create_account_link', "Create a new account")}
           </button>
-          <button type="button" className="hover:text-primary-lighter text-end transition-colors hover:underline"
-            onClick={() => {
-              navigate("/help")
-            }}
-          >
-            {t('login.need_help', "Need Help?")}</button>
         </div>
       </div>
 
