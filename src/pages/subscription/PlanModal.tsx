@@ -142,8 +142,9 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 }
 
                 const physicalCount = Math.max(1, users.length);
-                // Default to org capacity, fallback to physical count
-                const capacity = currentOrganization?.emp_count || physicalCount;
+                // Read fresh org state after fetch (avoid stale closure snapshot)
+                const latestOrg = useOrganizationStore.getState().currentOrganization;
+                const capacity = latestOrg?.emp_count || physicalCount;
 
                 setMinAllowed(physicalCount);
                 setEmployees(capacity);
@@ -534,7 +535,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                                         </CardDescription>
                                     </div>
                                     {
-                                        !isEnterprise || (plan === 'Tier1' && selectedPlan === 'Tier1') && (
+                                        (!isEnterprise || (plan === 'Tier1' && selectedPlan === 'Tier1')) && (
                                         <div className="text-right">
                                          <div className="font-black text-primary text-xl">
                                              {pricingData.length > 0 ? (
