@@ -48,8 +48,11 @@ export function CreateProjectModal({ onOpenChange, onSubmit, initialData }: Crea
     const cities = useMemo(() => getCitiesByState(locationState), [locationState, getCitiesByState]);
 
     useEffect(() => {
-        // Fallback to the metadata location
-        if (initialData?.config?.metadata?.location) {
+        if (initialData?.bleSettings?.project_location_state && initialData?.bleSettings?.project_location_city) {
+            setLocationState(initialData.bleSettings.project_location_state);
+            setLocationCity(initialData.bleSettings.project_location_city);
+        } else if (initialData?.config?.metadata?.location) {
+            // Fallback to the metadata location
             const [city, state] = initialData.config.metadata.location.split(', ').map(s => s.trim());
             setLocationState(state);
             setLocationCity(city);

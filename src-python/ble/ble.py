@@ -353,6 +353,7 @@ class BLE:
                     "autonomy_days": autonomy_days,
                     "total_daily_energy_wh": self.total_daily_energy_demand,
                     "total_peak_power_w": self.total_peak_power,
+                    "location": f"{self.geo_data['city']}, {self.geo_data['state']}"
                 },
                 "solar_panels": {
                     "power_rating_w": panel_power,

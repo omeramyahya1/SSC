@@ -362,7 +362,7 @@ def register_user():
 
 @user_bp.route('/check-tc-status', methods=['POST'])
 def check_tc_status():
-    data = request.get_json(silet=True)
+    data = request.get_json(silent=True)
     user_id = data.get('user_id')
 
     if not user_id:
