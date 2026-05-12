@@ -507,6 +507,15 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                       setDueDate(d || null);
                       setIsCalendarOpen(false);
                     }}
+                    disabled={
+                          (date) => {
+                              const min = currentInvoice?.issued_at ? new Date(currentInvoice.issued_at) : new Date();
+                              min.setHours(0, 0, 0, 0);
+                              const d = new Date(date);
+                              d.setHours(0, 0, 0, 0);
+                              return d < min;
+                          }
+                      }
                   />
                 </PopoverContent>
               </Popover>
