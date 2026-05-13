@@ -339,6 +339,9 @@ export default function RegistrationScreen() {
   };
 
   const handleBack = () => {
+    if (formData.stage3.plan === 'Tier2') {
+        formData.stage3.plan = "";
+    }
     if (currentStage > 1) {
       setCurrentStage(prev => prev - 1);
     }
@@ -683,6 +686,7 @@ const Stage2 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 // --- STAGE 3: Plan Selection ---
 const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading }: { setValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
     const { t, i18n } = useTranslation();
+    const navigate = useNavigate();
     const { formData, updateFormData } = useRegistrationStore();
     const { accountType } = formData.stage2;
     const data = formData.stage3;
@@ -793,18 +797,15 @@ const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading }: { setValid: 
                             <CardTitle>{t('registration.plans.tier2', 'Tier 2')}</CardTitle>
                             <CardDescription>{t('registration.plans.tier2_desc', 'Unlimited Employees & Branches')}</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex flex-col items-center justify-between h-full gap-6">
-                             <div className="text-xl font-bold">{t('registration.custom_pricing', 'Custom Pricing')}</div>
-                             <div className={`transition-opacity duration-300 ${data.plan === 'Tier2' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                                  <Link to="/contact_sales">
-                                      <Button variant="outline" className='rounded-base'>{t('registration.contact_sales', 'Contact Sales')}</Button>
-                                  </Link>
+                        <CardContent className="flex flex-col items-center justify-between w-full h-full">
+                             <div className="text-xl text-center font-bold w-full">{t('registration.custom_pricing', 'Custom Pricing')}</div>
+                             <div className={`items-center transition-opacity duration-300 ${data.plan === 'Tier2' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                                <Button variant="outline" className='rounded-base' onClick={() => navigate('/contact_sales')}>{t('registration.contact_sales', 'Contact Sales')}</Button>
                              </div>
                              <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === 'Tier2' ? 'bg-semantic-success border-semantic-success text-white' : 'border-neutral/30'}`}>
                                {data.plan === 'Tier2' && <Check className="w-4 h-4" />}
                             </div>
-                            <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === 'Tier1' ? 'bg-semantic-success border-semantic-success text-white' : 'border-neutral/30'}`}>
-                               {data.plan === 'Tier2' && <Check className="w-4 h-4" />}
+                            <div className={`w-6 h-6`}>
                             </div>
                         </CardContent>
                     </Card>

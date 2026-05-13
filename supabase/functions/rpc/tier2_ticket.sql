@@ -10,11 +10,12 @@ CREATE OR REPLACE FUNCTION public.tier2_ticket(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
     -- Basic validation
-    IF nullif(btrim(p_enterprise_name), '') IS NULL OR 
-       nullif(btrim(p_email), '') IS NULL OR 
+    IF nullif(btrim(p_enterprise_name), '') IS NULL OR
+       nullif(btrim(p_email), '') IS NULL OR
        nullif(btrim(p_phone), '') IS NULL THEN
         RAISE EXCEPTION 'Enterprise name, email, and phone are required';
     END IF;
@@ -24,7 +25,7 @@ BEGIN
         SELECT 1
         FROM public.notification_jobs
         WHERE event_type = 'tier2_sales_request'
-          AND payload->>'email' = p_email
+          AND lower(btrim(payload->>'email')) = lower(btrim(p_email))
           AND created_at > now() - interval '5 minutes'
     ) THEN
         RAISE EXCEPTION 'Please wait before sending another request';
@@ -43,7 +44,7 @@ BEGIN
         json_build_object(
             'enterprise_name', p_enterprise_name,
             'location', p_location,
-            'email', p_email,
+            'email', lower(btrim(p_email)),
             'phone', p_phone,
             'meeting_preference', p_meeting_preference,
             'body', p_body,

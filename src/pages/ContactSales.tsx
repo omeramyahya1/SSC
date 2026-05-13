@@ -454,7 +454,7 @@ const ContactSales = () => {
                                 <Button
                                     type="submit"
                                     className="w-full h-12 rounded-xl text-lg font-bold mt-4"
-                                    disabled={isSubmitting || remainingTime > 0 || error != null || enterpriseName === '' || contactEmail === '' || phoneNumber === '' || locationCity === '' || meetingPreference === ''}
+                                    disabled={isSubmitting || remainingTime > 0 || enterpriseName === '' || contactEmail === '' || phoneNumber === '' || locationCity === '' || meetingPreference === ''}
                                 >
                                     {isSubmitting ? <Spinner /> : (remainingTime > 0 ? `${t('contact_sales.wait')} ${formatRemainingTime(remainingTime)}` : t('contact_sales.submit_button'))}
                                 </Button>

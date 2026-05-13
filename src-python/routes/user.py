@@ -426,10 +426,10 @@ def contact_sales():
         return err, code
 
     data = request.get_json() or {}
-    enterprise_name = data.get('enterprise_name')
+    enterprise_name = data.get('enterprise_name' or '').strip()
     location = data.get('location')
-    email = data.get('email')
-    phone = data.get('phone')
+    email = data.get('email' or '').strip().lower()
+    phone = data.get('phone' or '').strip()
     meeting_preference = data.get('meeting_preference')
     body = data.get('body')
 
@@ -450,6 +450,8 @@ def contact_sales():
         return jsonify({"message": "Sales request submitted successfully"}), 200
     except Exception as e:
         print(f"Error submitting sales request: {e}")
+        if "required" in e.lower():
+            return jsonify({"error": e}), 400
         return jsonify({"error": "Failed to submit sales request. Please try again later."}), 500
 
 

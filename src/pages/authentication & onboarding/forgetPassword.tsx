@@ -41,8 +41,7 @@ export default function ForgotPassword() {
     useEffect(() => {
         // Only pre-fill if not logged in and a previous user's email is available
           setIsEmailValid(EMAIL_REGEX.test(email)); // Validate pre-filled email
-        }
-    );
+        }, [email]);
 
     useEffect(() => {
             setError(null);

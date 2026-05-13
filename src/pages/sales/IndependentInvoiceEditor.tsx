@@ -922,8 +922,16 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                     <Button
                         size="sm"
                         onClick={async () => {
-                            await handleExport('pdf');
-                            setIsPreviewOpen(false);
+                            if(!currentInvoice?.uuid) return;
+                            setIsExporting('pdf');
+                            try {
+                              await handleSaveInvoice();
+                              setIsPreviewOpen(false);
+                            } catch {
+                              // keep dialog open on faliru
+                            } finally {
+                              setIsExporting(null);
+                            }
                         }}
                         className="me-10"
                         disabled={!!isExporting}
@@ -966,7 +974,7 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                               </div>
                               <div className="flex items-center gap-2 text-muted-foreground">
                                   <Phone className="h-4 w-4 shrink-0" />
-                                  <span className="text-sm font-bold">{t('invoicing.phone_No', 'Phone No')}: {customer?.phone_number || 'N/A'}</span>
+                                  <span className="text-sm font-bold">{t('invoicing.phone', 'Phone No')}: {customer?.phone_number || 'N/A'}</span>
                               </div>
                           </div>
 

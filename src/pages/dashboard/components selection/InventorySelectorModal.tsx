@@ -129,7 +129,7 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                     <TableBody>
                         {filteredItems.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={selectedItemUuid ? 6 : 5} className="h-32 text-center text-muted-foreground">
                                     {t('common.no_items_found', 'No items found matching your criteria.')}
                                 </TableCell>
                             </TableRow>

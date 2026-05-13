@@ -377,7 +377,7 @@ def reset_password():
     if not email or not new_password:
         return jsonify({"error": "Email and new_password are required"}), 400
 
-    email = email.lower()
+    email = email.lower().strip()
 
     with get_db() as db:
         try:
@@ -385,7 +385,7 @@ def reset_password():
 
             # 1. Verify that the request is actually verified in Supabase
             # We fetch from the table directly using the service role to ensure integrity
-            user_res = supabase.table('users').select('id').eq('email', email).is_("deleted_at", "null").execute()
+            user_res = supabase.table('users').select('id').ilike('email', email).is_("deleted_at", "null").execute()
             if not user_res.data:
                 return jsonify({"error": "User not found"}), 404
 
