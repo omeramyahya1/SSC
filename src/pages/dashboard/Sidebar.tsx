@@ -10,6 +10,7 @@ import { SupportModal } from './SupportModal';
 import { PlanModal } from '../subscription/PlanModal';
 import { useUserStore } from '@/store/useUserStore';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
+import api from "@/api/client";
 import {
   Popover,
   PopoverContent,
@@ -148,9 +149,16 @@ export function Sidebar() {
          }
     }, [currentSubscription, fetchSubscriptions, currentUser?.uuid, subscriptionFetched]);
 
-    const handleSync = () => {
+    const handleSync = async () => {
+        if (isSyncing) return;
         setIsSyncing(true);
-        setTimeout(() => setIsSyncing(false), 2000);
+        try {
+            await api.post('/sync_logs/sync', {}, { timeout: 60000 });
+        } catch (err) {
+            console.error("Sync failed:", err);
+        } finally {
+            setIsSyncing(false);
+        }
     };
 
     const showSidebarContent = !isCollapsed;
@@ -235,7 +243,7 @@ export function Sidebar() {
 
                 {/* Footer */}
                 <div className="p-4">
-                    <Button variant="ghost" className={`w-full gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group ${isCollapsed ? 'justify-center' : 'justify-start'}`} onClick={handleSync}>
+                    <Button variant="ghost" disabled={isSyncing} className={`w-full gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group ${isCollapsed ? 'justify-center' : 'justify-start'}`} onClick={handleSync}>
                         {isSyncing ? <Spinner className="w-6 h-6" /> : <img src="/eva-icons (2)/outline/sync.png" alt={t('common.synced_alt', 'synced')} className="w-6 h-6 opacity-40 group-hover:opacity-100" />}
                          {showSidebarContent && <span className="truncate">{isSyncing ? t('dashboard.syncing', 'Syncing...') : t('dashboard.synced', 'Synced')}</span>}
                     </Button>

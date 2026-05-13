@@ -260,6 +260,7 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
             db.commit()
             print(f"Successfully pushed and confirmed {confirmed_count}/{len(records)} records to {table_name}.")
     except Exception as e:
+        print(e)
         raise Exception(f"Failed to push table {table_name}: {str(e)}")
 
 def push_to_supabase(db: Session, dirty_only: bool = True):
