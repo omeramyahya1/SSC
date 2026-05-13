@@ -339,7 +339,7 @@ serve(async (req) => {
     .from("notification_jobs")
     .select("*")
     .eq("status", "pending")
-    .eq("recipient_role", "user");
+    .in("recipient_role", ["user", "admin"]); // admin here is an org admin and not the super admin
 
   if (fetchError) {
     return new Response(JSON.stringify({ error: fetchError.message }), {

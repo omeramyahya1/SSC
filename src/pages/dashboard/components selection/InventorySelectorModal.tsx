@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
-import { Search, Package, Check } from 'lucide-react';
+import { Search, Check } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 
 interface InventorySelectorModalProps {
@@ -96,7 +96,6 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
         <DialogContent className="max-w-[80vw] h-[80vh] flex flex-col p-0 bg-white" dir={i18n.dir()}>
             <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-xl flex items-center gap-2">
-                    <Package className="h-5 w-5" />
                     {t('inventory.select_item', 'Select Item')}
                 </DialogTitle>
                 <div className="relative mt-2">
@@ -110,22 +109,27 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                 </div>
             </DialogHeader>
 
-            <ScrollArea className="flex-grow" dir={i18n.dir()}>
+            <ScrollArea className="flex-grow px-4" dir={i18n.dir()}>
                 <Table>
                     <TableHeader className="sticky top-0 bg-white z-10">
                         <TableRow>
+                            {
+                                selectedItemUuid && (
+                                    <TableHead className='w-[80px]'></TableHead>
+                                )
+                            }
                             <TableHead className="w-[200px] text-start">{t('inventory.brand_model', 'Brand / Model')}</TableHead>
                             <TableHead className='text-start'>{t('inventory.name', 'Name')}</TableHead>
                             <TableHead className="hidden text-start md:table-cell">{t('inventory.specs', 'Technical Specs')}</TableHead>
                             <TableHead className="text-center">{t('inventory.stock', 'Stock')}</TableHead>
                             <TableHead className="text-end">{t('inventory.price', 'Price')}</TableHead>
-                            <TableHead className='w-[80px]'></TableHead>
+
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredItems.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={selectedItemUuid ? 6 : 5} className="h-32 text-center text-muted-foreground">
                                     {t('common.no_items_found', 'No items found matching your criteria.')}
                                 </TableCell>
                             </TableRow>
@@ -145,6 +149,14 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                                         }
                                     }}
                                 >
+                                    {
+                                        selectedItemUuid && (
+                                            <TableCell className='text-center'>
+                                                {selectedItemUuid === item.uuid && <Check className='h-5 w-5 text-blue-600 mx-auto' />}
+                                            </TableCell>
+                                        )
+                                    }
+
                                     <TableCell>
                                         <div className="font-semibold">{item.brand || 'N/A'}</div>
                                         <div className="text-xs text-muted-foreground">{item.model || 'N/A'}</div>
@@ -169,9 +181,7 @@ export function InventorySelectorModal({ categoryName, onSelect, selectedItemUui
                                     <TableCell className="text-right font-bold">
                                         {item.sell_price ? formatCurrency(item.sell_price) : 'N/A'}
                                     </TableCell>
-                                    <TableCell className='text-center'>
-                                        {selectedItemUuid === item.uuid && <Check className='h-5 w-5 text-blue-600 mx-auto' />}
-                                    </TableCell>
+
                                 </TableRow>
                             ))
                         )}

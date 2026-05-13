@@ -6,7 +6,6 @@ import Registration from "./pages/authentication & onboarding/registration";
 import ForgotPassword from "./pages/authentication & onboarding/forgetPassword";
 import MainContent from "./pages/MainContent";
 import ChangePassword from "./pages/authentication & onboarding/changePassword";
-import Help from "./pages/Help";
 import ContactSales from "./pages/ContactSales";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
@@ -39,10 +38,10 @@ function App() {
       if (preloadedSettings) {
         try {
           const settingsData = JSON.parse(preloadedSettings);
-          useApplicationSettingsStore.setState({ 
-            settings: [settingsData], 
+          useApplicationSettingsStore.setState({
+            settings: [settingsData],
             currentSetting: settingsData,
-            isLoading: false 
+            isLoading: false
           });
         } catch (e) {
           console.error("Failed to parse preloaded settings data:", e);
@@ -95,7 +94,6 @@ function App() {
             <Route path="sales" element={<Sales />} />
             <Route path="team" element={<TeamOrganization />} />
           </Route>
-          <Route path="/help" element={<Help />} />
           <Route path="/" element={<Navigate to="/home" replace />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </>
@@ -105,7 +103,6 @@ function App() {
           <Route path="/registration" element={<Registration />} />
           <Route path="/forgotpassword" element={<ForgotPassword />} />
           <Route path="/change_password" element={<ChangePassword />} />
-          <Route path="/help" element={<Help />} />
           <Route path="/contact_sales" element={<ContactSales />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </>

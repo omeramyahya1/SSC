@@ -320,6 +320,117 @@ def logout_user():
         return jsonify({"message": "Logout successful"}), 200
 
 
+@authentication_bp.route('/request-reset', methods=['POST'])
+def request_reset():
+    err, code = require_internet()
+    if err:
+        return err, code
+
+    email = request.json.get('email')
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    try:
+        supabase = get_service_role_client()
+        supabase.rpc('request_password_reset_code', {'p_email': email}).execute()
+        return jsonify({"message": "If the email exists, a reset code has been sent."}), 200
+    except Exception as e:
+        print(f"Error requesting reset code: {str(e)}")
+        return jsonify({"error": "Failed to process reset request."}), 500
+
+
+@authentication_bp.route('/verify-code', methods=['POST'])
+def verify_code():
+    err, code = require_internet()
+    if err:
+        return err, code
+
+    email = request.json.get('email')
+    code_val = request.json.get('code')
+
+    if not email or not code_val:
+        return jsonify({"error": "Email and code are required"}), 400
+
+    try:
+        supabase = get_service_role_client()
+        response = supabase.rpc('verify_reset_code', {'p_email': email, 'p_code': code_val}).execute()
+
+        if hasattr(response, 'data') and response.data is True:
+            return jsonify({"verified": True}), 200
+        else:
+            return jsonify({"verified": False, "error": "Invalid or expired code"}), 400
+    except Exception as e:
+        print(f"Error verifying reset code: {str(e)}")
+        return jsonify({"error": "Failed to verify reset code."}), 500
+
+
+@authentication_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    err, code = require_internet()
+    if err:
+        return err, code
+
+    data = request.get_json() or {}
+    email = data.get('email')
+    new_password = data.get('new_password') or data.get('newPassword')
+
+    if not email or not new_password:
+        return jsonify({"error": "Email and new_password are required"}), 400
+
+    email = email.lower().strip()
+
+    with get_db() as db:
+        try:
+            supabase = get_service_role_client()
+
+            # 1. Verify that the request is actually verified in Supabase
+            # We fetch from the table directly using the service role to ensure integrity
+            user_res = supabase.table('users').select('id').ilike('email', email).is_("deleted_at", "null").execute()
+            if not user_res.data:
+                return jsonify({"error": "User not found"}), 404
+
+            user_uuid = user_res.data[0]['id']
+            reset_req = supabase.table('password_reset_requests').select('*').eq('user_id', user_uuid).eq('is_verified', True).gt('expires_at', datetime.now(timezone.utc)).execute()
+
+            if not reset_req.data:
+                return jsonify({"error": "Reset request not verified or expired. Please start over."}), 400
+
+            # 2. Update Password
+            salt = generate_salt()
+            pw_hash = hash_password(new_password, salt)
+
+            # Update Supabase Cloud
+            try:
+                supabase.table('authentications').update({
+                    "password_hash": pw_hash,
+                    "password_salt": salt,
+                    "is_dirty": False
+                }).eq("user_id", user_uuid).execute()
+
+                # Delete the reset request so it can't be reused
+                supabase.table('password_reset_requests').delete().eq('user_id', user_uuid).execute()
+            except Exception as e:
+                return jsonify({"error": "Did not updated cloud data"}), 500
+
+            # 3. Update Local DB (if user exists locally)
+            local_user = db.query(User).filter(User.uuid == user_uuid).first()
+            if local_user:
+                db.query(Authentication).filter(Authentication.user_uuid == user_uuid).update({
+                    Authentication.password_hash: pw_hash,
+                    Authentication.password_salt: salt,
+                    Authentication.is_dirty: False
+                }, synchronize_session=False)
+                db.commit()
+
+            return jsonify({"message": "Password reset successfully"}), 200
+
+        except Exception as e:
+            if 'db' in locals():
+                db.rollback()
+            print(f"Error resetting password: {str(e)}")
+            return jsonify({"error": "Failed to reset password."}), 500
+
+
 @authentication_bp.route('/change-password', methods=['POST'])
 def change_password():
     err, code = require_internet()

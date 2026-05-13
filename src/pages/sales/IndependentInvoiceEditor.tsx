@@ -17,6 +17,7 @@ import {
   MapPin,
   Phone,
   PlusCircle,
+  Settings,
   Table as TableIcon,
   Trash2,
 } from "lucide-react";
@@ -26,7 +27,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { useInvoiceStore, InvoiceDetails } from "@/store/useInvoiceStore";
 import { Customer } from "@/store/useCustomerStore";
 import { User } from "@/store/useUserStore";
-import { InventoryItem } from "@/store/useInventoryStore";
+import { InventoryItem, useInventoryStore } from "@/store/useInventoryStore";
 import { InventorySelectorModal } from "@/pages/dashboard/components selection/InventorySelectorModal";
 
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,8 @@ type InventoryLineItem = {
 export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: IndependentInvoiceEditorProps) {
   const { t, i18n } = useTranslation();
   const { currentInvoice, fetchInvoice, updateInvoice, issueInvoice, isLoading } = useInvoiceStore();
+  const { fetchItems, fetchCategories } = useInventoryStore();
+
   const { getClimateDataForCity } = useLocationData();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -90,6 +93,11 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
     if (!invoiceUuid) return;
     fetchInvoice(invoiceUuid);
   }, [invoiceUuid, fetchInvoice]);
+
+  useEffect(() => {
+      fetchItems();
+      fetchCategories();
+  }, [fetchItems, fetchCategories]);
 
   useEffect(() => {
     if (!currentInvoice || currentInvoice.uuid !== invoiceUuid) return;
@@ -535,8 +543,8 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                                 </h3>
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="default" onClick={() => setIsInventoryModalOpen(true)} className="border-primary text-white" >
-                                            <Archive className="h-4 w-4" />{t('invoicing.select_from_inventory', 'Select from Inventory')}
-                                        </Button>
+                      <Archive className="h-4 w-4" />{t('invoicing.select_from_inventory', 'Select from Inventory')}
+                  </Button>
                   <Button size="sm" variant="default" onClick={handleAddManualItem}>
                     <PlusCircle className="h-4 w-4 text-white" /> {t("invoicing.add_item", "Add Item")}
                   </Button>
@@ -676,10 +684,10 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                   </TableRow>
                 ))}
                 <TableRow className="bg-gray-50/50 print:bg-white">
-                                                        <TableCell colSpan={3} className="text-end font-semibold">{t('invoicing.subtotal', 'Subtotal')}</TableCell>
-                                                        <TableCell className="text-end font-bold">{formatCurrency(subtotal)}</TableCell>
-                                                        {!isIssued && <TableCell className="no-print" />}
-                                                    </TableRow>
+                    <TableCell colSpan={3} className="text-end font-semibold">{t('invoicing.subtotal', 'Subtotal')}</TableCell>
+                    <TableCell className="text-end font-bold">{formatCurrency(subtotal)}</TableCell>
+                    {!isIssued && <TableCell className="no-print" />}
+                </TableRow>
               </TableBody>
             </Table>
           </div>
@@ -859,40 +867,241 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
       </Dialog>
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-[900px] bg-white">
-          <DialogHeader>
-            <DialogTitle>{t("invoicing.print_preview", "Print Preview")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label className="font-bold">{t("invoicing.margin_top", "Top margin (mm)")}</Label>
-                <Slider value={[topMargin]} onValueChange={(v) => setTopMargin(v[0] ?? 0)} max={40} step={1} />
-              </div>
-              <div className="space-y-2">
-                <Label className="font-bold">{t("invoicing.margin_bottom", "Bottom margin (mm)")}</Label>
-                <Slider value={[bottomMargin]} onValueChange={(v) => setBottomMargin(v[0] ?? 0)} max={40} step={1} />
-              </div>
-            </div>
+        <DialogContent dir={i18n.dir()} className="max-w-[850px] h-[95vh] flex flex-col p-0 overflow-hidden bg-gray-100">
+          <DialogHeader className="p-4 bg-white border-b flex flex-row items-center justify-between no-print">
+              <DialogTitle className="text-xl font-bold">
+                  {t('invoicing.print_preview', 'Print Preview')}
+              </DialogTitle>
+              <div className="flex items-center gap-4" dir={i18n.dir()}>
+                  {/* Settings inside Preview */}
+                  <Popover>
+                      <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm">
+                              <Settings className="h-4 w-4 " /> {t('invoicing.settings', 'Settings')}
+                          </Button>
+                      </PopoverTrigger>
+                        <PopoverContent className="w-80 p-4 space-y-4 bg-white" align="end" dir={i18n.dir()}>
+                            <div className="space-y-2">
+                                <div className="flex justify-between">
+                                    <Label className="text-xs font-bold">{t('invoicing.top_margin', 'Top Margin Offset')}</Label>
+                                    <span className="text-xs font-mono">{topMargin}mm</span>
+                                </div>
+                                <Slider
+                                    value={[topMargin]}
+                                    onValueChange={([v]) => setTopMargin(v)}
+                                    max={40}
+                                    step={1}
+                                />
+                                <div className="flex justify-between pt-2">
+                                    <Label className="text-xs font-bold">{t('invoicing.bottom_margin', 'Bottom Margin Offset')}</Label>
+                                    <span className="text-xs font-mono">{bottomMargin}mm</span>
+                                </div>
+                                <Slider
+                                    value={[bottomMargin]}
+                                    onValueChange={([v]) => setBottomMargin(v)}
+                                    max={40}
+                                    step={1}
+                                />
+                                <div className="pt-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => {
+                                            setTopMargin(0);
+                                            setBottomMargin(0);
+                                        }}
+                                    >
+                                        {t('invoicing.reset_margins', 'Reset margins')}
+                                    </Button>
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
-                {t("common.cancel", "Cancel")}
-              </Button>
-              <Button
-                onClick={async () => {
-                  await handleExport("pdf");
-                  setIsPreviewOpen(false);
-                }}
-                disabled={!!isExporting}
-              >
-                {isExporting === "pdf" ? <Spinner className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
-                {t("invoicing.export_pdf", "Export PDF")}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
+                    <Button
+                        size="sm"
+                        onClick={async () => {
+                            if(!currentInvoice?.uuid) return;
+                            setIsExporting('pdf');
+                            try {
+                              await handleSaveInvoice();
+                              setIsPreviewOpen(false);
+                            } catch {
+                              // keep dialog open on faliru
+                            } finally {
+                              setIsExporting(null);
+                            }
+                        }}
+                        className="me-10"
+                        disabled={!!isExporting}
+                    >
+                        {isExporting === 'pdf' ? <Spinner className=" h-4 w-4" /> : <FileText className=" h-4 w-4" />}
+                        {t('invoicing.export_pdf', 'Export PDF')}
+                    </Button>
+                </div>
+            </DialogHeader>
+
+          <ScrollArea className="flex-grow p-8 bg-gray-200" dir={i18n.dir()} >
+              {/* A4 Document Wrapper */}
+                <div
+                    className={cn(
+                        "bg-white mx-auto shadow-2xl transition-all duration-300 origin-top"
+                    )}
+                    style={{
+                        width: '210mm',
+                        minHeight: '297mm',
+                        padding: '15mm',
+                        paddingTop: `${15 + topMargin}mm`,
+                        paddingBottom: `${15 + bottomMargin}mm`
+                    }}
+                >
+                  {/* Invoice Content */}
+                  <div className="space-y-10">
+                      {/* Header with icons and full details */}
+                      <div className="flex flex-col md:flex-row justify-between gap-8 pb-8 border-b">
+                          <div className="space-y-2">
+                              <h3 className="text-2xl font-black text-primary mb-4 flex items-center gap-2">
+                                  {customer?.full_name || t('dashboard.no_customer', 'Customer')}
+                              </h3>
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                  <MapPin className="h-4 w-4 shrink-0" />
+                                  <span className="text-sm font-bold">{t('invoicing.address', 'Address')}: {displayLocation}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Mail className="h-4 w-4 shrink-0" />
+                                  <span className="text-sm font-bold">{t('invoicing.email', 'Email')}: {customer?.email || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Phone className="h-4 w-4 shrink-0" />
+                                  <span className="text-sm font-bold">{t('invoicing.phone', 'Phone No')}: {customer?.phone_number || 'N/A'}</span>
+                              </div>
+                          </div>
+
+                          <div className="md:text-end flex flex-col gap-2">
+                              <div className='flex flex-col items-end'>
+                                  <span className='w-fit text-[10px] uppercase font-bold text-gray-400 block '>{t('invoicing.invoice_no', 'Invoice No')}</span>
+                                  <div className="w-fit h-fit inline-flex items-center text-red-500 text-xl font-mono font-bold">
+                                      <Hash className="h-4 w-4 text-neutral" />
+                                      {
+                                          currentInvoice?.issued_at != null
+                                          ? String(currentInvoice.invoice_id).padStart(5, '0')
+                                          : (
+                                              <span className="text-base">
+                                                  {i18n.dir() === 'ltr' ? "PROFORMA" : "فاتورة مبدئية"}
+                                              </span>
+                                          )
+                                      }
+                                  </div>
+                              </div>
+                              <div>
+                                  <div className='text-[10px] uppercase font-bold text-gray-400 block mb-1'>
+                                      {t('invoicing.issue_date', 'Issue Date')}
+                                  </div>
+                                  <span className="text-sm font-bold"> {currentInvoice?.issued_at ? format(new Date(currentInvoice.issued_at), "dd/MM/yyyy") : format(new Date(), "dd/MM/yyyy")}</span>
+                              </div>
+                              <div>
+                                  <div className='text-[10px] uppercase font-bold text-gray-400 block mb-1'>
+                                      {t('invoicing.due_date', 'Due Date')}
+                                  </div>
+                                  <span className="text-sm font-bold">{dueDate ? format(dueDate, "dd/MM/yyyy") : ""}</span>
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* Items Table */}
+                      <div className="bg-white border-b overflow-hidden">
+                          <Table>
+                              <TableHeader>
+                                  <TableRow>
+                                      <TableHead className="text-start">{t('invoicing.item', 'Item')}</TableHead>
+                                      <TableHead className="text-center w-[150px]">{t('invoicing.unit_price', 'Unit Price')}</TableHead>
+                                      <TableHead className="text-center w-[120px]">{t('invoicing.quantity', 'Qty')}</TableHead>
+                                      <TableHead className="text-end w-[150px]">{t('invoicing.total', 'Total')}</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                  {inventoryItems.map((item) => (
+                                      <TableRow key={item.id}>
+                                          <TableCell>
+                                              <div>
+                                                  <div className="font-medium">{item?.name}</div>
+                                                  <div className="text-xs text-muted-foreground">{item.brand} | {item.model}</div>
+                                              </div>
+                                          </TableCell>
+                                          <TableCell className="text-center font-bold">
+                                              {formatCurrency(item.unit_price)}
+                                          </TableCell>
+                                          <TableCell className="text-center font-bold">
+                                              {item.quantity}
+                                          </TableCell>
+                                          <TableCell className="text-end font-bold">
+                                              {formatCurrency((item.unit_price || 0) * item.quantity)}
+                                          </TableCell>
+                                      </TableRow>
+                                  ))}
+                                  {/* Manual Items */}
+                          {manualItems.map((item) => (
+                              <TableRow key={item.id}>
+                                  <TableCell>
+                                      <span>{item.name}</span>
+
+                                  </TableCell>
+                                  <TableCell>
+                                      <div className='flex flex-col items-center'>
+                                          <span className='font-bold'>{formatCurrency(item.price)}</span>
+                                      </div>
+                                  </TableCell>
+                                  <TableCell>
+                                      <div className='flex flex-col items-center'>
+                                          <span className='font-bold'>{item.quantity}</span>
+                                      </div>
+                                  </TableCell>
+                                  <TableCell className="text-end font-bold">
+                                      {formatCurrency(item.price * item.quantity)}
+                                  </TableCell>
+                              </TableRow>
+                          ))}
+                                  <TableRow className="border-t">
+                                      <TableCell colSpan={3} className="text-end font-semibold">{t('invoicing.subtotal', 'Subtotal')}</TableCell>
+                                      <TableCell className="text-end font-bold">{formatCurrency(subtotal)}</TableCell>
+                                  </TableRow>
+                              </TableBody>
+                          </Table>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-12">
+                          <div className="space-y-4">
+                              <Label className="font-bold text-lg">{t('invoicing.terms_title', 'Terms & Conditions')}</Label>
+                              <div className="font-mono text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                                  {customTermsEnabled ? customTerms : generateDefaultTerms()}
+                              </div>
+                          </div>
+                          <div className="space-y-2">
+                              <div className="flex justify-between text-base">
+                                  <span className="font-medium">{t('invoicing.shipping_fee', 'Shipping')}</span>
+                                  <span className="font-bold">+ {formatCurrency(shippingFee)}</span>
+                              </div>
+                              <div className="flex justify-between text-base">
+                                  <span className="font-medium">{t('invoicing.installation_fee', 'Installation')}</span>
+                                  <span className="font-bold">+ {formatCurrency(installationFee)}</span>
+                              </div>
+                              <div className="flex justify-between text-base text-red-600">
+                                  <span className="font-medium">{t('invoicing.discount_no_percent', 'Discount')}</span>
+                                  <span className="font-bold">- {formatCurrency(discountAmount)}</span>
+                              </div>
+                              <div className="pt-4 border-t flex justify-between text-2xl font-black text-primary">
+                                  <span>{t('invoicing.grand_total', 'Grand Total')}</span>
+                                  <span className='text-end'>{formatCurrency(grandTotal)}</span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </ScrollArea>
+      </DialogContent>
       </Dialog>
+
     </div>
   );
 }

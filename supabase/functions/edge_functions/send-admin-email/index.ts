@@ -167,13 +167,14 @@ const templates: Templates = {
   const sentJobIds: string[] = [];
   try {
     // 2. Group jobs by event type
-    const registrationJobs = allJobs.filter(j => j.event_type !== 'license_tamper_detected_admin' && j.event_type !== 'support_ticket_submitted' && j.event_type !== 'account_deactivated_superadmin');
+    const registrationJobs = allJobs.filter(j => j.event_type !== 'license_tamper_detected_admin' && j.event_type !== 'support_ticket_submitted' && j.event_type !== 'account_deactivated_superadmin' && j.event_type !== 'tier2_sales_request');
     const tamperJobs = allJobs.filter(j => j.event_type === 'license_tamper_detected_admin');
     const ticketJobs = allJobs.filter(j => j.event_type === 'support_ticket_submitted');
+    const salesJobs = allJobs.filter(j => j.event_type === 'tier2_sales_request');
     const deactivatedJobs = allJobs.filter(j => j.event_type === 'account_deactivated_superadmin');
 
     let reportContent = "";
-    const summaryJobs = [...registrationJobs, ...tamperJobs, ...ticketJobs];
+    const summaryJobs = [...registrationJobs, ...tamperJobs, ...ticketJobs, ...salesJobs];
     const summaryJobIds = summaryJobs.map((j) => j.id);
 
     // Process Super Admin Deactivation Jobs Individually
@@ -259,6 +260,46 @@ const templates: Templates = {
             </tr>
           </thead>
           <tbody>${ticketRows}</tbody>
+        </table>
+      `;
+    }
+
+    // New Section for Enterprise Sales Requests
+    if (salesJobs.length > 0) {
+      const salesRows = salesJobs.map((job) => {
+        const p = job.payload || {};
+        const date = escapeHtml(new Date(job.created_at).toLocaleString("en-US"));
+        return `
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd;">${date}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">
+              <strong>${escapeHtml(p.enterprise_name)}</strong><br/>
+              <small>${escapeHtml(p.email)}</small><br/>
+              <small>${escapeHtml(p.phone)}</small>
+            </td>
+            <td style="padding: 8px; border: 1px solid #ddd;">
+              <strong>${escapeHtml(p.location)}</strong><br/>
+              <p style="margin: 5px 0 0; font-size: 13px; color: #555;">
+                Pref: ${escapeHtml(p.meeting_preference)}<br/>
+                ${escapeHtml(p.body)}
+              </p>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      reportContent += `
+        <h3 style="color: #e67e22;">New Enterprise Sales Requests</h3>
+        <p>You have <strong>${salesJobs.length}</strong> new sales request(s).</p>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px;">
+          <thead>
+            <tr style="background-color: #f2f2f2; text-align: left;">
+              <th style="padding: 10px; border: 1px solid #ddd; width: 20%;">Date</th>
+              <th style="padding: 10px; border: 1px solid #ddd; width: 30%;">Enterprise</th>
+              <th style="padding: 10px; border: 1px solid #ddd; width: 50%;">Request Details</th>
+            </tr>
+          </thead>
+          <tbody>${salesRows}</tbody>
         </table>
       `;
     }

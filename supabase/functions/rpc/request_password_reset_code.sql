@@ -10,7 +10,7 @@ DECLARE
     v_code varchar(6);
 BEGIN
     -- 1. Get User
-    SELECT id, role INTO v_user_id, v_role FROM public.users WHERE email = p_email AND deleted_at IS NULL;
+    SELECT id, role INTO v_user_id, v_role FROM public.users WHERE LOWER(email) = LOWER(p_email) AND deleted_at IS NULL;
 
     IF v_user_id IS NOT NULL THEN
         -- 2. Generate random 6-digit code

@@ -27,6 +27,7 @@ import {
     ArrowRight,
     FileText,
     DollarSign,
+    Archive,
 } from 'lucide-react';
 import { useProjectComponentStore, ProjectComponent } from '@/store/useProjectComponentStore';
 import { useInventoryStore, InventoryItem } from '@/store/useInventoryStore';
@@ -408,7 +409,7 @@ export function ComponentSelectionView({ projectUuid, bleResults, onBack, onChec
                             {
                                 !currentInvoice?.issued_at && (
                                     <Button size="sm" onClick={() => { setSelectedSlotCategory(null); setIsInventoryModalOpen(true); }}>
-                                        <Plus className="h-4 w-4 " /> {t('components.add_from_inventory', 'Add Item')}
+                                        <Archive className="h-4 w-4 " /> {t('invoicing.select_from_inventory', 'Select from Inventory')}
                                     </Button>
                                 )
                             }

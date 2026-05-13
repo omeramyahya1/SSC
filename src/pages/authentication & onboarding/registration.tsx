@@ -339,6 +339,9 @@ export default function RegistrationScreen() {
   };
 
   const handleBack = () => {
+    if (formData.stage3.plan === 'Tier2') {
+        formData.stage3.plan = "";
+    }
     if (currentStage > 1) {
       setCurrentStage(prev => prev - 1);
     }
@@ -475,9 +478,8 @@ const LeftPanel = ({ isVisible }: { isVisible: boolean }) => {
                 <h2 className="text-4xl font-bold mb-6 leading-tight text-white">{t('registration.banner.title', "Create your account")}</h2>
                 <p className="text-white/80 text-base leading-relaxed max-w-sm">{t('registration.banner.subtitle', "Join us and manage your solar projects efficiently.")}</p>
             </div>
-            <div className="flex items-center justify-between text-sm font-medium relative z-10 pt-6 border-t border-white/30">
+            <div className="flex items-center justify-start text-sm font-medium relative z-10 pt-6 border-t border-white/30">
                 <button type="button" className="hover:text-primary-lighter transition-colors hover:underline" onClick={() => navigate("/")}>{t('registration.login_link', "Login")}</button>
-                <button type="button" className="hover:text-primary-lighter transition-colors hover:underline" onClick={() => navigate("/help")}>{t('login.need_help', "Need Help?")}</button>
             </div>
         </div>
     );
@@ -682,11 +684,46 @@ const Stage2 = ({ setValid }: { setValid: (v: boolean) => void }) => {
 };
 
 // --- STAGE 3: Plan Selection ---
-const Stage3 = ({ setValid, pricingIsLoading, calculatedPrice }: { setValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
+const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading }: { setValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
     const { t, i18n } = useTranslation();
+    const navigate = useNavigate();
     const { formData, updateFormData } = useRegistrationStore();
     const { accountType } = formData.stage2;
     const data = formData.stage3;
+
+    // Helper to calculate price for standard plans
+    const getStandardPrice = (planCycle: string) => {
+        if (planCycle === 'free_trial') return 0;
+        const plan = fetchedPricingData.find(p =>
+            p.plan_type.toLowerCase() === 'standard' && p.billing_cycle.toLowerCase() === planCycle.toLowerCase()
+        );
+        return plan?.base_price || 0;
+    };
+
+    // Helper to calculate price for Enterprise Tier 1
+    const getEnterpriseTier1Price = (employees: number, duration: string) => {
+        const planInfo = fetchedPricingData.find(p =>
+            p.plan_type.toLowerCase() === 'enterprise' && p.billing_cycle.toLowerCase() === duration.toLowerCase()
+        );
+
+        if (!planInfo) return 0;
+
+        const basePrice = planInfo.base_price;
+        const extraEmployeeCost = (employees > 1)
+            ? (employees - 1) * planInfo.price_per_extra_employee
+            : 0;
+
+        const totalBeforeDiscount = basePrice + extraEmployeeCost;
+
+        const discountInfo = fetchedPricingData.find(p =>
+            p.plan_type.toLowerCase() === 'enterprise' &&
+            p.min_employees && p.max_employees &&
+            employees >= p.min_employees && employees <= p.max_employees
+        );
+
+        const discountRate = discountInfo?.discount_rate || 0;
+        return Math.round(totalBeforeDiscount * (1 - discountRate));
+    };
 
     const handlePlanSelect = (plan: any) => {
         updateFormData('stage3', { plan });
@@ -701,10 +738,11 @@ const Stage3 = ({ setValid, pricingIsLoading, calculatedPrice }: { setValid: (v:
     const selectedCardClasses = "border-primary shadow-md bg-white";
     const unselectedCardClasses = "border-primary-gray/1 hover:border-primary/50";
 
-    const priceDisplay = calculatedPrice > 0 ? formatCurrency(calculatedPrice) : t('plans.free', 'Free');
-
     // ... Refactored JSX to use calculatedPrice
     if (accountType === 'Enterprise') {
+        const tier1Price = getEnterpriseTier1Price(data.employees, data.tier1Duration);
+        const tier1PriceDisplay = tier1Price > 0 ? formatCurrency(tier1Price) : t('plans.free', 'Free');
+
         return (
             <div className="space-y-4 w-full mx-auto md:mx-0">
                 <CommonHeader title='registration.stage3.enterprise_title' text='Enterprise Plans' />
@@ -738,13 +776,13 @@ const Stage3 = ({ setValid, pricingIsLoading, calculatedPrice }: { setValid: (v:
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="text-2xl font-bold text-center h-8 flex flex-col items-center justify-center">
-                                {pricingIsLoading ? <Spinner /> : (
-                                    <>
-                                        { data.plan === 'Tier1'? priceDisplay : ""}
-                                        <span className="text-xs font-normal text-neutral/50">{(data.tier1Duration === "Annual" && data.plan === 'Tier1') ? t('registration.plans.per_year', '/year') : (data.tier1Duration === "Monthly" && data.plan === 'Tier1') ?  t('registration.plans.per_month', '/month') : (data.tier1Duration === "Lifetime" && data.plan === 'Tier1') ? t('registration.plans.one_payment', 'single payment') : ""}</span>
-                                    </>
-                                )}
+                            <div className="text-2xl text-primary font-bold text-center h-8 flex flex-col items-center justify-center">
+                                {pricingIsLoading ? <Spinner /> :
+                                    data.plan == 'Tier1' && ( <>
+                                        {tier1PriceDisplay}
+                                        <span className="text-xs text-neutral font-normal text-neutral/50">{(data.tier1Duration === "Annual") ? t('registration.plans.per_year', '/year') : (data.tier1Duration === "Monthly") ?  t('registration.plans.per_month', '/month') : (data.tier1Duration === "Lifetime") ? t('registration.plans.one_payment', 'single payment') : ""}</span>
+                                    </>)
+                                }
                             </div>
                             <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === 'Tier1' ? 'bg-semantic-success border-semantic-success text-white' : 'border-neutral/30'}`}>
                                {data.plan === 'Tier1' && <Check className="w-4 h-4" />}
@@ -759,15 +797,15 @@ const Stage3 = ({ setValid, pricingIsLoading, calculatedPrice }: { setValid: (v:
                             <CardTitle>{t('registration.plans.tier2', 'Tier 2')}</CardTitle>
                             <CardDescription>{t('registration.plans.tier2_desc', 'Unlimited Employees & Branches')}</CardDescription>
                         </CardHeader>
-                        <CardContent className="flex flex-col items-center justify-between h-full gap-6">
-                             <div className="text-xl font-bold">{t('registration.custom_pricing', 'Custom Pricing')}</div>
-                             <div className={`transition-opacity duration-300 ${data.plan === 'Tier2' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                                  <Link to="/sales">
-                                      <Button variant="outline" className='rounded-base'>{t('registration.contact_sales', 'Contact Sales')}</Button>
-                                  </Link>
+                        <CardContent className="flex flex-col items-center justify-between w-full h-full">
+                             <div className="text-xl text-center font-bold w-full">{t('registration.custom_pricing', 'Custom Pricing')}</div>
+                             <div className={`items-center transition-opacity duration-300 ${data.plan === 'Tier2' ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                                <Button variant="outline" className='rounded-base' onClick={() => navigate('/contact_sales')}>{t('registration.contact_sales', 'Contact Sales')}</Button>
                              </div>
                              <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === 'Tier2' ? 'bg-semantic-success border-semantic-success text-white' : 'border-neutral/30'}`}>
                                {data.plan === 'Tier2' && <Check className="w-4 h-4" />}
+                            </div>
+                            <div className={`w-6 h-6`}>
                             </div>
                         </CardContent>
                     </Card>
@@ -782,25 +820,30 @@ const Stage3 = ({ setValid, pricingIsLoading, calculatedPrice }: { setValid: (v:
       <div className="max-w-4xl mx-auto">
         <CommonHeader title='registration.stage3.standard_title' text='Select a Plan' />
         <div className="flex flex-row gap-4">
-          {plans.map((plan) => (
-               <Card key={plan} className={`${cardBaseClasses} ${data.plan === plan ? selectedCardClasses : unselectedCardClasses}`}
+          {plans.map((plan) => {
+               const price = getStandardPrice(plan);
+               const displayPrice = price > 0 ? formatCurrency(price) : t('plans.free', 'Free');
+
+               return (
+               <Card key={plan} className={`w-full ${cardBaseClasses} ${data.plan === plan ? selectedCardClasses : unselectedCardClasses}`}
                   onClick={() => handlePlanSelect(plan)}>
                     <CardHeader className="text-center">
                         <CardTitle className="text-lg">{t(`registration.plans.${plan.toLowerCase()}`, plan)}</CardTitle>
                     </CardHeader>
-                    <CardContent className="text-center space-y-4">
-                        <div className="text-2xl font-bold h-8 flex items-center justify-center">
-                            {pricingIsLoading ? <Spinner /> : (data.plan === plan) ? priceDisplay : ""}
+                    <CardContent className="flex flex-col gap-3 text-center space-y-4">
+                        <div className="text-2xl text-primary font-bold h-8 flex items-center justify-center">
+                            {pricingIsLoading ? <Spinner /> :  displayPrice}
                         </div>
                         <p className="text-xs text-neutral/60 h-8">
-                            {t(`registration.plans.${plan.toLowerCase()}_desc`, '')}
+                             {(plan === "Annual") ? t('registration.plans.per_year', '/year') : (plan === "Monthly") ?  t('registration.plans.per_month', '/month') : (plan === "Lifetime") ? t('registration.plans.one_payment', 'single payment') : ""}
                         </p>
                         <div className={`w-6 h-6 rounded-full border-2 mx-auto flex items-center justify-center ${data.plan === plan ? 'bg-semantic-success border-semantic-success text-white' : 'border-neutral/30'}`}>
                                {data.plan === plan && <Check className="w-4 h-4" />}
                         </div>
                     </CardContent>
                 </Card>
-          ))}
+               );
+          })}
         </div>
       </div>
     );
@@ -821,7 +864,6 @@ const uniqueStates = Array.from(new Set(geoDataParsed.map(item => item.state))).
 
 const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
     const { t, i18n } = useTranslation();
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const { formData, updateFormData } = useRegistrationStore();
     const data = formData.stage4;
     const accountType = formData.stage2.accountType;
@@ -850,20 +892,6 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
         } else {
             updateFormData('stage4', { locationCity: cityVal, latitude: '', longitude: '' });
         }
-    };
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const preview = URL.createObjectURL(file);
-            const base64 = await fileToBase64(file);
-            updateFormData('stage4', { logo: base64, logoPreview: preview });
-        }
-    };
-
-    const removeLogo = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        updateFormData('stage4', { logo: null, logoPreview: null });
     };
 
     // ... same JSX as before
@@ -1443,9 +1471,9 @@ const StageController = ({ stage, setStepValid, fetchedPricingData, pricingIsLoa
 };
 
 const LanguageSelector = ({ selectedLang, onChangeLang }: { selectedLang: string, onChangeLang: (lang: string) => void }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     return (
-    <Select value={selectedLang} onValueChange={onChangeLang}>
+    <Select value={selectedLang} onValueChange={onChangeLang} dir={i18n.dir()}>
         <SelectTrigger className="flex items-center gap-4 bg-white w-fit">
             <img src="/eva-icons/fill/png/128/globe-2.png" alt={t('registration.language_alt', 'Language')} className="w-5 h-5 opacity-70"
                  onError={(e) => { e.currentTarget.style.backgroundColor = '#ccc'; e.currentTarget.style.borderRadius = '50%' }} />
