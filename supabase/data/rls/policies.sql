@@ -116,6 +116,28 @@ ON public.users FOR ALL USING (
     OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
 );
 
+-- 3.X. Sync State (per-device cursor)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'sync_state'
+    ) THEN
+        EXECUTE 'DROP POLICY IF EXISTS "SyncState: Self access" ON public.sync_state';
+        EXECUTE $pol$
+            CREATE POLICY "SyncState: Self access"
+            ON public.sync_state FOR ALL USING (
+                is_superadmin()
+                OR user_id = jwt_user_id()
+            ) WITH CHECK (
+                is_superadmin()
+                OR user_id = jwt_user_id()
+            )
+        $pol$;
+    END IF;
+END;
+$$;
+
 DROP POLICY IF EXISTS "Distributors: Self access only" ON public.distributors;
 CREATE POLICY "Distributors: Self access only"
 ON public.distributors FOR ALL USING (

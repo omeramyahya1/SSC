@@ -338,6 +338,15 @@ CREATE TABLE public.sync_logs (
   CONSTRAINT sync_logs_pkey PRIMARY KEY (id),
   CONSTRAINT sync_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
+CREATE TABLE public.sync_state (
+  user_id uuid NOT NULL,
+  device_id uuid NOT NULL,
+  last_cursor timestamp with time zone NOT NULL DEFAULT '2000-01-01 00:00:00+00'::timestamp with time zone,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT sync_state_pkey PRIMARY KEY (user_id, device_id),
+  CONSTRAINT sync_state_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
 CREATE TABLE public.system_configurations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   project_id uuid,

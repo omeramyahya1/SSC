@@ -51,17 +51,14 @@ BEGIN
             set_clause
         );
 
-        BEGIN
-            EXECUTE query
-            INTO rec_uuid
-            USING rec;
+        -- Fail fast on any error to prevent silent partial-syncs.
+        EXECUTE query
+        INTO rec_uuid
+        USING rec;
 
-            IF rec_uuid IS NOT NULL THEN
-                affected_uuids := array_append(affected_uuids, rec_uuid);
-            END IF;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE WARNING 'Failed to process record for table %: %', p_table_name, SQLERRM;
-        END;
+        IF rec_uuid IS NOT NULL THEN
+            affected_uuids := array_append(affected_uuids, rec_uuid);
+        END IF;
     END LOOP;
 
     RETURN affected_uuids;

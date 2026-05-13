@@ -1,6 +1,7 @@
 # src-python/routes/sync_log.py
 import mimetypes
 from datetime import datetime, timezone
+from typing import Optional
 from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
 from utils import get_db
@@ -83,6 +84,28 @@ def upload_blob(blob_data: bytes, bucket_name: str, destination_path: str, use_s
 
 def _to_iso(dt):
     return dt.isoformat() if dt else None
+
+def _coerce_timestamptz(value) -> Optional[datetime]:
+    """
+    Best-effort coercion of Supabase RPC timestamptz returns to a timezone-aware datetime (UTC).
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+    if isinstance(value, str):
+        s = value.strip()
+        if s.endswith('Z'):
+            s = s[:-1] + '+00:00'
+        try:
+            dt = datetime.fromisoformat(s)
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
+    return None
 
 def map_common_fields(record):
     return {
@@ -223,18 +246,19 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
         if hasattr(response, 'error') and response.error:
             raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
         if hasattr(response, 'data'):
-            # If the RPC executed without error, we assume the push was successful,
-            # even if the remote didn't report any rows being changed (which can happen
-            # during an upsert if the data is identical). We mark the records as clean
-            # to prevent them from being stuck in a dirty state.
-            for record in records:
-                record.is_dirty = False
-            db.commit()
+            confirmed_ids = set(str(x) for x in (response.data or []))
+            if not confirmed_ids:
+                # Do not clear local dirty flags without explicit confirmation.
+                raise Exception(f"Push for {table_name} returned no confirmed IDs. Local dirty flags were not cleared.")
 
-            if response.data:
-                print(f"Successfully pushed and confirmed {len(response.data)} records to {table_name}.")
-            else:
-                print(f"Push for {table_name} completed. Remote did not report changes, but records are now marked as clean.")
+            confirmed_count = 0
+            for record in records:
+                if str(record.uuid) in confirmed_ids:
+                    record.is_dirty = False
+                    confirmed_count += 1
+
+            db.commit()
+            print(f"Successfully pushed and confirmed {confirmed_count}/{len(records)} records to {table_name}.")
     except Exception as e:
         raise Exception(f"Failed to push table {table_name}: {str(e)}")
 
@@ -246,18 +270,95 @@ def push_to_supabase(db: Session, dirty_only: bool = True):
         # Re-raise exceptions from sync_table to ensure atomicity of the overall sync
         sync_table(db, config["model"], table_name, config["mapper"], dirty_only=dirty_only)
 
-def get_last_sync_timestamp(db: Session) -> str:
-    last_sync = db.query(models.SyncLog).filter(models.SyncLog.status == "success").order_by(models.SyncLog.created_at.desc()).first()
-    if last_sync:
-        # Convert to UTC, then remove timezone info to produce a naive string
-        return last_sync.created_at.astimezone(timezone.utc).replace(tzinfo=None).isoformat()
-    # For initial sync, create UTC datetime, remove tzinfo
-    return datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc).replace(tzinfo=None).isoformat()
+def _ensure_device_id(db: Session, user_uuid: str) -> str:
+    """
+    Uses existing Authentication.device_id if present; otherwise generates and persists one.
+    """
+    auth = (
+        db.query(models.Authentication)
+        .filter(models.Authentication.user_uuid == user_uuid)
+        .order_by(models.Authentication.created_at.desc())
+        .first()
+    )
+    if auth and auth.device_id:
+        return str(auth.device_id)
+
+    import uuid as _uuid
+    device_id = str(_uuid.uuid4())
+    if auth:
+        auth.device_id = device_id
+        auth.is_dirty = True
+        db.commit()
+    return device_id
+
+def _get_local_cursor(db: Session, user_uuid: str, device_id: str) -> Optional[datetime]:
+    row = (
+        db.query(models.SyncState)
+        .filter(models.SyncState.user_uuid == user_uuid, models.SyncState.device_id == device_id)
+        .first()
+    )
+    if not row or not row.last_cursor:
+        return None
+    # Stored as naive UTC in SQLite; treat as UTC.
+    return row.last_cursor.replace(tzinfo=timezone.utc) if row.last_cursor.tzinfo is None else row.last_cursor.astimezone(timezone.utc)
+
+def _set_local_cursor(db: Session, user_uuid: str, device_id: str, cursor_utc: datetime):
+    cursor_naive = cursor_utc.astimezone(timezone.utc).replace(tzinfo=None)
+    row = (
+        db.query(models.SyncState)
+        .filter(models.SyncState.user_uuid == user_uuid, models.SyncState.device_id == device_id)
+        .first()
+    )
+    if row:
+        row.last_cursor = cursor_naive
+        row.updated_at = datetime.utcnow()
+        row.is_dirty = False
+    else:
+        row = models.SyncState(user_uuid=user_uuid, device_id=device_id, last_cursor=cursor_naive, is_dirty=False)
+        db.add(row)
+    db.commit()
+
+def _get_last_sync_cursor(db: Session, user_uuid: str, device_id: str, supabase) -> datetime:
+    local_cursor = _get_local_cursor(db, user_uuid, device_id)
+    if local_cursor:
+        return local_cursor
+
+    # Attempt to bootstrap cursor from server state (if present).
+    try:
+        server_cursor_res = supabase.rpc("get_sync_cursor", {"p_device_id": device_id}).execute()
+        if hasattr(server_cursor_res, 'error') and server_cursor_res.error:
+            raise Exception(server_cursor_res.error.message)
+        server_cursor = _coerce_timestamptz(getattr(server_cursor_res, 'data', None))
+        if server_cursor:
+            _set_local_cursor(db, user_uuid, device_id, server_cursor)
+            return server_cursor
+    except Exception:
+        pass
+
+    # Default for initial sync: Jan 1, 2000 UTC.
+    return datetime(2000, 1, 1, tzinfo=timezone.utc)
 
 def pull_from_supabase(db: Session):
-    last_sync_time = get_last_sync_timestamp(db)
-    print(f"\n--- Starting Pull Operation (since {last_sync_time}) ---")
+    user_uuid_row = db.query(models.User.uuid).first()
+    user_uuid = user_uuid_row[0] if user_uuid_row else None
+    if not user_uuid:
+        raise Exception("No user found in local DB.")
+
     supabase = get_user_client()
+    device_id = _ensure_device_id(db, user_uuid)
+    last_cursor = _get_last_sync_cursor(db, user_uuid, device_id, supabase)
+
+    # Use a server-issued high-water mark to bound the pull window.
+    server_time_res = supabase.rpc("get_server_utc").execute()
+    if hasattr(server_time_res, 'error') and server_time_res.error:
+        raise Exception(f"Failed to retrieve server time: {server_time_res.error.message}")
+    high_water_mark = _coerce_timestamptz(getattr(server_time_res, 'data', None))
+    if not high_water_mark:
+        raise Exception("Failed to parse server time for high-water mark.")
+
+    last_cursor_iso = last_cursor.astimezone(timezone.utc).isoformat()
+    high_water_iso = high_water_mark.astimezone(timezone.utc).isoformat()
+    print(f"\n--- Starting Pull Operation (window: ({last_cursor_iso}, {high_water_iso}]) ---")
     try:
         # Set a flag on the session to indicate that a pull sync is active.
         # The SQLAlchemy event listener will check this flag.
@@ -272,7 +373,14 @@ def pull_from_supabase(db: Session):
                 continue
             try:
                 print(f"Pulling changes for '{table_name}'...")
-                response = supabase.rpc("pull_changes", {"p_table_name": table_name, "p_last_sync_timestamp": last_sync_time}).execute()
+                response = supabase.rpc(
+                    "pull_changes",
+                    {
+                        "p_table_name": table_name,
+                        "p_last_sync_timestamp": last_cursor_iso,
+                        "p_high_water_mark": high_water_iso,
+                    },
+                ).execute()
                 if hasattr(response, 'error') and response.error:
                     raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
 
@@ -293,6 +401,19 @@ def pull_from_supabase(db: Session):
                     existing_record = db.query(model_class).filter_by(uuid=record_uuid).first()
 
                     if existing_record:
+                        incoming_updated_at = payload_dict.get("updated_at")
+
+                        # Last-write-wins: if local is dirty and newer than incoming, keep local edits.
+                        if getattr(existing_record, "is_dirty", False) and incoming_updated_at:
+                            local_updated_at = getattr(existing_record, "updated_at", None)
+                            if local_updated_at:
+                                local_aware = local_updated_at.replace(tzinfo=timezone.utc) if local_updated_at.tzinfo is None else local_updated_at.astimezone(timezone.utc)
+                                incoming_aware = incoming_updated_at.replace(tzinfo=timezone.utc) if isinstance(incoming_updated_at, datetime) and incoming_updated_at.tzinfo is None else (
+                                    incoming_updated_at.astimezone(timezone.utc) if isinstance(incoming_updated_at, datetime) else None
+                                )
+                                if incoming_aware and local_aware > incoming_aware:
+                                    continue
+
                         # 3a. UPDATE existing record
                         for key, value in payload_dict.items():
                             setattr(existing_record, key, value)
@@ -309,6 +430,13 @@ def pull_from_supabase(db: Session):
                 db.rollback()
                 print(f"Error pulling table {table_name}: {str(e)}")
                 raise
+
+        # Only advance the cursor if the full pull succeeded.
+        _set_local_cursor(db, user_uuid, device_id, high_water_mark)
+        try:
+            supabase.rpc("set_sync_cursor", {"p_device_id": device_id, "p_cursor": high_water_iso}).execute()
+        except Exception:
+            pass
     finally:
         # Always ensure the flag is reset, even if an error occurs
         setattr(db, 'is_pull_sync_active', False)
