@@ -78,9 +78,11 @@ CREATE TABLE public.customers (
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
   is_dirty boolean DEFAULT false,
+  branch_id uuid,
   CONSTRAINT customers_pkey PRIMARY KEY (id),
   CONSTRAINT customers_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
-  CONSTRAINT customers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+  CONSTRAINT customers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT customers_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id)
 );
 CREATE TABLE public.distributor_financials (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db
-from models import InventoryCategory, InventoryItem, StockAdjustment, ProjectComponent, User, Authentication, Branch
+from models import InventoryCategory, InventoryItem, StockAdjustment, ProjectComponent, SyncLog, User, Authentication, Branch
 from schemas import (
     InventoryCategoryCreate, InventoryCategoryUpdate,
     InventoryItemCreate, InventoryItemUpdate,
@@ -572,4 +572,29 @@ def delete_project_component(uuid):
         except Exception as e:
             db.rollback()
             logging.exception("Error deleting project component")
+            return jsonify({"error": str(e)}), 500
+
+@inventory_bp.route('/del', methods=['DELETE'])
+def delete_():
+    with get_db() as db:
+        try:
+            # 1. Create a subquery selecting all valid category UUIDs
+            # valid_cat_uuids = db.query(User.uuid).subquery()
+
+            # 2. Perform a bulk database-level delete for orphaned items
+            # deleted_count = db.query(SyncLog).filter(
+            #     SyncLog.uuid = "d001bd95-c401-493b-aac0-302f16ba2a89"
+            # ).delete(synchronize_session=False)
+
+            item = db.query(SyncLog).filter(SyncLog.uuid == "08567f34-5f5e-4692-9bf9-6e270e9e5b3d").first()
+            db.delete(item)
+            db.commit()
+
+            return jsonify({
+                "message": "Orphaned items deleted successfully",
+                # "deleted_count": deleted_count
+            }), 200
+
+        except Exception as e:
+            db.rollback()
             return jsonify({"error": str(e)}), 500
