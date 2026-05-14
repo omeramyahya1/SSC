@@ -27,12 +27,14 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import api from "@/api/client";
+import { useSync } from "@/hooks/useSync";
 
 export default function TeamOrganization() {
   const { t, i18n } = useTranslation();
   const { currentUser, users, fetchEmployees, deleteUser } = useUserStore();
   const { branches, fetchBranches, deleteBranch } = useBranchStore();
   const { currentOrganization, fetchOrganization } = useOrganizationStore();
+  const { sync } = useSync();
 
   const [activeTab, setActiveTab] = useState("employees");
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
@@ -79,6 +81,7 @@ export default function TeamOrganization() {
     try {
         await deleteUser(employeeToDelete.uuid, deactivatePassword);
         toast.success(t('team.deactivate_success', 'Employee deactivated successfully'));
+        sync();
         setEmployeeToDelete(null);
     } catch (e) {
         toast.error(t('team.deactivate_error', 'Failed to deactivate employee'));
@@ -110,6 +113,7 @@ export default function TeamOrganization() {
     try {
         await deleteBranch(branchToDelete.branch_id);
         toast.success(t('team.branch_delete_success', 'Branch deleted successfully'));
+        sync();
         setBranchToDelete(null);
     } catch (e) {
         toast.error(t('team.branch_delete_error', 'Failed to delete branch'));
