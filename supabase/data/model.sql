@@ -177,6 +177,7 @@ CREATE TABLE public.invoices (
   is_dirty boolean DEFAULT false,
   invoice_details jsonb,
   invoice_items jsonb,
+  invoice_no bigint,
   CONSTRAINT invoices_pkey PRIMARY KEY (id),
   CONSTRAINT invoices_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id),
   CONSTRAINT invoices_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)

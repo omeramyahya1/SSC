@@ -24,7 +24,7 @@ export const useSync = () => {
     if (isSyncingRef.current) return;
 
     const now = Date.now();
-    if (now - lastRequestAtRef.current < 300) return; // tweak or remove
+    if (now - lastRequestAtRef.current < 5000) return; // tweak or remove
     lastRequestAtRef.current = now;
 
     performSync();
@@ -42,7 +42,7 @@ export const useSync = () => {
     const timeoutId = window.setTimeout(() => {
       if (isSyncingRef.current) return;
       performSync();
-    }, 250);
+    }, 10000);
 
     return () => window.clearTimeout(timeoutId);
   }, [location.pathname, isLoggedIn, performSync]);

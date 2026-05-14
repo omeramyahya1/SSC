@@ -147,6 +147,15 @@ def map_subscription_payment_to_payload(record: models.SubscriptionPayment):
         payload["trx_screenshot"] = upload_blob(record.trx_screenshot, "SSC", path)
     return payload
 
+def map_invoice_to_payload(record: models.Invoice):
+    """
+    Invoice-specific push mapper.
+    Local UI relies on `invoice_id` (integer invoice number), but cloud uses `invoice_no`.
+    """
+    payload = generic_mapper(record)
+    payload["invoice_no"] = record.invoice_id
+    return payload
+
 def generic_mapper(record):
     payload = map_common_fields(record)
     local_columns = [c.name for c in record.__table__.columns]
@@ -206,6 +215,16 @@ def _map_cloud_to_local(payload: dict, model_class) -> dict:
 
     return final_payload
 
+def _map_cloud_to_local_invoice(payload: dict, model_class) -> dict:
+    """
+    Invoice-specific pull mapper.
+    Cloud sends `invoice_no`, local column is `invoice_id`.
+    """
+    normalized = dict(payload)
+    if "invoice_no" in normalized and "invoice_id" not in normalized:
+        normalized["invoice_id"] = normalized.pop("invoice_no")
+    return _map_cloud_to_local(normalized, model_class)
+
 # --- SYNC CONFIGURATION ---
 
 SYNC_CONFIG = [
@@ -222,7 +241,7 @@ SYNC_CONFIG = [
     {"model": models.ProjectComponent, "table_name": "project_components", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Appliance, "table_name": "appliances", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Subscription, "table_name": "subscriptions", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.Invoice, "table_name": "invoices", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.Invoice, "table_name": "invoices", "mapper": map_invoice_to_payload, "reverse_mapper": _map_cloud_to_local_invoice},
     {"model": models.Payment, "table_name": "payments", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.SubscriptionPayment, "table_name": "subscription_payments", "mapper": map_subscription_payment_to_payload, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Document, "table_name": "documents", "mapper": map_document_to_payload, "reverse_mapper": _map_cloud_to_local},
