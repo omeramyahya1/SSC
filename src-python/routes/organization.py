@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db, get_by_id_or_uuid
-from models import Organization
+from models import Authentication, Organization, User
 from schemas import OrganizationCreate, OrganizationUpdate
 from serializer import model_to_dict
 
@@ -48,8 +48,24 @@ def update_organization(item_id):
 
 @organization_bp.route('/', methods=['GET'])
 def get_all_organization():
+    auth_record = (
+        db.query(Authentication)
+        .filter(Authentication.is_logged_in == True)
+        .order_by(Authentication.last_active.desc())
+        .first()
+    )
+    if not auth_record:
+        return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+    current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+    if not current_user:
+        return jsonify({"error": "Authenticated user not found in user table."}), 404
+
+    if not current_user.organization_uuid:
+        return jsonify({"error": "Not allowed."}), 405
+
     with get_db() as db:
-        items = db.query(Organization).all()
+        items = db.query(Organization).filter(Organization.uuid == current_user.organization_uuid).all()
         return jsonify([model_to_dict(i) for i in items])
 
 @organization_bp.route('/<string:item_id>', methods=['GET'])

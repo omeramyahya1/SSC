@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import api from '@/api/client';
 import { registerStore, StoreKeys } from '@/api/storeRegistry';
-import { User } from './useUserStore'; // Import User type from useUserStore
+import { User, useUserStore } from './useUserStore'; // Import User type and useUserStore
 
 // --- 1. Define Types ---
 
@@ -108,8 +108,10 @@ export const useAuthenticationStore = create<AuthenticationStore>()(persist((set
     try {
       await api.post(`${resource}/logout`, { auth_id: currentAuth.auth_id });
       set({ currentAuthentication: null, currentAuthenticationSnapshot: null, isLoading: false });
-      // Also clear other user-related stores if necessary
-      // e.g., useUserStore.getState().setCurrentUser(null);
+      
+      // Clear user data on logout
+      useUserStore.setState({ currentUser: null });
+      
       console.log("Logout successful.");
     } catch (e: any) {
       const errorMsg = e.message || "Logout failed";

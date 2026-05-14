@@ -84,6 +84,7 @@ export function EditBranchModal({ branch, onOpenChange }: EditBranchModalProps) 
                             value={formData.name}
                             onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
                             placeholder="e.g. Omdurman Branch"
+                            disabled={ formData.name === 'HQ' || formData.name === 'الفرع الرئيسي'}
                             required
                         />
                     </div>

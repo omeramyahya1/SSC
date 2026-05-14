@@ -546,7 +546,7 @@ export function SettingsModal() {
                     </TabsTrigger>
                     <div className="mt-auto pt-4 w-full">
                         <Button onClick={handleLogout} className="w-full justify-start px-4 py-3 rounded-lg bg-white text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2 transition-colors">
-                            <LogOut className="w-4 h-4" />
+                            <LogOut className={`w-4 h-4 ${i18n.dir() === 'rtl' && 'rotate-180'}`} />
                             <span>{t('dashboard.logout', 'Logout')}</span>
                         </Button>
                     </div>
@@ -764,7 +764,7 @@ export function SettingsModal() {
                                                     <p className="h-12 w-fit flex items-center font-bold text-neutral/80">{ isEnterprise ? currentOrganization?.name : currentUser?.business_name || "—"}</p>
                                                 )}
                                                 {isEnterprise && isEmployee && (
-                                                    <p className="text-[10px] text-neutral/40 font-bold ">
+                                                    <p className="text-[10px] text-semantic-warning font-bold ">
                                                         {t('settings.employee_org_locked', 'Only admins can edit organization profile')}
                                                     </p>
                                                 )}

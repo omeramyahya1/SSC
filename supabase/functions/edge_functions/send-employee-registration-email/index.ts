@@ -10,8 +10,8 @@ const emailWrapper = (
 ) => {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const textAlign = lang === "ar" ? "right" : "left";
-  const footerText = "© 2026 Solar System Calculator. All rights reserved.";
-  const appName = "Solar System Calculator";
+  const footerText = "© 2026 SSC. All rights reserved.";
+  const appName = "SSC";
 
   return `
 <div style="font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; box-sizing: border-box; background-color: #ffffff; color: #333; line-height: 1.6; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;" dir="${dir}">
@@ -38,7 +38,7 @@ const templates = {
           "Welcome to the Team!",
           `<p>Hello ${p.username},</p>
          <p>An account has been created for you at <strong>${p.org_name}</strong>.</p>
-         <p>You can now log in to the Solar System Calculator using the following credentials:</p>
+         <p>You can now log in to the SSC using the following credentials:</p>
          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #eee;">
             <p style="margin: 5px 0;"><strong>Username:</strong> ${p.username}</p>
             <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <span style="font-size: 18px; font-weight: bold; color: #0056b3;">${p.temp_password}</span></p>
@@ -56,10 +56,10 @@ const templates = {
           "مرحباً بك في الفريق!",
           `<p>مرحباً ${p.username}،</p>
          <p>تم إنشاء حساب لك في <strong>${p.org_name}</strong>.</p>
-         <p>يمكنك الآن تسجيل الدخول إلى تطبيق Solar System Calculator باستخدام البيانات التالية:</p>
-         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #eee; direction: ltr; text-align: left;">
-            <p style="margin: 5px 0;"><strong>Username:</strong> ${p.username}</p>
-            <p style="margin: 5px 0;"><strong>Temporary Password:</strong> <span style="font-size: 18px; font-weight: bold; color: #0056b3;">${p.temp_password}</span></p>
+         <p>يمكنك الآن تسجيل الدخول إلى تطبيق SSC باستخدام البيانات التالية:</p>
+         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #eee; direction: right; text-align: right;">
+            <p style="margin: 5px 0;"><strong>إسم المستخدم:</strong> ${p.username}</p>
+            <p style="margin: 5px 0;"><strong>كلمة سر مؤقتة:</strong> <span style="font-size: 18px; font-weight: bold; color: #0056b3;">${p.temp_password}</span></p>
          </div>
          <p>لأسباب أمنية، نوصي بتغيير كلمة المرور الخاصة بك بعد تسجيل الدخول الأول.</p>
          <p>أهلاً بك معنا!</p>`,
@@ -82,7 +82,7 @@ serve(async (req) => {
   // Fetch Pending Registration Jobs
   const { data: pendingJobs, error: fetchError } = await supabase
     .from("notification_jobs")
-    .select("id, recipient_user_id, payload, created_at")
+    .select("*")
     .eq("status", "pending")
     .eq("event_type", "employee_registration");
 
@@ -129,7 +129,7 @@ serve(async (req) => {
         ? userData.application_settings[0]
         : userData.application_settings;
 
-      const lang = (settings?.language as "en" | "ar") || "en";
+      const lang = "ar";
       const tpl = templates.employee_registration[lang] || templates.employee_registration['en'];
 
       // Send via Brevo

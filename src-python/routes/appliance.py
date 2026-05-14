@@ -96,13 +96,6 @@ def get_appliances_for_project(project_uuid):
         # If no appliances are found, it's not an error, just return an empty list
         return jsonify([model_to_dict(appliance) for appliance in project_appliances]), 200
 
-
-@appliance_bp.route('', methods=['GET'])
-def get_all_appliance():
-    with get_db() as db:
-        items = db.query(Appliance).all()
-        return jsonify([model_to_dict(i) for i in items])
-
 @appliance_bp.route('/<string:item_id>', methods=['GET'])
 def get_appliance(item_id):
     with get_db() as db:

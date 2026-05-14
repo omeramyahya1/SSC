@@ -10,6 +10,7 @@ import ContactSales from "./pages/ContactSales";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
+import { refreshStores, StoreKeys } from "./api/storeRegistry";
 import { Dashboard } from "./pages/dashboard/Dashboard";
 import CustomersPage from "./pages/customers/Customers";
 import Inventory from "./pages/inventory/Inventory";
@@ -62,6 +63,10 @@ function App() {
 
       // Fetch the latest authentication state to determine login status
       await fetchLatestAuthentication();
+
+      // Trigger a refresh of all stores to ensure UI has latest local data
+      refreshStores(Object.values(StoreKeys));
+
       // The component will re-render when currentAuthentication changes,
       // so we can derive the logged-in status from that.
     };

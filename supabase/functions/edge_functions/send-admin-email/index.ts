@@ -21,7 +21,7 @@ const emailWrapper = (
   date: string,
   lang: "en" | "ar" = "en",
 ) => {
-  const appName = "Solar System Calculator";
+  const appName = "SSC";
   const dir = lang === "ar" ? "rtl" : "ltr";
   const textAlign = lang === "ar" ? "right" : "left";
   const formattedDate = new Date(date).toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
@@ -43,7 +43,7 @@ const emailWrapper = (
     ${content}
   </div>
   <div style="text-align: center; border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px; font-size: 12px; color: #777;">
-    <p style="margin:0;">&copy; 2026 Solar System Calculator. All rights reserved.</p>
+    <p style="margin:0;">&copy; 2026 SSC. All rights reserved.</p>
   </div>
 </div>
   `;
@@ -85,7 +85,7 @@ const templates: Templates = {
           "User Account Deactivated",
           `
           <p>Hello Super Admin,</p>
-          <p>A user account has been deactivated in the Solar System Calculator.</p>
+          <p>A user account has been deactivated in the SSC.</p>
           <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px;">
             <tr style="background-color: #f2f2f2; text-align: left;">
               <th style="padding: 8px; border: 1px solid #ddd;">Detail</th>
