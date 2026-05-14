@@ -22,10 +22,12 @@ import { AddCustomerModal } from './AddCustomerModal';
 import { EditCustomerModal } from './EditCustomerModal';
 import toast from "react-hot-toast";
 import { SubscriptionBanner } from '../dashboard/SubscriptionBanner';
+import { useSync } from '@/hooks/useSync';
 
 export default function CustomersPage() {
     const { t, i18n } = useTranslation();
     const { currentUser } = useUserStore();
+    const { sync } = useSync();
     const isExpired = currentUser?.status === 'expired';
 
     const {
@@ -71,6 +73,7 @@ export default function CustomersPage() {
         try {
             await deleteCustomer(customerToDelete.customer_id);
             toast.success(t('customers.delete_success', 'Customer deleted successfully'));
+            sync();
         } catch (e) {
             toast.error(t('customers.delete_error', 'Failed to delete customer'));
         } finally {

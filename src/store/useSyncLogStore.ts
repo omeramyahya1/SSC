@@ -2,6 +2,8 @@
 import { create } from 'zustand';
 import api from '@/api/client';
 import { registerStore, StoreKeys } from '@/api/storeRegistry';
+import toast from 'react-hot-toast';
+import i18next from 'i18next';
 
 // --- 1. Define Types ---
 
@@ -26,6 +28,7 @@ export interface SyncLogStore {
   syncLogs: SyncLog[];
   currentSyncLog: SyncLog | null;
   isLoading: boolean;
+  isSyncing: boolean;
   error: string | null;
   fetchSyncLogs: () => Promise<void>;
   fetchSyncLog: (id: number) => Promise<void>;
@@ -33,12 +36,14 @@ export interface SyncLogStore {
   updateSyncLog: (id: number, data: Partial<NewSyncLogData>) => Promise<SyncLog | undefined>;
   deleteSyncLog: (id: number) => Promise<void>;
   setCurrentSyncLog: (log: SyncLog | null) => void;
+  performSync: () => Promise<void>;
 }
 
-export const useSyncLogStore = create<SyncLogStore>((set) => ({
+export const useSyncLogStore = create<SyncLogStore>((set, get) => ({
   syncLogs: [],
   currentSyncLog: null,
   isLoading: false,
+  isSyncing: false,
   error: null,
 
   setCurrentSyncLog: (log) => {
@@ -115,6 +120,26 @@ export const useSyncLogStore = create<SyncLogStore>((set) => ({
       console.error(errorMsg, e);
     }
   },
+
+  performSync: async () => {
+    if (get().isSyncing) return;
+
+    if (!navigator.onLine) {
+        toast.error(i18next.t('sync.offline_toast'));
+        return;
+    }
+
+    set({ isSyncing: true });
+    try {
+        await api.post('/sync_logs/sync', {}, { timeout: 60000 });
+        // Success: Don't show toast as per requirements
+    } catch (e: any) {
+        console.error("Sync process failed:", e);
+        toast.error(i18next.t('sync.failed'));
+    } finally {
+        set({ isSyncing: false });
+    }
+  }
 }));
 
 registerStore(StoreKeys.SyncLog, () => {

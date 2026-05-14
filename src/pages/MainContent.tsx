@@ -20,10 +20,12 @@ import { useTranslation } from "react-i18next";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TCContent } from "@/components/ui/TCContent";
 import { Spinner } from "@/components/ui/spinner";
+import { useSync } from "@/hooks/useSync";
 
 const MainContent = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  useSync();
   const { showFirstTimeLoginPrompt, setShowFirstTimeLoginPrompt, currentAuthentication } = useAuthenticationStore();
   const { needsTCUpdate, latestTC, checkTCStatus, recordTCAgreement, currentSetting } = useApplicationSettingsStore();
   const [isAgreeing, setIsAgreeing] = useState(false);

@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from "react-hot-toast";
 import { useLocationData } from '@/hooks/useLocationData';
+import { useSync } from '@/hooks/useSync';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -35,6 +36,7 @@ export function Dashboard() {
     const { t, i18n } = useTranslation();
     const { formatLocation } = useLocationData();
     const { currentUser } = useUserStore();
+    const { sync } = useSync();
     const isExpired = currentUser?.status === 'expired';
 
     // State for views and filters
@@ -110,6 +112,7 @@ export function Dashboard() {
         try {
             await deleteProjectPermanently(projectToDelete.uuid);
             toast.success(t('dashboard.toast.project_deleted', 'Project has been permanently deleted.'));
+            sync();
         } catch (error) {
             toast.error(t('dashboard.toast.delete_failed', 'Failed to delete project. Please try again.'));
         } finally {
@@ -121,6 +124,7 @@ export function Dashboard() {
         try {
             await emptyTrash();
             toast.success(t('dashboard.toast.trash_emptied', 'Trash has been emptied.'));
+            sync();
         } catch (error) {
             toast.error(t('dashboard.toast.empty_trash_failed', 'Failed to empty trash. Please try again.'));
         } finally {

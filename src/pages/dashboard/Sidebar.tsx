@@ -10,7 +10,7 @@ import { SupportModal } from './SupportModal';
 import { PlanModal } from '../subscription/PlanModal';
 import { useUserStore } from '@/store/useUserStore';
 import { useSubscriptionStore } from '@/store/useSubscriptionStore';
-import api from "@/api/client";
+import { useSync } from '@/hooks/useSync';
 import {
   Popover,
   PopoverContent,
@@ -129,10 +129,12 @@ export function Sidebar() {
     const { t, i18n } = useTranslation();
     const [isCollapsed, setIsCollapsed] = useState(true);
     const [isHovering, setIsHovering] = useState(false);
-    const [isSyncing, setIsSyncing] = useState(false);
     const [nonNavSelected, setNonNavSelected] = useState<string | null>(null);
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
     const location = useLocation();
+
+    const { sync, isSyncing } = useSync();
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     const { currentUser } = useUserStore();
     const { currentSubscription, fetchSubscriptions } = useSubscriptionStore();
@@ -149,17 +151,15 @@ export function Sidebar() {
          }
     }, [currentSubscription, fetchSubscriptions, currentUser?.uuid, subscriptionFetched]);
 
-    const handleSync = async () => {
-        if (isSyncing) return;
-        setIsSyncing(true);
-        try {
-            await api.post('/sync_logs/sync', {}, { timeout: 60000 });
-        } catch (err) {
-            console.error("Sync failed:", err);
-        } finally {
-            setIsSyncing(false);
-        }
-    };
+    useEffect(() => {
+        const handleStatusChange = () => setIsOnline(navigator.onLine);
+        window.addEventListener('online', handleStatusChange);
+        window.addEventListener('offline', handleStatusChange);
+        return () => {
+            window.removeEventListener('online', handleStatusChange);
+            window.removeEventListener('offline', handleStatusChange);
+        };
+    }, []);
 
     const showSidebarContent = !isCollapsed;
 
@@ -243,7 +243,12 @@ export function Sidebar() {
 
                 {/* Footer */}
                 <div className="p-4">
-                    <Button variant="ghost" disabled={isSyncing} className={`w-full gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group ${isCollapsed ? 'justify-center' : 'justify-start'}`} onClick={handleSync}>
+                    <Button 
+                        variant="ghost" 
+                        disabled={isSyncing || !isOnline} 
+                        className={`w-full gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group ${isCollapsed ? 'justify-center' : 'justify-start'}`} 
+                        onClick={() => sync()}
+                    >
                         {isSyncing ? <Spinner className="w-6 h-6" /> : <img src="/eva-icons (2)/outline/sync.png" alt={t('common.synced_alt', 'synced')} className="w-6 h-6 opacity-40 group-hover:opacity-100" />}
                          {showSidebarContent && <span className="truncate">{isSyncing ? t('dashboard.syncing', 'Syncing...') : t('dashboard.synced', 'Synced')}</span>}
                     </Button>
