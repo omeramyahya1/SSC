@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Branch } from '@/store/useBranchStore';
 import { useLocationData } from '@/hooks/useLocationData';
+import { useUserStore } from '@/store/useUserStore';
 
 interface BranchesTabProps {
     branches: Branch[];
@@ -25,6 +26,7 @@ export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranc
     const { t, i18n } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
     const { getClimateDataForCity } = useLocationData();
+    const { currentUser } = useUserStore();
 
     const filteredBranches = useMemo(() => {
         return branches.filter(branch => {
@@ -99,7 +101,7 @@ export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranc
 
                                 <DropdownMenu dir={i18n.dir()}>
                                     {
-                                        branch.name === 'HQ' || branch.name === 'الفرع الرئيسي' || (
+                                        (branch.name === 'HQ' || branch.name === 'الفرع الرئيسي') && currentUser?.role === 'admin' && (
                                             <DropdownMenuTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8">
                                                     <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
