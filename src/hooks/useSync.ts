@@ -7,7 +7,7 @@ import { useAuthenticationStore } from '@/store/useAuthenticationStore';
  * Hook to manage automatic and manual synchronization.
  */
 export const useSync = () => {
-    const { performSync, isSyncing } = useSyncLogStore();
+    const { performSync, isSyncing, lastSyncTime } = useSyncLogStore();
     const { currentAuthentication } = useAuthenticationStore();
     const location = useLocation();
 
@@ -53,6 +53,7 @@ export const useSync = () => {
 
     return {
         sync: performSync,
-        isSyncing
+        isSyncing,
+        lastSyncTime
     };
 };

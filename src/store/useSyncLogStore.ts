@@ -29,6 +29,7 @@ export interface SyncLogStore {
   currentSyncLog: SyncLog | null;
   isLoading: boolean;
   isSyncing: boolean;
+  lastSyncTime: string | null;
   error: string | null;
   fetchSyncLogs: () => Promise<void>;
   fetchSyncLog: (id: number) => Promise<void>;
@@ -44,6 +45,7 @@ export const useSyncLogStore = create<SyncLogStore>((set, get) => ({
   currentSyncLog: null,
   isLoading: false,
   isSyncing: false,
+  lastSyncTime: null,
   error: null,
 
   setCurrentSyncLog: (log) => {
@@ -54,6 +56,29 @@ export const useSyncLogStore = create<SyncLogStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<SyncLog[]>(resource);
+      
+      const parseDate = (dateStr: string) => {
+          // If the date string doesn't have a timezone indicator, assume it's UTC
+          const normalized = (dateStr.includes('Z') || dateStr.includes('+')) 
+              ? dateStr 
+              : `${dateStr}Z`;
+          return new Date(normalized).getTime();
+      };
+
+      const lastSuccess = data
+        .filter(log => log.status === 'success')
+        .sort((a, b) => parseDate(b.created_at) - parseDate(a.created_at))[0];
+
+      if (lastSuccess) {
+          const fetchedTime = lastSuccess.created_at;
+          const currentTime = get().lastSyncTime;
+
+          // Only update if we don't have a time yet, or if the fetched time is actually newer
+          if (!currentTime || parseDate(fetchedTime) > parseDate(currentTime)) {
+              set({ lastSyncTime: fetchedTime });
+          }
+      }
+
       set({ syncLogs: data, isLoading: false });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch sync logs";
@@ -132,6 +157,7 @@ export const useSyncLogStore = create<SyncLogStore>((set, get) => ({
     set({ isSyncing: true });
     try {
         await api.post('/sync_logs/sync', {}, { timeout: 60000 });
+        set({ lastSyncTime: new Date().toISOString() });
         // Success: Don't show toast as per requirements
     } catch (e: any) {
         console.error("Sync process failed:", e);
