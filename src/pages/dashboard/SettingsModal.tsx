@@ -546,7 +546,7 @@ export function SettingsModal() {
                     </TabsTrigger>
                     <div className="mt-auto pt-4 w-full">
                         <Button onClick={handleLogout} className="w-full justify-start px-4 py-3 rounded-lg bg-white text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2 transition-colors">
-                            <LogOut className="w-4 h-4" />
+                            <LogOut className={`w-4 h-4 ${i18n.dir() === 'rtl' && 'rotate-180'}`} />
                             <span>{t('dashboard.logout', 'Logout')}</span>
                         </Button>
                     </div>
