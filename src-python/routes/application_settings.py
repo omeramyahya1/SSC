@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db, get_by_id_or_uuid
-from models import ApplicationSettings, Authentication
+from models import ApplicationSettings, Authentication, User
 from schemas import ApplicationSettingsCreate, ApplicationSettingsUpdate
 from serializer import model_to_dict
 
@@ -57,8 +57,21 @@ def update_application_settings(item_id):
 @application_settings_bp.route('/', methods=['GET'])
 def get_all_application_settings():
     with get_db() as db:
-        items = db.query(ApplicationSettings).all()
-        return jsonify([model_to_dict(i) for i in items])
+        auth_record = (
+        db.query(Authentication)
+        .filter(Authentication.is_logged_in == True)
+        .order_by(Authentication.last_active.desc())
+        .first()
+    )
+    if not auth_record:
+        return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
+
+    current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+    if not current_user:
+        return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
+
+    items = db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == current_user.uuid).all()
+    return jsonify([model_to_dict(i) for i in items])
 
 @application_settings_bp.route('/<string:item_id>', methods=['GET'])
 def get_application_settings(item_id):
