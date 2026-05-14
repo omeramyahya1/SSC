@@ -28,11 +28,11 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
     const { branches } = useBranchStore();
 
     const filteredEmployees = useMemo(() => {
-        return employees.filter(emp => {
+        return employees?.filter(emp => {
             const q = searchQuery.toLowerCase();
             return (
-                emp.username.toLowerCase().includes(q) ||
-                emp.email.toLowerCase().includes(q)
+                emp?.username?.toLowerCase().includes(q) ||
+                emp?.email?.toLowerCase().includes(q)
             );
         });
     }, [employees, searchQuery]);
