@@ -306,7 +306,34 @@ ON public.application_settings FOR ALL USING (is_superadmin() OR user_id = jwt_u
 
 DROP POLICY IF EXISTS "Authentications: Owner access only" ON public.authentications;
 CREATE POLICY "Authentications: Owner access only"
-ON public.authentications FOR ALL USING (is_superadmin() OR user_id = jwt_user_id());
+ON public.authentications
+FOR ALL
+USING (
+    is_superadmin()
+    OR user_id = jwt_user_id()
+    OR (
+        jwt_app_role() = 'admin'
+        AND EXISTS (
+            SELECT 1
+            FROM public.users u
+            WHERE u.id = authentications.user_id
+              AND u.organization_id = jwt_org_id()
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR user_id = jwt_user_id()
+    OR (
+        jwt_app_role() = 'admin'
+        AND EXISTS (
+            SELECT 1
+            FROM public.users u
+            WHERE u.id = authentications.user_id
+              AND u.organization_id = jwt_org_id()
+        )
+    )
+);
 
 DROP POLICY IF EXISTS "Sync Logs: Owner access only" ON public.sync_logs;
 CREATE POLICY "Sync Logs: Owner access only"

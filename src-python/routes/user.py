@@ -203,7 +203,7 @@ def register_user():
             emp_count = payload.stage3.employees
         elif 'enterprise' in payload.account_type:
             # Unlimited for enterprise if not specified
-            emp_count = 0
+            emp_count = 1
         else:
             emp_count = 1
 
@@ -547,62 +547,67 @@ def create_employee():
         salt = generate_salt()
         hashed_pw = hash_password(temp_password, salt)
         new_user_uuid = str(uuid.uuid4())
-        auth_uuid = str(uuid.uuid4())
 
         # Call Supabase RPC register_employee
         try:
             service_client = get_service_role_client()
-            service_client.rpc('register_employee', {
+            rpc_res = service_client.rpc('register_employee', {
                 'p_user_uuid': new_user_uuid,
                 'p_username': data.get('username'),
                 'p_email': data.get('email'),
                 'p_org_id': org_uuid,
                 'p_branch_id': branch_uuid,
                 'p_role': role,
-                'p_auth_uuid': auth_uuid,
                 'p_password_hash': hashed_pw,
                 'p_password_salt': salt,
                 'p_temp_password': temp_password,
                 'p_org_name': org.name # Pass org name for email template
             }).execute()
+
+            # register_employee now returns: { user_id, auth_created, auth_id }
+            result = getattr(rpc_res, "data", None)
+            if not isinstance(result, dict) or result.get("user_id") != new_user_uuid:
+                raise Exception(f"Unexpected register_employee response: {result}")
+            if result.get("auth_created") is not True or not result.get("auth_id"):
+                raise Exception(f"Employee auth record not created: {result}")
         except Exception as e:
             print(f"Error calling register_employee RPC: {str(e)}")
             return jsonify({"error": "Failed to register employee in the cloud."}), 500
 
-        # Create user locally
-        new_user = User(
-            uuid=new_user_uuid,
-            username=data.get('username'),
-            email=data.get('email'),
-            role=role,
-            organization_uuid=org_uuid,
-            branch_uuid=branch_uuid,
-            status='trial', # Initial status before first login
-            account_type=org.plan_type,
-            is_dirty=False # Cloud record already created
-        )
-        db.add(new_user)
+        # # Create user locally
+        # new_user = User(
+        #     uuid=new_user_uuid,
+        #     username=data.get('username'),
+        #     email=data.get('email'),
+        #     role=role,
+        #     organization_uuid=org_uuid,
+        #     branch_uuid=branch_uuid,
+        #     status='trial', # Initial status before first login
+        #     account_type=org.plan_type,
+        #     is_dirty=False # Cloud record already created
+        # )
+        # db.add(new_user)
 
-        new_auth = Authentication(
-            uuid=auth_uuid,
-            user_uuid=new_user_uuid,
-            password_hash=hashed_pw,
-            password_salt=salt,
-            is_dirty=False
-        )
-        db.add(new_auth)
+        # new_auth = Authentication(
+        #     uuid=auth_uuid,
+        #     user_uuid=new_user_uuid,
+        #     password_hash=hashed_pw,
+        #     password_salt=salt,
+        #     is_dirty=False
+        # )
+        # db.add(new_auth)
 
-        new_settings = ApplicationSettings(
-            uuid=str(uuid.uuid4()),
-            user_uuid=new_user_uuid,
-            language='en', # Default
-            is_dirty=True
-        )
-        db.add(new_settings)
+        # new_settings = ApplicationSettings(
+        #     uuid=str(uuid.uuid4()),
+        #     user_uuid=new_user_uuid,
+        #     language='en', # Default
+        #     is_dirty=True
+        # )
+        # db.add(new_settings)
 
-        db.commit()
-        db.refresh(new_user)
-        return jsonify(model_to_dict(new_user)), 201
+        # db.commit()
+        # db.refresh(new_user)
+        return jsonify({"status": "Success", "user_id": new_user_uuid}), 201
 
 @user_bp.route('/<string:user_id_or_uuid>', methods=['PUT'])
 def update_user(user_id_or_uuid):

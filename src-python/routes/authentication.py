@@ -5,7 +5,7 @@ from models import Authentication, User, Subscription, SyncLog
 from schemas import AuthenticationCreate, AuthenticationUpdate
 from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication
 from serializer import model_to_dict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import uuid
 from routes.sync_log import sync, trigger_immediate_sync, generic_mapper
 from sqlalchemy import func
@@ -29,13 +29,14 @@ def login_user():
 
     with get_db() as db:
         # --- 1. Initial Local Check ---
+        print("Hello world")
         user = (
             db.query(User)
             .filter(func.lower(User.email) == login_data.email.strip().lower())\
             .filter(User.deleted_at.is_(None))\
+            .filter(User.updated_at > datetime.now() - timedelta(days=14))
             .first()
         )
-
         # --- 1a. User is NOT found locally ---
         if not user:
             # This user must log in online.
