@@ -30,6 +30,7 @@ import { toast } from "react-hot-toast";
 import { Card } from "@/components/ui/card";
 import api from "@/api/client";
 import { cn } from "@/lib/utils";
+import { useSync } from "@/hooks/useSync";
 import { TCContent } from "@/components/ui/TCContent";
 import {
   Command,
@@ -169,8 +170,8 @@ export function SettingsModal() {
     const [organizationDraft, setOrganizationDraft] = useState({
         business_name: currentUser?.business_name || "",
     });
-  const { currentOrganization } = useOrganizationStore();
-
+    const { currentOrganization } = useOrganizationStore();
+    const { lastSyncTime, sync } = useSync();
     // Security: email state
     const [newEmail, setNewEmail] = useState("");
     const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
@@ -194,6 +195,8 @@ export function SettingsModal() {
     const [isSavingPersonal, setIsSavingPersonal] = useState(false);
     const [isSavingOrganization, setIsSavingOrganization] = useState(false);
     const [activeTab, setActiveTab] = useState("profile"); // New state for active tab
+
+    const [lastSync, setLastSync] = useState('');
 
     // --- Location Data (Copied from registration.tsx) ---
     const geoDataParsed = useMemo(() => parseCsv(geoDataCsv), []);
@@ -219,6 +222,10 @@ export function SettingsModal() {
         }
         return [];
     }, [personalDraft.locationState, geoDataParsed]);
+
+    useEffect(() => {
+        setLastSync(lastSyncTime ?? '')
+    }, [lastSyncTime])
 
     useEffect(() => {
         if (currentUser) {
@@ -274,6 +281,7 @@ export function SettingsModal() {
             });
             setIsEditingPersonal(false);
             toast.success(t('settings.profile_updated', 'Profile updated successfully'));
+            sync();
         } catch (error) {
             toast.error(t('settings.update_failed', 'Failed to update profile'));
         } finally {
@@ -324,6 +332,7 @@ export function SettingsModal() {
 
             setIsEditingOrganization(false);
             toast.success(t('settings.profile_updated', 'Profile updated successfully'));
+            sync();
         } catch (error) {
             toast.error(t('settings.update_failed', 'Failed to update settings'));
         } finally {
@@ -384,6 +393,7 @@ export function SettingsModal() {
             setNewPassword("");
             setConfirmPassword("");
             toast.success(t('settings.password_updated', 'Password updated successfully'));
+            sync();
         } catch (e: any) {
             // 1. Check if the specific error string exists
             const errorMessage = e?.message?.includes("is incorrect")
@@ -452,6 +462,7 @@ export function SettingsModal() {
             setEmailAvailable(true); // Should be true if update successful
             setEmailValidationError(null);
             toast.success(t('settings.email_updated', 'Email updated successfully'));
+            sync();
         } catch (e: any) {
             toast.error(e?.message || t('settings.update_failed', 'Failed to update settings'));
         }
@@ -962,20 +973,20 @@ export function SettingsModal() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
                                         <p className="text-center text-primary text-xs font-bold text-neutral/40 ">{t('settings.app_version', 'App Version')}</p>
-                                        <p className="text-2xl font-black text-neutral/80">
+                                        <p className="text-center text-2xl font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : (systemInfo?.app_version || "—")}
                                         </p>
                                     </Card>
                                     <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
                                         <p className="text-center text-primary text-xs font-bold text-neutral/40 ">{t('settings.db_size', 'Local DB Size')}</p>
-                                        <p className="text-2xl font-black text-neutral/80">
+                                        <p className="text-center text-2xl font-black text-neutral/80">
                                             {isSystemInfoLoading ? t('common.loading', 'Loading...') : formatBytes(systemInfo?.local_db_size_bytes ?? 0)}
                                         </p>
                                     </Card>
                                     <Card className="border-[1px] border-primary-gray bg-gray-50 p-6 flex flex-col gap-2 rounded-2xl">
                                         <p className="text-center text-primary text-xs font-bold text-neutral/40 ">{t('settings.last_sync', 'Last Sync')}</p>
-                                        <p className="text-lg font-black text-neutral/80">
-                                            {isSystemInfoLoading ? t('common.loading', 'Loading...') : formatRelativeTime(systemInfo?.last_sync_utc ?? null)}
+                                        <p className="text-center text-lg font-black text-neutral/80">
+                                            {isSystemInfoLoading ? t('common.loading', 'Loading...') : formatRelativeTime(lastSync)}
                                         </p>
                                     </Card>
                                 </div>

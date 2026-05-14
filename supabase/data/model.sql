@@ -78,9 +78,11 @@ CREATE TABLE public.customers (
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
   is_dirty boolean DEFAULT false,
+  branch_id uuid,
   CONSTRAINT customers_pkey PRIMARY KEY (id),
   CONSTRAINT customers_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
-  CONSTRAINT customers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+  CONSTRAINT customers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT customers_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id)
 );
 CREATE TABLE public.distributor_financials (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -270,10 +272,14 @@ CREATE TABLE public.projects (
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
   is_dirty boolean DEFAULT false,
+  branch_id uuid DEFAULT gen_random_uuid(),
+  system_config_id uuid DEFAULT gen_random_uuid(),
   CONSTRAINT projects_pkey PRIMARY KEY (id),
   CONSTRAINT projects_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
   CONSTRAINT projects_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
-  CONSTRAINT projects_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+  CONSTRAINT projects_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT projects_branch_id_fkey FOREIGN KEY (branch_id) REFERENCES public.branches(id),
+  CONSTRAINT projects_system_config_id_fkey FOREIGN KEY (system_config_id) REFERENCES public.system_configurations(id)
 );
 CREATE TABLE public.stock_adjustments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -338,17 +344,25 @@ CREATE TABLE public.sync_logs (
   CONSTRAINT sync_logs_pkey PRIMARY KEY (id),
   CONSTRAINT sync_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
+CREATE TABLE public.sync_state (
+  user_id uuid NOT NULL,
+  device_id uuid NOT NULL,
+  last_cursor timestamp with time zone NOT NULL DEFAULT '2000-01-01 00:00:00+00'::timestamp with time zone,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT sync_state_pkey PRIMARY KEY (user_id, device_id),
+  CONSTRAINT sync_state_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
 CREATE TABLE public.system_configurations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  project_id uuid,
   config_items jsonb,
   total_wattage double precision,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
   is_dirty boolean DEFAULT false,
-  CONSTRAINT system_configurations_pkey PRIMARY KEY (id),
-  CONSTRAINT system_configurations_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id)
+  project_id uuid,
+  CONSTRAINT system_configurations_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.terms_and_conditions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

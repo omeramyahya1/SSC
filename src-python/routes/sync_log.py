@@ -1,6 +1,7 @@
 # src-python/routes/sync_log.py
 import mimetypes
 from datetime import datetime, timezone
+from typing import Optional
 from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
 from utils import get_db
@@ -9,6 +10,8 @@ from sqlalchemy import LargeBinary, Numeric
 from decimal import Decimal
 from supabase_client import get_user_client, get_service_role_client, get_anon_client
 from serializer import model_to_dict
+from sqlalchemy import or_
+from .inventory import _get_current_user
 
 sync_log_bp = Blueprint('sync_log_bp', __name__, url_prefix='/sync_logs')
 
@@ -66,7 +69,7 @@ def upload_blob(blob_data: bytes, bucket_name: str, destination_path: str, use_s
     if use_service_client:
         supabase = get_service_role_client()
     else:
-        supabase = get_user_client()
+        supabase = get_service_role_client()
     try:
         content_type, _ = mimetypes.guess_type(destination_path)
         content_type = content_type or 'application/octet-stream'
@@ -77,12 +80,35 @@ def upload_blob(blob_data: bytes, bucket_name: str, destination_path: str, use_s
         )
         return supabase.storage.from_(bucket_name).get_public_url(destination_path)
     except Exception as e:
+        print(e)
         raise Exception(f"Upload to {bucket_name}/{destination_path} failed: {e}")
 
 # --- DATA MAPPERS (PUSH: Local Model -> Supabase Payload) ---
 
 def _to_iso(dt):
     return dt.isoformat() if dt else None
+
+def _coerce_timestamptz(value) -> Optional[datetime]:
+    """
+    Best-effort coercion of Supabase RPC timestamptz returns to a timezone-aware datetime (UTC).
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+
+    if isinstance(value, str):
+        s = value.strip()
+        if s.endswith('Z'):
+            s = s[:-1] + '+00:00'
+        try:
+            dt = datetime.fromisoformat(s)
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
+    return None
 
 def map_common_fields(record):
     return {
@@ -188,12 +214,12 @@ SYNC_CONFIG = [
     {"model": models.User, "table_name": "users", "mapper": map_user_to_payload, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Authentication, "table_name": "authentications", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Customer, "table_name": "customers", "mapper": map_customer_to_payload, "reverse_mapper": _map_cloud_to_local},
+    {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Project, "table_name": "projects", "mapper": map_project_to_payload, "reverse_mapper": _map_cloud_to_local},
     {"model": models.InventoryCategory, "table_name": "inventory_categories", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.InventoryItem, "table_name": "inventory_items", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.StockAdjustment, "table_name": "stock_adjustments", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.ProjectComponent, "table_name": "project_components", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Appliance, "table_name": "appliances", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Subscription, "table_name": "subscriptions", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Invoice, "table_name": "invoices", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
@@ -206,11 +232,182 @@ SYNC_CONFIG = [
 
 # --- CORE SYNC LOGIC ---
 
-def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
+def _get_hq_branch_uuid(db: Session, organization_uuid: str) -> Optional[str]:
+    if not organization_uuid:
+        return None
+    row = (
+        db.query(models.Branch.uuid)
+        .filter(models.Branch.organization_uuid == organization_uuid)
+        .filter(or_(models.Branch.name.ilike("HQ"), models.Branch.name.ilike("الفرع الرئيسي")))
+        .first()
+    )
+    return row[0] if row else None
+
+def _build_sync_scope(db: Session, user: models.User) -> dict:
+    """
+    Build a sync scope context for role-based filtering.
+    Local columns use *_uuid (string UUIDs). Remote uses *_id but we map via mappers.
+    """
+    role = (user.role or "").lower()
+    org_uuid = getattr(user, "organization_uuid", None)
+    branch_uuid = getattr(user, "branch_uuid", None)
+    return {
+        "role": role,
+        "user_uuid": user.uuid,
+        "organization_uuid": org_uuid,
+        "branch_uuid": branch_uuid,
+        "hq_branch_uuid": _get_hq_branch_uuid(db, org_uuid),
+    }
+
+def _scope_query_for_model(db: Session, model, scope: dict):
+    """
+    Return a SQLAlchemy query filtered to only records within the allowed scope.
+    """
+    role = scope["role"]
+    user_uuid = scope["user_uuid"]
+    org_uuid = scope["organization_uuid"]
+    branch_uuid = scope["branch_uuid"]
+
+    q = db.query(model)
+
+    def scoped_projects_query():
+        # Projects are the main scoping pivot for many child tables.
+        base = db.query(models.Project.uuid)
+        if role == "admin":
+            return base.filter(models.Project.organization_uuid == org_uuid) if org_uuid else base.filter(False)
+        if role == "employee":
+            return base.filter(
+                models.Project.organization_uuid == org_uuid,
+                models.Project.branch_uuid == branch_uuid,
+            ) if (org_uuid and branch_uuid) else base.filter(False)
+        # user
+        return base.filter(models.Project.user_uuid == user_uuid)
+
+    # Always keep Authentication strictly per-user to avoid RLS violations.
+    if model is models.Authentication:
+        return q.filter(models.Authentication.user_uuid == user_uuid)
+    if model is models.ApplicationSettings:
+        return q.filter(models.ApplicationSettings.user_uuid == user_uuid)
+    if model is models.SyncLog:
+        return q.filter(models.SyncLog.user_uuid == user_uuid)
+
+    # Admin: allow org-wide records; employee: branch-only; user: primarily per-user, with org/branch for tables that don't have user_uuid.
+    if role == "admin":
+        if model is models.Organization:
+            return q.filter(models.Organization.uuid == org_uuid) if org_uuid else q.filter(False)
+        if model is models.Branch:
+            return q.filter(models.Branch.organization_uuid == org_uuid) if org_uuid else q.filter(False)
+        if hasattr(model, "organization_uuid") and org_uuid:
+            q = q.filter(getattr(model, "organization_uuid") == org_uuid)
+        # Child tables that don't carry org/branch directly must be scoped via Projects/Users.
+        if model is models.SystemConfiguration:
+            return q.filter(models.SystemConfiguration.uuid.in_(scoped_projects_query().with_entities(models.Project.system_config_uuid)))
+        if model is models.Appliance:
+            return q.filter(models.Appliance.project_uuid.in_(scoped_projects_query()))
+        if model is models.Document:
+            return q.filter(models.Document.project_uuid.in_(scoped_projects_query()))
+        if model is models.Invoice:
+            return q.filter(models.Invoice.project_uuid.in_(scoped_projects_query()))
+        if model is models.Payment:
+            return q.filter(models.Payment.invoice_uuid.in_(db.query(models.Invoice.uuid).filter(models.Invoice.project_uuid.in_(scoped_projects_query()))))
+        if model is models.ProjectComponent:
+            return q.filter(models.ProjectComponent.project_uuid.in_(scoped_projects_query()))
+        return q
+
+    if role == "employee":
+        # Employees: strict branch-only, and no CRUD on branches table itself.
+        if model is models.Branch:
+            return q.filter(False)
+        if model is models.Organization:
+            # Allow reading/updating their organization only if user needs it; still scoped.
+            return q.filter(models.Organization.uuid == org_uuid) if org_uuid else q.filter(False)
+
+        if hasattr(model, "organization_uuid") and org_uuid:
+            q = q.filter(getattr(model, "organization_uuid") == org_uuid)
+        if hasattr(model, "branch_uuid") and branch_uuid:
+            q = q.filter(getattr(model, "branch_uuid") == branch_uuid)
+
+        # Tables without branch_uuid need parent-based scoping.
+        if model is models.Payment:
+            return q.filter(
+                models.Payment.invoice_uuid.in_(
+                    db.query(models.Invoice.uuid).filter(
+                        models.Invoice.project_uuid.in_(scoped_projects_query())
+                    )
+                )
+            )
+        if model is models.Invoice:
+            return q.filter(models.Invoice.project_uuid.in_(scoped_projects_query()))
+        if model is models.Appliance:
+            return q.filter(models.Appliance.project_uuid.in_(scoped_projects_query()))
+        if model is models.Document:
+            return q.filter(models.Document.project_uuid.in_(scoped_projects_query()))
+        if model is models.SystemConfiguration:
+            return q.filter(
+                models.SystemConfiguration.uuid.in_(
+                    scoped_projects_query().with_entities(models.Project.system_config_uuid)
+                )
+            )
+        if model is models.ProjectComponent:
+            return q.filter(models.ProjectComponent.project_uuid.in_(scoped_projects_query()))
+        if model is models.Subscription:
+            # Employee can sync subscriptions for users in their branch/org.
+            return q.filter(
+                models.Subscription.user_uuid.in_(
+                    db.query(models.User.uuid).filter(
+                        models.User.organization_uuid == org_uuid,
+                        models.User.branch_uuid == branch_uuid,
+                    )
+                )
+            )
+        if model is models.SubscriptionPayment:
+            return q.filter(
+                models.SubscriptionPayment.subscription_uuid.in_(
+                    db.query(models.Subscription.uuid).filter(
+                        models.Subscription.user_uuid.in_(
+                            db.query(models.User.uuid).filter(
+                                models.User.organization_uuid == org_uuid,
+                                models.User.branch_uuid == branch_uuid,
+                            )
+                        )
+                    )
+                )
+            )
+        # Default: if it doesn't have enough scope columns, safest is exclude.
+        return q
+
+    # role == "user" (or fallback)
+    if model is models.Organization:
+        return q.filter(models.Organization.uuid == org_uuid) if org_uuid else q.filter(False)
+    if model is models.Branch:
+        return q.filter(models.Branch.uuid == branch_uuid) if branch_uuid else q.filter(False)
+
+    if hasattr(model, "user_uuid"):
+        return q.filter(getattr(model, "user_uuid") == user_uuid)
+
+    if hasattr(model, "organization_uuid") and org_uuid:
+        q = q.filter(getattr(model, "organization_uuid") == org_uuid)
+    if hasattr(model, "branch_uuid") and branch_uuid:
+        q = q.filter(getattr(model, "branch_uuid") == branch_uuid)
+    if model is models.SystemConfiguration:
+        return q.filter(models.SystemConfiguration.uuid.in_(scoped_projects_query().with_entities(models.Project.system_config_uuid)))
+    if model is models.Appliance:
+        return q.filter(models.Appliance.project_uuid.in_(scoped_projects_query()))
+    if model is models.Document:
+        return q.filter(models.Document.project_uuid.in_(scoped_projects_query()))
+    if model is models.Invoice:
+        return q.filter(models.Invoice.user_uuid == user_uuid)
+    if model is models.Payment:
+        return q.filter(models.Payment.invoice_uuid.in_(db.query(models.Invoice.uuid).filter(models.Invoice.user_uuid == user_uuid)))
+    if model is models.ProjectComponent:
+        return q.filter(models.ProjectComponent.project_uuid.in_(scoped_projects_query()))
+    return q
+
+def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_only=True):
     if dirty_only:
-        records = db.query(model).filter(model.is_dirty == True).all()
+        records = _scope_query_for_model(db, model, scope).filter(model.is_dirty == True).all()
     else:
-        records = db.query(model).all()
+        records = _scope_query_for_model(db, model, scope).all()
     if not records:
         return
 
@@ -223,41 +420,145 @@ def sync_table(db: Session, model, table_name: str, mapper, dirty_only=True):
         if hasattr(response, 'error') and response.error:
             raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
         if hasattr(response, 'data'):
-            # If the RPC executed without error, we assume the push was successful,
-            # even if the remote didn't report any rows being changed (which can happen
-            # during an upsert if the data is identical). We mark the records as clean
-            # to prevent them from being stuck in a dirty state.
-            for record in records:
-                record.is_dirty = False
-            db.commit()
+            confirmed_ids = set(str(x) for x in (response.data or []))
+            if not confirmed_ids:
+                # Do not clear local dirty flags without explicit confirmation.
+                raise Exception(f"Push for {table_name} returned no confirmed IDs. Local dirty flags were not cleared.")
 
-            if response.data:
-                print(f"Successfully pushed and confirmed {len(response.data)} records to {table_name}.")
-            else:
-                print(f"Push for {table_name} completed. Remote did not report changes, but records are now marked as clean.")
+            confirmed_count = 0
+            for record in records:
+                if str(record.uuid) in confirmed_ids:
+                    record.is_dirty = False
+                    confirmed_count += 1
+
+            db.commit()
+            print(f"Successfully pushed and confirmed {confirmed_count}/{len(records)} records to {table_name}.")
     except Exception as e:
+        print(e)
         raise Exception(f"Failed to push table {table_name}: {str(e)}")
 
 def push_to_supabase(db: Session, dirty_only: bool = True):
-    print("\n--- Starting Push Operation ---")
+    auth_record = (
+        db.query(models.Authentication)
+        .filter(models.Authentication.is_logged_in.is_(True))
+        .order_by(models.Authentication.last_active.desc())
+        .first()
+    )
+
+    if not auth_record:
+        raise Exception("No authenticated user found in local DB.")
+
+    user = db.query(models.User).filter(models.User.uuid == auth_record.user_uuid).first()
+
+    if not user:
+        raise Exception("Authenticated user not found in local DB.")
+
+    scope = _build_sync_scope(db, user)
     for config in SYNC_CONFIG:
         table_name = config["table_name"]
         print(f"Pushing dirty records for table: {table_name}...")
         # Re-raise exceptions from sync_table to ensure atomicity of the overall sync
-        sync_table(db, config["model"], table_name, config["mapper"], dirty_only=dirty_only)
+        sync_table(db, config["model"], table_name, config["mapper"], scope=scope, dirty_only=dirty_only)
 
-def get_last_sync_timestamp(db: Session) -> str:
-    last_sync = db.query(models.SyncLog).filter(models.SyncLog.status == "success").order_by(models.SyncLog.created_at.desc()).first()
-    if last_sync:
-        # Convert to UTC, then remove timezone info to produce a naive string
-        return last_sync.created_at.astimezone(timezone.utc).replace(tzinfo=None).isoformat()
-    # For initial sync, create UTC datetime, remove tzinfo
-    return datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc).replace(tzinfo=None).isoformat()
+def _ensure_device_id(db: Session, user_uuid: str) -> str:
+    """
+    Uses existing Authentication.device_id if present; otherwise generates and persists one.
+    """
+    auth = (
+        db.query(models.Authentication)
+        .filter(models.Authentication.user_uuid == user_uuid)
+        .order_by(models.Authentication.created_at.desc())
+        .first()
+    )
+    if auth and auth.device_id:
+        return str(auth.device_id)
+
+    import uuid as _uuid
+    device_id = str(_uuid.uuid4())
+    if auth:
+        auth.device_id = device_id
+        auth.is_dirty = True
+        db.commit()
+    return device_id
+
+def _get_local_cursor(db: Session, user_uuid: str, device_id: str) -> Optional[datetime]:
+    row = (
+        db.query(models.SyncState)
+        .filter(models.SyncState.user_uuid == user_uuid, models.SyncState.device_id == device_id)
+        .first()
+    )
+    if not row or not row.last_cursor:
+        return None
+    # Stored as naive UTC in SQLite; treat as UTC.
+    return row.last_cursor.replace(tzinfo=timezone.utc) if row.last_cursor.tzinfo is None else row.last_cursor.astimezone(timezone.utc)
+
+def _set_local_cursor(db: Session, user_uuid: str, device_id: str, cursor_utc: datetime):
+    cursor_naive = cursor_utc.astimezone(timezone.utc).replace(tzinfo=None)
+    row = (
+        db.query(models.SyncState)
+        .filter(models.SyncState.user_uuid == user_uuid, models.SyncState.device_id == device_id)
+        .first()
+    )
+    if row:
+        row.last_cursor = cursor_naive
+        row.updated_at = datetime.utcnow()
+        row.is_dirty = False
+    else:
+        row = models.SyncState(user_uuid=user_uuid, device_id=device_id, last_cursor=cursor_naive, is_dirty=False)
+        db.add(row)
+    db.commit()
+
+def _get_last_sync_cursor(db: Session, user_uuid: str, device_id: str, supabase) -> datetime:
+    local_cursor = _get_local_cursor(db, user_uuid, device_id)
+    if local_cursor:
+        return local_cursor
+
+    # Attempt to bootstrap cursor from server state (if present).
+    try:
+        server_cursor_res = supabase.rpc("get_sync_cursor", {"p_device_id": device_id}).execute()
+        if hasattr(server_cursor_res, 'error') and server_cursor_res.error:
+            raise Exception(server_cursor_res.error.message)
+        server_cursor = _coerce_timestamptz(getattr(server_cursor_res, 'data', None))
+        if server_cursor:
+            _set_local_cursor(db, user_uuid, device_id, server_cursor)
+            return server_cursor
+    except Exception:
+        pass
+
+    # Default for initial sync: Jan 1, 2000 UTC.
+    return datetime(2000, 1, 1, tzinfo=timezone.utc)
 
 def pull_from_supabase(db: Session):
-    last_sync_time = get_last_sync_timestamp(db)
-    print(f"\n--- Starting Pull Operation (since {last_sync_time}) ---")
+    auth_record = (
+        db.query(models.Authentication)
+        .filter(models.Authentication.is_logged_in == True)
+        .order_by(models.Authentication.last_active.desc())
+        .first()
+    )
+    if not auth_record:
+        return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
+
+    current_user = db.query(models.User).filter(models.User.uuid == auth_record.user_uuid).first()
+    if not current_user:
+        return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
+
+    user_uuid = current_user.uuid
+
     supabase = get_user_client()
+    device_id = _ensure_device_id(db, user_uuid)
+    last_cursor = _get_last_sync_cursor(db, user_uuid, device_id, supabase)
+
+    # Use a server-issued high-water mark to bound the pull window.
+    server_time_res = supabase.rpc("get_server_utc").execute()
+    if hasattr(server_time_res, 'error') and server_time_res.error:
+        raise Exception(f"Failed to retrieve server time: {server_time_res.error.message}")
+    high_water_mark = _coerce_timestamptz(getattr(server_time_res, 'data', None))
+    if not high_water_mark:
+        raise Exception("Failed to parse server time for high-water mark.")
+
+    last_cursor_iso = last_cursor.astimezone(timezone.utc).isoformat()
+    high_water_iso = high_water_mark.astimezone(timezone.utc).isoformat()
+    print(f"\n--- Starting Pull Operation (window: ({last_cursor_iso}, {high_water_iso}]) ---")
     try:
         # Set a flag on the session to indicate that a pull sync is active.
         # The SQLAlchemy event listener will check this flag.
@@ -272,7 +573,14 @@ def pull_from_supabase(db: Session):
                 continue
             try:
                 print(f"Pulling changes for '{table_name}'...")
-                response = supabase.rpc("pull_changes", {"p_table_name": table_name, "p_last_sync_timestamp": last_sync_time}).execute()
+                response = supabase.rpc(
+                    "pull_changes",
+                    {
+                        "p_table_name": table_name,
+                        "p_last_sync_timestamp": last_cursor_iso,
+                        "p_high_water_mark": high_water_iso,
+                    },
+                ).execute()
                 if hasattr(response, 'error') and response.error:
                     raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
 
@@ -293,6 +601,19 @@ def pull_from_supabase(db: Session):
                     existing_record = db.query(model_class).filter_by(uuid=record_uuid).first()
 
                     if existing_record:
+                        incoming_updated_at = payload_dict.get("updated_at")
+
+                        # Last-write-wins: if local is dirty and newer than incoming, keep local edits.
+                        if getattr(existing_record, "is_dirty", False) and incoming_updated_at:
+                            local_updated_at = getattr(existing_record, "updated_at", None)
+                            if local_updated_at:
+                                local_aware = local_updated_at.replace(tzinfo=timezone.utc) if local_updated_at.tzinfo is None else local_updated_at.astimezone(timezone.utc)
+                                incoming_aware = incoming_updated_at.replace(tzinfo=timezone.utc) if isinstance(incoming_updated_at, datetime) and incoming_updated_at.tzinfo is None else (
+                                    incoming_updated_at.astimezone(timezone.utc) if isinstance(incoming_updated_at, datetime) else None
+                                )
+                                if incoming_aware and local_aware > incoming_aware:
+                                    continue
+
                         # 3a. UPDATE existing record
                         for key, value in payload_dict.items():
                             setattr(existing_record, key, value)
@@ -309,6 +630,13 @@ def pull_from_supabase(db: Session):
                 db.rollback()
                 print(f"Error pulling table {table_name}: {str(e)}")
                 raise
+
+        # Only advance the cursor if the full pull succeeded.
+        _set_local_cursor(db, user_uuid, device_id, high_water_mark)
+        try:
+            supabase.rpc("set_sync_cursor", {"p_device_id": device_id, "p_cursor": high_water_iso}).execute()
+        except Exception:
+            pass
     finally:
         # Always ensure the flag is reset, even if an error occurs
         setattr(db, 'is_pull_sync_active', False)
@@ -316,8 +644,20 @@ def pull_from_supabase(db: Session):
 def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
     print("\n--- Finalizing sync operation ---")
     # Explicitly query for the UUID as a scalar to avoid passing a Row/Tuple object.
-    user_uuid_row = db.query(models.User.uuid).first()
-    user_uuid = user_uuid_row[0] if user_uuid_row else None
+    auth_record = (
+        db.query(models.Authentication)
+        .filter(models.Authentication.is_logged_in == True)
+        .order_by(models.Authentication.last_active.desc())
+        .first()
+    )
+    if not auth_record:
+        return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
+
+    current_user = db.query(models.User).filter(models.User.uuid == auth_record.user_uuid).first()
+    if not current_user:
+        return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
+
+    user_uuid = current_user.uuid
 
     # Determine if this is the first sync to correctly label it 'full' or 'incremental'.
     exists = db.query(models.SyncLog.sync_id).first() is not None
@@ -335,9 +675,20 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
     db.add(sync_log_entry)
     db.commit()
 
+    current_user, error_response = _get_current_user(db)
+    if error_response:
+        return error_response
+
     print("Pushing final sync log to remote...")
+    scope = {
+        "role": current_user.role,
+        "user_uuid": current_user.uuid,
+        "organization_uuid": None,
+        "branch_uuid": None,
+        "hq_branch_uuid": None
+    }
     try:
-        sync_table(db, models.SyncLog, "sync_logs", generic_mapper, dirty_only=True)
+        sync_table(db, models.SyncLog, "sync_logs", generic_mapper,scope=scope, dirty_only=True)
         print("Final sync log pushed successfully.")
     except Exception as e:
         print(f"Warning: Failed to push final sync log to remote: {str(e)}")

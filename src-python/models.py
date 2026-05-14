@@ -302,6 +302,18 @@ class SyncLog(Base, TimestampDirtyMixin):
 
     user = relationship("User", foreign_keys=[user_uuid], back_populates="sync_logs")
 
+class SyncState(Base, TimestampDirtyMixin):
+    __tablename__ = 'sync_state'
+
+    sync_state_id = Column(Integer, primary_key=True)
+    user_uuid = Column(String, ForeignKey("user.uuid"), nullable=False)
+    device_id = Column(String, nullable=False)
+    last_cursor = Column(DateTime, nullable=False, default=datetime(2000, 1, 1))
+
+    __table_args__ = (
+        CheckConstraint("device_id <> ''", name="check_sync_state_device_id_non_empty"),
+    )
+
 
 class InventoryCategory(Base, TimestampDirtyMixin):
     __tablename__ = 'inventory_categories'

@@ -34,6 +34,7 @@ import { AdjustStockModal } from './AdjustStockModal';
 import { EditItemModal } from './EditItemModal';
 import { toast } from "react-hot-toast";
 import { SortDirection, SortOption } from './Inventory';
+import { useSync } from '@/hooks/useSync';
 
 export interface SortConfig {
     key: SortOption;
@@ -74,6 +75,7 @@ const SortableHeader = ({
 export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProps) {
     const { t, i18n } = useTranslation();
     const { deleteItem } = useInventoryStore();
+    const { sync } = useSync();
 
     const [showSKU, setShowSKU] = useState(true);
     const [showSpecs, setShowSpecs] = useState(true);
@@ -101,6 +103,7 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
         try {
             await deleteItem(itemToDelete.uuid);
             toast.success(t('inventory.delete_success', 'Item deleted successfully'));
+            sync();
         } catch (error: any) {
             toast.error(error.message || t('inventory.delete_error', 'Failed to delete item'));
         } finally {

@@ -86,7 +86,7 @@ ON public.organizations FOR ALL USING (
     OR (id = jwt_org_id())
 ) WITH CHECK (
     is_superadmin()
-    OR (id = jwt_org_id() AND jwt_app_role() = 'admin')
+    OR (id = jwt_org_id() AND jwt_app_role() IN ('admin', 'user'))
 );
 
 DROP POLICY IF EXISTS "Branches: Hierarchy access" ON public.branches;
@@ -95,9 +95,11 @@ ON public.branches FOR ALL USING (
     is_superadmin()
     OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
     OR (id = jwt_branch_id() AND jwt_app_role() = 'employee')
+    OR (id = jwt_branch_id() AND jwt_app_role() = 'user')
 ) WITH CHECK (
     is_superadmin()
     OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
+    OR (id = jwt_branch_id() AND organization_id = jwt_org_id() AND jwt_app_role() = 'user')
 );
 
 
@@ -115,6 +117,28 @@ ON public.users FOR ALL USING (
     OR id = jwt_user_id()
     OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
 );
+
+-- 3.X. Sync State (per-device cursor)
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'sync_state'
+    ) THEN
+        EXECUTE 'DROP POLICY IF EXISTS "SyncState: Self access" ON public.sync_state';
+        EXECUTE $pol$
+            CREATE POLICY "SyncState: Self access"
+            ON public.sync_state FOR ALL USING (
+                is_superadmin()
+                OR user_id = jwt_user_id()
+            ) WITH CHECK (
+                is_superadmin()
+                OR user_id = jwt_user_id()
+            )
+        $pol$;
+    END IF;
+END;
+$$;
 
 DROP POLICY IF EXISTS "Distributors: Self access only" ON public.distributors;
 CREATE POLICY "Distributors: Self access only"
@@ -141,6 +165,28 @@ ON public.customers FOR ALL USING (
     is_superadmin()
     OR user_id = jwt_user_id()
     OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (
+        jwt_app_role() = 'employee'
+        AND EXISTS (
+            SELECT 1 FROM public.users u
+            WHERE u.id = customers.user_id
+            AND u.organization_id = jwt_org_id()
+            AND u.branch_id = jwt_branch_id()
+        )
+    )
+) WITH CHECK (
+    is_superadmin()
+    OR user_id = jwt_user_id()
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (
+        jwt_app_role() = 'employee'
+        AND EXISTS (
+            SELECT 1 FROM public.users u
+            WHERE u.id = customers.user_id
+            AND u.organization_id = jwt_org_id()
+            AND u.branch_id = jwt_branch_id()
+        )
+    )
 );
 
 DROP POLICY IF EXISTS "Projects: Hierarchy access" ON public.projects;
@@ -149,6 +195,30 @@ ON public.projects FOR ALL USING (
     is_superadmin()
     OR user_id = jwt_user_id()
     OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (
+        jwt_app_role() = 'employee'
+        AND organization_id = jwt_org_id()
+        AND EXISTS (
+            SELECT 1 FROM public.users u
+            WHERE u.id = projects.user_id
+            AND u.organization_id = jwt_org_id()
+            AND u.branch_id = jwt_branch_id()
+        )
+    )
+) WITH CHECK (
+    is_superadmin()
+    OR user_id = jwt_user_id()
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (
+        jwt_app_role() = 'employee'
+        AND organization_id = jwt_org_id()
+        AND EXISTS (
+            SELECT 1 FROM public.users u
+            WHERE u.id = projects.user_id
+            AND u.organization_id = jwt_org_id()
+            AND u.branch_id = jwt_branch_id()
+        )
+    )
 );
 
 
@@ -159,7 +229,7 @@ CREATE POLICY "System Config: Access via parent Project"
 ON public.system_configurations FOR ALL USING (
     is_superadmin() OR EXISTS (
         SELECT 1 FROM public.projects p
-        WHERE p.id = system_configurations.project_id
+        WHERE p.system_config_id = system_configurations.id
     )
 );
 
@@ -190,6 +260,32 @@ ON public.invoices FOR ALL USING (
     is_superadmin()
     OR user_id = jwt_user_id()
     OR (jwt_app_role() = 'admin' AND project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id()))
+    OR (
+        jwt_app_role() = 'employee'
+        AND project_id IN (
+            SELECT p.id
+            FROM public.projects p
+            JOIN public.users u ON u.id = p.user_id
+            WHERE p.organization_id = jwt_org_id()
+            AND u.organization_id = jwt_org_id()
+            AND u.branch_id = jwt_branch_id()
+        )
+    )
+) WITH CHECK (
+    is_superadmin()
+    OR user_id = jwt_user_id()
+    OR (jwt_app_role() = 'admin' AND project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id()))
+    OR (
+        jwt_app_role() = 'employee'
+        AND project_id IN (
+            SELECT p.id
+            FROM public.projects p
+            JOIN public.users u ON u.id = p.user_id
+            WHERE p.organization_id = jwt_org_id()
+            AND u.organization_id = jwt_org_id()
+            AND u.branch_id = jwt_branch_id()
+        )
+    )
 );
 
 DROP POLICY IF EXISTS "Payments: Access via parent Invoice" ON public.payments;
@@ -268,12 +364,37 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Allow employee read access on inventory_categories" ON public.inventory_categories;
-CREATE POLICY "Allow employee read access on inventory_categories"
+CREATE POLICY "Allow employee full access on inventory_categories"
 ON public.inventory_categories
-FOR SELECT
+FOR ALL
 USING (
     is_superadmin()
     OR (organization_id = jwt_org_id() AND jwt_app_role() = 'employee')
+)
+WITH CHECK (
+    is_superadmin()
+    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'employee')
+);
+
+DROP POLICY IF EXISTS "Allow user full access on own inventory_categories" ON public.inventory_categories;
+CREATE POLICY "Allow user full access on own inventory_categories"
+ON public.inventory_categories
+FOR ALL
+USING (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND organization_id = jwt_org_id()
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND organization_id = jwt_org_id()
+    )
 );
 
 -- =================================================================
@@ -325,6 +446,27 @@ USING (
         organization_id = jwt_org_id()
         AND branch_id = jwt_branch_id()
         AND jwt_app_role() = 'employee'
+    )
+);
+
+DROP POLICY IF EXISTS "Allow user full access on own inventory_items" ON public.inventory_items;
+CREATE POLICY "Allow user full access on own inventory_items"
+ON public.inventory_items
+FOR ALL
+USING (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND organization_id = jwt_org_id()
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND organization_id = jwt_org_id()
     )
 );
 
@@ -423,6 +565,35 @@ USING (
     )
 );
 
+DROP POLICY IF EXISTS "Allow user full access on own stock_adjustments" ON public.stock_adjustments;
+CREATE POLICY "Allow user full access on own stock_adjustments"
+ON public.stock_adjustments
+FOR ALL
+USING (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (
+        jwt_app_role() = 'user'
+        AND user_id = jwt_user_id()
+        AND EXISTS (
+            SELECT 1 FROM public.inventory_items i
+            WHERE i.id = stock_adjustments.item_id
+            AND i.organization_id = jwt_org_id()
+        )
+    )
+);
+
 -- =================================================================
 -- RLS POLICIES: PROJECT COMPONENTS
 -- =================================================================
@@ -483,4 +654,88 @@ WITH CHECK (
             )
         )
     )
+);
+
+-- ================================
+-- SSC bucket storage.objects RLS
+-- Custom JWT auth via claim: sub
+-- Helper required: public.get_jwt_claim(text)
+-- ================================
+
+drop policy if exists "SSC public read pictures" on storage.objects;
+drop policy if exists "SSC authenticated read invoices" on storage.objects;
+drop policy if exists "SSC authenticated read project breakdowns" on storage.objects;
+drop policy if exists "SSC authenticated insert" on storage.objects;
+drop policy if exists "SSC authenticated update" on storage.objects;
+drop policy if exists "SSC authenticated delete" on storage.objects;
+
+-- Public downloads for pictures
+create policy "SSC public read pictures"
+on storage.objects
+for select
+to public
+using (
+  bucket_id = 'SSC'
+  and (
+    (storage.foldername(name))[1] = 'user_logos'
+    or (storage.foldername(name))[1] = 'payment_screenshots'
+  )
+);
+
+-- Authenticated downloads for invoices
+create policy "SSC authenticated read invoices"
+on storage.objects
+for select
+to public
+using (
+  bucket_id = 'SSC'
+  and (storage.foldername(name))[1] = 'documents'
+  and (storage.foldername(name))[2] = 'invoices'
+  and public.get_jwt_claim('sub') is not null
+);
+
+-- Authenticated downloads for project breakdowns (same as invoices)
+create policy "SSC authenticated read project breakdowns"
+on storage.objects
+for select
+to public
+using (
+  bucket_id = 'SSC'
+  and (storage.foldername(name))[1] = 'documents'
+  and (storage.foldername(name))[2] = 'project_breakdowns'
+  and public.get_jwt_claim('sub') is not null
+);
+
+-- Uploads: allow insert only when custom JWT is present
+create policy "SSC authenticated insert"
+on storage.objects
+for insert
+to public
+with check (
+  bucket_id = 'SSC'
+  and public.get_jwt_claim('sub') is not null
+);
+
+-- Upsert/overwrite: allow update only when custom JWT is present
+create policy "SSC authenticated update"
+on storage.objects
+for update
+to public
+using (
+  bucket_id = 'SSC'
+  and public.get_jwt_claim('sub') is not null
+)
+with check (
+  bucket_id = 'SSC'
+  and public.get_jwt_claim('sub') is not null
+);
+
+-- Deletes
+create policy "SSC authenticated delete"
+on storage.objects
+for delete
+to public
+using (
+  bucket_id = 'SSC'
+  and public.get_jwt_claim('sub') is not null
 );

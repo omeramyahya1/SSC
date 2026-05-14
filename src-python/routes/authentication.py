@@ -584,7 +584,7 @@ def update_authentication(item_id):
 @authentication_bp.route('/', methods=['GET'])
 def get_all_authentication():
     with get_db() as db:
-        items = db.query(Authentication).all()
+        items = db.query(Authentication).filter(Authentication.is_logged_in).all()
         return jsonify([model_to_dict(i) for i in items])
 
 @authentication_bp.route('/<string:item_id>', methods=['GET'])
