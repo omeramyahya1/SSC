@@ -330,11 +330,17 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
             }
 
             // 2. Create the payment for the new subscription
+            const selectedMethod = paymentMethod?.toLowerCase();
+            const accountNo = bankDetails?.[selectedMethod]?.account_number;
+            const finalTrxNo = accountNo 
+                ? `${referenceNumber} | ${accountNo}` 
+                : referenceNumber;
+
             const paymentData = {
                 subscription_uuid: newSubscriptionUuid,
                 amount: calculatedPrice,
                 payment_method: paymentMethod!,
-                trx_no: referenceNumber,
+                trx_no: finalTrxNo,
                 trx_screenshot: receipt,
                 status: 'under_processing' as const,
                 distributor_id: distributorId
