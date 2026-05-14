@@ -32,6 +32,7 @@ import { CreateIndependentInvoiceModal } from '../sales/CreateIndependentInvoice
 import { useCustomerStore } from '@/store/useCustomerStore';
 import { useInvoiceStore } from '@/store/useInvoiceStore';
 import { InvoiceEditorModal } from '../sales/InvoiceEditorModal';
+import { format } from 'date-fns';
 
 type ViewMode = 'active' | 'trash' | 'archived';
 type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'location';
@@ -236,7 +237,7 @@ export function Dashboard() {
             else if (groupBy === 'customer') key = p.customer.full_name;
             else if (groupBy === 'date') {
                 const date = new Date(p.created_at);
-                key = date.toLocaleDateString(i18n.language, { year: 'numeric', month: 'long' });
+                key = i18n.dir() === 'ltr' ? format(date, 'MMM yyyy') : date.toLocaleDateString(i18n.language, { year: 'numeric', month: 'long', numberingSystem: 'latn' });
             }
 
             if (!groups[key]) groups[key] = [];

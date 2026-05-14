@@ -32,6 +32,7 @@ import { supabase } from '@/lib/supabaseClient';
 import api from '@/api/client';
 import toast from 'react-hot-toast';
 import { useOrganizationStore } from '@/store/useOrganizationStore';
+import { format } from 'date-fns';
 
 interface PlanModalProps {
     isOpen: boolean;
@@ -331,9 +332,9 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
 
             // 2. Create the payment for the new subscription
             const selectedMethod = paymentMethod?.toLowerCase();
-            const accountNo = bankDetails?.[selectedMethod]?.account_number;
-            const finalTrxNo = accountNo 
-                ? `${referenceNumber} | ${accountNo}` 
+            const accountNo = bankDetails?.[selectedMethod || '']?.account_number;
+            const finalTrxNo = accountNo
+                ? `${referenceNumber} | ${accountNo}`
                 : referenceNumber;
 
             const paymentData = {
@@ -467,7 +468,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                         <span className="text-[10px] font-bold text-neutral/40 block mb-1">{t('subscription.expires_on', 'Expires On')}</span>
-                        <span className="text-sm text-primary font-bold">{currentSubscription?.expiration_date ? new Date(currentSubscription.expiration_date).toLocaleDateString() : 'N/A'}</span>
+                        <span className="text-sm text-primary font-bold">{currentSubscription?.expiration_date ? format(currentSubscription?.expiration_date, 'dd/MM/yyyy') : 'N/A'}</span>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                         <span className="text-[10px] font-bold text-neutral/40 block mb-1">{t('subscription.account_type', 'Account Type')}</span>

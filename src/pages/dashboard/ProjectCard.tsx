@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Project, useProjectStore } from "@/store/useProjectStore";
 import { cn } from "@/lib/utils";
 import { useLocationData } from "@/hooks/useLocationData";
+import { format } from "date-fns/format";
 
 interface ProjectCardProps {
     project: Project;
@@ -45,11 +46,7 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
+        return format(date, 'dd/MM/yyyy');
     };
 
     const displayLocation = formatProjectLocation(project.project_location ?? null);
