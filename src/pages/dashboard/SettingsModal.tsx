@@ -764,7 +764,7 @@ export function SettingsModal() {
                                                     <p className="h-12 w-fit flex items-center font-bold text-neutral/80">{ isEnterprise ? currentOrganization?.name : currentUser?.business_name || "—"}</p>
                                                 )}
                                                 {isEnterprise && isEmployee && (
-                                                    <p className="text-[10px] text-neutral/40 font-bold ">
+                                                    <p className="text-[10px] text-semantic-warning font-bold ">
                                                         {t('settings.employee_org_locked', 'Only admins can edit organization profile')}
                                                     </p>
                                                 )}
