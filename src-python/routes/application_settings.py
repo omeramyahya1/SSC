@@ -63,15 +63,15 @@ def get_all_application_settings():
         .order_by(Authentication.last_active.desc())
         .first()
     )
-    if not auth_record:
-        return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
+        if not auth_record:
+            return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
 
-    current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
-    if not current_user:
-        return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
+        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+        if not current_user:
+            return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
 
-    items = db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == current_user.uuid).all()
-    return jsonify([model_to_dict(i) for i in items])
+        items = db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == current_user.uuid).all()
+        return jsonify([model_to_dict(i) for i in items])
 
 @application_settings_bp.route('/<string:item_id>', methods=['GET'])
 def get_application_settings(item_id):

@@ -781,21 +781,8 @@ def sync():
 
 @sync_log_bp.route('/', methods=['GET'])
 def get_all_logs():
-    auth_record = (
-        db.query(models.Authentication)
-        .filter(models.Authentication.is_logged_in == True)
-        .order_by(models.Authentication.last_active.desc())
-        .first()
-    )
-    if not auth_record:
-        return jsonify({"error": "No authenticated user found. Please log in."}), 401
-
-    current_user = db.query(models.User).filter(models.User.uuid == auth_record.user_uuid).first()
-    if not current_user:
-        return jsonify({"error": "Authenticated user not found in user table."}), 404
-
     with get_db() as db:
-        items = db.query(models.SyncLog).filter(models.SyncLog.user_uuid == current_user.uuid).all()
+        items = db.query(models.SyncLog).all()
         return jsonify([model_to_dict(i) for i in items])
 
 @sync_log_bp.route('/push', methods=['POST'])
