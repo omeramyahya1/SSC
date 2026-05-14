@@ -1,59 +1,66 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSyncLogStore } from '@/store/useSyncLogStore';
 import { useAuthenticationStore } from '@/store/useAuthenticationStore';
 
-/**
- * Hook to manage automatic and manual synchronization.
- */
 export const useSync = () => {
-    const { performSync, isSyncing, lastSyncTime } = useSyncLogStore();
-    const { currentAuthentication } = useAuthenticationStore();
-    const location = useLocation();
+  const { performSync, isSyncing, lastSyncTime } = useSyncLogStore();
+  const { currentAuthentication } = useAuthenticationStore();
+  const location = useLocation();
 
-    const isLoggedIn = !!currentAuthentication?.is_logged_in;
+  const isLoggedIn = !!currentAuthentication?.is_logged_in;
 
-    // 1. App Startup & Auth Lifecycle
-    useEffect(() => {
-        if (isLoggedIn) {
-            performSync();
-        }
-    }, [isLoggedIn, performSync]);
+  // keep latest isSyncing for event handlers / effects
+  const isSyncingRef = useRef(isSyncing);
+  useEffect(() => {
+    isSyncingRef.current = isSyncing;
+  }, [isSyncing]);
 
-    // 2. State Transitions (after Navigations)
-    useEffect(() => {
-        if (isLoggedIn) {
-            // Optional: debounce this if needed
-            performSync();
-        }
-    }, [location.pathname, isLoggedIn, performSync]);
+  // optional: collapse bursts (mount + navigation, etc.)
+  const lastRequestAtRef = useRef(0);
 
-    // 3. Network Recovery (when back online)
-    useEffect(() => {
-        const handleOnline = () => {
-            if (isLoggedIn) {
-                performSync();
-            }
-        };
+  const requestSync = useCallback(() => {
+    if (!isLoggedIn) return;
+    if (isSyncingRef.current) return;
 
-        window.addEventListener('online', handleOnline);
-        return () => window.removeEventListener('online', handleOnline);
-    }, [isLoggedIn, performSync]);
+    const now = Date.now();
+    if (now - lastRequestAtRef.current < 300) return; // tweak or remove
+    lastRequestAtRef.current = now;
 
-    // 4. Periodic Sync (every 2 minutes)
-    useEffect(() => {
-        if (!isLoggedIn) return;
+    performSync();
+  }, [isLoggedIn, performSync]);
 
-        const interval = setInterval(() => {
-            performSync();
-        }, 2 * 60 * 1000);
+  // 1) startup / login changes
+  useEffect(() => {
+    requestSync();
+  }, [requestSync]);
 
-        return () => clearInterval(interval);
-    }, [isLoggedIn, performSync]);
+  // 2) navigation
+  useEffect(() => {
+    if (!isLoggedIn) return;
 
-    return {
-        sync: performSync,
-        isSyncing,
-        lastSyncTime
-    };
+    const timeoutId = window.setTimeout(() => {
+      if (isSyncingRef.current) return;
+      performSync();
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [location.pathname, isLoggedIn, performSync]);
+
+  // 3) back online
+  useEffect(() => {
+    const handleOnline = () => requestSync();
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [requestSync]);
+
+  // 4) periodic
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const id = setInterval(() => requestSync(), 2 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [isLoggedIn, requestSync]);
+
+  return { sync: performSync, isSyncing, lastSyncTime };
 };

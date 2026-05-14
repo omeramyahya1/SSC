@@ -227,7 +227,10 @@ ON public.projects FOR ALL USING (
 DROP POLICY IF EXISTS "System Config: Access via parent Project" ON public.system_configurations;
 CREATE POLICY "System Config: Access via parent Project"
 ON public.system_configurations FOR ALL USING (
-    is_superadmin() OR true
+    is_superadmin() OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.system_config_id = system_configurations.id
+    )
 );
 
 DROP POLICY IF EXISTS "Appliances: Access via parent Project" ON public.appliances;
@@ -574,7 +577,7 @@ USING (
         AND EXISTS (
             SELECT 1 FROM public.inventory_items i
             WHERE i.id = stock_adjustments.item_id
-            OR i.organization_id = jwt_org_id()
+            AND i.organization_id = jwt_org_id()
         )
     )
 )
@@ -586,7 +589,7 @@ WITH CHECK (
         AND EXISTS (
             SELECT 1 FROM public.inventory_items i
             WHERE i.id = stock_adjustments.item_id
-            OR i.organization_id = jwt_org_id()
+            AND i.organization_id = jwt_org_id()
         )
     )
 );

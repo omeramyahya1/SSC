@@ -286,6 +286,10 @@ def _scope_query_for_model(db: Session, model, scope: dict):
     # Always keep Authentication strictly per-user to avoid RLS violations.
     if model is models.Authentication:
         return q.filter(models.Authentication.user_uuid == user_uuid)
+    if model is models.ApplicationSettings:
+        return q.filter(models.ApplicationSettings.user_uuid == user_uuid)
+    if model is models.SyncLog:
+        return q.filter(models.SyncLog.user_uuid == user_uuid)
 
     # Admin: allow org-wide records; employee: branch-only; user: primarily per-user, with org/branch for tables that don't have user_uuid.
     if role == "admin":
@@ -434,10 +438,21 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
         raise Exception(f"Failed to push table {table_name}: {str(e)}")
 
 def push_to_supabase(db: Session, dirty_only: bool = True):
-    print("\n--- Starting Push Operation ---")
-    user = db.query(models.User).first()
+    auth_record = (
+        db.query(models.Authentication)
+        .filter(models.Authentication.is_logged_in.is_(True))
+        .order_by(models.Authentication.last_active.desc())
+        .first()
+    )
+
+    if not auth_record:
+        raise Exception("No authenticated user found in local DB.")
+
+    user = db.query(models.User).filter(models.User.uuid == auth_record.user_uuid).first()
+
     if not user:
-        raise Exception("No user found in local DB.")
+        raise Exception("Authenticated user not found in local DB.")
+
     scope = _build_sync_scope(db, user)
     for config in SYNC_CONFIG:
         table_name = config["table_name"]

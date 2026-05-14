@@ -224,9 +224,7 @@ export function SettingsModal() {
     }, [personalDraft.locationState, geoDataParsed]);
 
     useEffect(() => {
-        if (lastSyncTime) {
-            setLastSync(lastSyncTime)
-        }
+        setLastSync(lastSyncTime ?? '')
     }, [lastSyncTime])
 
     useEffect(() => {
@@ -479,7 +477,6 @@ export function SettingsModal() {
         try {
             await deleteUser(currentUser.uuid, deactivatePassword);
             await handleLogout();
-            sync();
         } catch (e) {
             toast.error(t('settings.deactivate_failed', 'Failed to deactivate account'));
         }
