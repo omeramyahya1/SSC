@@ -37,10 +37,18 @@ export default function LoginScreen() {
 
   // Set default email value if available and not logged in
   useEffect(() => {
-    // Only pre-fill if not logged in and a previous user's email is available
-    if (!currentAuthentication?.is_logged_in && currentUser?.email) {
-      setEmail(currentUser.email);
-      setIsEmailValid(EMAIL_REGEX.test(currentUser.email)); // Validate pre-filled email
+    // 1. Try to get the last logged-in email from persistent storage
+    const lastEmail = localStorage.getItem('ssc-last-email');
+    
+    // 2. Pre-fill if not logged in
+    if (!currentAuthentication?.is_logged_in) {
+      if (lastEmail) {
+        setEmail(lastEmail);
+        setIsEmailValid(EMAIL_REGEX.test(lastEmail));
+      } else if (currentUser?.email) {
+        setEmail(currentUser.email);
+        setIsEmailValid(EMAIL_REGEX.test(currentUser.email));
+      }
     }
   }, [currentAuthentication, currentUser]);
 
@@ -65,9 +73,19 @@ export default function LoginScreen() {
 
       const { user, authentication } = response.data;
 
+      // Save email for next time
+      if (user?.email) {
+        localStorage.setItem('ssc-last-email', user.email);
+      }
+
+      // Save token for API client
+      if (authentication?.current_jwt) {
+        localStorage.setItem('access_token', authentication.current_jwt);
+      }
+
       // Update Zustand stores
       setCurrentUser(user);
-      setCurrentAuthentication(authentication); // what is this error?
+      setCurrentAuthentication(authentication); 
 
       if (user?.role === "employee") {
         if (user.status !== "active") {

@@ -66,6 +66,7 @@ export default function TeamOrganization() {
     return <Navigate to="/home/dashboard" replace />;
   }
 
+  const isStatusRestricted = currentUser?.status === 'grace' || currentUser?.status === 'expired' || currentUser?.status === 'trial';
   const maxEmployees = currentOrganization?.emp_count || 0;
   const isLimitReached = users.length >= maxEmployees;
 
@@ -140,7 +141,7 @@ export default function TeamOrganization() {
                     maxEmployees={maxEmployees}
                     onAddEmployee={() => setIsAddEmployeeOpen(true)}
                     onDeactivateEmployee={setEmployeeToDelete}
-
+                    isStatusRestricted={isStatusRestricted}
                 />
             </TabsContent>
 
@@ -154,6 +155,7 @@ export default function TeamOrganization() {
                         setIsEditBranchOpen(true);
                     }}
                     onDeleteBranch={setBranchToDelete}
+                    isStatusRestricted={isStatusRestricted}
                 />
             </TabsContent>
         </Tabs>

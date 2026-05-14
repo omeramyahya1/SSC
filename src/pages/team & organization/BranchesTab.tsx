@@ -18,9 +18,10 @@ interface BranchesTabProps {
     onAddBranch: () => void;
     onEditBranch: (branch: Branch) => void;
     onDeleteBranch: (branch: Branch) => void;
+    isStatusRestricted?: boolean;
 }
 
-export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranch }: BranchesTabProps) {
+export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranch, isStatusRestricted }: BranchesTabProps) {
     const { t, i18n } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
     const { getClimateDataForCity } = useLocationData();
@@ -67,7 +68,7 @@ export function BranchesTab({ branches, onAddBranch, onEditBranch, onDeleteBranc
 
                 <Button
                     onClick={onAddBranch}
-                    // disabled={isLimitReached}
+                    disabled={isStatusRestricted}
                     className="text-white w-full md:w-auto"
                 >
                     <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />

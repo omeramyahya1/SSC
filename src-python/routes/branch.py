@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db, get_by_id_or_uuid
-from models import Branch, Organization, User, Customer, Project, InventoryItem
+from models import Branch, Organization, User, Customer, Project, InventoryItem, Authentication
 from schemas import BranchCreate, BranchUpdate
 from serializer import model_to_dict
 from datetime import datetime
@@ -18,6 +18,23 @@ def create_branch():
         return jsonify({"errors": e.errors()}), 400
 
     with get_db() as db:
+        # Resolve current user from active session
+        auth_record = (
+            db.query(Authentication)
+            .filter(Authentication.is_logged_in == True)
+            .order_by(Authentication.last_active.desc())
+            .first()
+        )
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+        if not current_user:
+            return jsonify({"error": "Authenticated user not found."}), 404
+
+        if current_user.status in ['trial', 'grace', 'expired']:
+            return jsonify({"error": f"Action restricted for {current_user.status} accounts. Please renew your subscription."}), 403
+
         org = db.query(Organization).filter(Organization.uuid == validated_data.organization_uuid).first()
         if not org:
             return jsonify({"error": "Organization not found"}), 404

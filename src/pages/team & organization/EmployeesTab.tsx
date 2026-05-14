@@ -19,9 +19,10 @@ interface EmployeesTabProps {
     maxEmployees: number;
     onAddEmployee: () => void;
     onDeactivateEmployee: (employee: User) => void;
+    isStatusRestricted?: boolean;
 }
 
-export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactivateEmployee }: EmployeesTabProps) {
+export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactivateEmployee, isStatusRestricted }: EmployeesTabProps) {
     const { t, i18n } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
     const { branches } = useBranchStore();
@@ -88,7 +89,7 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
                         </div>
                             <Button
                                 onClick={onAddEmployee}
-                                disabled={isLimitReached}
+                                disabled={isLimitReached || isStatusRestricted}
                                 className="text-white"
                             >
                                 <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />

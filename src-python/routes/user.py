@@ -513,6 +513,9 @@ def create_employee():
         if not current_user:
             return jsonify({"error": "Authenticated user not found in user table."}), 404
 
+        if current_user.status in ['trial', 'grace', 'expired']:
+            return jsonify({"error": f"Action restricted for {current_user.status} accounts. Please renew your subscription."}), 403
+
         if current_user.role != 'admin':
             return jsonify({"error": "Admin privileges required."}), 403
 
