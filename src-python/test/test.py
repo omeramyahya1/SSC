@@ -1,231 +1,295 @@
-import os
-import inspect
-from jinja2 import Template
-import models
-from sqlalchemy import inspect as sa_inspect
-from sqlalchemy.sql.sqltypes import String, Text, Integer, Numeric, Date, DateTime, Boolean, Enum
+# import os
+# import inspect
+# from jinja2 import Template
+# import models
+# from sqlalchemy import inspect as sa_inspect
+# from sqlalchemy.sql.sqltypes import String, Text, Integer, Numeric, Date, DateTime, Boolean, Enum
 
-# --- New CRUD Template with Pydantic Validation ---
-CRUD_TEMPLATE = """from flask import Blueprint, request, jsonify
-from pydantic import ValidationError
-from utils import get_db
-from models import {{ model_name }}
-from schemas import {{ model_name }}Create, {{ model_name }}Update
-from serializer import model_to_dict
+# # --- New CRUD Template with Pydantic Validation ---
+# CRUD_TEMPLATE = """from flask import Blueprint, request, jsonify
+# from pydantic import ValidationError
+# from utils import get_db
+# from models import {{ model_name }}
+# from schemas import {{ model_name }}Create, {{ model_name }}Update
+# from serializer import model_to_dict
 
-{{ blueprint_name }} = Blueprint('{{ blueprint_name }}', __name__, url_prefix='/{{ instance_name }}s')
+# {{ blueprint_name }} = Blueprint('{{ blueprint_name }}', __name__, url_prefix='/{{ instance_name }}s')
 
-@{{ blueprint_name }}.route('/', methods=['POST'])
-def create_{{ instance_name }}():
+# @{{ blueprint_name }}.route('/', methods=['POST'])
+# def create_{{ instance_name }}():
+#     try:
+#         # Validate request data using the Pydantic schema
+#         validated_data = {{ model_name }}Create(**request.json)
+#     except ValidationError as e:
+#         # Return a 400 Bad Request with validation errors
+#         return jsonify({"errors": e.errors()}), 400
+
+#     with get_db() as db:
+#         # Create the SQLAlchemy model from validated data
+#         new_item = {{ model_name }}(**validated_data.dict())
+#         db.add(new_item)
+#         db.commit()
+#         db.refresh(new_item)
+#         return jsonify(model_to_dict(new_item)), 201
+
+# @{{ blueprint_name }}.route('/<int:item_id>', methods=['PUT'])
+# def update_{{ instance_name }}(item_id):
+#     with get_db() as db:
+#         item = db.query({{ model_name }}).filter({{ model_name }}.{{ pk_name }} == item_id).first()
+#         if not item:
+#             return jsonify({"error": "Not found"}), 404
+
+#         try:
+#             # Validate request data
+#             validated_data = {{ model_name }}Update(**request.json)
+#         except ValidationError as e:
+#             return jsonify({"errors": e.errors()}), 400
+
+#         # Use exclude_unset=True to only update fields that were actually provided
+#         update_data = validated_data.dict(exclude_unset=True)
+#         for key, value in update_data.items():
+#             setattr(item, key, value)
+
+#         db.commit()
+#         db.refresh(item)
+#         return jsonify(model_to_dict(item))
+
+# @{{ blueprint_name }}.route('/', methods=['GET'])
+# def get_all_{{ instance_name }}():
+#     with get_db() as db:
+#         items = db.query({{ model_name }}).all()
+#         return jsonify([model_to_dict(i) for i in items])
+
+# @{{ blueprint_name }}.route('/<int:item_id>', methods=['GET'])
+# def get_{{ instance_name }}(item_id):
+#     with get_db() as db:
+#         item = db.query({{ model_name }}).filter({{ model_name }}.{{ pk_name }} == item_id).first()
+#         if not item:
+#             return jsonify({"error": "Not found"}), 404
+#         return jsonify(model_to_dict(item))
+
+# @{{ blueprint_name }}.route('/<int:item_id>', methods=['DELETE'])
+# def delete_{{ instance_name }}(item_id):
+#     with get_db() as db:
+#         item = db.query({{ model_name }}).filter({{ model_name }}.{{ pk_name }} == item_id).first()
+#         if not item:
+#             return jsonify({"error": "Not found"}), 404
+#         db.delete(item)
+#         db.commit()
+#         return jsonify({"message": "Deleted successfully"}), 200
+# """
+
+# def get_model_classes():
+#     """Inspects the models module and returns a list of SQLAlchemy model classes."""
+#     classes = []
+#     for name, obj in inspect.getmembers(models):
+#         if inspect.isclass(obj) and hasattr(obj, "__tablename__") and name != 'Base':
+#             classes.append((name, obj))
+#     return classes
+
+# def map_sqlalchemy_to_pydantic_type(column) -> str:
+#     """Maps SQLAlchemy column types to Pydantic-compatible Python types."""
+#     py_type = 'Any'
+#     column_type = column.type
+
+#     if isinstance(column_type, (String, Text, Enum)):
+#         py_type = 'str'
+#     elif isinstance(column_type, Integer):
+#         py_type = 'int'
+#     elif isinstance(column_type, Numeric):
+#         py_type = 'float'
+#     elif isinstance(column_type, DateTime):
+#         py_type = 'datetime'
+#     elif isinstance(column_type, Date):
+#         py_type = 'date'
+#     elif isinstance(column_type, Boolean):
+#         py_type = 'bool'
+
+#     # All fields in create schemas can be optional if they are nullable or have a default
+#     if column.nullable or column.default is not None or column.server_default is not None:
+#         return f"Optional[{py_type}] = None"
+#     return py_type
+
+# def generate_pydantic_schemas():
+#     """Generates Pydantic schemas from SQLAlchemy models and saves them to schemas.py."""
+#     print("--- Generating Pydantic Schemas ---")
+#     schemas_dir = "src-python"
+#     os.makedirs(schemas_dir, exist_ok=True)
+#     schema_file_path = os.path.join(schemas_dir, "schemas.py")
+
+#     model_classes = get_model_classes()
+
+#     schema_file_content = """# This file is auto-generated by test.py. Do not edit manually.
+
+# from pydantic import BaseModel
+# from typing import Optional, Any
+# from datetime import datetime, date
+
+# """
+
+#     for model_name, model_class in model_classes:
+#         mapper = sa_inspect(model_class)
+#         pk_name = mapper.primary_key[0].name
+
+#         # --- Create Schema ---
+#         schema_file_content += f"class {model_name}Create(BaseModel):\n"
+#         found_fields = False
+#         for column in mapper.columns:
+#             # Exclude primary keys and 'created_at'/'updated_at' from create schemas
+#             if column.name == pk_name or column.name in ['created_at', 'updated_at']:
+#                 continue
+
+#             pydantic_type = map_sqlalchemy_to_pydantic_type(column)
+#             schema_file_content += f"    {column.name}: {pydantic_type}\n"
+#             found_fields = True
+#         if not found_fields:
+#             schema_file_content += "    pass\n"
+#         schema_file_content += "\n"
+
+#         # --- Update Schema ---
+#         schema_file_content += f"class {model_name}Update(BaseModel):\n"
+#         found_fields = False
+#         for column in mapper.columns:
+#             if column.name == pk_name or column.name in ['created_at', 'updated_at']:
+#                 continue
+
+#             pydantic_type = map_sqlalchemy_to_pydantic_type(column)
+#             # All fields are optional for update
+#             if "Optional" not in pydantic_type:
+#                 pydantic_type = f"Optional[{pydantic_type}] = None"
+#             else:
+#                  pydantic_type += " = None"
+
+#             schema_file_content += f"    {column.name}: {pydantic_type}\n"
+#             found_fields = True
+#         if not found_fields:
+#             schema_file_content += "    pass\n"
+#         schema_file_content += "\n\n"
+
+#     with open(schema_file_path, "w") as f:
+#         f.write(schema_file_content)
+
+#     print(f"✓ Pydantic schemas generated at: {schema_file_path}")
+
+# def snake_case(name: str) -> str:
+#     """Converts CamelCase to snake_case."""
+#     import re
+#     return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+
+# def generate_crud_files():
+#     """Generates Flask Blueprint files for each model."""
+#     print("\n--- Generating CRUD Route Files ---")
+#     routes_dir = "src-python/routes"
+#     os.makedirs(routes_dir, exist_ok=True)
+
+#     model_classes = get_model_classes()
+
+#     for model_name, model_class in model_classes:
+#         try:
+#             mapper = sa_inspect(model_class)
+#             pk_name = mapper.primary_key[0].name
+#         except (AttributeError, IndexError):
+#             print(f"⚠️ Could not determine primary key for {model_name}. Skipping.")
+#             continue
+
+#         instance_name = snake_case(model_name)
+#         blueprint_name = instance_name + "_bp"
+#         filename = os.path.join(routes_dir, f"{instance_name}.py")
+
+#         rendered = Template(CRUD_TEMPLATE).render(
+#             model_name=model_name,
+#             instance_name=instance_name,
+#             blueprint_name=blueprint_name,
+#             pk_name=pk_name
+#         )
+
+#         with open(filename, "w") as f:
+#             f.write(rendered)
+
+#         print(f"✓ Created CRUD file: {filename}")
+
+#     print("\nAll CRUD files generated successfully!")
+
+# def create_test_files(file_names: list, folder_path: str):
+#     """Creates empty test file_names for the given list of filenames."""
+#     os.makedirs(folder_path, exist_ok=True)
+
+#     for file in file_names:
+#         test_file_path = os.path.join(folder_path, f"test_{file}.py")
+#         with open(test_file_path, "w") as f:
+#             f.write(f"# Test file for {file}.py\n\n")
+#         print(f"✓ Created test file: {test_file_path}")
+
+# sys_info.py
+import json
+import platform
+import sys
+import psutil
+import cpuinfo
+
+def get_system_specs():
     try:
-        # Validate request data using the Pydantic schema
-        validated_data = {{ model_name }}Create(**request.json)
-    except ValidationError as e:
-        # Return a 400 Bad Request with validation errors
-        return jsonify({"errors": e.errors()}), 400
+        # 1. CPU Info
+        info = cpuinfo.get_cpu_info()
+        cpu_marketing_name = info.get('brand_raw', 'Unknown CPU')
+        cpu_model = platform.processor()
+        logical_cores = psutil.cpu_count(logical=True)
+        physical_cores = psutil.cpu_count(logical=False)
 
-    with get_db() as db:
-        # Create the SQLAlchemy model from validated data
-        new_item = {{ model_name }}(**validated_data.dict())
-        db.add(new_item)
-        db.commit()
-        db.refresh(new_item)
-        return jsonify(model_to_dict(new_item)), 201
+        cpu_specs = {
+            "name": cpu_marketing_name,
+            "model": f"{cpu_model} ({physical_cores} Cores / {logical_cores} Threads)",
+            "architecture": info.get('arch', 'Unknown'),
+            "hz": info.get('hz_actual_friendly', 'Unknown Speed')
+        }
 
-@{{ blueprint_name }}.route('/<int:item_id>', methods=['PUT'])
-def update_{{ instance_name }}(item_id):
-    with get_db() as db:
-        item = db.query({{ model_name }}).filter({{ model_name }}.{{ pk_name }} == item_id).first()
-        if not item:
-            return jsonify({"error": "Not found"}), 404
-            
-        try:
-            # Validate request data
-            validated_data = {{ model_name }}Update(**request.json)
-        except ValidationError as e:
-            return jsonify({"errors": e.errors()}), 400
+        # 2. RAM Info (Convert bytes to Gigabytes)
+        virtual_mem = psutil.virtual_memory()
+        total_ram_gb = round(virtual_mem.total / (1024 ** 3), 2)
 
-        # Use exclude_unset=True to only update fields that were actually provided
-        update_data = validated_data.dict(exclude_unset=True)
-        for key, value in update_data.items():
-            setattr(item, key, value)
-        
-        db.commit()
-        db.refresh(item)
-        return jsonify(model_to_dict(item))
+        # 3. Windows / OS Version
+        os_name = platform.system()  # 'Windows', 'Darwin', 'Linux'
+        os_release = platform.release()  # e.g., '10' or '11'
+        os_version = platform.version()  # Build numbers
 
-@{{ blueprint_name }}.route('/', methods=['GET'])
-def get_all_{{ instance_name }}():
-    with get_db() as db:
-        items = db.query({{ model_name }}).all()
-        return jsonify([model_to_dict(i) for i in items])
+        # Format Windows display accurately
+        if os_name == "Windows":
+            windows_version = f"Windows {os_release} (Build {os_version})"
+        else:
+            windows_version = f"{os_name} {os_release}"
 
-@{{ blueprint_name }}.route('/<int:item_id>', methods=['GET'])
-def get_{{ instance_name }}(item_id):
-    with get_db() as db:
-        item = db.query({{ model_name }}).filter({{ model_name }}.{{ pk_name }} == item_id).first()
-        if not item:
-            return jsonify({"error": "Not found"}), 404
-        return jsonify(model_to_dict(item))
+        # 4. Other useful specs (Disk Space of primary drive)
+        disk = psutil.disk_usage('/')
+        total_disk_gb = round(disk.total / (1024 ** 3), 2)
 
-@{{ blueprint_name }}.route('/<int:item_id>', methods=['DELETE'])
-def delete_{{ instance_name }}(item_id):
-    with get_db() as db:
-        item = db.query({{ model_name }}).filter({{ model_name }}.{{ pk_name }} == item_id).first()
-        if not item:
-            return jsonify({"error": "Not found"}), 404
-        db.delete(item)
-        db.commit()
-        return jsonify({"message": "Deleted successfully"}), 200
-"""
+        specs = {
+            "cpu": cpu_specs,
+            "ram": f"{total_ram_gb} GB",
+            "os": windows_version,
+            "extra": {
+                "architecture": platform.machine(),
+                "primary_storage": f"{total_disk_gb} GB"
+            }
+        }
 
-def get_model_classes():
-    """Inspects the models module and returns a list of SQLAlchemy model classes."""
-    classes = []
-    for name, obj in inspect.getmembers(models):
-        if inspect.isclass(obj) and hasattr(obj, "__tablename__") and name != 'Base':
-            classes.append((name, obj))
-    return classes
+        # Print as JSON string so Tauri's frontend can catch it
+        print(json.dumps(specs))
+        sys.exit(0)
 
-def map_sqlalchemy_to_pydantic_type(column) -> str:
-    """Maps SQLAlchemy column types to Pydantic-compatible Python types."""
-    py_type = 'Any'
-    column_type = column.type
-
-    if isinstance(column_type, (String, Text, Enum)):
-        py_type = 'str'
-    elif isinstance(column_type, Integer):
-        py_type = 'int'
-    elif isinstance(column_type, Numeric):
-        py_type = 'float'
-    elif isinstance(column_type, DateTime):
-        py_type = 'datetime'
-    elif isinstance(column_type, Date):
-        py_type = 'date'
-    elif isinstance(column_type, Boolean):
-        py_type = 'bool'
-    
-    # All fields in create schemas can be optional if they are nullable or have a default
-    if column.nullable or column.default is not None or column.server_default is not None:
-        return f"Optional[{py_type}] = None"
-    return py_type
-
-def generate_pydantic_schemas():
-    """Generates Pydantic schemas from SQLAlchemy models and saves them to schemas.py."""
-    print("--- Generating Pydantic Schemas ---")
-    schemas_dir = "src-python"
-    os.makedirs(schemas_dir, exist_ok=True)
-    schema_file_path = os.path.join(schemas_dir, "schemas.py")
-
-    model_classes = get_model_classes()
-    
-    schema_file_content = """# This file is auto-generated by test.py. Do not edit manually.
-
-from pydantic import BaseModel
-from typing import Optional, Any
-from datetime import datetime, date
-
-"""
-
-    for model_name, model_class in model_classes:
-        mapper = sa_inspect(model_class)
-        pk_name = mapper.primary_key[0].name
-        
-        # --- Create Schema ---
-        schema_file_content += f"class {model_name}Create(BaseModel):\n"
-        found_fields = False
-        for column in mapper.columns:
-            # Exclude primary keys and 'created_at'/'updated_at' from create schemas
-            if column.name == pk_name or column.name in ['created_at', 'updated_at']:
-                continue
-            
-            pydantic_type = map_sqlalchemy_to_pydantic_type(column)
-            schema_file_content += f"    {column.name}: {pydantic_type}\n"
-            found_fields = True
-        if not found_fields:
-            schema_file_content += "    pass\n"
-        schema_file_content += "\n"
-
-        # --- Update Schema ---
-        schema_file_content += f"class {model_name}Update(BaseModel):\n"
-        found_fields = False
-        for column in mapper.columns:
-            if column.name == pk_name or column.name in ['created_at', 'updated_at']:
-                continue
-                
-            pydantic_type = map_sqlalchemy_to_pydantic_type(column)
-            # All fields are optional for update
-            if "Optional" not in pydantic_type:
-                pydantic_type = f"Optional[{pydantic_type}] = None"
-            else:
-                 pydantic_type += " = None"
-
-            schema_file_content += f"    {column.name}: {pydantic_type}\n"
-            found_fields = True
-        if not found_fields:
-            schema_file_content += "    pass\n"
-        schema_file_content += "\n\n"
-
-    with open(schema_file_path, "w") as f:
-        f.write(schema_file_content)
-    
-    print(f"✓ Pydantic schemas generated at: {schema_file_path}")
-
-def snake_case(name: str) -> str:
-    """Converts CamelCase to snake_case."""
-    import re
-    return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
-
-def generate_crud_files():
-    """Generates Flask Blueprint files for each model."""
-    print("\n--- Generating CRUD Route Files ---")
-    routes_dir = "src-python/routes"
-    os.makedirs(routes_dir, exist_ok=True)
-
-    model_classes = get_model_classes()
-
-    for model_name, model_class in model_classes:
-        try:
-            mapper = sa_inspect(model_class)
-            pk_name = mapper.primary_key[0].name
-        except (AttributeError, IndexError):
-            print(f"⚠️ Could not determine primary key for {model_name}. Skipping.")
-            continue
-            
-        instance_name = snake_case(model_name)
-        blueprint_name = instance_name + "_bp"
-        filename = os.path.join(routes_dir, f"{instance_name}.py")
-
-        rendered = Template(CRUD_TEMPLATE).render(
-            model_name=model_name,
-            instance_name=instance_name,
-            blueprint_name=blueprint_name,
-            pk_name=pk_name
-        )
-
-        with open(filename, "w") as f:
-            f.write(rendered)
-
-        print(f"✓ Created CRUD file: {filename}")
-
-    print("\nAll CRUD files generated successfully!")
-
-def create_test_files(file_names: list, folder_path: str):
-    """Creates empty test file_names for the given list of filenames."""
-    os.makedirs(folder_path, exist_ok=True)
-
-    for file in file_names:
-        test_file_path = os.path.join(folder_path, f"test_{file}.py")
-        with open(test_file_path, "w") as f:
-            f.write(f"# Test file for {file}.py\n\n")
-        print(f"✓ Created test file: {test_file_path}")
+    except Exception as e:
+            print(json.dumps({"error": str(e)}))
+            sys.exit(1)
 
 if __name__ == "__main__":
-    generate_pydantic_schemas()
-    # generate_crud_files()
+    get_system_specs()
 
-    # create_test_files(
-    #     file_names=["config", "client", "conftest", "test_health", "test_user", "test_projects", "test_organizations"],
-    #     folder_path="test/api automated test"
-    # )
-    pass
+
+# if __name__ == "__main__":
+#     generate_pydantic_schemas()
+#     # generate_crud_files()
+
+#     # create_test_files(
+#     #     file_names=["config", "client", "conftest", "test_health", "test_user", "test_projects", "test_organizations"],
+#     #     folder_path="test/api automated test"
+#     # )
+#     pass
