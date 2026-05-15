@@ -85,7 +85,7 @@ export default function LoginScreen() {
 
       // Update Zustand stores
       setCurrentUser(user);
-      setCurrentAuthentication(currentAuthentication);
+      setCurrentAuthentication(authentication);
 
       if (user?.role === "employee") {
         if (user.status !== "active") {

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useInventoryStore } from '@/store/useInventoryStore';
 import { toast } from "react-hot-toast";
+import { useUserStore } from '@/store/useUserStore';
 
 interface AddItemModalProps {
     onOpenChange: (isOpen: boolean) => void;
@@ -15,6 +16,7 @@ interface AddItemModalProps {
 export function AddItemModal({ onOpenChange }: AddItemModalProps) {
     const { t, i18n } = useTranslation();
     const { categories, addItem } = useInventoryStore();
+    const { currentUser } = useUserStore();
 
     const [formData, setFormData] = useState({
         name: '',
@@ -24,6 +26,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
         category_uuid: '',
         quantity_on_hand: 0,
         low_stock_threshold: 10,
+        branch_uuid: '',
         buy_price: 0,
         sell_price: 0,
         technical_specs: {} as Record<string, any>
@@ -117,7 +120,16 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
     };
 
     const handleSubmit = async () => {
+        if (!formData.sku) {
+            generateSKU();
+        }
+
         try {
+            if (currentUser?.account_type !== 'standard') {
+                const branch_uuid = currentUser?.branch_uuid
+                setFormData(prev => ({...prev, branch_uuid}))
+            }
+            console.log(formData);
             await addItem(formData);
             toast.success(t('inventory.add_success', 'Item added to inventory'));
             onOpenChange(false);
@@ -126,7 +138,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
         }
     };
 
-    const isFormValid = formData.name && formData.sku && formData.category_uuid && formData.buy_price > 0 && formData.sell_price > 0;
+    const isFormValid = formData.name && formData.brand && formData.category_uuid && formData.buy_price > 0 && formData.sell_price > 0;
 
     return (
         <DialogContent className="sm:max-w-[600px] bg-white max-h-[90vh] overflow-y-auto" dir={i18n.dir()}>
@@ -151,7 +163,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                         </Select>
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="sku" className="font-semibold">{t('inventory.col.sku', 'SKU')} <span className="text-red-500">*</span></Label>
+                        <Label htmlFor="sku" className="font-semibold">{t('inventory.col.sku', 'SKU')}</Label>
                         <div className="flex gap-2">
                             <Input
                                 id="sku"
@@ -184,7 +196,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                        <Label htmlFor="brand" className="font-semibold">{t('inventory.col.brand', 'Brand')}</Label>
+                        <Label htmlFor="brand" className="font-semibold">{t('inventory.col.brand', 'Brand')} <span className="text-red-500">*</span></Label>
                         <Input id="brand" value={formData.brand} onChange={e => setFormData(prev => ({ ...prev, brand: e.target.value }))} />
                     </div>
                     <div className="grid gap-2">
