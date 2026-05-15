@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
+import { differenceInDays, format, startOfDay } from "date-fns";
 import {
     ArrowLeft,
     ArrowRight,
@@ -230,7 +230,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
 
         if (i18n.dir() === "ltr") {
             return [
-                `- Payment Terms: Payment is due within 7 days of the invoice date.`,
+                `- Payment Terms: Payment is due within ${differenceInDays(dueDate || startOfDay(new Date), startOfDay(new Date()))} days of the invoice date.`,
                 `- Validity: This quotation is valid until ${validityDate}.`,
                 `- Discount: A ${discount}% discount has been applied.`,
                 `- Additional Costs: Any additional costs after the invoice issuance will be quoted separately.`
@@ -238,7 +238,7 @@ export function InvoiceEditor({ project, User,onBack }: InvoiceEditorProps) {
         }
 
         return [
-            `- شروط الدفع: يستحق الدفع خلال 7 أيام من تاريخ الفاتورة.`,
+            `- شروط الدفع: يستحق الدفع خلال ${differenceInDays(dueDate || startOfDay(new Date), startOfDay(new Date()))} أيام من تاريخ الفاتورة.`,
             `- الصلاحية: هذا العرض صالح حتى ${validityDate}.`,
             `- الخصم: تم تطبيق خصم بنسبة ${discount}%.`,
             `- تكاليف إضافية: سيتم تسعير أي تكاليف إضافية بعد إصدار الفاتورة بشكل منفصل.`
