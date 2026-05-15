@@ -186,8 +186,13 @@ def register_user():
         new_auth_uuid = existing_auth.uuid if existing_auth else str(uuid.uuid4())
 
         # Salt and Hashing (Only if new or needing reset)
-        salt = generate_salt()
-        hashed_pw = hash_password(stage1.password, salt)
+        # Reuse existing credentials on resume; generate fresh ones for new registrations.
+        if existing_auth:
+            salt = existing_auth.password_salt
+            hashed_pw = existing_auth.password_hash
+        else:
+            salt = generate_salt()
+            hashed_pw = hash_password(stage1.password, salt)
         device_id = str(uuid.uuid4())
 
         # --- 3. CLOUD ORG REGISTRATION (IDEMPOTENT) ---
@@ -211,7 +216,38 @@ def register_user():
                 # If error contains "already exists", we would ideally fetch the existing IDs
                 # For now, we assume the RPC handles unique constraints or we fail gracefully.
                 if "already exists" not in str(e).lower():
-                    return jsonify({"error": "Cloud Org creation failed"}), 500
+                    try:
+                        supabase = get_service_role_client()
+                        o_response = (
+                            supabase.table('organizations')
+                            .select('id')
+                            .eq('name', payload.stage4.businessName)
+                            .execute()
+                            )
+
+                        if not hasattr(o_response, 'data'):
+                            raise Exception("Invalid response structure from Supabase client.")
+
+                        new_org_uuid = o_response.data
+
+                        b_response = (
+                            supabase.table('organizations')
+                            .select('id')
+                            .eq('organization_id', new_org_uuid)
+                            .execute()
+                            )
+
+                        if not hasattr(b_response, 'data'):
+                            raise Exception("Invalid response structure from Supabase client.")
+
+                        new_branch_uuid = b_response.data
+
+
+
+                    except Exception as e:
+                        return jsonify({"error": "Cloud Org creation failed"}), 500
+
+                return jsonify({"error": "Cloud Org creation failed"}), 500
 
         # --- 4. CLOUD USER REGISTRATION (IDEMPOTENT) ---
         try:
@@ -258,8 +294,10 @@ def register_user():
             jwt_data = jwt_response.data[0]
             jwt_token = jwt_data['jwt_info']['token']
 
-            # Finalize local auth
-            local_auth = db.query(Authentication).filter(Authentication.user_uuid == new_user_uuid).first()
+            # Finalize the specific auth row we just persisted.
+            local_auth = db.query(Authentication).filter(Authentication.uuid == new_auth_uuid).first()
+            if local_auth is None:
+                return jsonify({"error": "Local auth record missing after registration."}), 500
             local_auth.current_jwt = jwt_token
             local_auth.is_logged_in = True
             db.commit()
@@ -440,7 +478,7 @@ def create_employee():
         if not org:
             return jsonify({"error": "Organization not found"}), 404
 
-        current_emp_count = db.query(User).filter(User.organization_uuid == org_uuid, User.deleted_at is None).count()
+        current_emp_count = db.query(User).filter(User.organization_uuid == org_uuid, User.deleted_at.is_(None)).count()
         if org.emp_count and org.emp_count > 0 and current_emp_count >= org.emp_count:
             return jsonify({"error": "Employee limit reached for this organization"}), 400
 
@@ -486,39 +524,6 @@ def create_employee():
             print(f"Error calling register_employee RPC: {str(e)}")
             return jsonify({"error": "Failed to register employee in the cloud."}), 500
 
-        # # Create user locally
-        # new_user = User(
-        #     uuid=new_user_uuid,
-        #     username=data.get('username'),
-        #     email=data.get('email'),
-        #     role=role,
-        #     organization_uuid=org_uuid,
-        #     branch_uuid=branch_uuid,
-        #     status='trial', # Initial status before first login
-        #     account_type=org.plan_type,
-        #     is_dirty=False # Cloud record already created
-        # )
-        # db.add(new_user)
-
-        # new_auth = Authentication(
-        #     uuid=auth_uuid,
-        #     user_uuid=new_user_uuid,
-        #     password_hash=hashed_pw,
-        #     password_salt=salt,
-        #     is_dirty=False
-        # )
-        # db.add(new_auth)
-
-        # new_settings = ApplicationSettings(
-        #     uuid=str(uuid.uuid4()),
-        #     user_uuid=new_user_uuid,
-        #     language='en', # Default
-        #     is_dirty=True
-        # )
-        # db.add(new_settings)
-
-        # db.commit()
-        # db.refresh(new_user)
         return jsonify({"status": "Success", "user_id": new_user_uuid}), 201
 
 @user_bp.route('/<string:user_id_or_uuid>', methods=['PUT'])

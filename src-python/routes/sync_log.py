@@ -10,7 +10,7 @@ from sqlalchemy import LargeBinary, Numeric
 from decimal import Decimal
 from supabase_client import get_user_client, get_service_role_client, get_anon_client
 from serializer import model_to_dict
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from .inventory import _get_current_user
 
 sync_log_bp = Blueprint('sync_log_bp', __name__, url_prefix='/sync_logs')
@@ -153,6 +153,7 @@ def map_invoice_to_payload(record: models.Invoice):
     Local UI relies on `invoice_id` (integer invoice number), but cloud uses `invoice_no`.
     """
     payload = generic_mapper(record)
+    payload.pop("invoice_id", None)
     payload["invoice_no"] = record.invoice_id
     return payload
 
@@ -326,9 +327,28 @@ def _scope_query_for_model(db: Session, model, scope: dict):
         if model is models.Document:
             return q.filter(models.Document.project_uuid.in_(scoped_projects_query()))
         if model is models.Invoice:
-            return q.filter(models.Invoice.project_uuid.in_(scoped_projects_query()))
+            # Invoices usually belong to a project, but "independent invoices" can have a NULL project_uuid.
+            # For admin, include independent invoices created by users in the admin's organization.
+            if not org_uuid:
+                return q.filter(False)
+            org_user_uuids = db.query(models.User.uuid).filter(models.User.organization_uuid == org_uuid)
+            return q.filter(
+                or_(
+                    models.Invoice.project_uuid.in_(scoped_projects_query()),
+                    and_(models.Invoice.project_uuid.is_(None), models.Invoice.user_uuid.in_(org_user_uuids)),
+                )
+            )
         if model is models.Payment:
-            return q.filter(models.Payment.invoice_uuid.in_(db.query(models.Invoice.uuid).filter(models.Invoice.project_uuid.in_(scoped_projects_query()))))
+            if not org_uuid:
+                return q.filter(False)
+            org_user_uuids = db.query(models.User.uuid).filter(models.User.organization_uuid == org_uuid)
+            invoice_scope = db.query(models.Invoice.uuid).filter(
+                or_(
+                    models.Invoice.project_uuid.in_(scoped_projects_query()),
+                    and_(models.Invoice.project_uuid.is_(None), models.Invoice.user_uuid.in_(org_user_uuids)),
+                )
+            )
+            return q.filter(models.Payment.invoice_uuid.in_(invoice_scope))
         if model is models.ProjectComponent:
             return q.filter(models.ProjectComponent.project_uuid.in_(scoped_projects_query()))
         return q
@@ -348,15 +368,33 @@ def _scope_query_for_model(db: Session, model, scope: dict):
 
         # Tables without branch_uuid need parent-based scoping.
         if model is models.Payment:
-            return q.filter(
-                models.Payment.invoice_uuid.in_(
-                    db.query(models.Invoice.uuid).filter(
-                        models.Invoice.project_uuid.in_(scoped_projects_query())
-                    )
+            if not (org_uuid and branch_uuid):
+                return q.filter(False)
+            branch_user_uuids = db.query(models.User.uuid).filter(
+                models.User.organization_uuid == org_uuid,
+                models.User.branch_uuid == branch_uuid,
+            )
+            invoice_scope = db.query(models.Invoice.uuid).filter(
+                or_(
+                    models.Invoice.project_uuid.in_(scoped_projects_query()),
+                    and_(models.Invoice.project_uuid.is_(None), models.Invoice.user_uuid.in_(branch_user_uuids)),
                 )
             )
+            return q.filter(models.Payment.invoice_uuid.in_(invoice_scope))
         if model is models.Invoice:
-            return q.filter(models.Invoice.project_uuid.in_(scoped_projects_query()))
+            # "Independent invoices" (NULL project_uuid) are visible within the employee's branch.
+            if not (org_uuid and branch_uuid):
+                return q.filter(False)
+            branch_user_uuids = db.query(models.User.uuid).filter(
+                models.User.organization_uuid == org_uuid,
+                models.User.branch_uuid == branch_uuid,
+            )
+            return q.filter(
+                or_(
+                    models.Invoice.project_uuid.in_(scoped_projects_query()),
+                    and_(models.Invoice.project_uuid.is_(None), models.Invoice.user_uuid.in_(branch_user_uuids)),
+                )
+            )
         if model is models.Appliance:
             return q.filter(models.Appliance.project_uuid.in_(scoped_projects_query()))
         if model is models.Document:

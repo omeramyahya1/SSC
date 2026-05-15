@@ -29,14 +29,15 @@ def login_user():
 
     with get_db() as db:
         # --- 1. Initial Local Check ---
-        print("Hello world")
         user = (
-            db.query(User)
-            .filter(func.lower(User.email) == login_data.email.strip().lower())\
-            .filter(User.deleted_at.is_(None))\
-            .filter(User.updated_at > datetime.now() - timedelta(days=14))
-            .first()
-        )
+        db.query(User)
+        .join(Authentication, User.id == Authentication.user_id)
+        .filter(func.lower(User.email) == login_data.email.strip().lower())
+        .filter(User.deleted_at.is_(None))
+        .filter(Authentication.jwt_issued_at >= datetime.now() - timedelta(days=14)) # staying offline for more than 14 days requires online login
+        .order_by(Authentication.jwt_issued_at.desc()) # Ensures you check the *latest* record
+        .first()
+    )
         # --- 1a. User is NOT found locally ---
         if not user:
             # This user must log in online.

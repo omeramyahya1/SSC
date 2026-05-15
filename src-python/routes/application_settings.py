@@ -62,13 +62,13 @@ def get_all_application_settings():
         .filter(Authentication.is_logged_in == True)
         .order_by(Authentication.last_active.desc())
         .first()
-    )
+        )
         if not auth_record:
-            return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
 
         current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
         if not current_user:
-            return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
+            return jsonify({"error": "Authenticated user not found in user table."}), 404
 
         items = db.query(ApplicationSettings).filter(ApplicationSettings.user_uuid == current_user.uuid).all()
         return jsonify([model_to_dict(i) for i in items])

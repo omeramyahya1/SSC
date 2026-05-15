@@ -48,23 +48,24 @@ def update_organization(item_id):
 
 @organization_bp.route('/', methods=['GET'])
 def get_all_organization():
-    auth_record = (
+    with get_db() as db:
+        auth_record = (
         db.query(Authentication)
         .filter(Authentication.is_logged_in == True)
         .order_by(Authentication.last_active.desc())
         .first()
-    )
-    if not auth_record:
-        return jsonify({"error": "No authenticated user found. Please log in."}), 401
+        )
 
-    current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
-    if not current_user:
-        return jsonify({"error": "Authenticated user not found in user table."}), 404
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
 
-    if not current_user.organization_uuid:
-        return jsonify({"error": "Not allowed."}), 405
+        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+        if not current_user:
+            return jsonify({"error": "Authenticated user not found in user table."}), 404
 
-    with get_db() as db:
+        if not current_user.organization_uuid:
+            return jsonify({"error": "Not allowed."}), 405
+
         items = db.query(Organization).filter(Organization.uuid == current_user.organization_uuid).all()
         return jsonify([model_to_dict(i) for i in items])
 
