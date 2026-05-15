@@ -108,10 +108,11 @@ export const useAuthenticationStore = create<AuthenticationStore>()(persist((set
     try {
       await api.post(`${resource}/logout`, { auth_id: currentAuth.auth_id });
       set({ currentAuthentication: null, currentAuthenticationSnapshot: null, isLoading: false });
-      
+
       // Clear user data on logout
       useUserStore.setState({ currentUser: null });
-      
+      localStorage.removeItem('access_token');
+
       console.log("Logout successful.");
     } catch (e: any) {
       const errorMsg = e.message || "Logout failed";

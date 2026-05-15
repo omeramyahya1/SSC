@@ -76,7 +76,9 @@ const SubscriptionDetails = ({ onOpenModal }: { onOpenModal: () => void }) => {
         );
     }
 
-    const expiryDate = currentSubscription?.expiration_date ? format(currentSubscription.expiration_date, 'dd/MM/yyyy') : 'N/A';
+    const expiryDate = currentSubscription?.expiration_date
+                        ? format(new Date(currentSubscription.expiration_date), 'dd/MM/yyyy')
+                        : 'N/A';
     const isGrace = currentUser?.status === 'grace';
     const isTrial = currentUser?.status === 'trial';
     const isExpired = currentUser?.status === 'expired';

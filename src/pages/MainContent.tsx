@@ -38,8 +38,11 @@ const MainContent = () => {
   }, [currentAuthentication?.user_uuid, checkTCStatus]);
 
   useEffect(() => {
-    setShowTCModal(needsTCUpdate);
-  }, [needsTCUpdate]);
+    if (currentSetting) {
+      setShowTCModal(needsTCUpdate);
+    }
+
+  }, [needsTCUpdate, currentSetting]);
 
   const handleAgreeTC = async () => {
     console.log("handleAgreeTC start", { latestTCId: latestTC?.id, hasSetting: !!currentSetting });

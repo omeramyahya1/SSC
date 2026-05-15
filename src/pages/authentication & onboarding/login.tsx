@@ -39,7 +39,7 @@ export default function LoginScreen() {
   useEffect(() => {
     // 1. Try to get the last logged-in email from persistent storage
     const lastEmail = localStorage.getItem('ssc-last-email');
-    
+
     // 2. Pre-fill if not logged in
     if (!currentAuthentication?.is_logged_in) {
       if (lastEmail) {
@@ -85,7 +85,7 @@ export default function LoginScreen() {
 
       // Update Zustand stores
       setCurrentUser(user);
-      setCurrentAuthentication(authentication); 
+      setCurrentAuthentication(currentAuthentication);
 
       if (user?.role === "employee") {
         if (user.status !== "active") {

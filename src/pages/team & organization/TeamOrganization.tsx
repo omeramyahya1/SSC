@@ -80,12 +80,13 @@ export default function TeamOrganization() {
     }
     try {
         await deleteUser(employeeToDelete.uuid, deactivatePassword);
-        toast.success(t('team.deactivate_success', 'Employee deactivated successfully'));
-        sync();
-        setEmployeeToDelete(null);
     } catch (e) {
         toast.error(t('team.deactivate_error', 'Failed to deactivate employee'));
     }
+    toast.success(t('team.deactivate_success', 'Employee deactivated successfully'));
+      sync();
+      setEmployeeToDelete(null);
+      void Promise.resolve(sync()).catch((err) => console.warn('Post-deactivate sync failed', err));
   };
 
   const handleVerifyDeactivatePassword = async () => {
@@ -113,11 +114,12 @@ export default function TeamOrganization() {
     try {
         await deleteBranch(branchToDelete.branch_id);
         toast.success(t('team.branch_delete_success', 'Branch deleted successfully'));
-        sync();
-        setBranchToDelete(null);
     } catch (e) {
         toast.error(t('team.branch_delete_error', 'Failed to delete branch'));
     }
+    sync();
+    setBranchToDelete(null);
+    void Promise.resolve(sync()).catch((err) => console.warn('Post-Branch delete sync failed', err));
   };
 
   return (

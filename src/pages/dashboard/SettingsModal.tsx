@@ -671,7 +671,7 @@ export function SettingsModal() {
                                                 ) : (
                                                     <p className="h-12 flex items-center font-bold text-neutral/80">{currentUser?.location?.split(', ')[1] || "—"}</p>
                                                 )}
-                                                {isEmployee && (
+                                                {isEmployee && isEditingOrganization && (
                                                     <p className="text-[10px] text-semantic-warning font-bold ">
                                                         {t('settings.employee_location_locked', 'Employees cannot edit location')}
                                                     </p>
@@ -763,7 +763,7 @@ export function SettingsModal() {
                                                 ) : (
                                                     <p className="h-12 w-fit flex items-center font-bold text-neutral/80">{ isEnterprise ? currentOrganization?.name : currentUser?.business_name || "—"}</p>
                                                 )}
-                                                {isEnterprise && isEmployee && (
+                                                {isEnterprise && isEmployee && isEditingOrganization && (
                                                     <p className="text-[10px] text-semantic-warning font-bold ">
                                                         {t('settings.employee_org_locked', 'Only admins can edit organization profile')}
                                                     </p>

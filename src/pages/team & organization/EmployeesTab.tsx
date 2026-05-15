@@ -26,16 +26,17 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
     const { t, i18n } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
     const { branches } = useBranchStore();
+    const safeEmployees = employees ?? [];
 
     const filteredEmployees = useMemo(() => {
-        return employees?.filter(emp => {
+        return safeEmployees?.filter(emp => {
             const q = searchQuery.toLowerCase();
             return (
-                emp?.username?.toLowerCase().includes(q) ||
-                emp?.email?.toLowerCase().includes(q)
+                emp.username?.toLowerCase().includes(q) ||
+                emp.email?.toLowerCase().includes(q)
             );
         });
-    }, [employees, searchQuery]);
+    }, [safeEmployees, searchQuery]);
 
     const getBranchName = (branchUuid?: string) => {
         if (!branchUuid) return t('common.n_a', 'N/A');
@@ -43,7 +44,7 @@ export function EmployeesTab({ employees, maxEmployees, onAddEmployee, onDeactiv
         return branch ? branch.name : t('common.unknown', 'Unknown');
     };
 
-    const isLimitReached = employees.length >= maxEmployees;
+    const isLimitReached = safeEmployees.length >= maxEmployees;
 
     return (
         <div className="space-y-4" dir={i18n.dir()}>

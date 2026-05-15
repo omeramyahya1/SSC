@@ -9,7 +9,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { useBranchStore } from '@/store/useBranchStore';
 import api from '@/api/client';
 import toast from "react-hot-toast";
-import { useSync } from '@/hooks/useSync';
+import { useSyncLogStore } from '@/store/useSyncLogStore';
 
 interface AddEmployeeModalProps {
     onOpenChange: (isOpen: boolean) => void;
@@ -22,7 +22,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
     const { t, i18n } = useTranslation();
     const { createEmployee } = useUserStore();
     const { branches } = useBranchStore();
-    const { sync } = useSync();
+    const sync = useSyncLogStore((s) => s.performSync);
 
     const [formData, setFormData] = useState({
         username: '',
@@ -91,7 +91,7 @@ export function AddEmployeeModal({ onOpenChange, organizationUuid }: AddEmployee
             const result = await createEmployee(formData);
             if (result) {
                 toast.success(t('team.add_success', 'Employee added successfully'));
-                sync();
+                void sync();
                 onOpenChange(false);
             }
         } catch {

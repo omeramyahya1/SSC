@@ -57,6 +57,10 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     const { subscriptions, currentSubscription, fetchSubscriptions } = useSubscriptionStore();
     const { subscriptionPayments, createSubscriptionPayment, fetchSubscriptionPayments } = useSubscriptionPaymentStore();
 
+    const expirationDate = currentSubscription?.expiration_date
+        ? format(new Date(currentSubscription.expiration_date), 'dd/MM/yyyy')
+        : 'N/A';
+
     const [view, setView] = useState<'status' | 'upgrade' | 'payment' | 'activate'>('status');
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [pricingData, setPricingData] = useState<PricingInfo[]>([]);
@@ -436,7 +440,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                     <div>
                         <h3 className="text-xl font-bold mb-2">{t('subscription.org_subscribed', 'Organization Subscription')}</h3>
                         <p className="text-neutral/60">
-                            {t('subscription.org_member_desc', 'You are part of the {{org}} organization.', { org: currentUser?.org_name})}
+                            {t('subscription.org_member_desc', 'You are part of the {{org}} organization.', { org: currentOrganization?.name})}
                         </p>
                     </div>
                     {(isGrace || isExpired) && (
@@ -468,7 +472,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                         <span className="text-[10px] font-bold text-neutral/40 block mb-1">{t('subscription.expires_on', 'Expires On')}</span>
-                        <span className="text-sm text-primary font-bold">{currentSubscription?.expiration_date ? format(currentSubscription?.expiration_date, 'dd/MM/yyyy') : 'N/A'}</span>
+                        <span className="text-sm text-primary font-bold">{expirationDate}</span>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                         <span className="text-[10px] font-bold text-neutral/40 block mb-1">{t('subscription.account_type', 'Account Type')}</span>

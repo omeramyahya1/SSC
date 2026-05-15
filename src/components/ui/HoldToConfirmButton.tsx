@@ -97,7 +97,7 @@ export function HoldToConfirmButton({
         variant == 'destructive' && ('bg-red-100 border-[0.5px] border-red-200 text-red-600'),
         isHolding &&
           (variant === 'destructive'
-            ? 'border-[0.5px] border-red-200 bg-red-100 text-white font-bold'
+            ? 'border-[0.5px] border-red-200 bg-red-100 text-red-700 font-bold'
             : 'scale-[0.95] bg-primary-light')
       )}
       onPointerDown={(e) => {
