@@ -361,7 +361,7 @@ def record_tc_agreement():
             service_client.table('user_tc_agreements').upsert({
                 'user_id': user_uuid,
                 'tc_id': tc_id,
-                'agreed_at': datetime.utcnow().isoformat()
+                'agreed_at': datetime.now(datetime.timezone.utc).isoformat()
             }).execute()
 
             return jsonify({"message": "Agreement recorded"}), 200

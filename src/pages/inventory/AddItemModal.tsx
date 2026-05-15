@@ -27,6 +27,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
         quantity_on_hand: 0,
         low_stock_threshold: 10,
         branch_uuid: '',
+        organization_uuid: '',
         buy_price: 0,
         sell_price: 0,
         technical_specs: {} as Record<string, any>
@@ -126,8 +127,9 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
 
         try {
             if (currentUser?.account_type !== 'standard') {
-                const branch_uuid = currentUser?.branch_uuid
-                setFormData(prev => ({...prev, branch_uuid}))
+                const organization_uuid = currentUser?.organization_uuid;
+                const branch_uuid = currentUser?.branch_uuid;
+                setFormData(prev => ({...prev, branch_uuid, organization_uuid}))
             }
             console.log(formData);
             await addItem(formData);
