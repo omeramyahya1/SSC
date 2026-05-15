@@ -41,24 +41,12 @@ BEGIN
         p_user_uuid, p_username, p_email, p_org_id, p_branch_id, p_role, 'trial', 'enterprise_tier1'
     );
 
-    -- Strict Conditional Check: Only proceed if the previous INSERT affected 1 or more rows
-    IF FOUND THEN
-        -- Insert into public.authentications
-        INSERT INTO public.authentications (
-            user_id, password_hash, password_salt, is_logged_in
-        ) VALUES (
-            p_user_uuid, p_password_hash, p_password_salt, false
-        );
-        v_auth_id := (
-            SELECT a.id
-            FROM public.authentications a
-            WHERE a.user_id = p_user_uuid
-            ORDER BY a.created_at DESC
-            LIMIT 1
-        );
-    ELSE
-        RAISE EXCEPTION 'User insertion failed. Aborting authentication setup.';
-    END IF;
+    INSERT INTO public.authentications (
+        user_id, password_hash, password_salt, is_logged_in
+    ) VALUES (
+        p_user_uuid, p_password_hash, p_password_salt, false
+    )
+    RETURNING id INTO v_auth_id;
 
     RETURN json_build_object(
         'user_id', p_user_uuid,

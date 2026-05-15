@@ -121,7 +121,7 @@ const templates: Templates = {
           "تم إلغاء تفعيل حساب المستخدم",
           `
           <p>مرحباً مشرف النظام،</p>
-          <p>تم إلغاء تفعيل حساب مستخدم في حاسبة النظام الشمسي.</p>
+          <p>تم إلغاء تفعيل حساب مستخدم في SSC.</p>
           <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px;" dir="rtl">
             <tr style="background-color: #f2f2f2; text-align: right;">
               <th style="padding: 8px; border: 1px solid #ddd;">التفاصيل</th>

@@ -57,7 +57,7 @@ const templates = {
           `<p>مرحباً ${p.username}،</p>
          <p>تم إنشاء حساب لك في <strong>${p.org_name}</strong>.</p>
          <p>يمكنك الآن تسجيل الدخول إلى تطبيق SSC باستخدام البيانات التالية:</p>
-         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #eee; direction: right; text-align: right;">
+         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #eee; direction: rtl; text-align: right;">
             <p style="margin: 5px 0;"><strong>إسم المستخدم:</strong> ${p.username}</p>
             <p style="margin: 5px 0;"><strong>كلمة سر مؤقتة:</strong> <span style="font-size: 18px; font-weight: bold; color: #0056b3;">${p.temp_password}</span></p>
          </div>
@@ -82,7 +82,7 @@ serve(async (req) => {
   // Fetch Pending Registration Jobs
   const { data: pendingJobs, error: fetchError } = await supabase
     .from("notification_jobs")
-    .select("*")
+    .select("id")
     .eq("status", "pending")
     .eq("event_type", "employee_registration");
 
@@ -113,10 +113,7 @@ serve(async (req) => {
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select(`
-          email,
-          application_settings!user_id (
-            language
-          )
+          email
         `)
         .eq("id", job.recipient_user_id)
         .single();
@@ -125,11 +122,7 @@ serve(async (req) => {
         throw new Error(`User not found: ${userError?.message}`);
       }
 
-      const settings = Array.isArray(userData.application_settings)
-        ? userData.application_settings[0]
-        : userData.application_settings;
-
-      const lang = "ar";
+      const lang = "ar"; // all employee registrations should be in arabic
       const tpl = templates.employee_registration[lang] || templates.employee_registration['en'];
 
       // Send via Brevo

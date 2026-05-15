@@ -261,6 +261,11 @@ ON public.invoices FOR ALL USING (
     OR user_id = jwt_user_id()
     OR (jwt_app_role() = 'admin' AND project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id()))
     OR (
+        jwt_app_role() = 'admin'
+        AND project_id IS NULL
+        AND user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id())
+    )
+    OR (
         jwt_app_role() = 'employee'
         AND project_id IN (
             SELECT p.id
@@ -271,10 +276,25 @@ ON public.invoices FOR ALL USING (
             AND u.branch_id = jwt_branch_id()
         )
     )
+    OR (
+        jwt_app_role() = 'employee'
+        AND project_id IS NULL
+        AND user_id IN (
+            SELECT id
+            FROM public.users
+            WHERE organization_id = jwt_org_id()
+              AND branch_id = jwt_branch_id()
+        )
+    )
 ) WITH CHECK (
     is_superadmin()
     OR user_id = jwt_user_id()
     OR (jwt_app_role() = 'admin' AND project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id()))
+    OR (
+        jwt_app_role() = 'admin'
+        AND project_id IS NULL
+        AND user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id())
+    )
     OR (
         jwt_app_role() = 'employee'
         AND project_id IN (
@@ -284,6 +304,16 @@ ON public.invoices FOR ALL USING (
             WHERE p.organization_id = jwt_org_id()
             AND u.organization_id = jwt_org_id()
             AND u.branch_id = jwt_branch_id()
+        )
+    )
+    OR (
+        jwt_app_role() = 'employee'
+        AND project_id IS NULL
+        AND user_id IN (
+            SELECT id
+            FROM public.users
+            WHERE organization_id = jwt_org_id()
+              AND branch_id = jwt_branch_id()
         )
     )
 );

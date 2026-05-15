@@ -2,6 +2,7 @@ CREATE OR REPLACE FUNCTION public.daily_database_cleanup()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
     r RECORD;
@@ -48,8 +49,19 @@ EXCEPTION
 END;
 $$;
 
+
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule('daily-db-cleanup');
+EXCEPTION
+  WHEN OTHERS THEN
+    -- ignore if not scheduled yet
+    NULL;
+END $$;
+
 SELECT cron.schedule(
-    'daily-db-cleanup',  -- Job name
-    '0 0 * * *',         -- Cron syntax (Every day at midnight)
-    'SELECT public.daily_database_cleanup();'
+  'daily-db-cleanup',
+  '0 0 * * *',
+  'SELECT public.daily_database_cleanup();'
 );
