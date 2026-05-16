@@ -273,7 +273,7 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl">
-                                            {invoice.status !== 'paid' && invoice.issued_at && (
+                                            {(invoice.status !== 'paid' && invoice.issued_at && (invoice.access?.can_add_payment ?? true)) && (
                                                 <DropdownMenuItem
                                                     onClick={() => {
                                                         setInvoiceForPayment(invoice);
@@ -292,10 +292,12 @@ export function InvoicesList({ filterParams }: InvoicesListProps) {
                                                 <Eye className="h-4 w-4" />
                                                 {t('invoicing.view', 'View Invoice')}
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setInvoiceToDelete(invoice)} className="cursor-pointer rounded-lg text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2">
-                                                <Trash2 className="h-4 w-4" />
-                                                {t('invoicing.delete', 'Delete Invoice')}
-                                            </DropdownMenuItem>
+                                            {(invoice.access?.can_delete ?? true) && (
+                                                <DropdownMenuItem onClick={() => setInvoiceToDelete(invoice)} className="cursor-pointer rounded-lg text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2">
+                                                    <Trash2 className="h-4 w-4" />
+                                                    {t('invoicing.delete', 'Delete Invoice')}
+                                                </DropdownMenuItem>
+                                            )}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>

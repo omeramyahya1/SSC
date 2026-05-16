@@ -31,6 +31,15 @@ export interface Invoice {
   updated_at: string;
   is_dirty: boolean;
   customer_name: string;
+  issued_by_username?: string | null;
+  access?: {
+    mode: "full" | "view" | "hidden";
+    can_edit?: boolean;
+    can_issue?: boolean;
+    can_delete?: boolean;
+    can_add_payment?: boolean;
+    can_delete_payment?: boolean;
+  };
 
 }
 

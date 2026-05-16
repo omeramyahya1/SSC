@@ -20,6 +20,7 @@ interface CustomerCardProps {
 
 export function CustomerCard({ customer, onEdit, onDelete }: CustomerCardProps) {
     const { t, i18n } = useTranslation();
+    const isViewOnly = customer.access?.mode === 'view';
 
     const stats = customer.project_stats || {};
     const totalProjects = Object.values(stats).reduce((a, b) => a + b, 0);
@@ -56,30 +57,32 @@ export function CustomerCard({ customer, onEdit, onDelete }: CustomerCardProps) 
                     </div>
                 </div>
 
-                <DropdownMenu dir={i18n.dir()}>
-                    <DropdownMenuTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
-                            <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-white">
-                        <DropdownMenuItem
-                            className="cursor-pointer rounded-lg hover:bg-gray-100"
-                            onClick={() => onEdit(customer)}
-                        >
-                            <img src="/eva-icons (2)/outline/edit.png" alt="edit" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
-                            {t('common.edit', 'Edit Details')}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                            className="cursor-pointer group rounded-lg text-red-600 hover:bg-red-50 focus:bg-red-500 hover:text-white"
-                            onClick={() => onDelete(customer)}
-                        >
-                            <img src="/eva-icons (2)/outline/trash-2.png" alt="delete" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70 group-hover:invert" />
-                            {t('common.delete', 'Delete')}
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {!isViewOnly && (
+                    <DropdownMenu dir={i18n.dir()}>
+                        <DropdownMenuTrigger asChild>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
+                                <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-white">
+                            <DropdownMenuItem
+                                className="cursor-pointer rounded-lg hover:bg-gray-100"
+                                onClick={() => onEdit(customer)}
+                            >
+                                <img src="/eva-icons (2)/outline/edit.png" alt="edit" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
+                                {t('common.edit', 'Edit Details')}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                className="cursor-pointer group rounded-lg text-red-600 hover:bg-red-50 focus:bg-red-500 hover:text-white"
+                                onClick={() => onDelete(customer)}
+                            >
+                                <img src="/eva-icons (2)/outline/trash-2.png" alt="delete" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70 group-hover:invert" />
+                                {t('common.delete', 'Delete')}
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </CardHeader>
 
             <CardContent className="p-4 pt-0">
