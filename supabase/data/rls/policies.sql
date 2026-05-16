@@ -222,35 +222,119 @@ ON public.projects FOR ALL USING (
 );
 
 
--- 3.5. Child Data (via parent link)
+-- =================================================================
+-- PRODUCTION ENFORCEMENT: SECURED CHILD RELATIONSHIPS
+-- =================================================================
 
+-- 1. SYSTEM CONFIGURATIONS
+ALTER TABLE public.system_configurations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "System Configurations temporary pass" ON public.system_configurations;
 DROP POLICY IF EXISTS "System Config: Access via parent Project" ON public.system_configurations;
-CREATE POLICY "System Config: Access via parent Project"
-ON public.system_configurations FOR ALL USING (
-    is_superadmin() OR EXISTS (
+
+CREATE POLICY "System Configurations secure access"
+ON public.system_configurations FOR ALL
+USING (
+    is_superadmin()
+    -- Admin View All rule
+    OR (jwt_app_role() = 'admin')
+    -- Otherwise, check project relationships for Users and Employees
+    OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.system_config_id = system_configurations.id
+        AND (
+            -- Standard Users: Must own the parent project
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            -- Employees / Mutation Admins: Restrict context to same organization projects
+            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (jwt_app_role() = 'admin')
+    OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.system_config_id = system_configurations.id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+        )
     )
 );
 
+
+-- 2. APPLIANCES
+ALTER TABLE public.appliances ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Appliances temporary pass" ON public.appliances;
 DROP POLICY IF EXISTS "Appliances: Access via parent Project" ON public.appliances;
-CREATE POLICY "Appliances: Access via parent Project"
-ON public.appliances FOR ALL USING (
-    is_superadmin() OR EXISTS (
+
+CREATE POLICY "Appliances secure access"
+ON public.appliances FOR ALL
+USING (
+    is_superadmin()
+    -- Admin View All rule
+    OR (jwt_app_role() = 'admin')
+    -- Structural validation lookup matching project constraints
+    OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.id = appliances.project_id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (jwt_app_role() = 'admin')
+    OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = appliances.project_id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+        )
     )
 );
 
+
+-- 3. DOCUMENTS
+ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Documents temporary pass" ON public.documents;
 DROP POLICY IF EXISTS "Documents: Access via parent Project" ON public.documents;
-CREATE POLICY "Documents: Access via parent Project"
-ON public.documents FOR ALL USING (
-    is_superadmin() OR EXISTS (
+
+CREATE POLICY "Documents secure access"
+ON public.documents FOR ALL
+USING (
+    is_superadmin()
+    OR (jwt_app_role() = 'admin')
+    OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.id = documents.project_id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (jwt_app_role() = 'admin')
+    OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = documents.project_id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+        )
     )
 );
-
 
 -- 3.6. Financial Records (Invoices, Payments)
 -- =================================================================
