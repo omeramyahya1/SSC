@@ -259,7 +259,6 @@ def get_invoice_by_project(project_uuid):
 
 @invoice_bp.route('/<string:uuid>', methods=['DELETE'])
 def delete_invoice(uuid):
-    user_uuid = request.args.get('user_uuid')
     cascade_payments = _parse_bool_arg(request.args.get('cascade_payments'), default=False)
     with get_db() as db:
         try:

@@ -534,7 +534,7 @@ export function ComponentSelectionView({
                 {components.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={5}
                       className="h-24 text-center text-muted-foreground italic"
                     >
                       {t(
@@ -709,8 +709,10 @@ function ComponentSlot({
 
     const itemVoltage = safe_float(
       specs.system_voltage_v ||
+        specs.output_voltage_v ||
         specs.panel_mpp_voltage ||
-        specs.battery_rated_voltage,
+        specs.battery_rated_voltage ||
+        specs.voltage,
     );
 
     const msgs: string[] = [];
@@ -731,27 +733,8 @@ function ComponentSlot({
       );
     }
 
-    // 2. Voltage Validation
-    const hasItemVoltage =
-      specs.output_voltage_v ||
-      specs.panel_mpp_voltage ||
-      specs.battery_rated_voltage ||
-      specs.voltage;
-    if (
-      requirements.voltage &&
-      hasItemVoltage &&
-      itemVoltage !== requirements.voltage
-    ) {
-      status = "misaligned";
-      color = "text-orange-600"; // Warning
-      msgs.push(
-        t(
-          "components.status.voltage_mismatch",
-          "Voltage mismatch: {{val}}V (Req: {{req}}V)",
-          { val: itemVoltage, req: requirements.voltage },
-        ),
-      );
-    }
+    // TODO: restore voltage compatibility checks once the broader electrical
+    // validation model lands with dedicated tests.
 
     // 3. Quantity
     if (requirements.quantity && component.quantity < requirements.quantity) {

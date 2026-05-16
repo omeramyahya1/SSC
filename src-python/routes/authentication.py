@@ -34,7 +34,7 @@ def login_user():
         .join(Authentication, User.uuid == Authentication.user_uuid)
         .filter(func.lower(User.email) == login_data.email.strip().lower())
         .filter(User.deleted_at.is_(None))
-        .filter(Authentication.jwt_issued_at >= datetime.now() - timedelta(days=14)) # staying offline for more than 14 days requires online login
+        .filter(Authentication.jwt_issued_at >= datetime.utcnow() - timedelta(days=14)) # staying offline for more than 14 days requires online login
         .order_by(Authentication.jwt_issued_at.desc()) # Ensures you check the *latest* record
         .first()
     )

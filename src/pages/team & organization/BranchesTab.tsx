@@ -11,11 +11,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Branch } from "@/store/useBranchStore";
 import { useLocationData } from "@/hooks/useLocationData";
-import { useUserStore } from "@/store/useUserStore";
 
 interface BranchesTabProps {
   branches: Branch[];
-  isLimitReached: boolean;
   onAddBranch: () => void;
   onEditBranch: (branch: Branch) => void;
   onDeleteBranch: (branch: Branch) => void;
@@ -32,7 +30,6 @@ export function BranchesTab({
   const { t, i18n } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const { getClimateDataForCity } = useLocationData();
-  const { currentUser } = useUserStore();
 
   const filteredBranches = useMemo(() => {
     return branches.filter((branch) => {

@@ -341,8 +341,8 @@ def recover_project(project_id_or_uuid):
             return error_response
 
         project = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, project_id_or_uuid)
-        if not project.deleted_at:
-            return jsonify({"message": "Project is not deleted"}), 400
+        if not project:
+            return jsonify({"message": "Project is not found"}), 404
         if not _can_mutate_project(ctx, project):
             return jsonify({"error": "Forbidden"}), 403
 
@@ -375,7 +375,7 @@ def delete_project_permanently(project_id_or_uuid):
                 joinedload(Project.appliances),
                 joinedload(Project.documents),
                 joinedload(Project.system_config)
-            ).filter(project_filter, Project.deleted_at.is_(None)).first()
+            ).filter(project_filter).first()
 
             if not project:
                 return jsonify({"error": "Project not found"}), 404

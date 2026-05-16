@@ -38,6 +38,9 @@ def create_branch():
         if current_user.status in ['trial', 'grace', 'expired']:
             return jsonify({"error": f"Action restricted for {current_user.status} accounts. Please renew your subscription."}), 403
 
+        if validated_data.organization_uuid != current_user.organization_uuid:
+            return jsonify({"error": "Cannot create branches for other organizations."}), 403
+
         org = db.query(Organization).filter(Organization.uuid == validated_data.organization_uuid).first()
         if not org:
             return jsonify({"error": "Organization not found"}), 404

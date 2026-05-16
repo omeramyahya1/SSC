@@ -1021,7 +1021,7 @@ export function IndependentInvoiceEditor({
                   <div
                     className={`${!currentInvoice?.issued_at ? "p-4 bg-gray-50 border rounded-md h-40 overflow-y-auto font-mono text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap print:border-none print:bg-white print:h-auto print:p-0" : "font-bold font-mono leading-relaxed text-muted-foreground whitespace-pre-wrap text-[16px]"}`}
                   >
-                    {generateDefaultTerms()}
+                    {customTermsEnabled ? customTerms : generateDefaultTerms()}
                   </div>
                 )}
               </div>
@@ -1193,16 +1193,8 @@ export function IndependentInvoiceEditor({
               <Button
                 size="sm"
                 onClick={async () => {
-                  if (!currentInvoice?.uuid) return;
-                  setIsExporting("pdf");
-                  try {
-                    await handleSaveInvoice();
-                    setIsPreviewOpen(false);
-                  } catch {
-                    // keep dialog open on faliru
-                  } finally {
-                    setIsExporting(null);
-                  }
+                  setIsPreviewOpen(false);
+                  await handleExport("pdf");
                 }}
                 className="me-10"
                 disabled={!!isExporting}

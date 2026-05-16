@@ -228,10 +228,12 @@ def register_user():
                         if not hasattr(o_response, 'data'):
                             raise Exception("Invalid response structure from Supabase client.")
 
-                        new_org_uuid = o_response.data
+                        if not o_response.data:
+                            raise Exception("Organization not found.")
+                        new_org_uuid = o_response.data[0]['id']
 
                         b_response = (
-                            supabase.table('organizations')
+                            supabase.table('branches')
                             .select('id')
                             .eq('organization_id', new_org_uuid)
                             .execute()
@@ -240,7 +242,9 @@ def register_user():
                         if not hasattr(b_response, 'data'):
                             raise Exception("Invalid response structure from Supabase client.")
 
-                        new_branch_uuid = b_response.data
+                        if not b_response.data:
+                            raise Exception("Branch not found.")
+                        new_branch_uuid = b_response.data[0]['id']
 
 
 
@@ -361,7 +365,7 @@ def record_tc_agreement():
             service_client.table('user_tc_agreements').upsert({
                 'user_id': user_uuid,
                 'tc_id': tc_id,
-                'agreed_at': datetime.now(datetime.timezone.utc).isoformat()
+                'agreed_at': datetime.now(timezone.utc).isoformat()
             }).execute()
 
             return jsonify({"message": "Agreement recorded"}), 200

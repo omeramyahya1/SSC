@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { useSyncLogStore } from '@/store/useSyncLogStore';
-import { useAuthenticationStore } from '@/store/useAuthenticationStore';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { useSyncLogStore } from "@/store/useSyncLogStore";
+import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 
 export const useSync = () => {
   const { performSync, isSyncing, lastSyncTime } = useSyncLogStore();
@@ -29,17 +29,17 @@ export const useSync = () => {
     lastRequestAtRef.current = now;
 
     performSync();
-  }, [isLoggedIn, performSync]);
+  }, [isLoggedIn, isOnline, performSync]);
 
   useEffect(() => {
-        const handleStatusChange = () => setIsOnline(navigator.onLine);
-        window.addEventListener('online', handleStatusChange);
-        window.addEventListener('offline', handleStatusChange);
-        return () => {
-            window.removeEventListener('online', handleStatusChange);
-            window.removeEventListener('offline', handleStatusChange);
-        };
-    }, []);
+    const handleStatusChange = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", handleStatusChange);
+    window.addEventListener("offline", handleStatusChange);
+    return () => {
+      window.removeEventListener("online", handleStatusChange);
+      window.removeEventListener("offline", handleStatusChange);
+    };
+  }, []);
 
   // 1) startup / login changes
   useEffect(() => {
@@ -61,8 +61,8 @@ export const useSync = () => {
   // 3) back online
   useEffect(() => {
     const handleOnline = () => requestSync();
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
   }, [requestSync]);
 
   // 4) periodic

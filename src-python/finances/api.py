@@ -201,6 +201,6 @@ def create_finance_payment():
             return jsonify(model_to_dict(new_payment)), 201
 
         except Exception as e:
-            logger.exception(f"Failed to process payment for invoice {getattr(new_payment, 'invoice_uuid', 'unknown')}")
+            logger.exception(f"Failed to process payment for invoice {invoice_uuid or 'unknown'}")
             db.rollback()
             return jsonify({"error": "An error occurred while processing the payment."}), 500

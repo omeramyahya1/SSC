@@ -230,13 +230,12 @@ ON public.projects FOR ALL USING (
 ALTER TABLE public.system_configurations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "System Configurations temporary pass" ON public.system_configurations;
 DROP POLICY IF EXISTS "System Config: Access via parent Project" ON public.system_configurations;
+DROP POLICY IF EXISTS "System Configurations secure access" ON public.system_configurations;
 
 CREATE POLICY "System Configurations secure access"
 ON public.system_configurations FOR ALL
 USING (
     is_superadmin()
-    -- Admin View All rule
-    OR (jwt_app_role() = 'admin')
     -- Otherwise, check project relationships for Users and Employees
     OR EXISTS (
         SELECT 1 FROM public.projects p
@@ -252,7 +251,6 @@ USING (
 )
 WITH CHECK (
     is_superadmin()
-    OR (jwt_app_role() = 'admin')
     OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.system_config_id = system_configurations.id
@@ -269,13 +267,12 @@ WITH CHECK (
 ALTER TABLE public.appliances ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Appliances temporary pass" ON public.appliances;
 DROP POLICY IF EXISTS "Appliances: Access via parent Project" ON public.appliances;
+DROP POLICY IF EXISTS "Appliances secure access" ON public.appliances;
 
 CREATE POLICY "Appliances secure access"
 ON public.appliances FOR ALL
 USING (
     is_superadmin()
-    -- Admin View All rule
-    OR (jwt_app_role() = 'admin')
     -- Structural validation lookup matching project constraints
     OR EXISTS (
         SELECT 1 FROM public.projects p
@@ -289,7 +286,6 @@ USING (
 )
 WITH CHECK (
     is_superadmin()
-    OR (jwt_app_role() = 'admin')
     OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.id = appliances.project_id
@@ -306,12 +302,12 @@ WITH CHECK (
 ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Documents temporary pass" ON public.documents;
 DROP POLICY IF EXISTS "Documents: Access via parent Project" ON public.documents;
+DROP POLICY IF EXISTS "Documents secure access" ON public.documents;
 
 CREATE POLICY "Documents secure access"
 ON public.documents FOR ALL
 USING (
     is_superadmin()
-    OR (jwt_app_role() = 'admin')
     OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.id = documents.project_id
@@ -324,7 +320,6 @@ USING (
 )
 WITH CHECK (
     is_superadmin()
-    OR (jwt_app_role() = 'admin')
     OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.id = documents.project_id
@@ -350,15 +345,22 @@ USING (
     is_superadmin()
     -- 1. Standard users can see their own invoices
     OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
-    -- 2. Staff (Admins & Employees) can see all invoices within the same organization
+    -- 2. Admins can see all invoices within the same organization
     OR (
-        jwt_app_role() IN ('admin', 'employee')
+        jwt_app_role() = 'admin'
         AND (
-            -- Option A: Check organization context via the project link
             project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id())
             OR
-            -- Option B: Fallback check organization context via the owner user record
             user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id())
+        )
+    )
+    -- 3. Employees are restricted to their branch
+    OR (
+        jwt_app_role() = 'employee'
+        AND (
+            project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id() AND branch_id = jwt_branch_id())
+            OR
+            user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id() AND branch_id = jwt_branch_id())
         )
     )
 )
@@ -366,11 +368,19 @@ WITH CHECK (
     is_superadmin()
     OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
     OR (
-        jwt_app_role() IN ('admin', 'employee')
+        jwt_app_role() = 'admin'
         AND (
             project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id())
             OR
             user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id())
+        )
+    )
+    OR (
+        jwt_app_role() = 'employee'
+        AND (
+            project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id() AND branch_id = jwt_branch_id())
+            OR
+            user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id() AND branch_id = jwt_branch_id())
         )
     )
 );
@@ -486,12 +496,44 @@ DROP POLICY IF EXISTS "Allow employee full access on inventory_categories" ON pu
 DROP POLICY IF EXISTS "Allow employee read access on inventory_categories" ON public.inventory_categories;
 DROP POLICY IF EXISTS "Allow user full access on own inventory_categories" ON public.inventory_categories;
 
--- Enforce: Everyone can CRUD on inventory categories
-CREATE POLICY "Allow global full access on inventory_categories"
+-- 1. Everyone can view categories
+CREATE POLICY "Allow global select on inventory_categories"
 ON public.inventory_categories
-FOR ALL
-USING (true)
-WITH CHECK (true);
+FOR SELECT
+USING (true);
+
+-- 2. Authorized agents can modify
+CREATE POLICY "Allow authorized insert on inventory_categories"
+ON public.inventory_categories
+FOR INSERT
+WITH CHECK (
+    is_superadmin()
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
+);
+
+CREATE POLICY "Allow authorized update on inventory_categories"
+ON public.inventory_categories
+FOR UPDATE
+USING (
+    is_superadmin()
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
+)
+WITH CHECK (
+    is_superadmin()
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
+);
+
+CREATE POLICY "Allow authorized delete on inventory_categories"
+ON public.inventory_categories
+FOR DELETE
+USING (
+    is_superadmin()
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
+);
 
 
 -- =================================================================

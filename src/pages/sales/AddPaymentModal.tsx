@@ -149,7 +149,7 @@ export function AddPaymentModal({
         label: `#${String(inv.invoice_id).padStart(5, "0")} - ${inv.amount?.toLocaleString()} (${t("finances." + inv.status)})`,
         amount: inv.amount,
       }));
-  }, [invoices, initialInvoiceUuid]);
+  }, [invoices, initialInvoiceUuid, t]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -202,11 +202,11 @@ export function AddPaymentModal({
                 if (
                   !isNaN(num) &&
                   num <=
-                    (initialAmount
-                      ? initialAmount
-                      : invoiceItems.find(
-                          (inv) => inv.value === selectedInvoiceUuid,
-                        )?.amount || 0)
+                    (initialAmount ??
+                      invoiceItems.find(
+                        (inv) => inv.value === selectedInvoiceUuid,
+                      )?.amount ??
+                      0)
                 ) {
                   handleNumberInputChange(setAmount, e.target.value);
                 }

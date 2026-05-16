@@ -164,7 +164,7 @@ def apply_invoice_visibility_filter(query, ctx: AuthContext):
     # Must be same org.
     query = query.filter(func.coalesce(Project.organization_uuid, User.organization_uuid) == ctx.org_uuid)
 
-    if ctx.is_employee or (ctx.user.role not in ("admin",) and ctx.branch_uuid):
+    if ctx.is_employee or (ctx.branch_uuid and ctx.user.role !="admin"):
         # Branch-only
         query = query.filter(func.coalesce(Project.branch_uuid, User.branch_uuid) == ctx.branch_uuid)
         # Hide other employees' drafts

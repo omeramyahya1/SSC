@@ -64,7 +64,7 @@ def get_all_organization():
             return jsonify({"error": "Authenticated user not found in user table."}), 404
 
         if not current_user.organization_uuid:
-            return jsonify({"error": "Not allowed."}), 405
+            return jsonify({"error": "Not allowed."}), 403
 
         items = db.query(Organization).filter(Organization.uuid == current_user.organization_uuid).all()
         return jsonify([model_to_dict(i) for i in items])
