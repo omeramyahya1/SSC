@@ -845,7 +845,9 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
                                         <div>
                                             <p className="font-black text-lg leading-none mb-1">{t('invoicing.issued', 'Invoice Issued')}</p>
                                             <p className="text-sm opacity-80">{format(new Date(currentInvoice?.issued_at!), "PPP")}</p>
-                                            <p className="text-sm opacity-80">{t('invoicing.issued_by', "by") + ": " + (user?.username || t('common.unknown', 'Unknown'))}</p>
+                                            <p className="text-sm opacity-80">
+                                                {t('invoicing.issued_by', "by") + ": " + (currentInvoice?.issued_by_username || user?.username || t('common.unknown', 'Unknown'))}
+                                            </p>
                                         </div>
                                     </div>
                                 )}
@@ -1105,4 +1107,3 @@ export function IndependentInvoiceEditor({ invoiceUuid, user, onBack }: Independ
     </div>
   );
 }
-

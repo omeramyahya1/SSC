@@ -31,6 +31,8 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
     const { t, i18n } = useTranslation();
     const { getClimateDataForCity } = useLocationData();
     const { archiveProject, softDeleteProject, recoverProject } = useProjectStore();
+    const isViewOnly = project.access?.mode === 'view';
+    const isInvoiceIssued = Boolean(project.invoice_issued_at);
 
     const formatProjectLocation = (location: string | null) => {
         if (!location) return '';
@@ -99,6 +101,8 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
                                 <img src="/eva-icons (2)/outline/delete-bin-2.svg" alt="delete permanently" className="w-5 h-5 group-hover:invert" />
                             </Button>
                         </div>
+                    ) : (isViewOnly || isInvoiceIssued) ? (
+                        <div />
                     ) : (
                         <DropdownMenu dir={i18n.dir()}>
                             <DropdownMenuTrigger asChild>

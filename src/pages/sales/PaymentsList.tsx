@@ -196,19 +196,23 @@ export function PaymentsList({ filterParams }: PaymentsListProps) {
                                     + {formatCurrency(payment.amount)}
                                 </TableCell>
                                 <TableCell className="text-end">
-                                    <DropdownMenu dir={i18n.dir()}>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="rounded-full">
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl">
-                                            <DropdownMenuItem onClick={() => setPaymentToDelete(payment)} className="rounded-lg text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2">
-                                                <Trash2 className="h-4 w-4" />
-                                                {t('finances.delete_payment', 'Delete Transaction')}
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    {(payment.invoice_access?.can_delete_payment ?? true) ? (
+                                        <DropdownMenu dir={i18n.dir()}>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="rounded-full">
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48 bg-white p-2 rounded-xl">
+                                                <DropdownMenuItem onClick={() => setPaymentToDelete(payment)} className="rounded-lg text-red-700 hover:text-white hover:bg-red-500 font-bold gap-2">
+                                                    <Trash2 className="h-4 w-4" />
+                                                    {t('finances.delete_payment', 'Delete Transaction')}
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    ) : (
+                                        <span className="text-muted-foreground text-sm">—</span>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}

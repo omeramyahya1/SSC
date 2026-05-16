@@ -207,12 +207,14 @@ class Payment(Base, TimestampDirtyMixin):
 
     payment_id = Column(Integer, primary_key=True)
     invoice_uuid = Column(String, ForeignKey("invoices.uuid"))
+    created_by_user_uuid = Column(String, ForeignKey("user.uuid"), nullable=True)
     amount = Column(Numeric(precision=16, scale=2))
     method = Column(String)
     payment_reference = Column(String)
     payment_date = Column(DateTime)
 
     invoice = relationship("Invoice", foreign_keys=[invoice_uuid], back_populates="payments")
+    created_by_user = relationship("User", foreign_keys=[created_by_user_uuid])
 
 
 class SubscriptionPayment(Base, TimestampDirtyMixin):

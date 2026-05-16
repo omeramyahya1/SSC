@@ -9,6 +9,7 @@ export interface Payment {
   uuid: string;
   payment_id: number;
   invoice_uuid: string;
+  created_by_user_uuid?: string | null;
   created_at: string;
   updated_at: string;
   is_dirty: boolean;
@@ -19,6 +20,10 @@ export interface Payment {
   // UI-only joined fields
   invoice_id?: number;
   project_name?: string;
+  invoice_access?: {
+    mode: "full" | "view" | "hidden";
+    can_delete_payment?: boolean;
+  };
 }
 
 export type NewPaymentData = Partial<Omit<Payment, 'uuid' | 'payment_id' | 'created_at' | 'updated_at' | 'is_dirty'>>;

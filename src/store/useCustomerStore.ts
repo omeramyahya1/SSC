@@ -19,6 +19,7 @@ export interface Customer {
   user_uuid?: string | null;
   project_stats?: Record<string, number>;
   deleted_at?: string | null;
+  access?: { mode: "full" | "view" | "hidden" };
 }
 
 export type NewCustomerData = Omit<Customer, 'customer_id' | 'uuid' | 'created_at' | 'updated_at' | 'is_dirty' | 'project_stats' | 'deleted_at'>;

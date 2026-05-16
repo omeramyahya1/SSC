@@ -118,7 +118,8 @@ export function AddPaymentModal({ isOpen, onClose, initialInvoiceUuid, initialAm
 
     const invoiceItems = useMemo(() => {
         return invoices
-            .filter((inv) => inv.status !== 'paid' || inv.uuid === initialInvoiceUuid)
+            .filter((inv) => (inv.status !== 'paid' || inv.uuid === initialInvoiceUuid))
+            .filter((inv) => (inv.access?.can_add_payment ?? Boolean(inv.issued_at)))
             .map((inv) => ({
                 value: inv.uuid,
                 label: `#${String(inv.invoice_id).padStart(5, '0')} - ${inv.amount?.toLocaleString()} (${inv.status})`,
