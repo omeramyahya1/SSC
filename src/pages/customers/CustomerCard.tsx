@@ -54,8 +54,8 @@ export function CustomerCard({
             <div
               className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
               onClick={() =>
-                copyToClipboard(
-                  customer.email!,
+                customer.email && copyToClipboard(
+                  customer.email,
                   t("customers.col.email", "Email"),
                 )
               }
@@ -73,8 +73,8 @@ export function CustomerCard({
             <div
               className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
               onClick={() =>
-                copyToClipboard(
-                  customer.phone_number!,
+                customer.phone_number && copyToClipboard(
+                  customer.phone_number,
                   t("customers.col.phone", "Phone"),
                 )
               }

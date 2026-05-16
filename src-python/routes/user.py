@@ -213,9 +213,8 @@ def register_user():
                 new_org_uuid = org_data['organization_id']
                 new_branch_uuid = org_data['branch_id']
             except Exception as e:
-                # If error contains "already exists", we would ideally fetch the existing IDs
-                # For now, we assume the RPC handles unique constraints or we fail gracefully.
-                if "already exists" not in str(e).lower():
+                # If error contains "already exists", fetch the existing IDs
+                if "already exists" in str(e).lower():
                     try:
                         supabase = get_service_role_client()
                         o_response = (
@@ -404,7 +403,7 @@ def contact_sales():
         return jsonify({"message": "Sales request submitted successfully"}), 200
     except Exception as e:
         print(f"Error submitting sales request: {e}")
-        if "required" in e.lower():
+        if "required" in str(e).lower():
             return jsonify({"error": e}), 400
         return jsonify({"error": "Failed to submit sales request. Please try again later."}), 500
 

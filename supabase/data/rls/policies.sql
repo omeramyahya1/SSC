@@ -236,7 +236,7 @@ CREATE POLICY "System Configurations secure access"
 ON public.system_configurations FOR ALL
 USING (
     is_superadmin()
-    -- Otherwise, check project relationships for Users and Employees
+    -- Otherwise, check project relationships for Users, Admins and Employees
     OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.system_config_id = system_configurations.id
@@ -244,8 +244,20 @@ USING (
             -- Standard Users: Must own the parent project
             (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
             OR
-            -- Employees / Mutation Admins: Restrict context to same organization projects
-            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+            -- Admins: Can see all within the same organization
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            -- Employees: Restrict to projects in their own branch
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
         )
     )
 )
@@ -257,7 +269,18 @@ WITH CHECK (
         AND (
             (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
             OR
-            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
         )
     )
 );
@@ -280,7 +303,18 @@ USING (
         AND (
             (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
             OR
-            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
         )
     )
 )
@@ -292,7 +326,18 @@ WITH CHECK (
         AND (
             (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
             OR
-            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
         )
     )
 );
@@ -314,7 +359,18 @@ USING (
         AND (
             (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
             OR
-            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
         )
     )
 )
@@ -326,7 +382,18 @@ WITH CHECK (
         AND (
             (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
             OR
-            (jwt_app_role() IN ('admin', 'employee') AND p.organization_id = jwt_org_id())
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
         )
     )
 );
