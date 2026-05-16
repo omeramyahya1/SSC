@@ -222,82 +222,261 @@ ON public.projects FOR ALL USING (
 );
 
 
--- 3.5. Child Data (via parent link)
+-- =================================================================
+-- PRODUCTION ENFORCEMENT: SECURED CHILD RELATIONSHIPS
+-- =================================================================
 
+-- 1. SYSTEM CONFIGURATIONS
+ALTER TABLE public.system_configurations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "System Configurations temporary pass" ON public.system_configurations;
 DROP POLICY IF EXISTS "System Config: Access via parent Project" ON public.system_configurations;
-CREATE POLICY "System Config: Access via parent Project"
-ON public.system_configurations FOR ALL USING (
-    is_superadmin() OR EXISTS (
+DROP POLICY IF EXISTS "System Configurations secure access" ON public.system_configurations;
+
+CREATE POLICY "System Configurations secure access"
+ON public.system_configurations FOR ALL
+USING (
+    is_superadmin()
+    -- Otherwise, check project relationships for Users, Admins and Employees
+    OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.system_config_id = system_configurations.id
+        AND (
+            -- Standard Users: Must own the parent project
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            -- Admins: Can see all within the same organization
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            -- Employees: Restrict to projects in their own branch
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.system_config_id = system_configurations.id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
+        )
     )
 );
 
+
+-- 2. APPLIANCES
+ALTER TABLE public.appliances ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Appliances temporary pass" ON public.appliances;
 DROP POLICY IF EXISTS "Appliances: Access via parent Project" ON public.appliances;
-CREATE POLICY "Appliances: Access via parent Project"
-ON public.appliances FOR ALL USING (
-    is_superadmin() OR EXISTS (
+DROP POLICY IF EXISTS "Appliances secure access" ON public.appliances;
+
+CREATE POLICY "Appliances secure access"
+ON public.appliances FOR ALL
+USING (
+    is_superadmin()
+    -- Structural validation lookup matching project constraints
+    OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.id = appliances.project_id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = appliances.project_id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
+        )
     )
 );
 
+
+-- 3. DOCUMENTS
+ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Documents temporary pass" ON public.documents;
 DROP POLICY IF EXISTS "Documents: Access via parent Project" ON public.documents;
-CREATE POLICY "Documents: Access via parent Project"
-ON public.documents FOR ALL USING (
-    is_superadmin() OR EXISTS (
+DROP POLICY IF EXISTS "Documents secure access" ON public.documents;
+
+CREATE POLICY "Documents secure access"
+ON public.documents FOR ALL
+USING (
+    is_superadmin()
+    OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.id = documents.project_id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR EXISTS (
+        SELECT 1 FROM public.projects p
+        WHERE p.id = documents.project_id
+        AND (
+            (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
+            OR
+            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
+            OR
+            (
+                jwt_app_role() = 'employee'
+                AND p.organization_id = jwt_org_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
+            )
+        )
     )
 );
-
 
 -- 3.6. Financial Records (Invoices, Payments)
+-- =================================================================
+-- REFACTORED RLS POLICIES: INVOICES
+-- =================================================================
+ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Invoices: Hierarchy access" ON public.invoices;
+
 CREATE POLICY "Invoices: Hierarchy access"
-ON public.invoices FOR ALL USING (
+ON public.invoices FOR ALL
+USING (
     is_superadmin()
-    OR user_id = jwt_user_id()
-    OR (jwt_app_role() = 'admin' AND project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id()))
+    -- 1. Standard users can see their own invoices
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
+    -- 2. Admins can see all invoices within the same organization
     OR (
-        jwt_app_role() = 'employee'
-        AND project_id IN (
-            SELECT p.id
-            FROM public.projects p
-            JOIN public.users u ON u.id = p.user_id
-            WHERE p.organization_id = jwt_org_id()
-            AND u.organization_id = jwt_org_id()
-            AND u.branch_id = jwt_branch_id()
+        jwt_app_role() = 'admin'
+        AND (
+            project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id())
+            OR
+            user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id())
         )
     )
-) WITH CHECK (
-    is_superadmin()
-    OR user_id = jwt_user_id()
-    OR (jwt_app_role() = 'admin' AND project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id()))
+    -- 3. Employees are restricted to their branch
     OR (
         jwt_app_role() = 'employee'
-        AND project_id IN (
-            SELECT p.id
-            FROM public.projects p
-            JOIN public.users u ON u.id = p.user_id
-            WHERE p.organization_id = jwt_org_id()
-            AND u.organization_id = jwt_org_id()
-            AND u.branch_id = jwt_branch_id()
+        AND (
+            project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id() AND branch_id = jwt_branch_id())
+            OR
+            user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id() AND branch_id = jwt_branch_id())
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
+    OR (
+        jwt_app_role() = 'admin'
+        AND (
+            project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id())
+            OR
+            user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id())
+        )
+    )
+    OR (
+        jwt_app_role() = 'employee'
+        AND (
+            project_id IN (SELECT id FROM public.projects WHERE organization_id = jwt_org_id() AND branch_id = jwt_branch_id())
+            OR
+            user_id IN (SELECT id FROM public.users WHERE organization_id = jwt_org_id() AND branch_id = jwt_branch_id())
         )
     )
 );
 
+
+-- =================================================================
+-- REFACTORED RLS POLICIES: PAYMENTS
+-- =================================================================
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "Payments: Access via parent Invoice" ON public.payments;
+
+-- This is secure because the database uses the corrected invoice row policy above
 CREATE POLICY "Payments: Access via parent Invoice"
-ON public.payments FOR ALL USING (
-    is_superadmin() OR EXISTS (
+ON public.payments FOR ALL
+USING (
+    is_superadmin()
+    OR EXISTS (
+        SELECT 1 FROM public.invoices i
+        WHERE i.id = payments.invoice_id
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR EXISTS (
         SELECT 1 FROM public.invoices i
         WHERE i.id = payments.invoice_id
     )
 );
-
-
 -- 3.7. Strictly Private User Data
 
 DROP POLICY IF EXISTS "Application Settings: Owner access only" ON public.application_settings;
@@ -306,7 +485,34 @@ ON public.application_settings FOR ALL USING (is_superadmin() OR user_id = jwt_u
 
 DROP POLICY IF EXISTS "Authentications: Owner access only" ON public.authentications;
 CREATE POLICY "Authentications: Owner access only"
-ON public.authentications FOR ALL USING (is_superadmin() OR user_id = jwt_user_id());
+ON public.authentications
+FOR ALL
+USING (
+    is_superadmin()
+    OR user_id = jwt_user_id()
+    OR (
+        jwt_app_role() = 'admin'
+        AND EXISTS (
+            SELECT 1
+            FROM public.users u
+            WHERE u.id = authentications.user_id
+              AND u.organization_id = jwt_org_id()
+        )
+    )
+)
+WITH CHECK (
+    is_superadmin()
+    OR user_id = jwt_user_id()
+    OR (
+        jwt_app_role() = 'admin'
+        AND EXISTS (
+            SELECT 1
+            FROM public.users u
+            WHERE u.id = authentications.user_id
+              AND u.organization_id = jwt_org_id()
+        )
+    )
+);
 
 DROP POLICY IF EXISTS "Sync Logs: Owner access only" ON public.sync_logs;
 CREATE POLICY "Sync Logs: Owner access only"
@@ -346,170 +552,121 @@ CREATE POLICY "Password Resets: Admin and owner delete"
 ON public.password_reset_requests FOR DELETE USING (is_superadmin() OR user_id = jwt_user_id());
 
 -- =================================================================
--- RLS POLICIES: INVENTORY CATEGORIES
+-- REFACTORED RLS POLICIES: INVENTORY CATEGORIES
 -- =================================================================
 ALTER TABLE public.inventory_categories ENABLE ROW LEVEL SECURITY;
 
+-- Clear any old versions safely
+DROP POLICY IF EXISTS "Allow global full access on inventory_categories" ON public.inventory_categories;
 DROP POLICY IF EXISTS "Allow admin full access on inventory_categories" ON public.inventory_categories;
-CREATE POLICY "Allow admin full access on inventory_categories"
-ON public.inventory_categories
-FOR ALL
-USING (
-    is_superadmin()
-    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
-)
-WITH CHECK (
-    is_superadmin()
-    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
-);
-
+DROP POLICY IF EXISTS "Allow employee full access on inventory_categories" ON public.inventory_categories;
 DROP POLICY IF EXISTS "Allow employee read access on inventory_categories" ON public.inventory_categories;
-CREATE POLICY "Allow employee full access on inventory_categories"
+DROP POLICY IF EXISTS "Allow user full access on own inventory_categories" ON public.inventory_categories;
+
+-- 1. Everyone can view categories
+CREATE POLICY "Allow global select on inventory_categories"
 ON public.inventory_categories
-FOR ALL
-USING (
-    is_superadmin()
-    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'employee')
-)
+FOR SELECT
+USING (true);
+
+-- 2. Authorized agents can modify
+CREATE POLICY "Allow authorized insert on inventory_categories"
+ON public.inventory_categories
+FOR INSERT
 WITH CHECK (
     is_superadmin()
-    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'employee')
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
 );
 
-DROP POLICY IF EXISTS "Allow user full access on own inventory_categories" ON public.inventory_categories;
-CREATE POLICY "Allow user full access on own inventory_categories"
+CREATE POLICY "Allow authorized update on inventory_categories"
 ON public.inventory_categories
-FOR ALL
+FOR UPDATE
 USING (
     is_superadmin()
-    OR (
-        jwt_app_role() = 'user'
-        AND user_id = jwt_user_id()
-        AND organization_id = jwt_org_id()
-    )
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
 )
 WITH CHECK (
     is_superadmin()
-    OR (
-        jwt_app_role() = 'user'
-        AND user_id = jwt_user_id()
-        AND organization_id = jwt_org_id()
-    )
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
 );
+
+CREATE POLICY "Allow authorized delete on inventory_categories"
+ON public.inventory_categories
+FOR DELETE
+USING (
+    is_superadmin()
+    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
+);
+
 
 -- =================================================================
--- RLS POLICIES: INVENTORY ITEMS
+-- REFACTORED RLS POLICIES: INVENTORY ITEMS
 -- =================================================================
 ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow admin full access on inventory_items" ON public.inventory_items;
-CREATE POLICY "Allow admin full access on inventory_items"
-ON public.inventory_items
-FOR ALL
-USING (
-    is_superadmin()
-    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
-)
-WITH CHECK (
-    is_superadmin()
-    OR (organization_id = jwt_org_id() AND jwt_app_role() = 'admin')
-);
-
 DROP POLICY IF EXISTS "Allow employee full access on branch inventory_items" ON public.inventory_items;
-CREATE POLICY "Allow employee full access on branch inventory_items"
-ON public.inventory_items
-FOR ALL
-USING (
-    is_superadmin()
-    OR (
-        organization_id = jwt_org_id()
-        AND branch_id = jwt_branch_id()
-        AND jwt_app_role() = 'employee'
-    )
-)
-WITH CHECK (
-    is_superadmin()
-    OR (
-        organization_id = jwt_org_id()
-        AND branch_id = jwt_branch_id()
-        AND jwt_app_role() = 'employee'
-    )
-);
-
 DROP POLICY IF EXISTS "Allow employee read access on organization inventory_items" ON public.inventory_items;
-CREATE POLICY "Allow employee read access on organization inventory_items"
-ON public.inventory_items
-FOR SELECT
-USING (
-    is_superadmin()
-    OR (
-        organization_id = jwt_org_id()
-        AND branch_id = jwt_branch_id()
-        AND jwt_app_role() = 'employee'
-    )
-);
-
 DROP POLICY IF EXISTS "Allow user full access on own inventory_items" ON public.inventory_items;
+
+-- 1. Standard Users: Full CRUD on their own items
 CREATE POLICY "Allow user full access on own inventory_items"
 ON public.inventory_items
 FOR ALL
 USING (
     is_superadmin()
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
+)
+WITH CHECK (
+    is_superadmin()
+    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
+);
+
+-- 2. Admins & Employees: Forced to their own branch only
+CREATE POLICY "Allow branch staff full access on inventory_items"
+ON public.inventory_items
+FOR ALL
+USING (
+    is_superadmin()
     OR (
-        jwt_app_role() = 'user'
-        AND user_id = jwt_user_id()
+        jwt_app_role() IN ('admin', 'employee')
         AND organization_id = jwt_org_id()
+        AND branch_id = jwt_branch_id()
     )
 )
 WITH CHECK (
     is_superadmin()
     OR (
-        jwt_app_role() = 'user'
-        AND user_id = jwt_user_id()
+        jwt_app_role() IN ('admin', 'employee')
         AND organization_id = jwt_org_id()
+        AND branch_id = jwt_branch_id()
     )
 );
 
+
 -- =================================================================
--- RLS POLICIES: STOCK ADJUSTMENTS
+-- REFACTORED RLS POLICIES: STOCK ADJUSTMENTS
 -- =================================================================
 ALTER TABLE public.stock_adjustments ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow admin full access on stock_adjustments" ON public.stock_adjustments;
-CREATE POLICY "Allow admin full access on stock_adjustments"
-ON public.stock_adjustments
-FOR ALL
-USING (
-    is_superadmin()
-    OR (
-        jwt_app_role() = 'admin'
-        AND EXISTS (
-            SELECT 1 FROM public.inventory_items i
-            WHERE i.id = stock_adjustments.item_id
-            AND i.organization_id = jwt_org_id()
-        )
-    )
-)
-WITH CHECK (
-    is_superadmin()
-    OR (
-        jwt_app_role() = 'admin'
-        AND EXISTS (
-            SELECT 1 FROM public.inventory_items i
-            WHERE i.id = stock_adjustments.item_id
-            AND i.organization_id = jwt_org_id()
-        )
-    )
-);
-
 DROP POLICY IF EXISTS "Allow employee full access on branch stock_adjustments" ON public.stock_adjustments;
-CREATE POLICY "Allow employee full access on branch stock_adjustments"
+DROP POLICY IF EXISTS "Allow user to create their own stock_adjustments" ON public.stock_adjustments;
+DROP POLICY IF EXISTS "Allow user to view their own stock_adjustments" ON public.stock_adjustments;
+DROP POLICY IF EXISTS "Allow user full access on own stock_adjustments" ON public.stock_adjustments;
+
+-- Staff Adjustments: Tied strictly to item relationship branch visibility
+CREATE POLICY "Allow branch staff full access on stock_adjustments"
 ON public.stock_adjustments
 FOR ALL
 USING (
     is_superadmin()
     OR (
-        jwt_app_role() = 'employee'
+        jwt_app_role() IN ('admin', 'employee')
         AND EXISTS (
             SELECT 1 FROM public.inventory_items i
             WHERE i.id = stock_adjustments.item_id
@@ -521,7 +678,7 @@ USING (
 WITH CHECK (
     is_superadmin()
     OR (
-        jwt_app_role() = 'employee'
+        jwt_app_role() IN ('admin', 'employee')
         AND EXISTS (
             SELECT 1 FROM public.inventory_items i
             WHERE i.id = stock_adjustments.item_id
@@ -531,41 +688,7 @@ WITH CHECK (
     )
 );
 
-DROP POLICY IF EXISTS "Allow user to create their own stock_adjustments" ON public.stock_adjustments;
-CREATE POLICY "Allow user to create their own stock_adjustments"
-ON public.stock_adjustments
-FOR INSERT
-WITH CHECK (
-    is_superadmin()
-    OR (
-        jwt_app_role() = 'user'
-        AND user_id = jwt_user_id()
-        AND EXISTS (
-            SELECT 1 FROM public.inventory_items i
-            WHERE i.id = stock_adjustments.item_id
-            AND i.organization_id = jwt_org_id()
-        )
-    )
-);
-
-DROP POLICY IF EXISTS "Allow user to view their own stock_adjustments" ON public.stock_adjustments;
-CREATE POLICY "Allow user to view their own stock_adjustments"
-ON public.stock_adjustments
-FOR SELECT
-USING (
-    is_superadmin()
-    OR (
-        jwt_app_role() = 'user'
-        AND user_id = jwt_user_id()
-        AND EXISTS (
-            SELECT 1 FROM public.inventory_items i
-            WHERE i.id = stock_adjustments.item_id
-            AND i.organization_id = jwt_org_id()
-        )
-    )
-);
-
-DROP POLICY IF EXISTS "Allow user full access on own stock_adjustments" ON public.stock_adjustments;
+-- Standard Users: Full access to their adjustments linked to their items
 CREATE POLICY "Allow user full access on own stock_adjustments"
 ON public.stock_adjustments
 FOR ALL
@@ -573,11 +696,10 @@ USING (
     is_superadmin()
     OR (
         jwt_app_role() = 'user'
-        AND user_id = jwt_user_id()
         AND EXISTS (
             SELECT 1 FROM public.inventory_items i
             WHERE i.id = stock_adjustments.item_id
-            AND i.organization_id = jwt_org_id()
+            AND i.user_id = jwt_user_id()
         )
     )
 )
@@ -585,15 +707,13 @@ WITH CHECK (
     is_superadmin()
     OR (
         jwt_app_role() = 'user'
-        AND user_id = jwt_user_id()
         AND EXISTS (
             SELECT 1 FROM public.inventory_items i
             WHERE i.id = stock_adjustments.item_id
-            AND i.organization_id = jwt_org_id()
+            AND i.user_id = jwt_user_id()
         )
     )
 );
-
 -- =================================================================
 -- RLS POLICIES: PROJECT COMPONENTS
 -- =================================================================

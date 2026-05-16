@@ -33,6 +33,11 @@ export interface Project {
 
     // For optimistic UI
     is_pending?: boolean;
+
+    // Access & invoicing (server-computed)
+    invoice_issued_at?: string | null;
+    access?: { mode: "full" | "view" | "hidden" };
+    owner_username?: string | null;
 }
 
 export type ProjectUpdatePayload = Partial<{

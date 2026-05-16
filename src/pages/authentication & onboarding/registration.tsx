@@ -123,6 +123,7 @@ export default function RegistrationScreen() {
   // Local state for fetched pricing data
   const [fetchedPricingData, setFetchedPricingData] = useState<PricingInfo[]>([]);
   const [pricingIsLoading, setPricingIsLoading] = useState(true);
+  const [bankDetails, setBankDetails] = useState<any>(null);
 
   // Fetch pricing data on mount
   useEffect(() => {
@@ -141,6 +142,17 @@ export default function RegistrationScreen() {
                     setPricingIsLoading(false);
                 }
             };    fetchPricing();
+    
+    const fetchBankDetails = async () => {
+        try {
+            const response = await api.get('/users/bank-accounts');
+            setBankDetails(response.data);
+        } catch (error) {
+            console.error("Failed to load bank details:", error);
+        }
+    };
+    fetchBankDetails();
+
     return () => {
         reset(); // Clean up form data on unmount
     }
@@ -267,6 +279,13 @@ export default function RegistrationScreen() {
       try {
           const { backendAccountType, backendPlanType, price } = getPlanDetails();
 
+          // Construct reference number with account number if available
+          const selectedMethod = formData.stage6.paymentMethod?.toLowerCase();
+          const accountNo = bankDetails?.[selectedMethod]?.account_number;
+          const finalReferenceNumber = accountNo 
+              ? `${formData.stage7.referenceNumber} | ${accountNo}` 
+              : formData.stage7.referenceNumber;
+
           // Construct a clean payload matching the backend DTO
           const payload = {
               stage1: formData.stage1,
@@ -285,7 +304,7 @@ export default function RegistrationScreen() {
               stage6: formData.stage6,
               stage3: formData.stage3,
               stage7: {
-                  referenceNumber: formData.stage7.referenceNumber,
+                  referenceNumber: finalReferenceNumber,
                   receipt: formData.stage7.receipt,
               },
               distributor_id: formData.stage6.distributorId // Add distributor ID to payload
@@ -411,6 +430,7 @@ export default function RegistrationScreen() {
                  fetchedPricingData={fetchedPricingData}
                  pricingIsLoading={pricingIsLoading}
                  calculatedPrice={calculatedPrice}
+                 bankDetails={bankDetails}
                />
             </div>
           </main>
@@ -1032,12 +1052,10 @@ const Stage5 = ({ setValid, calculatedPrice }: { setValid: (v: boolean) => void,
 };
 
 // ... STAGE 6, 7 are similar, just wiring to Zustand and using file-to-base64
-const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData }: { setValid: (v: boolean) => void, calculatedPrice: number, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean }) => {
+const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData, bankDetails }: { setValid: (v: boolean) => void, calculatedPrice: number, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, bankDetails: any }) => {
     const { t } = useTranslation();
     const { formData, updateFormData } = useRegistrationStore();
     const data = formData.stage6;
-
-    const [bankDetails, setBankDetails] = useState<any>(null);
 
     // Initial price before any referral discount
     const initialPrice = useMemo(() => {
@@ -1089,22 +1107,6 @@ const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData }: { setValid: (
        const isValid = !!data.paymentMethod && !!data.confirmedTransfer && data.referralStatus !== 'checking';
        setValid(isValid);
     }, [data, setValid]);
-
-    useEffect(() => {
-    const fetchBankDetails = async () => {
-        try {
-            // 1. Fetch the data from your Python backend
-            const response = await api.get('/users/bank-accounts');
-            const data = response.data;
-            setBankDetails(data);
-
-        } catch (error) {
-            console.error("Failed to load bank details:", error);
-        }
-    };
-
-    fetchBankDetails();
-}, []);
 
     const handleAccordionChange = (value: string) => updateFormData('stage6', { paymentMethod: value, confirmedTransfer: false });
     const handleConfirmTransfer = (checked: boolean) => updateFormData('stage6', { confirmedTransfer: checked });
@@ -1456,14 +1458,14 @@ const UnknownStage = () => {
 };
 
 // --- Controller ---
-const StageController = ({ stage, setStepValid, fetchedPricingData, pricingIsLoading, calculatedPrice }: { stage: number, setStepValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number }) => {
+const StageController = ({ stage, setStepValid, fetchedPricingData, pricingIsLoading, calculatedPrice, bankDetails }: { stage: number, setStepValid: (v: boolean) => void, fetchedPricingData: PricingInfo[], pricingIsLoading: boolean, calculatedPrice: number, bankDetails: any }) => {
     switch (stage) {
         case 1: return <Stage1 setValid={setStepValid} />;
         case 2: return <Stage2 setValid={setStepValid} />;
         case 3: return <Stage3 setValid={setStepValid} fetchedPricingData={fetchedPricingData} pricingIsLoading={pricingIsLoading} calculatedPrice={calculatedPrice} />;
         case 4: return <Stage4 setValid={setStepValid} />;
         case 5: return <Stage5 setValid={setStepValid} calculatedPrice={calculatedPrice} />;
-        case 6: return <Stage6 setValid={setStepValid} calculatedPrice={calculatedPrice} fetchedPricingData={fetchedPricingData} pricingIsLoading={pricingIsLoading} />;
+        case 6: return <Stage6 setValid={setStepValid} calculatedPrice={calculatedPrice} fetchedPricingData={fetchedPricingData} pricingIsLoading={pricingIsLoading} bankDetails={bankDetails} />;
         case 7: return <Stage7 setValid={setStepValid} />;
         case 8: return <Stage8 />;
         default: return <UnknownStage />;

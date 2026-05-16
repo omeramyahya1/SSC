@@ -9,6 +9,7 @@ from models import Payment, Invoice, Project
 from schemas import PaymentCreate
 from pydantic import ValidationError
 from serializer import model_to_dict
+from authz import get_current_user, invoice_access_flags, can_view_invoice
 import logging
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,10 @@ def get_payments(db):
     branch_uuid = request.args.get('branch_uuid')
     invoice_uuid = request.args.get('invoice_uuid')
 
+    ctx, error_response = get_current_user(db)
+    if error_response:
+        return error_response
+
     query = db.query(Payment)
 
     # Filter by org/branch via Join
@@ -71,17 +76,33 @@ def get_payments(db):
         query = query.filter(Payment.invoice_uuid == invoice_uuid)
 
     from sqlalchemy.orm import joinedload
-    payments = query.options(
-        joinedload(Payment.invoice).joinedload(Invoice.project).joinedload(Project.customer)
-    ).filter(Payment.deleted_at.is_(None)).order_by(Payment.created_at.desc()).all()
+    payments = (
+        query.options(
+            joinedload(Payment.invoice).joinedload(Invoice.project).joinedload(Project.customer),
+            joinedload(Payment.invoice).joinedload(Invoice.user),
+        )
+        .filter(Payment.deleted_at.is_(None))
+        .order_by(Payment.created_at.desc())
+        .all()
+    )
 
     results = []
     for p in payments:
+        if not p.invoice:
+            continue
+
+        # Visibility: payment inherits invoice visibility.
+        if not can_view_invoice(ctx, p.invoice):
+            continue
+        if not p.invoice.issued_at and p.invoice.user_uuid != ctx.user_uuid:
+            continue
+
         d = model_to_dict(p)
         # Add basic invoice/project info for UI context
         if p.invoice:
             inv = p.invoice
             d['invoice_id'] = inv.invoice_id
+            d["invoice_access"] = invoice_access_flags(ctx, inv)
             if inv.project:
                 proj = inv.project
                 d['project_name'] = proj.customer.full_name if proj.customer else "N/A"
@@ -96,9 +117,25 @@ def delete_payment(db, payment_uuid):
     """
     Delete a payment and re-evaluate invoice status.
     """
-    payment = db.query(Payment).filter(Payment.uuid == payment_uuid).first()
+    ctx, error_response = get_current_user(db)
+    if error_response:
+        return error_response
+
+    from sqlalchemy.orm import joinedload
+    payment = (
+        db.query(Payment)
+        .options(joinedload(Payment.invoice).joinedload(Invoice.project), joinedload(Payment.invoice).joinedload(Invoice.user))
+        .filter(Payment.uuid == payment_uuid, Payment.deleted_at.is_(None))
+        .first()
+    )
     if not payment:
         return jsonify({"error": "Payment not found"}), 404
+    if not payment.invoice:
+        return jsonify({"error": "Payment has no invoice"}), 400
+
+    flags = invoice_access_flags(ctx, payment.invoice)
+    if not flags.get("can_delete_payment"):
+        return jsonify({"error": "Forbidden"}), 403
 
     invoice_uuid = payment.invoice_uuid
     try:
@@ -127,8 +164,32 @@ def create_finance_payment():
 
     with get_db() as db:
         try:
+            ctx, error_response = get_current_user(db)
+            if error_response:
+                return error_response
+
             # 1. Create the payment
-            new_payment = Payment(**validated_data.dict(exclude_unset=True))
+            payment_data = validated_data.dict(exclude_unset=True)
+            invoice_uuid = payment_data.get("invoice_uuid")
+            if not invoice_uuid:
+                return jsonify({"error": "invoice_uuid is required"}), 400
+
+            from sqlalchemy.orm import joinedload
+            invoice = (
+                db.query(Invoice)
+                .options(joinedload(Invoice.project), joinedload(Invoice.user))
+                .filter(Invoice.uuid == invoice_uuid, Invoice.deleted_at.is_(None))
+                .first()
+            )
+            if not invoice or not can_view_invoice(ctx, invoice):
+                return jsonify({"error": "Invoice not found"}), 404
+
+            flags = invoice_access_flags(ctx, invoice)
+            if not flags.get("can_add_payment"):
+                return jsonify({"error": "Forbidden"}), 403
+
+            payment_data["created_by_user_uuid"] = ctx.user_uuid
+            new_payment = Payment(**payment_data)
             db.add(new_payment)
             db.flush()
 
@@ -140,6 +201,6 @@ def create_finance_payment():
             return jsonify(model_to_dict(new_payment)), 201
 
         except Exception as e:
-            logger.exception(f"Failed to process payment for invoice {getattr(new_payment, 'invoice_uuid', 'unknown')}")
+            logger.exception(f"Failed to process payment for invoice {invoice_uuid or 'unknown'}")
             db.rollback()
             return jsonify({"error": "An error occurred while processing the payment."}), 500

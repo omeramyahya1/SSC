@@ -8,6 +8,7 @@ import { useBranchStore } from '@/store/useBranchStore';
 import { useLocationData } from '@/hooks/useLocationData';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import toast from "react-hot-toast";
+import { useSyncLogStore } from '@/store/useSyncLogStore';
 
 interface AddBranchModalProps {
     onOpenChange: (isOpen: boolean) => void;
@@ -17,6 +18,7 @@ interface AddBranchModalProps {
 export function AddBranchModal({ onOpenChange, organizationUuid }: AddBranchModalProps) {
     const { t, i18n } = useTranslation();
     const { createBranch } = useBranchStore();
+    const sync = useSyncLogStore((s) => s.performSync);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -43,6 +45,7 @@ export function AddBranchModal({ onOpenChange, organizationUuid }: AddBranchModa
             });
             if (result) {
                 toast.success(t('team.branch_add_success', 'Branch added successfully'));
+                void sync()
                 onOpenChange(false);
             }
         } catch (e: any) {

@@ -1,13 +1,60 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from sqlalchemy.orm import joinedload
+from sqlalchemy import or_
 from datetime import datetime
 from utils import get_db, get_by_id_or_uuid
 from models import Project, Customer, User, Authentication, SystemConfiguration, Appliance, Invoice, Payment, Document
 from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate, ProjectStatusUpdate
 from serializer import model_to_dict
+from authz import get_current_user
 
 project_bp = Blueprint('project_bp', __name__, url_prefix='/projects')
+
+
+def _get_project_invoice(db, project_uuid: str) -> Invoice | None:
+    # Invoice.project_uuid is unique, so at most one.
+    return (
+        db.query(Invoice)
+        .filter(Invoice.project_uuid == project_uuid, Invoice.deleted_at.is_(None))
+        .first()
+    )
+
+
+def _can_view_project(ctx, project: Project, invoice: Invoice | None) -> tuple[bool, str]:
+    """
+    Returns (can_view, mode) where mode is "full" or "view".
+    """
+    if not ctx.org_uuid:
+        return (project.user_uuid == ctx.user_uuid, "full")
+
+    if project.organization_uuid != ctx.org_uuid:
+        return (False, "hidden")
+
+    inv_issued = bool(invoice and invoice.issued_at)
+
+    if ctx.is_admin:
+        if project.branch_uuid == ctx.branch_uuid:
+            return (True, "full")
+        return (inv_issued, "view" if inv_issued else "hidden")
+
+    # Employee / normal org users are branch-scoped.
+    if project.branch_uuid != ctx.branch_uuid:
+        return (False, "hidden")
+    if project.user_uuid == ctx.user_uuid:
+        return (True, "full")
+    return (inv_issued, "view" if inv_issued else "hidden")
+
+
+def _can_mutate_project(ctx, project: Project) -> bool:
+    if not ctx.org_uuid:
+        return project.user_uuid == ctx.user_uuid
+
+    if project.organization_uuid != ctx.org_uuid:
+        return False
+    if ctx.is_admin:
+        return project.branch_uuid == ctx.branch_uuid
+    return project.user_uuid == ctx.user_uuid
 
 @project_bp.route('/create_with_customer', methods=['POST'])
 def create_project_with_customer():
@@ -162,24 +209,35 @@ def update_project(item_id):
 @project_bp.route('/', methods=['GET'])
 def get_all_project():
     with get_db() as db:
-        auth_record = (
-            db.query(Authentication)
-            .filter(Authentication.is_logged_in.is_(True))
-            .order_by(Authentication.last_active.desc())
-            .first()
-        )
-        if not auth_record:
-            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+        ctx, error_response = get_current_user(db)
+        if error_response:
+            return error_response
 
-        items = (
+        # Build query to include branch peer projects only when invoice is issued.
+        q = (
             db.query(Project)
-            .options(joinedload(Project.customer))
-            .filter(
-                Project.user_uuid == auth_record.user_uuid
-            )
-            .order_by(Project.created_at.desc())
-            .all()
+            .options(joinedload(Project.customer), joinedload(Project.user), joinedload(Project.invoices))
+            .outerjoin(Invoice, Invoice.project_uuid == Project.uuid)
+            .filter(Project.deleted_at.is_(None))
         )
+
+        if ctx.org_uuid:
+            q = q.filter(Project.organization_uuid == ctx.org_uuid)
+
+            if ctx.is_admin:
+                # Same-branch: full; other branches: only issued-invoice projects.
+                q = q.filter(
+                    or_(Project.branch_uuid == ctx.branch_uuid, Invoice.issued_at.isnot(None))
+                )
+            else:
+                # Employee: branch-only, include others only if invoice is issued.
+                q = q.filter(Project.branch_uuid == ctx.branch_uuid).filter(
+                    or_(Project.user_uuid == ctx.user_uuid, Invoice.issued_at.isnot(None))
+                )
+        else:
+            q = q.filter(Project.user_uuid == ctx.user_uuid)
+
+        items = q.order_by(Project.created_at.desc()).all()
         results = []
         for p in items:
             project_dict = model_to_dict(p)
@@ -187,31 +245,84 @@ def get_all_project():
                 project_dict['customer'] = model_to_dict(p.customer)
             else:
                 project_dict['customer'] = None
+
+            # Attach invoice-issued info and access mode for UI guards.
+            inv = next((x for x in (p.invoices or []) if x.deleted_at is None), None)
+            issued_at = inv.issued_at.isoformat() if inv and inv.issued_at else None
+            project_dict["invoice_issued_at"] = issued_at
+
+            # Determine mode: view-only when not owned and invoice is issued.
+            mode = "full"
+            if ctx.org_uuid:
+                if ctx.is_admin:
+                    if p.branch_uuid != ctx.branch_uuid:
+                        mode = "view"
+                else:
+                    if p.user_uuid != ctx.user_uuid:
+                        mode = "view"
+            project_dict["access"] = {"mode": mode}
+            project_dict["owner_username"] = p.user.username if getattr(p, "user", None) else None
             results.append(project_dict)
         return jsonify(results)
 
 @project_bp.route('/uuid/<string:uuid>', methods=['GET'])
 def get_project_by_uuid(uuid):
     with get_db() as db:
-        item = db.query(Project).filter(Project.uuid == uuid).first()
+        ctx, error_response = get_current_user(db)
+        if error_response:
+            return error_response
+
+        item = db.query(Project).options(joinedload(Project.customer), joinedload(Project.user)).filter(Project.uuid == uuid, Project.deleted_at.is_(None)).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-        return jsonify(model_to_dict(item))
+
+        invoice = _get_project_invoice(db, item.uuid)
+        can_view, mode = _can_view_project(ctx, item, invoice)
+        if not can_view:
+            return jsonify({"error": "Not found"}), 404
+
+        d = model_to_dict(item)
+        d["customer"] = model_to_dict(item.customer) if item.customer else None
+        d["invoice_issued_at"] = invoice.issued_at.isoformat() if invoice and invoice.issued_at else None
+        d["access"] = {"mode": mode}
+        d["owner_username"] = item.user.username if item.user else None
+        return jsonify(d)
 
 @project_bp.route('/<string:item_id>', methods=['GET'])
 def get_project(item_id):
     with get_db() as db:
+        ctx, error_response = get_current_user(db)
+        if error_response:
+            return error_response
+
         item = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, item_id)
         if not item:
             return jsonify({"error": "Not found"}), 404
-        return jsonify(model_to_dict(item))
+
+        invoice = _get_project_invoice(db, item.uuid)
+        can_view, mode = _can_view_project(ctx, item, invoice)
+        if not can_view:
+            return jsonify({"error": "Not found"}), 404
+
+        d = model_to_dict(item)
+        d["customer"] = model_to_dict(item.customer) if item.customer else None
+        d["invoice_issued_at"] = invoice.issued_at.isoformat() if invoice and invoice.issued_at else None
+        d["access"] = {"mode": mode}
+        d["owner_username"] = item.user.username if item.user else None
+        return jsonify(d)
 
 @project_bp.route('/<string:project_id_or_uuid>', methods=['DELETE'])
 def delete_project(project_id_or_uuid):
     with get_db() as db:
+        ctx, error_response = get_current_user(db)
+        if error_response:
+            return error_response
+
         project = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, project_id_or_uuid)
         if not project:
             return jsonify({"error": "Project not found"}), 404
+        if not _can_mutate_project(ctx, project):
+            return jsonify({"error": "Forbidden"}), 403
 
         project.deleted_at = datetime.utcnow()
         project.is_dirty = True
@@ -225,9 +336,15 @@ def delete_project(project_id_or_uuid):
 @project_bp.route('/<string:project_id_or_uuid>/recover', methods=['PATCH'])
 def recover_project(project_id_or_uuid):
     with get_db() as db:
+        ctx, error_response = get_current_user(db)
+        if error_response:
+            return error_response
+
         project = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, project_id_or_uuid)
-        if not project.deleted_at:
-            return jsonify({"message": "Project is not deleted"}), 400
+        if not project:
+            return jsonify({"message": "Project is not found"}), 404
+        if not _can_mutate_project(ctx, project):
+            return jsonify({"error": "Forbidden"}), 403
 
         project.deleted_at = None
         project.is_dirty = True
@@ -242,9 +359,9 @@ def recover_project(project_id_or_uuid):
 def delete_project_permanently(project_id_or_uuid):
     with get_db() as db:
         try:
-            auth_record = db.query(Authentication).filter(Authentication.is_logged_in == True).order_by(Authentication.last_active.desc()).first()
-            if not auth_record:
-                return jsonify({"error": "No authenticated user found. Please log in."}), 401
+            ctx, error_response = get_current_user(db)
+            if error_response:
+                return error_response
 
             # 1. Find the project and eager load its children
             try:
@@ -258,10 +375,12 @@ def delete_project_permanently(project_id_or_uuid):
                 joinedload(Project.appliances),
                 joinedload(Project.documents),
                 joinedload(Project.system_config)
-            ).filter(project_filter, Project.user_uuid == auth_record.user_uuid).first()
+            ).filter(project_filter).first()
 
             if not project:
                 return jsonify({"error": "Project not found"}), 404
+            if not _can_mutate_project(ctx, project):
+                return jsonify({"error": "Forbidden"}), 403
 
             # 2. Delete related objects manually as cascades are not defined in the model
             for invoice in project.invoices:
@@ -294,10 +413,16 @@ def delete_project_permanently(project_id_or_uuid):
 @project_bp.route('/<string:project_id_or_uuid>', methods=['PATCH'])
 def patch_project_details(project_id_or_uuid):
     with get_db() as db:
+        ctx, error_response = get_current_user(db)
+        if error_response:
+            return error_response
+
         # 1. Fetch the project with its customer
         project = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, project_id_or_uuid)
         if not project:
             return jsonify({"error": "Project not found"}), 404
+        if not _can_mutate_project(ctx, project):
+            return jsonify({"error": "Forbidden"}), 403
         # Validate incoming data with Pydantic schema
         try:
             validated_data = ProjectDetailsUpdate(**request.json)
@@ -350,6 +475,10 @@ def patch_project_details(project_id_or_uuid):
 @project_bp.route('/<string:project_id_or_uuid>/status', methods=['PATCH'])
 def patch_project_status(project_id_or_uuid):
     with get_db() as db:
+        ctx, error_response = get_current_user(db)
+        if error_response:
+            return error_response
+
         # 1. Validate incoming data
         try:
             validated_data = ProjectStatusUpdate(**request.json)
@@ -360,6 +489,8 @@ def patch_project_status(project_id_or_uuid):
         project = get_by_id_or_uuid(db, Project, Project.project_id, Project.uuid, project_id_or_uuid)
         if not project:
             return jsonify({"error": "Project not found"}), 404
+        if not _can_mutate_project(ctx, project):
+            return jsonify({"error": "Forbidden"}), 403
 
         # 3. Update status
         if project.status != validated_data.status:

@@ -94,10 +94,10 @@ export function HoldToConfirmButton({
       className={cn(
         "w-full relative overflow-hidden transition-all duration-200 border-transparent",
         className,
-        variant == 'destructive' && ('bg-red-100 border-[1px] border-red-300 text-red-600'),
+        variant == 'destructive' && ('bg-red-100 border-[0.5px] border-red-200 text-red-600'),
         isHolding &&
           (variant === 'destructive'
-            ? 'border border-semantic-error bg-red-100 text-white font-bold'
+            ? 'border-[0.5px] border-red-200 bg-red-100 text-red-700 font-bold'
             : 'scale-[0.95] bg-primary-light')
       )}
       onPointerDown={(e) => {

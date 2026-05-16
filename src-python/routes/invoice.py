@@ -5,29 +5,19 @@ from sqlalchemy.orm import joinedload
 from datetime import datetime
 from typing import Optional
 from utils import get_db
-from models import Invoice, Project, Payment, Authentication, User, Customer
+from models import Invoice, Project, Payment, User, Customer
 from finances.finances import reverse_stock_deduction
 from schemas import InvoiceCreate, InvoiceUpdate
 from serializer import model_to_dict
+from authz import (
+    apply_invoice_visibility_filter,
+    can_mutate_invoice,
+    get_current_user,
+    invoice_access_flags,
+)
 import logging
 
 invoice_bp = Blueprint('invoice_bp', __name__, url_prefix='/invoices')
-
-def _get_current_user(db):
-    auth_record = (
-        db.query(Authentication)
-        .filter(Authentication.is_logged_in.is_(True))
-        .order_by(Authentication.last_active.desc())
-        .first()
-    )
-    if not auth_record:
-        return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
-
-    current_user = db.query(User).filter(User.uuid == auth_record.user_uuid, User.deleted_at.is_(None)).first()
-    if not current_user:
-        return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
-
-    return current_user, None
 
 def _get_invoice_scope(user: User):
     if user.organization_uuid:
@@ -65,6 +55,10 @@ def create_invoice():
 
     with get_db() as db:
         try:
+            ctx, error_response = get_current_user(db)
+            if error_response:
+                return error_response
+
             existing = None
             if validated_data.project_uuid:
                 existing = db.query(Invoice).filter(Invoice.project_uuid == validated_data.project_uuid).first()
@@ -75,18 +69,29 @@ def create_invoice():
                 update_data = validated_data.dict(exclude_unset=True)
                 # Never alter the project linkage for an existing invoice here.
                 update_data.pop("project_uuid", None)
+                # Never allow creating/updating invoices on behalf of another user.
+                update_data["user_uuid"] = ctx.user_uuid
                 for key, value in update_data.items():
                     setattr(existing, key, value)
                 existing.is_dirty = True
                 db.commit()
                 db.refresh(existing)
-                return jsonify(model_to_dict(existing)), 200
-            new_item = Invoice(**validated_data.dict(exclude_unset=True))
+                d = model_to_dict(existing)
+                d["issued_by_username"] = existing.user.username if existing.user else None
+                d["access"] = invoice_access_flags(ctx, existing)
+                return jsonify(d), 200
+
+            create_data = validated_data.dict(exclude_unset=True)
+            create_data["user_uuid"] = ctx.user_uuid
+            new_item = Invoice(**create_data)
             new_item.is_dirty = True
             db.add(new_item)
             db.commit()
             db.refresh(new_item)
-            return jsonify(model_to_dict(new_item)), 201
+            d = model_to_dict(new_item)
+            d["issued_by_username"] = new_item.user.username if new_item.user else None
+            d["access"] = invoice_access_flags(ctx, new_item)
+            return jsonify(d), 201
         except Exception as e:
             db.rollback()
             logging.exception("Error creating invoice")
@@ -95,9 +100,21 @@ def create_invoice():
 @invoice_bp.route('/<string:uuid>', methods=['PUT'])
 def update_invoice(uuid):
     with get_db() as db:
-        item = db.query(Invoice).filter(Invoice.uuid == uuid).first()
+        ctx, error_response = get_current_user(db)
+        if error_response:
+            return error_response
+
+        item = (
+            db.query(Invoice)
+            .outerjoin(Project, Invoice.project_uuid == Project.uuid)
+            .outerjoin(User, Invoice.user_uuid == User.uuid)
+            .filter(Invoice.uuid == uuid, Invoice.deleted_at.is_(None))
+            .first()
+        )
         if not item:
             return jsonify({"error": "Not found"}), 404
+        if not can_mutate_invoice(ctx, item):
+            return jsonify({"error": "Forbidden"}), 403
 
         try:
             validated_data = InvoiceUpdate(**request.json)
@@ -105,21 +122,26 @@ def update_invoice(uuid):
             return jsonify({"errors": e.errors()}), 400
 
         update_data = validated_data.dict(exclude_unset=True)
+        update_data.pop("user_uuid", None)
+        update_data.pop("project_uuid", None)
         for key, value in update_data.items():
             setattr(item, key, value)
 
         item.is_dirty = True
         db.commit()
         db.refresh(item)
-        return jsonify(model_to_dict(item))
+        d = model_to_dict(item)
+        d["issued_by_username"] = item.user.username if item.user else None
+        d["access"] = invoice_access_flags(ctx, item)
+        return jsonify(d)
 
 @invoice_bp.route('/', methods=['GET'])
 def get_all_invoices():
     with get_db() as db:
-        current_user, error_response = _get_current_user(db)
+        ctx, error_response = get_current_user(db)
         if error_response:
             return error_response
-        scope = _get_invoice_scope(current_user)
+        scope = _get_invoice_scope(ctx.user)
 
         project_uuid = request.args.get('project_uuid')
         branch_uuid = request.args.get('branch_uuid')
@@ -134,7 +156,7 @@ def get_all_invoices():
             .filter(Project.deleted_at.is_(None) | Invoice.project_uuid.is_(None))
         )
 
-        query = _apply_invoice_scope(query, scope)
+        query = apply_invoice_visibility_filter(_apply_invoice_scope(query, scope), ctx)
 
         # Optional additional narrowing (never broadens beyond scope)
         if branch_uuid and scope["level"] == "org":
@@ -163,6 +185,8 @@ def get_all_invoices():
         results = []
         for i in items:
             d = model_to_dict(i)
+            d["issued_by_username"] = i.user.username if i.user else None
+            d["access"] = invoice_access_flags(ctx, i)
             if i.project and i.project.customer:
                 d["customer_name"] = i.project.customer.full_name
             else:
@@ -192,10 +216,10 @@ def get_all_invoices():
 @invoice_bp.route('/<string:uuid>', methods=['GET'])
 def get_invoice(uuid):
     with get_db() as db:
-        current_user, error_response = _get_current_user(db)
+        ctx, error_response = get_current_user(db)
         if error_response:
             return error_response
-        scope = _get_invoice_scope(current_user)
+        scope = _get_invoice_scope(ctx.user)
 
         query = (
             db.query(Invoice)
@@ -203,18 +227,21 @@ def get_invoice(uuid):
             .outerjoin(User, Invoice.user_uuid == User.uuid)
             .filter(Invoice.uuid == uuid, Invoice.deleted_at.is_(None))
         )
-        item = _apply_invoice_scope(query, scope).first()
+        item = apply_invoice_visibility_filter(_apply_invoice_scope(query, scope), ctx).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-        return jsonify(model_to_dict(item))
+        d = model_to_dict(item)
+        d["issued_by_username"] = item.user.username if item.user else None
+        d["access"] = invoice_access_flags(ctx, item)
+        return jsonify(d)
 
 @invoice_bp.route('/project/<string:project_uuid>', methods=['GET'])
 def get_invoice_by_project(project_uuid):
     with get_db() as db:
-        current_user, error_response = _get_current_user(db)
+        ctx, error_response = get_current_user(db)
         if error_response:
             return error_response
-        scope = _get_invoice_scope(current_user)
+        scope = _get_invoice_scope(ctx.user)
 
         query = (
             db.query(Invoice)
@@ -222,20 +249,37 @@ def get_invoice_by_project(project_uuid):
             .outerjoin(User, Invoice.user_uuid == User.uuid)
             .filter(Invoice.project_uuid == project_uuid, Invoice.deleted_at.is_(None))
         )
-        item = _apply_invoice_scope(query, scope).first()
+        item = apply_invoice_visibility_filter(_apply_invoice_scope(query, scope), ctx).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
-        return jsonify(model_to_dict(item))
+        d = model_to_dict(item)
+        d["issued_by_username"] = item.user.username if item.user else None
+        d["access"] = invoice_access_flags(ctx, item)
+        return jsonify(d)
 
 @invoice_bp.route('/<string:uuid>', methods=['DELETE'])
 def delete_invoice(uuid):
-    user_uuid = request.args.get('user_uuid')
     cascade_payments = _parse_bool_arg(request.args.get('cascade_payments'), default=False)
     with get_db() as db:
         try:
-            item = db.query(Invoice).filter(Invoice.uuid == uuid, Invoice.deleted_at.is_(None)).first()
+            ctx, error_response = get_current_user(db)
+            if error_response:
+                return error_response
+
+            # Always use the authenticated user for stock reversal.
+            user_uuid = ctx.user_uuid
+
+            item = (
+                db.query(Invoice)
+                .outerjoin(Project, Invoice.project_uuid == Project.uuid)
+                .outerjoin(User, Invoice.user_uuid == User.uuid)
+                .filter(Invoice.uuid == uuid, Invoice.deleted_at.is_(None))
+                .first()
+            )
             if not item:
                 return jsonify({"error": "Not found"}), 404
+            if not can_mutate_invoice(ctx, item):
+                return jsonify({"error": "Forbidden"}), 403
 
             project = db.query(Project).filter(Project.uuid == item.project_uuid, Project.deleted_at.is_(None)).first()
             if project and project.status == 'done':

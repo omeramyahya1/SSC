@@ -5,7 +5,7 @@ from models import Authentication, User, Subscription, SyncLog
 from schemas import AuthenticationCreate, AuthenticationUpdate
 from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication
 from serializer import model_to_dict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import uuid
 from routes.sync_log import sync, trigger_immediate_sync, generic_mapper
 from sqlalchemy import func
@@ -30,12 +30,14 @@ def login_user():
     with get_db() as db:
         # --- 1. Initial Local Check ---
         user = (
-            db.query(User)
-            .filter(func.lower(User.email) == login_data.email.strip().lower())\
-            .filter(User.deleted_at.is_(None))\
-            .first()
-        )
-
+        db.query(User)
+        .join(Authentication, User.uuid == Authentication.user_uuid)
+        .filter(func.lower(User.email) == login_data.email.strip().lower())
+        .filter(User.deleted_at.is_(None))
+        .filter(Authentication.jwt_issued_at >= datetime.utcnow() - timedelta(days=14)) # staying offline for more than 14 days requires online login
+        .order_by(Authentication.jwt_issued_at.desc()) # Ensures you check the *latest* record
+        .first()
+    )
         # --- 1a. User is NOT found locally ---
         if not user:
             # This user must log in online.

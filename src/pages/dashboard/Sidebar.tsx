@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/popover"
 import { SidebarClose, SidebarOpen, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 const SidebarItem = ({ icon, text, children, to, onClick, isSelected, showSidebarContent}: { icon: string, text: string, to?: string, onClick?: () => void, children?: React.ReactNode, isSelected?: boolean, showSidebarContent: boolean}) => {
     const { i18n } = useTranslation();
@@ -75,7 +76,9 @@ const SubscriptionDetails = ({ onOpenModal }: { onOpenModal: () => void }) => {
         );
     }
 
-    const expiryDate = currentSubscription?.expiration_date ? new Date(currentSubscription.expiration_date).toLocaleDateString() : 'N/A';
+    const expiryDate = currentSubscription?.expiration_date
+                        ? format(new Date(currentSubscription.expiration_date), 'dd/MM/yyyy')
+                        : 'N/A';
     const isGrace = currentUser?.status === 'grace';
     const isTrial = currentUser?.status === 'trial';
     const isExpired = currentUser?.status === 'expired';
@@ -109,7 +112,7 @@ const SubscriptionDetails = ({ onOpenModal }: { onOpenModal: () => void }) => {
                         {isGrace && currentSubscription?.grace_period_end && (
                             <div className="text-[10px] text-yellow-700 bg-yellow-50 p-2 rounded border border-yellow-100 flex items-start gap-1">
                                 <Info className="w-3 h-3 mt-0.5 shrink-0" />
-                                <span>{t('dashboard.grace_warning', 'Grace period ends on')} {new Date(currentSubscription.grace_period_end).toLocaleDateString()}</span>
+                                <span>{t('dashboard.grace_warning', 'Grace period ends on')} {format(currentSubscription.grace_period_end, 'dd/MM/yyyy')}</span>
                             </div>
                         )}
                         <Button className="mt-2 w-full text-white" onClick={onOpenModal}>{currentUser?.status === 'active' ? t('dashboard.plan_details', 'View Plan Details') : t('dashboard.renew_upgrade', 'Renew / Upgrade')}</Button>
@@ -243,10 +246,10 @@ export function Sidebar() {
 
                 {/* Footer */}
                 <div className="p-4">
-                    <Button 
-                        variant="ghost" 
-                        disabled={isSyncing || !isOnline} 
-                        className={`w-full gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group ${isCollapsed ? 'justify-center' : 'justify-start'}`} 
+                    <Button
+                        variant="ghost"
+                        disabled={isSyncing || !isOnline}
+                        className={`w-full gap-4 px-2 h-12 rounded-lg hover:bg-white hover:shadow-sm group ${isCollapsed ? 'justify-center' : 'justify-start'}`}
                         onClick={() => sync()}
                     >
                         {isSyncing ? <Spinner className="w-6 h-6" /> : <img src="/eva-icons (2)/outline/sync.png" alt={t('common.synced_alt', 'synced')} className="w-6 h-6 opacity-40 group-hover:opacity-100" />}

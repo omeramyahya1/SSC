@@ -27,6 +27,12 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { FilePlus } from 'lucide-react';
+import { CreateIndependentInvoiceModal } from '../sales/CreateIndependentInvoiceModal';
+import { useCustomerStore } from '@/store/useCustomerStore';
+import { useInvoiceStore } from '@/store/useInvoiceStore';
+import { InvoiceEditorModal } from '../sales/InvoiceEditorModal';
+import { format } from 'date-fns';
 
 type ViewMode = 'active' | 'trash' | 'archived';
 type SortOption = 'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'location';
@@ -36,6 +42,8 @@ export function Dashboard() {
     const { t, i18n } = useTranslation();
     const { formatLocation } = useLocationData();
     const { currentUser } = useUserStore();
+    const { createCustomer } = useCustomerStore();
+    const { createInvoice } = useInvoiceStore();
     const { sync } = useSync();
     const isExpired = currentUser?.status === 'expired';
 
@@ -53,6 +61,9 @@ export function Dashboard() {
     const [quickCalcData, setQuickCalcData] = useState<QuickCalcConvertedData | null>(null)
     const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
     const [isConfirmingEmptyTrash, setIsConfirmingEmptyTrash] = useState(false);
+    const [isCreateInvoiceModalOpen, setIsCreateInvoiceModalOpen] = useState(false);
+    const [selectedInvoiceUuid, setSelectedInvoiceUuid] = useState<string | null>(null);
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
 
     // Zustand store integration
     const { projects, isLoading, error, fetchProjects, createProject, deleteProjectPermanently, emptyTrash } = useProjectStore();
@@ -77,6 +88,50 @@ export function Dashboard() {
             console.error("Failed to create project from UI:", e);
             // Optionally, show a toast notification for the error
             toast.error(t('dashboard.toast.create_failed', 'Failed to create project. Please try again.'));
+        }
+    };
+
+    const handleCreateIndependentInvoice = async (data: any) => {
+        try {
+            let customerUuid = data.customer_uuid;
+
+            // 1. Create Customer if it doesn't exist
+            if (!customerUuid) {
+                const newCustomer = await createCustomer({
+                    full_name: data.customer_name,
+                    email: data.email,
+                    phone_number: data.phone_number,
+                    organization_uuid: currentUser?.organization_uuid,
+                });
+                if (!newCustomer) throw new Error("Failed to create customer");
+                customerUuid = newCustomer.uuid;
+            }
+
+            // 2. Create the Independent Invoice (no project association).
+            const newInvoice = await createInvoice({
+                user_uuid: currentUser?.uuid,
+                status: 'pending',
+                invoice_details: {
+                    customer_uuid: customerUuid,
+                    project_location: data.project_location,
+                    shipping_fee: 0,
+                    installation_fee: 0,
+                    discount_percent: 0,
+                    due_date: new Date().toISOString()
+                },
+                invoice_items: { manual: [], inventory: [] },
+                amount: 0
+            });
+
+            if (!newInvoice) throw new Error("Failed to create invoice");
+
+            // 3. Open the Editor
+            setSelectedInvoiceUuid(newInvoice.uuid);
+            setIsEditorOpen(true);
+            setIsCreateInvoiceModalOpen(false);
+
+        } catch (error: any) {
+            toast.error(error.message || "Failed to create invoice");
         }
     };
 
@@ -182,7 +237,7 @@ export function Dashboard() {
             else if (groupBy === 'customer') key = p.customer.full_name;
             else if (groupBy === 'date') {
                 const date = new Date(p.created_at);
-                key = date.toLocaleDateString(i18n.language, { year: 'numeric', month: 'long' });
+                key = i18n.dir() === 'ltr' ? format(date, 'MMM yyyy') : date.toLocaleDateString(i18n.language, { year: 'numeric', month: 'long', numberingSystem: 'latn' });
             }
 
             if (!groups[key]) groups[key] = [];
@@ -280,8 +335,8 @@ export function Dashboard() {
                 <div className="p-6">
                     {/* Toolbar */}
                     <div className="flex flex-col gap-4 mb-6">
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center justify-between w-full">
+                        <div className="flex content-end justify-between">
+                            <div className="flex flex-col gap-4 items-start justify-between h-full">
                                 <h1 className="text-primary text-3xl font-bold">
                                     {currentView === 'active' ? t('dashboard.projects', 'Projects') :
                                      currentView === 'trash' ? t('dashboard.trash', 'Trash') :
@@ -317,11 +372,11 @@ export function Dashboard() {
                                     </Button>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-row items-end gap-2">
                                 <Button
                                     onClick={() => setIsQuickCalcOpen(true)}
                                     disabled={isExpired}
-                                    className="group hover:shadow-lg h bg-white hover:bg-primary border rounded-lg shadow-sm "
+                                    className="group hover:shadow-lg h-10 bg-white hover:bg-primary border rounded-lg shadow-sm "
                                     >
                                     <img src="/eva-icons (2)/outline/flash.png" alt="quick calc" className="w-5 h-5 group-hover:invert me-2" />
                                     <span className='me-2 text-gray-700 group-hover:text-white'>{t('dashboard.quick_calc', 'Quick Calculate')}</span>
@@ -329,10 +384,19 @@ export function Dashboard() {
                                 <Button
                                     onClick={() => setIsCreateModalOpen(true)}
                                     disabled={isExpired || currentView !== 'active'}
-                                    className="text-white rounded-lg hover:shadow-lg "
+                                    className="h-10 text-white rounded-lg hover:shadow-lg "
                                     >
                                     <img src="/eva-icons (2)/outline/plus-square.png" alt="add" className="w-5 h-5 invert" />
                                     <span className='me-2'>{t('dashboard.create_project', 'Create New Project')}</span>
+                                </Button>
+                                <Button
+                                    onClick={() => setIsCreateInvoiceModalOpen(true)}
+                                    disabled={isExpired || currentView !== 'active'}
+                                    variant="default"
+                                    className="h-10 text-white rounded-lg hover:shadow-lg "
+                                    >
+                                    <FilePlus className="h-4 w-4" />
+                                    {t('finances.create_invoice', 'Create Invoice')}
                                 </Button>
                             </div>
                         </div>
@@ -434,6 +498,23 @@ export function Dashboard() {
             <Dialog open={isQuickCalcOpen} onOpenChange={setIsQuickCalcOpen} >
                 <QuickCalculateModal onConvert={handleConvertQuickCalcToProject} onOpenChange={setIsQuickCalcOpen}/>
             </Dialog>
+            <Dialog open={isCreateInvoiceModalOpen} onOpenChange={setIsCreateInvoiceModalOpen}>
+                <CreateIndependentInvoiceModal
+                    onOpenChange={setIsCreateInvoiceModalOpen}
+                    onSubmit={handleCreateIndependentInvoice}
+                />
+            </Dialog>
+
+            {selectedInvoiceUuid && (
+                <InvoiceEditorModal
+                    isOpen={isEditorOpen}
+                    onClose={() => {
+                        setIsEditorOpen(false);
+                        setSelectedInvoiceUuid(null);
+                    }}
+                    invoiceUuid={selectedInvoiceUuid}
+                />
+            )}
 
             <AlertDialog open={!!projectToDelete || isConfirmingEmptyTrash} onOpenChange={handleCancelDelete}>
                 <AlertDialogContent className='bg-white border-2 border-gray'>

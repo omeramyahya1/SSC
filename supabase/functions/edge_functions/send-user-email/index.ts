@@ -23,8 +23,8 @@ const emailWrapper = (
 ) => {
   const dir = lang === "ar" ? "rtl" : "ltr";
   const textAlign = lang === "ar" ? "right" : "left";
-  const footerText = "© 2026 Solar System Calculator. All rights reserved.";
-  const appName = "Solar System Calculator";
+  const footerText = "© 2026 SSC. All rights reserved.";
+  const appName = "SSC";
   const formattedDate = new Date(date).toLocaleString(
     lang === "ar" ? "ar-EG" : "en-US",
     {
@@ -241,7 +241,7 @@ const templates: Templates = {
   },
   account_deactivated_user: {
     en: {
-      subject: "Account Deactivated - Solar System Calculator",
+      subject: "Account Deactivated - SSC",
       body: (p, lang, date) => {
         let title = "Your Account Has Been Deactivated";
         let message = "";
@@ -249,7 +249,7 @@ const templates: Templates = {
         if (p.deactivated_by_admin) {
           message = `
             <p>Hello ${p.username || "User"},</p>
-            <p>This is to inform you that your account at Solar System Calculator has been deactivated by your administrator.</p>
+            <p>This is to inform you that your account at SSC has been deactivated by your administrator.</p>
             <p>Please contact your admin for more information regarding this action.</p>
             <p>If you believe this is an error, please reach out to your organization's admin or our support team.</p>
           `;
@@ -258,14 +258,14 @@ const templates: Templates = {
             title = "Your Enterprise Account Has Been Deactivated";
             message = `
               <p>Hello ${p.username || "Admin"},</p>
-              <p>Your account and all associated organizational data with Solar System Calculator have been successfully deactivated.</p>
+              <p>Your account and all associated organizational data with SSC have been successfully deactivated.</p>
               <p>If you need to recover your account and data, please contact our support team within 14 days of this notification. After this period, data recovery may not be possible.</p>
               <p>We're sorry to see you go!</p>
             `;
           } else { // Standard user
             message = `
               <p>Hello ${p.username || "User"},</p>
-              <p>Your account with Solar System Calculator has been successfully deactivated.</p>
+              <p>Your account with SSC has been successfully deactivated.</p>
               <p>If you need to recover your account, please contact our support team within 14 days of this notification. After this period, account recovery may not be possible.</p>
               <p>We're sorry to see you go!</p>
             `;
@@ -275,7 +275,7 @@ const templates: Templates = {
       },
     },
     ar: {
-      subject: "تم إلغاء تفعيل الحساب - حاسبة النظام الشمسي",
+      subject: "تم إلغاء تفعيل الحساب - SSC",
       body: (p, lang, date) => {
         let title = "تم إلغاء تفعيل حسابك";
         let message = "";
@@ -283,7 +283,7 @@ const templates: Templates = {
         if (p.deactivated_by_admin) {
           message = `
             <p>مرحباً ${p.username || "مستخدم"},</p>
-            <p>نود إبلاغك بأن حسابك في حاسبة النظام الشمسي قد تم إلغاء تفعيله بواسطة المسؤول الخاص بك.</p>
+            <p>نود إبلاغك بأن حسابك في SSC قد تم إلغاء تفعيله بواسطة المسؤول الخاص بك.</p>
             <p>يرجى التواصل مع المسؤول للحصول على مزيد من المعلومات بخصوص هذا الإجراء.</p>
             <p>إذا كنت تعتقد أن هذا خطأ، يرجى التواصل مع مسؤول منظمتك أو فريق الدعم لدينا.</p>
           `;
@@ -292,14 +292,14 @@ const templates: Templates = {
             title = "تم إلغاء تفعيل حسابك التجاري";
             message = `
               <p>مرحباً ${p.username || "مسؤول"},</p>
-              <p>تم إلغاء تفعيل حسابك وجميع البيانات التنظيمية المرتبطة به في حاسبة النظام الشمسي بنجاح.</p>
+              <p>تم إلغاء تفعيل حسابك وجميع البيانات التنظيمية المرتبطة به في SSC بنجاح.</p>
               <p>إذا كنت بحاجة إلى استعادة حسابك وبياناتك، يرجى التواصل مع فريق الدعم لدينا خلال 14 يومًا من هذا الإشعار. بعد هذه الفترة، قد لا تكون استعادة البيانات ممكنة.</p>
               <p>يؤسفنا رؤيتك تغادر!</p>
             `;
           } else { // Standard user
             message = `
               <p>مرحباً ${p.username || "مستخدم"},</p>
-              <p>تم إلغاء تفعيل حسابك في حاسبة النظام الشمسي بنجاح.</p>
+              <p>تم إلغاء تفعيل حسابك في SSC بنجاح.</p>
               <p>إذا كنت بحاجة إلى استعادة حسابك، يرجى التواصل مع فريق الدعم لدينا خلال 14 يومًا من هذا الإشعار. بعد هذه الفترة، قد لا تكون استعادة الحساب ممكنة.</p>
               <p>يؤسفنا رؤيتك تغادر!</p>
             `;

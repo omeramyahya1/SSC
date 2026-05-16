@@ -5,17 +5,18 @@ CREATE OR REPLACE FUNCTION public.register_employee(
     p_org_id uuid,
     p_branch_id uuid,
     p_role text,
-    p_auth_uuid uuid,
     p_password_hash text,
     p_password_salt text,
     p_temp_password text,
     p_org_name text
 )
-RETURNS void
+RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_catalog
 AS $$
+DECLARE
+    v_auth_id uuid;
 BEGIN
     -- Prevent duplicate emails (case-insensitive)
     IF EXISTS (
@@ -28,7 +29,6 @@ BEGIN
     END IF;
 
     -- Set the temporary password and org name in a session variable for the trigger
-    -- We use a JSON object to pass multiple values
     PERFORM set_config('app.registration_data', json_build_object(
         'temp_password', p_temp_password,
         'org_name', p_org_name
@@ -41,11 +41,22 @@ BEGIN
         p_user_uuid, p_username, p_email, p_org_id, p_branch_id, p_role, 'trial', 'enterprise_tier1'
     );
 
-    -- Insert into public.authentications
     INSERT INTO public.authentications (
-        id, user_id, password_hash, password_salt, is_logged_in
+        user_id, password_hash, password_salt, is_logged_in
     ) VALUES (
-        p_auth_uuid, p_user_uuid, p_password_hash, p_password_salt, false
+        p_user_uuid, p_password_hash, p_password_salt, false
+    )
+    RETURNING id INTO v_auth_id;
+
+    RETURN json_build_object(
+        'user_id', p_user_uuid,
+        'auth_created', (v_auth_id IS NOT NULL),
+        'auth_id', v_auth_id
     );
+
+EXCEPTION
+    -- Catch hidden constraints, foreign key errors, or trigger failures
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Registration rolled back: % (Error Code: %)', SQLERRM, SQLSTATE;
 END;
 $$;

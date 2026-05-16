@@ -84,13 +84,7 @@ BEGIN
         p_user_id, p_device_id,
         v_latest_auth.password_hash, v_latest_auth.password_salt, -- Copy from latest record
         v_jwt, v_issued_at, true, now()
-    )
-    ON CONFLICT (user_id, device_id)
-    DO UPDATE SET
-        current_jwt = EXCLUDED.current_jwt,
-        jwt_issued_at = EXCLUDED.jwt_issued_at,
-        is_logged_in = true,
-        updated_at = now();
+    );
 
     -- 7. Return as JSON object and timestamp
     RETURN QUERY SELECT

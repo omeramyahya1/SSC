@@ -1,9 +1,9 @@
 // src/store/useAuthenticationStore.ts
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import api from '@/api/client';
-import { registerStore, StoreKeys } from '@/api/storeRegistry';
-import { User } from './useUserStore'; // Import User type from useUserStore
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import api from "@/api/client";
+import { registerStore, StoreKeys } from "@/api/storeRegistry";
+import { User, useUserStore } from "./useUserStore"; // Import User type and useUserStore
 
 // --- 1. Define Types ---
 
@@ -22,216 +22,282 @@ export interface Authentication {
   is_dirty: boolean;
 }
 
-export type NewAuthenticationData = Omit<Authentication, 'auth_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
+export type NewAuthenticationData = Omit<
+  Authentication,
+  "auth_id" | "created_at" | "updated_at" | "is_dirty"
+>;
 
-const resource = '/authentications';
+const resource = "/authentications";
 
 // Login Response Types (matching auth_schemas.py)
 export interface LoginResponseAuthentication {
-    auth_id: number;
-    user_id: number;
-    is_logged_in: boolean;
-    current_jwt: string | null;
-    jwt_issued_at: string | null;
-    device_id: string | null;
-    last_active: string | null;
-    created_at: string;
-    updated_at: string;
-    is_dirty: boolean;
+  auth_id: number;
+  user_id: number;
+  is_logged_in: boolean;
+  current_jwt: string | null;
+  jwt_issued_at: string | null;
+  device_id: string | null;
+  last_active: string | null;
+  created_at: string;
+  updated_at: string;
+  is_dirty: boolean;
 }
 
 // User type is already defined in useUserStore, so we can extend it or use it directly
 // For consistency with Python schema, creating a new interface that maps directly to the response
 export interface LoginResponseUser extends User {}
 
-
 export interface LoginResponse {
-    user: LoginResponseUser;
-    authentication: LoginResponseAuthentication;
+  user: LoginResponseUser;
+  authentication: LoginResponseAuthentication;
 }
-
 
 // --- 2. Define Store ---
 
 export interface AuthenticationStore {
   authentications: Authentication[];
   currentAuthentication: Authentication | null;
-  currentAuthenticationSnapshot: { auth_id: number; user_uuid: string; is_logged_in: boolean } | null;
+  currentAuthenticationSnapshot: {
+    auth_id: number;
+    user_uuid: string;
+    is_logged_in: boolean;
+  } | null;
   isLoading: boolean;
   error: string | null;
   showFirstTimeLoginPrompt: boolean;
   setShowFirstTimeLoginPrompt: (show: boolean) => void;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<void>;
   fetchAuthentications: () => Promise<void>;
   fetchAuthentication: (id: number) => Promise<void>;
   fetchLatestAuthentication: () => Promise<Authentication | undefined>;
-  createAuthentication: (data: NewAuthenticationData) => Promise<Authentication | undefined>;
-  updateAuthentication: (id: number, data: Partial<NewAuthenticationData>) => Promise<Authentication | undefined>;
+  createAuthentication: (
+    data: NewAuthenticationData,
+  ) => Promise<Authentication | undefined>;
+  updateAuthentication: (
+    id: number,
+    data: Partial<NewAuthenticationData>,
+  ) => Promise<Authentication | undefined>;
   deleteAuthentication: (id: number) => Promise<void>;
   setCurrentAuthentication: (auth: Authentication | null) => void;
   logout: () => Promise<void>;
 }
 
-export const useAuthenticationStore = create<AuthenticationStore>()(persist((set, get) => ({
-  authentications: [],
-  currentAuthentication: null,
-  currentAuthenticationSnapshot: null,
-  isLoading: false,
-  error: null,
-  showFirstTimeLoginPrompt: false,
+export const useAuthenticationStore = create<AuthenticationStore>()(
+  persist(
+    (set, get) => ({
+      authentications: [],
+      currentAuthentication: null,
+      currentAuthenticationSnapshot: null,
+      isLoading: false,
+      error: null,
+      showFirstTimeLoginPrompt: false,
 
-  setShowFirstTimeLoginPrompt: (show) => set({ showFirstTimeLoginPrompt: show }),
+      setShowFirstTimeLoginPrompt: (show) =>
+        set({ showFirstTimeLoginPrompt: show }),
 
-  changePassword: async (currentPassword, newPassword) => {
-    set({ isLoading: true, error: null });
-    try {
-      await api.post(`${resource}/change-password`, {
-        current_password: currentPassword,
-        new_password: newPassword,
-      });
-      set({ isLoading: false });
-    } catch (e: any) {
-      const errorMsg = e.response?.data?.error || e.message || "Failed to change password";
-      set({ error: errorMsg, isLoading: false });
-      throw new Error(errorMsg);
-    }
-  },
+      changePassword: async (currentPassword, newPassword) => {
+        set({ isLoading: true, error: null });
+        try {
+          await api.post(`${resource}/change-password`, {
+            current_password: currentPassword,
+            new_password: newPassword,
+          });
+          set({ isLoading: false });
+        } catch (e: any) {
+          const errorMsg =
+            e.response?.data?.error || e.message || "Failed to change password";
+          set({ error: errorMsg, isLoading: false });
+          throw new Error(errorMsg);
+        }
+      },
 
-  logout: async () => {
-    const currentAuth = get().currentAuthentication;
-    if (!currentAuth) {
-      console.log("No current authentication session to log out.");
-      return;
-    }
+      logout: async () => {
+        const currentAuth = get().currentAuthentication;
+        if (!currentAuth) {
+          console.log("No current authentication session to log out.");
+          return;
+        }
 
-    set({ isLoading: true, error: null });
-    try {
-      await api.post(`${resource}/logout`, { auth_id: currentAuth.auth_id });
-      set({ currentAuthentication: null, currentAuthenticationSnapshot: null, isLoading: false });
-      // Also clear other user-related stores if necessary
-      // e.g., useUserStore.getState().setCurrentUser(null);
-      console.log("Logout successful.");
-    } catch (e: any) {
-      const errorMsg = e.message || "Logout failed";
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-    }
-  },
+        set({ isLoading: true, error: null });
+        try {
+          await api.post(`${resource}/logout`, {
+            auth_id: currentAuth.auth_id,
+          });
+          set({
+            currentAuthentication: null,
+            currentAuthenticationSnapshot: null,
+            isLoading: false,
+          });
 
-  setCurrentAuthentication: (auth) => {
-    set({
-      currentAuthentication: auth,
-      currentAuthenticationSnapshot: auth
-        ? { auth_id: auth.auth_id, user_uuid: auth.user_uuid, is_logged_in: auth.is_logged_in }
-        : null
-    });
-  },
+          // Clear user data on logout
+          useUserStore.setState({ currentUser: null });
+          localStorage.removeItem("quickCalcAppliances");
+          localStorage.removeItem("quickCalcBleSettings");
+          localStorage.removeItem("access_token");
 
-  fetchAuthentications: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.get<Authentication[]>(resource);
-      set({ authentications: data, isLoading: false });
-    } catch (e: any) {
-      const errorMsg = e.message || "Failed to fetch authentications";
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-    }
-  },
+          console.log("Logout successful.");
+        } catch (e: any) {
+          const errorMsg = e.message || "Logout failed";
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+        }
+      },
 
-  fetchAuthentication: async (id) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.get<Authentication>(`${resource}/${id}`);
-      set({
-        currentAuthentication: data,
-        currentAuthenticationSnapshot: { auth_id: data.auth_id, user_uuid: data.user_uuid, is_logged_in: data.is_logged_in },
-        isLoading: false
-      });
-    } catch (e: any) {
-      const errorMsg = e.message || `Failed to fetch authentication ${id}`;
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-    }
-  },
+      setCurrentAuthentication: (auth) => {
+        set({
+          currentAuthentication: auth,
+          currentAuthenticationSnapshot: auth
+            ? {
+                auth_id: auth.auth_id,
+                user_uuid: auth.user_uuid,
+                is_logged_in: auth.is_logged_in,
+              }
+            : null,
+        });
+      },
 
-  fetchLatestAuthentication: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.get<Authentication>(`${resource}/latest`);
-      set({
-        currentAuthentication: data,
-        currentAuthenticationSnapshot: { auth_id: data.auth_id, user_uuid: data.user_uuid, is_logged_in: data.is_logged_in },
-        isLoading: false
-      });
-      return data;
-    } catch (e: any) {
-      const errorMsg = e.message || `Failed to fetch latest authentication`;
-      set({ error: errorMsg, isLoading: false, currentAuthentication: null, currentAuthenticationSnapshot: null });
-      console.error(errorMsg, e);
-      return undefined;
-    }
-  },
+      fetchAuthentications: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.get<Authentication[]>(resource);
+          set({ authentications: data, isLoading: false });
+        } catch (e: any) {
+          const errorMsg = e.message || "Failed to fetch authentications";
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+        }
+      },
 
-  createAuthentication: async (newAuthData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.post<Authentication>(resource, newAuthData);
-      set((state) => ({ authentications: [...state.authentications, data], isLoading: false }));
-      return data;
-    } catch (e: any) {
-      const errorMsg = e.message || "Failed to create authentication";
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-      return undefined;
-    }
-  },
+      fetchAuthentication: async (id) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.get<Authentication>(`${resource}/${id}`);
+          set({
+            currentAuthentication: data,
+            currentAuthenticationSnapshot: {
+              auth_id: data.auth_id,
+              user_uuid: data.user_uuid,
+              is_logged_in: data.is_logged_in,
+            },
+            isLoading: false,
+          });
+        } catch (e: any) {
+          const errorMsg = e.message || `Failed to fetch authentication ${id}`;
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+        }
+      },
 
-  updateAuthentication: async (id, updatedData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.put<Authentication>(`${resource}/${id}`, updatedData);
-      set((state) => ({
-        authentications: state.authentications.map((a) => (a.auth_id === id ? data : a)),
-        currentAuthentication: state.currentAuthentication?.auth_id === id ? data : state.currentAuthentication,
-        isLoading: false,
-      }));
-      return data;
-    } catch (e: any) {
-      const errorMsg = e.message || `Failed to update authentication ${id}`;
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-      return undefined;
-    }
-  },
+      fetchLatestAuthentication: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.get<Authentication>(`${resource}/latest`);
+          set({
+            currentAuthentication: data,
+            currentAuthenticationSnapshot: {
+              auth_id: data.auth_id,
+              user_uuid: data.user_uuid,
+              is_logged_in: data.is_logged_in,
+            },
+            isLoading: false,
+          });
+          return data;
+        } catch (e: any) {
+          const errorMsg = e.message || `Failed to fetch latest authentication`;
+          set({
+            error: errorMsg,
+            isLoading: false,
+            currentAuthentication: null,
+            currentAuthenticationSnapshot: null,
+          });
+          console.error(errorMsg, e);
+          return undefined;
+        }
+      },
 
-  deleteAuthentication: async (id) => {
-    set({ isLoading: true, error: null });
-    try {
-      await api.delete(`${resource}/${id}`);
-      set((state) => ({
-        authentications: state.authentications.filter((a) => a.auth_id !== id),
-        isLoading: false,
-      }));
-    } catch (e: any) {
-      const errorMsg = e.message || `Failed to delete authentication ${id}`;
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-    }
-  },
-}), {
-  name: 'auth-store',
-  partialize: (state) => ({ currentAuthenticationSnapshot: state.currentAuthenticationSnapshot }),
-  onRehydrateStorage: () => (state, error) => {
-    if (error || !state) return;
-    const snapshot = state.currentAuthenticationSnapshot;
-    if (snapshot?.auth_id) {
-      state.fetchAuthentication(snapshot.auth_id);
-    } else if (snapshot?.is_logged_in) {
-      state.fetchLatestAuthentication();
-    }
-  }
-}));
+      createAuthentication: async (newAuthData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.post<Authentication>(
+            resource,
+            newAuthData,
+          );
+          set((state) => ({
+            authentications: [...state.authentications, data],
+            isLoading: false,
+          }));
+          return data;
+        } catch (e: any) {
+          const errorMsg = e.message || "Failed to create authentication";
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+          return undefined;
+        }
+      },
+
+      updateAuthentication: async (id, updatedData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.put<Authentication>(
+            `${resource}/${id}`,
+            updatedData,
+          );
+          set((state) => ({
+            authentications: state.authentications.map((a) =>
+              a.auth_id === id ? data : a,
+            ),
+            currentAuthentication:
+              state.currentAuthentication?.auth_id === id
+                ? data
+                : state.currentAuthentication,
+            isLoading: false,
+          }));
+          return data;
+        } catch (e: any) {
+          const errorMsg = e.message || `Failed to update authentication ${id}`;
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+          return undefined;
+        }
+      },
+
+      deleteAuthentication: async (id) => {
+        set({ isLoading: true, error: null });
+        try {
+          await api.delete(`${resource}/${id}`);
+          set((state) => ({
+            authentications: state.authentications.filter(
+              (a) => a.auth_id !== id,
+            ),
+            isLoading: false,
+          }));
+        } catch (e: any) {
+          const errorMsg = e.message || `Failed to delete authentication ${id}`;
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+        }
+      },
+    }),
+    {
+      name: "auth-store",
+      partialize: (state) => ({
+        currentAuthenticationSnapshot: state.currentAuthenticationSnapshot,
+      }),
+      onRehydrateStorage: () => (state, error) => {
+        if (error || !state) return;
+        const snapshot = state.currentAuthenticationSnapshot;
+        if (snapshot?.auth_id) {
+          state.fetchAuthentication(snapshot.auth_id);
+        } else if (snapshot?.is_logged_in) {
+          state.fetchLatestAuthentication();
+        }
+      },
+    },
+  ),
+);
 
 registerStore(StoreKeys.Authentication, () => {
   useAuthenticationStore.getState().fetchAuthentications();

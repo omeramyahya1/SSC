@@ -45,7 +45,7 @@ const emailWrapper = (
     ${content}
   </div>
   <div style="text-align: center; border-top: 1px solid #eee; padding-top: 20px; margin-top: 20px; font-size: 12px; color: #777;">
-    <p style="margin:0;">© 2026 Solar System Calculator. All rights reserved.</p>
+    <p style="margin:0;">© 2026 SSC. All rights reserved.</p>
   </div>
 </div>
   `;

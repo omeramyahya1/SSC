@@ -26,8 +26,18 @@ const MainContent = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   useSync();
-  const { showFirstTimeLoginPrompt, setShowFirstTimeLoginPrompt, currentAuthentication } = useAuthenticationStore();
-  const { needsTCUpdate, latestTC, checkTCStatus, recordTCAgreement, currentSetting } = useApplicationSettingsStore();
+  const {
+    showFirstTimeLoginPrompt,
+    setShowFirstTimeLoginPrompt,
+    currentAuthentication,
+  } = useAuthenticationStore();
+  const {
+    needsTCUpdate,
+    latestTC,
+    checkTCStatus,
+    recordTCAgreement,
+    currentSetting,
+  } = useApplicationSettingsStore();
   const [isAgreeing, setIsAgreeing] = useState(false);
   const [showTCModal, setShowTCModal] = useState(false);
 
@@ -38,11 +48,18 @@ const MainContent = () => {
   }, [currentAuthentication?.user_uuid, checkTCStatus]);
 
   useEffect(() => {
-    setShowTCModal(needsTCUpdate);
-  }, [needsTCUpdate]);
+    if (currentSetting) {
+      setShowTCModal(needsTCUpdate);
+    } else {
+      setShowTCModal(false);
+    }
+  }, [needsTCUpdate, currentSetting]);
 
   const handleAgreeTC = async () => {
-    console.log("handleAgreeTC start", { latestTCId: latestTC?.id, hasSetting: !!currentSetting });
+    console.log("handleAgreeTC start", {
+      latestTCId: latestTC?.id,
+      hasSetting: !!currentSetting,
+    });
 
     if (!latestTC?.id) {
       console.warn("No latestTC id found, returning early");
@@ -55,10 +72,10 @@ const MainContent = () => {
       await recordTCAgreement(latestTC.id);
       console.log("recordTCAgreement success");
       setShowTCModal(false);
-      toast.success(t('tc.success.title', 'Terms Accepted'));
+      toast.success(t("tc.success.title", "Terms Accepted"));
     } catch (e) {
       console.error("Failed to agree to T&C", e);
-      toast.error(t('tc.error', 'Failed to save agreement'));
+      toast.error(t("tc.error", "Failed to save agreement"));
     } finally {
       setIsAgreeing(false);
     }
@@ -80,12 +97,12 @@ const MainContent = () => {
     };
 
     // 'dragover' must be prevented for 'drop' to be blocked
-    window.addEventListener('dragover', stopDrop, false);
-    window.addEventListener('drop', stopDrop, false);
+    window.addEventListener("dragover", stopDrop, false);
+    window.addEventListener("drop", stopDrop, false);
 
     return () => {
-      window.removeEventListener('dragover', stopDrop);
-      window.removeEventListener('drop', stopDrop);
+      window.removeEventListener("dragover", stopDrop);
+      window.removeEventListener("drop", stopDrop);
     };
   }, []);
 
@@ -96,22 +113,34 @@ const MainContent = () => {
       <Sidebar />
       <Outlet />
 
-      <AlertDialog open={showFirstTimeLoginPrompt} onOpenChange={setShowFirstTimeLoginPrompt}>
+      <AlertDialog
+        open={showFirstTimeLoginPrompt}
+        onOpenChange={setShowFirstTimeLoginPrompt}
+      >
         <AlertDialogContent className="bg-white">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold">
-              {t('auth.first_login_title', 'Welcome to SSC!')}
+              {t("auth.first_login_title", "Welcome to SSC!")}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-neutral/70">
-              {t('auth.first_login_desc', 'For your security, we recommend changing your temporary password. You can do this now or later from your profile settings.')}
+              {t(
+                "auth.first_login_desc",
+                "For your security, we recommend changing your temporary password. You can do this now or later from your profile settings.",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleClosePrompt} className="border-neutral/20">
-              {t('common.later', 'Later')}
+            <AlertDialogCancel
+              onClick={handleClosePrompt}
+              className="border-neutral/20"
+            >
+              {t("common.later", "Later")}
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleChangePassword} className="bg-primary text-white hover:bg-primary/90">
-              {t('auth.change_password_now', 'Change Password Now')}
+            <AlertDialogAction
+              onClick={handleChangePassword}
+              className="bg-primary text-white hover:bg-primary/90"
+            >
+              {t("auth.change_password_now", "Change Password Now")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -121,17 +150,22 @@ const MainContent = () => {
         <AlertDialogContent className="max-w-2xl max-h-[90vh] bg-white flex flex-col p-0 overflow-hidden">
           <AlertDialogHeader className="p-6 pb-2">
             <AlertDialogTitle className="text-2xl text-center font-bold">
-              {t('tc.updated_terms_title', 'New Terms and Conditions')}
+              {t("tc.updated_terms_title", "New Terms and Conditions")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('tc.updated_tc', 'We have updated our terms to better serve our users. Please review and agree to continue.')}
+              {t(
+                "tc.updated_tc",
+                "We have updated our terms to better serve our users. Please review and agree to continue.",
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="flex-1 overflow-hidden px-6">
             <ScrollArea className="h-[50vh] border-2 p-4 rounded-base bg-neutral/5">
               <TCContent
-                content={latestTC?.content?.[i18n.language === 'ar' ? 'ar' : 'en']}
+                content={
+                  latestTC?.content?.[i18n.language === "ar" ? "ar" : "en"]
+                }
                 metadata={latestTC?.content?.metadata}
               />
             </ScrollArea>
@@ -143,13 +177,13 @@ const MainContent = () => {
               disabled={isAgreeing || !latestTC?.id}
               className="bg-primary text-white hover:bg-primary/90 min-w-[120px] font-bold"
             >
-              {isAgreeing ? <Spinner /> : t('tc.accept_terms', 'I Accept')}
+              {isAgreeing ? <Spinner /> : t("tc.accept_terms", "I Accept")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
-}
+  );
+};
 
 export default MainContent;

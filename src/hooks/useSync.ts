@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
-import { useSyncLogStore } from '@/store/useSyncLogStore';
-import { useAuthenticationStore } from '@/store/useAuthenticationStore';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { useSyncLogStore } from "@/store/useSyncLogStore";
+import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 
 export const useSync = () => {
   const { performSync, isSyncing, lastSyncTime } = useSyncLogStore();
   const { currentAuthentication } = useAuthenticationStore();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const location = useLocation();
 
   const isLoggedIn = !!currentAuthentication?.is_logged_in;
@@ -20,15 +21,25 @@ export const useSync = () => {
   const lastRequestAtRef = useRef(0);
 
   const requestSync = useCallback(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || !isOnline) return; // prevent performing syncs when offline
     if (isSyncingRef.current) return;
 
     const now = Date.now();
-    if (now - lastRequestAtRef.current < 300) return; // tweak or remove
+    if (now - lastRequestAtRef.current < 2000) return; // tweak or remove
     lastRequestAtRef.current = now;
 
     performSync();
-  }, [isLoggedIn, performSync]);
+  }, [isLoggedIn, isOnline, performSync]);
+
+  useEffect(() => {
+    const handleStatusChange = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", handleStatusChange);
+    window.addEventListener("offline", handleStatusChange);
+    return () => {
+      window.removeEventListener("online", handleStatusChange);
+      window.removeEventListener("offline", handleStatusChange);
+    };
+  }, []);
 
   // 1) startup / login changes
   useEffect(() => {
@@ -41,17 +52,17 @@ export const useSync = () => {
 
     const timeoutId = window.setTimeout(() => {
       if (isSyncingRef.current) return;
-      performSync();
-    }, 250);
+      requestSync();
+    }, 10000);
 
     return () => window.clearTimeout(timeoutId);
-  }, [location.pathname, isLoggedIn, performSync]);
+  }, [location.pathname, isLoggedIn, requestSync]);
 
   // 3) back online
   useEffect(() => {
     const handleOnline = () => requestSync();
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
   }, [requestSync]);
 
   // 4) periodic

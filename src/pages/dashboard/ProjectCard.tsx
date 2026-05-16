@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Project, useProjectStore } from "@/store/useProjectStore";
 import { cn } from "@/lib/utils";
 import { useLocationData } from "@/hooks/useLocationData";
+import { format } from "date-fns/format";
 
 interface ProjectCardProps {
     project: Project;
@@ -30,6 +31,8 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
     const { t, i18n } = useTranslation();
     const { getClimateDataForCity } = useLocationData();
     const { archiveProject, softDeleteProject, recoverProject } = useProjectStore();
+    const isViewOnly = project.access?.mode === 'view';
+    const isInvoiceIssued = Boolean(project.invoice_issued_at);
 
     const formatProjectLocation = (location: string | null) => {
         if (!location) return '';
@@ -45,11 +48,7 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString(i18n.language === 'ar' ? 'ar-EG' : 'en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
+        return format(date, 'dd/MM/yyyy');
     };
 
     const displayLocation = formatProjectLocation(project.project_location ?? null);
@@ -102,6 +101,8 @@ export function ProjectCard({ project, onOpen, viewMode = 'active', onPermanentD
                                 <img src="/eva-icons (2)/outline/delete-bin-2.svg" alt="delete permanently" className="w-5 h-5 group-hover:invert" />
                             </Button>
                         </div>
+                    ) : (isViewOnly || isInvoiceIssued) ? (
+                        <div />
                     ) : (
                         <DropdownMenu dir={i18n.dir()}>
                             <DropdownMenuTrigger asChild>

@@ -5,11 +5,11 @@ import Login from "./pages/authentication & onboarding/login";
 import Registration from "./pages/authentication & onboarding/registration";
 import ForgotPassword from "./pages/authentication & onboarding/forgetPassword";
 import MainContent from "./pages/MainContent";
-import ChangePassword from "./pages/authentication & onboarding/changePassword";
 import ContactSales from "./pages/ContactSales";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
+import { refreshStores, StoreKeys } from "./api/storeRegistry";
 import { Dashboard } from "./pages/dashboard/Dashboard";
 import CustomersPage from "./pages/customers/Customers";
 import Inventory from "./pages/inventory/Inventory";
@@ -61,7 +61,13 @@ function App() {
       localStorage.removeItem('preloaded-settings');
 
       // Fetch the latest authentication state to determine login status
-      await fetchLatestAuthentication();
+      const auth = await fetchLatestAuthentication();
+
+      // Trigger a refresh of all stores to ensure UI has latest local data for authenticated sessions
+      if (auth?.is_logged_in) {
+        refreshStores(Object.values(StoreKeys));
+      }
+
       // The component will re-render when currentAuthentication changes,
       // so we can derive the logged-in status from that.
     };
@@ -102,7 +108,6 @@ function App() {
           <Route path="/" element={<Login />} />
           <Route path="/registration" element={<Registration />} />
           <Route path="/forgotpassword" element={<ForgotPassword />} />
-          <Route path="/change_password" element={<ChangePassword />} />
           <Route path="/contact_sales" element={<ContactSales />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </>

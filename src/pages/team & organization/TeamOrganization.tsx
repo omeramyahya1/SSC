@@ -27,12 +27,14 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import api from "@/api/client";
+import { useSync } from "@/hooks/useSync";
 
 export default function TeamOrganization() {
   const { t, i18n } = useTranslation();
   const { currentUser, users, fetchEmployees, deleteUser } = useUserStore();
   const { branches, fetchBranches, deleteBranch } = useBranchStore();
   const { currentOrganization, fetchOrganization } = useOrganizationStore();
+  const { sync } = useSync();
 
   const [activeTab, setActiveTab] = useState("employees");
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
@@ -66,6 +68,7 @@ export default function TeamOrganization() {
     return <Navigate to="/home/dashboard" replace />;
   }
 
+  const isStatusRestricted = currentUser?.status === 'grace' || currentUser?.status === 'expired' || currentUser?.status === 'trial';
   const maxEmployees = currentOrganization?.emp_count || 0;
   const isLimitReached = users.length >= maxEmployees;
 
@@ -77,11 +80,13 @@ export default function TeamOrganization() {
     }
     try {
         await deleteUser(employeeToDelete.uuid, deactivatePassword);
-        toast.success(t('team.deactivate_success', 'Employee deactivated successfully'));
-        setEmployeeToDelete(null);
     } catch (e) {
         toast.error(t('team.deactivate_error', 'Failed to deactivate employee'));
     }
+    toast.success(t('team.deactivate_success', 'Employee deactivated successfully'));
+      sync();
+      setEmployeeToDelete(null);
+      void Promise.resolve(sync()).catch((err) => console.warn('Post-deactivate sync failed', err));
   };
 
   const handleVerifyDeactivatePassword = async () => {
@@ -109,10 +114,12 @@ export default function TeamOrganization() {
     try {
         await deleteBranch(branchToDelete.branch_id);
         toast.success(t('team.branch_delete_success', 'Branch deleted successfully'));
-        setBranchToDelete(null);
     } catch (e) {
         toast.error(t('team.branch_delete_error', 'Failed to delete branch'));
     }
+    sync();
+    setBranchToDelete(null);
+    void Promise.resolve(sync()).catch((err) => console.warn('Post-Branch delete sync failed', err));
   };
 
   return (
@@ -140,7 +147,7 @@ export default function TeamOrganization() {
                     maxEmployees={maxEmployees}
                     onAddEmployee={() => setIsAddEmployeeOpen(true)}
                     onDeactivateEmployee={setEmployeeToDelete}
-
+                    isStatusRestricted={isStatusRestricted}
                 />
             </TabsContent>
 
@@ -154,6 +161,7 @@ export default function TeamOrganization() {
                         setIsEditBranchOpen(true);
                     }}
                     onDeleteBranch={setBranchToDelete}
+                    isStatusRestricted={isStatusRestricted}
                 />
             </TabsContent>
         </Tabs>
