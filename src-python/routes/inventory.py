@@ -573,3 +573,27 @@ def delete_project_component(uuid):
             db.rollback()
             logging.exception("Error deleting project component")
             return jsonify({"error": str(e)}), 500
+
+
+@inventory_bp.route('/categories/all', methods=['POST'])  # Changed to POST as it's a bulk action triggering updates
+def dirty_all_categories():
+    with get_db() as db:
+        try:
+            # 1. Execute an atomic bulk update on all clean items
+            updated_count = db.query(InventoryCategory)\
+                .filter(InventoryCategory.is_dirty == False)\
+                .update({InventoryCategory.is_dirty: True}, synchronize_session='fetch')
+
+            # 2. Commit the transaction to the database
+            db.commit()
+
+            # 3. Return a summary instead of a single misleading model dict
+            return jsonify({
+                "message": "All categories successfully marked as dirty.",
+                "records_affected": updated_count
+            }), 200
+
+        except Exception as e:
+            db.rollback()
+            logging.exception("Error executing bulk update on inventory categories")
+            return jsonify({"error": str(e)}), 500

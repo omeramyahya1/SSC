@@ -226,8 +226,10 @@ CREATE TABLE public.payments (
   is_dirty boolean DEFAULT false,
   payment_reference character varying,
   payment_date timestamp with time zone,
+  created_by_user_uuid uuid,
   CONSTRAINT payments_pkey PRIMARY KEY (id),
-  CONSTRAINT payments_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id)
+  CONSTRAINT payments_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id),
+  CONSTRAINT payments_created_by_user_id_fkey FOREIGN KEY (created_by_user_uuid) REFERENCES public.users(id)
 );
 CREATE TABLE public.pricing (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
