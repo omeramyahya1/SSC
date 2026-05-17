@@ -23,6 +23,7 @@ from .branch import branch_bp
 from .inventory import inventory_bp
 from .export import export_bp
 from finances import finances_bp
+from reporting.api import reporting_bp
 from ble import ble_bp
 from recommender import recommender_bp
 
@@ -46,6 +47,7 @@ all_blueprints = [
     inventory_bp,
     export_bp,
     finances_bp,
+    reporting_bp,
     ble_bp,
     recommender_bp,
 ]

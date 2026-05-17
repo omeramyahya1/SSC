@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+        body {
+            font-family: {{'Inter' if dir == 'ltr' else 'Cairo'}}, sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #333;
+            direction: {{ dir }};
+        }
+        .header {
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 5mm;
+            margin-bottom: 10mm;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            color: #3b82f6;
+            margin: 0;
+            font-size: 22pt;
+        }
+        .meta {
+            text-align: {{ 'right' if dir == 'ltr' else 'left' }};
+            color: #666;
+        }
+        .section-title {
+            color: #3b82f6;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 2mm;
+            margin: 8mm 0 4mm 0;
+            font-size: 14pt;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4mm;
+            margin-bottom: 8mm;
+        }
+        .summary-card {
+            background: #f9fafb;
+            padding: 4mm;
+            border-radius: 2mm;
+            border: 1px solid #e5e7eb;
+        }
+        .summary-card .label {
+            font-size: 9pt;
+            color: #6b7280;
+            margin-bottom: 1mm;
+        }
+        .summary-card .value {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #111827;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8mm;
+        }
+        th {
+            background-color: #f3f4f6;
+            padding: 2mm;
+            text-align: {{ 'left' if dir == 'ltr' else 'right' }};
+            font-weight: bold;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        td {
+            padding: 2mm;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 9pt;
+        }
+        /* Charts */
+        .chart-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2mm;
+            gap: 3mm;
+        }
+        .chart-label {
+            width: 30%;
+            font-size: 9pt;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chart-bar-bg {
+            flex-grow: 1;
+            background: #f3f4f6;
+            height: 4mm;
+            border-radius: 1mm;
+            position: relative;
+        }
+        .chart-bar-fill {
+            background: #3b82f6;
+            height: 100%;
+            border-radius: 1mm;
+        }
+        .chart-value {
+            width: 15%;
+            font-size: 9pt;
+            text-align: right;
+            font-weight: bold;
+        }
+        .footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 8pt;
+            color: #9ca3af;
+            border-top: 1px solid #f3f4f6;
+            padding-top: 2mm;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>{{ title }}</h1>
+            <p>{{ date_range }}</p>
+        </div>
+        <div class="meta">
+            <p>{{ t.generated_on }}: {{ generated_at }}</p>
+            <p>{{ t.scope }}: {{ scope }}</p>
+        </div>
+    </div>
+
+    <div class="section-title">{{ t.summary }}</div>
+    <div class="summary-grid">
+        {% for k, v in data.summary.items() %}
+        <div class="summary-card">
+            <div class="label">{{ k }}</div>
+            <div class="value">{{ v }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if data.location_performance or data.branch_performance %}
+    <div class="section-title">{{ t.performance_metrics }}</div>
+    <div style="margin-bottom: 10mm;">
+        {% set perf_data = data.location_performance if data.location_performance else data.branch_performance %}
+        {% set max_val = 1 %}
+        {% for v in perf_data.values() %}{% if v > max_val %}{% set max_val = v %}{% endif %}{% endfor %}
+        
+        {% for label, val in perf_data.items() %}
+        <div class="chart-row">
+            <div class="chart-label">{{ label }}</div>
+            <div class="chart-bar-bg">
+                <div class="chart-bar-fill" style="width: {{ (val / max_val * 100)|round }}%"></div>
+            </div>
+            <div class="chart-value">{{ val }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="section-title">{{ table_title }}</div>
+    <table>
+        <thead>
+            <tr>
+                {% for h in table_headers %}
+                <th>{{ h }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in table_data %}
+            <tr>
+                {% for h in table_headers %}
+                <td>{{ row[h] }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        {{ t.footer_text }} | Page <span class="pageNumber"></span>
+    </div>
+</body>
+</html>

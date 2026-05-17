@@ -26,6 +26,7 @@ import { PaymentsList } from './PaymentsList';
 import { AddPaymentModal } from './AddPaymentModal';
 import { InvoiceEditorModal } from './InvoiceEditorModal';
 import { CreateIndependentInvoiceModal } from './CreateIndependentInvoiceModal';
+import { ExportReportModal } from '@/components/ExportReportModal';
 import { SubscriptionBanner } from '../dashboard/SubscriptionBanner';
 import { Dialog } from '@/components/ui/dialog';
 import { useInvoiceStore } from '@/store/useInvoiceStore';
@@ -42,6 +43,7 @@ export default function Sales() {
     const [activeTab, setActiveTab] = useState('reports');
     const [isAddPaymentModalOpen, setIsAddPaymentModalOpen] = useState(false);
     const [isCreateInvoiceModalOpen, setIsCreateInvoiceModalOpen] = useState(false);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [selectedInvoiceUuid, setSelectedInvoiceUuid] = useState<string | null>(null);
     const [isEditorOpen, setIsEditorOpen] = useState(false);
 
@@ -150,6 +152,10 @@ export default function Sales() {
                             <FilePlus className="h-4 w-4" />
                             {t('finances.create_invoice', 'Create Invoice')}
                         </Button>
+                        <Button onClick={() => setIsExportModalOpen(true)} variant="outline" className="border-primary text-primary">
+                            <img src="/eva-icons (2)/outline/download.png" alt="export" className="h-4 w-4 opacity-70" />
+                            {t('common.export', 'Export')}
+                        </Button>
                     </div>
                 </div>
 
@@ -207,6 +213,12 @@ export default function Sales() {
                     invoiceUuid={selectedInvoiceUuid}
                 />
             )}
+
+            <ExportReportModal 
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                reportType="finance"
+            />
         </main>
     );
 }

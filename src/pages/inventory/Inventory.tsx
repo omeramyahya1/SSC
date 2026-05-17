@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { InventoryTable, SortConfig } from './InventoryTable';
 import { AddItemModal } from './AddItemModal';
 import { InventoryHistoryModal } from './InventoryHistoryModal';
+import { ExportReportModal } from '@/components/ExportReportModal';
 import { cn } from '@/lib/utils';
 import { SubscriptionBanner } from '../dashboard/SubscriptionBanner';
 
@@ -36,6 +37,7 @@ export default function Inventory() {
     const [activeTab, setActiveTab] = useState('all');
     const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
 
     useEffect(() => {
@@ -149,6 +151,15 @@ export default function Inventory() {
                             </Button>
                             <Button
                                 type="button"
+                                variant="outline"
+                                onClick={() => setIsExportModalOpen(true)}
+                                className="h-auto px-4 border-primary text-primary"
+                            >
+                                <img src="/eva-icons (2)/outline/download.png" alt="export" className="w-5 h-5 opacity-70" />
+                                {t('common.export', 'Export')}
+                            </Button>
+                            <Button
+                                type="button"
                                 onClick={() => setIsAddItemModalOpen(true)}
                                 disabled={isExpired}
                                 className="h-auto px-4 text-white hover:shadow-lg"
@@ -233,6 +244,12 @@ export default function Inventory() {
             <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
                 <InventoryHistoryModal isOpen={isHistoryModalOpen} />
             </Dialog>
+
+            <ExportReportModal 
+                isOpen={isExportModalOpen}
+                onClose={() => setIsExportModalOpen(false)}
+                reportType="inventory"
+            />
         </main>
     );
 }
