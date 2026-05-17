@@ -32,7 +32,6 @@ import { format } from "date-fns";
 import { arSA, enUS } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import useLocalStorage from "@/hooks/useLocalStorage";
 
 // Tauri APIs
 const tauriDialog = (window as any).__TAURI__?.dialog;
@@ -255,7 +254,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           {dateRangeType === "custom" && (
             <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
+                <Label className="font-bold">
                   {t("reporting.start_date", "Start Date")}
                 </Label>
                 <Popover>
@@ -270,7 +269,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
                       <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                       <span className="truncate">
                         {startDate
-                          ? format(startDate, "PP", { locale: dateLocale })
+                          ? format(startDate, "dd/MM/yyyy")
                           : t("invoicing.pick_date", "Pick a date")}
                       </span>
                     </Button>
@@ -285,12 +284,21 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
                       onSelect={setStartDate}
                       initialFocus
                       locale={dateLocale}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+
+                        const d = new Date(date);
+                        d.setHours(0, 0, 0, 0);
+
+                        return d > today; // Disables any date strictly after today
+                      }}
                     />
                   </PopoverContent>
                 </Popover>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
+                <Label className="font-bold">
                   {t("reporting.end_date", "End Date")}
                 </Label>
                 <Popover>
@@ -305,7 +313,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
                       <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                       <span className="truncate">
                         {endDate
-                          ? format(endDate, "PP", { locale: dateLocale })
+                          ? format(endDate, "dd/MM/yyyy")
                           : t("invoicing.pick_date", "Pick a date")}
                       </span>
                     </Button>
@@ -320,6 +328,22 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
                       onSelect={setEndDate}
                       initialFocus
                       locale={dateLocale}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+
+                        // If startDate exists, normalize it to midnight; otherwise fallback to today
+                        const minDate = startDate
+                          ? new Date(startDate)
+                          : new Date();
+                        minDate.setHours(0, 0, 0, 0);
+
+                        const d = new Date(date);
+                        d.setHours(0, 0, 0, 0);
+
+                        // Disable if it's older than start date OR if it's in the future
+                        return d < minDate || d > today;
+                      }}
                     />
                   </PopoverContent>
                 </Popover>
@@ -393,7 +417,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           </div>
         </div>
 
-        <DialogFooter className="gap-4 sm:gap-0 pt-4">
+        <DialogFooter className="gap-4 pt-4">
           <Button
             variant="outline"
             onClick={onClose}
@@ -404,7 +428,13 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
           </Button>
           <Button
             onClick={handleExport}
-            disabled={isExporting}
+            disabled={
+              isExporting ||
+              !dateRangeType ||
+              selectedFormats.length === 0 ||
+              !startDate ||
+              !endDate
+            }
             className="bg-primary text-white hover:shadow-md transition-all px-8 h-10 font-bold"
           >
             {isExporting
