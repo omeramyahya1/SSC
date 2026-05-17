@@ -318,7 +318,7 @@ def check_tc_status():
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Invalid request body"}), 400
-    user_id = data.get('user_id')
+    user_id = data.get('user_uuid')
 
     if not user_id:
         return jsonify({"error": "user_id is required"}), 400
