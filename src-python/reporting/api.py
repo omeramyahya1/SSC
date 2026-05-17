@@ -26,7 +26,7 @@ jinja_env = Environment(
 
 REPORT_TRANSLATIONS = {
     'en': {
-        'generated_on': 'Generated On',
+        'generated_on': 'Date generated',
         'scope': 'Scope',
         'summary': 'Summary Metrics',
         'performance_metrics': 'Performance Metrics',
@@ -77,9 +77,9 @@ REPORT_TRANSLATIONS = {
         }
     },
     'ar': {
-        'generated_on': 'تم الإنشاء في',
+        'generated_on': 'تاريخ الإنشاء',
         'scope': 'النطاق',
-        'summary': 'مقاييس ملخصة',
+        'summary': 'ملخص',
         'performance_metrics': 'مقاييس الأداء',
         'footer_text': 'Made with SSC - Internal Report',
         'finance_title': 'تقرير الأداء المالي',
@@ -167,7 +167,7 @@ def export_report(db):
             return jsonify({"error": "PDF engine not available"}), 500
 
         template = jinja_env.get_template('report.html')
-        
+
         # Localize dates for display
         def _fmt_date(d_str):
             if not d_str: return "—"
