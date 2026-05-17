@@ -40,7 +40,7 @@
         }
         .summary-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 4mm;
             margin-bottom: 8mm;
         }
@@ -49,6 +49,7 @@
             padding: 4mm;
             border-radius: 2mm;
             border: 1px solid #e5e7eb;
+            text-align: center;
         }
         .summary-card .label {
             font-size: 9pt;
@@ -56,7 +57,7 @@
             margin-bottom: 1mm;
         }
         .summary-card .value {
-            font-size: 14pt;
+            font-size: 12pt;
             font-weight: bold;
             color: #111827;
         }
@@ -71,43 +72,12 @@
             text-align: {{ 'left' if dir == 'ltr' else 'right' }};
             font-weight: bold;
             border-bottom: 1px solid #e5e7eb;
+            font-size: 9pt;
         }
         td {
             padding: 2mm;
             border-bottom: 1px solid #f3f4f6;
             font-size: 9pt;
-        }
-        /* Charts */
-        .chart-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 2mm;
-            gap: 3mm;
-        }
-        .chart-label {
-            width: 30%;
-            font-size: 9pt;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .chart-bar-bg {
-            flex-grow: 1;
-            background: #f3f4f6;
-            height: 4mm;
-            border-radius: 1mm;
-            position: relative;
-        }
-        .chart-bar-fill {
-            background: #3b82f6;
-            height: 100%;
-            border-radius: 1mm;
-        }
-        .chart-value {
-            width: 15%;
-            font-size: 9pt;
-            text-align: right;
-            font-weight: bold;
         }
         .footer {
             position: fixed;
@@ -119,6 +89,10 @@
             border-top: 1px solid #f3f4f6;
             padding-top: 2mm;
         }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .bold { font-weight: bold; }
+        .currency { font-size: 8pt; color: #6b7280; margin-left: 1mm; }
     </style>
 </head>
 <body>
@@ -135,30 +109,87 @@
 
     <div class="section-title">{{ t.summary }}</div>
     <div class="summary-grid">
+        {% set summary_keys = {
+            "Total Revenue": "total_revenue",
+            "Total Invoiced": "total_invoiced",
+            "Gross Profit": "gross_profit",
+            "Total Discounts": "total_discounts",
+            "Avg Sale Cycle (Days)": "avg_sale_cycle",
+            "Outstanding": "outstanding",
+            "Total Stock Value (Cost)": "total_stock_value",
+            "Total Potential Revenue": "total_potential_revenue",
+            "Total Movements in Period": "total_movements",
+            "Critical Items": "critical_items"
+        } %}
         {% for k, v in data.summary.items() %}
         <div class="summary-card">
-            <div class="label">{{ k }}</div>
-            <div class="value">{{ v }}</div>
+            <div class="label">{{ t[summary_keys[k]] if summary_keys[k] else k }}</div>
+            <div class="value">
+                {% if v is number and k != "Critical Items" and k != "Total Movements in Period" and k != "Avg Sale Cycle (Days)" %}
+                    {{ "{:,.2f}".format(v) }}<span class="currency">{{ t.currency_label }}</span>
+                {% else %}
+                    {{ v }}
+                {% endif %}
+            </div>
         </div>
         {% endfor %}
     </div>
 
-    {% if data.location_performance or data.branch_performance %}
+    {% if data.state_performance or data.method_breakdown or data.user_breakdown %}
     <div class="section-title">{{ t.performance_metrics }}</div>
-    <div style="margin-bottom: 10mm;">
-        {% set perf_data = data.location_performance if data.location_performance else data.branch_performance %}
-        {% set max_val = 1 %}
-        {% for v in perf_data.values() %}{% if v > max_val %}{% set max_val = v %}{% endif %}{% endfor %}
-        
-        {% for label, val in perf_data.items() %}
-        <div class="chart-row">
-            <div class="chart-label">{{ label }}</div>
-            <div class="chart-bar-bg">
-                <div class="chart-bar-fill" style="width: {{ (val / max_val * 100)|round }}%"></div>
-            </div>
-            <div class="chart-value">{{ val }}</div>
+    
+    {% if data.state_performance %}
+    <h4 style="margin: 4mm 0 2mm 0;">{{ t.performance_metrics }}</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.table.location }}</th>
+                <th class="{{ 'text-right' if dir == 'ltr' else 'text-left' }}">{{ t.table.amount }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for state, val in data.state_performance.items() %}
+            <tr>
+                <td>{{ state }}</td>
+                <td class="{{ 'text-right' if dir == 'ltr' else 'text-left' }} bold">{{ "{:,.2f}".format(val) }} {{ t.currency_label }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <div style="display: flex; gap: 5mm;">
+        {% if data.method_breakdown %}
+        <div style="flex: 1;">
+            <h4 style="margin: 4mm 0 2mm 0;">{{ t.payment_methods }}</h4>
+            <table>
+                <thead>
+                    <tr><th>{{ t.table.method }}</th><th class="{{ 'text-right' if dir == 'ltr' else 'text-left' }}">{{ t.table.amount }}</th></tr>
+                </thead>
+                <tbody>
+                    {% for method, val in data.method_breakdown.items() %}
+                    <tr><td>{{ method }}</td><td class="{{ 'text-right' if dir == 'ltr' else 'text-left' }}">{{ "{:,.2f}".format(val) }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        {% endfor %}
+        {% endif %}
+        
+        {% if data.user_breakdown %}
+        <div style="flex: 1;">
+            <h4 style="margin: 4mm 0 2mm 0;">{{ t.created_by_breakdown }}</h4>
+            <table>
+                <thead>
+                    <tr><th>{{ t.table.user }}</th><th class="{{ 'text-right' if dir == 'ltr' else 'text-left' }}">{{ t.table.amount }}</th></tr>
+                </thead>
+                <tbody>
+                    {% for user, val in data.user_breakdown.items() %}
+                    <tr><td>{{ user }}</td><td class="{{ 'text-right' if dir == 'ltr' else 'text-left' }}">{{ "{:,.2f}".format(val) }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -167,7 +198,8 @@
         <thead>
             <tr>
                 {% for h in table_headers %}
-                <th>{{ h }}</th>
+                {% set header_key = h.lower().replace(' ', '_').replace('.', '') %}
+                <th>{{ t.table[header_key] if t.table[header_key] else h }}</th>
                 {% endfor %}
             </tr>
         </thead>
@@ -175,12 +207,71 @@
             {% for row in table_data %}
             <tr>
                 {% for h in table_headers %}
-                <td>{{ row[h] }}</td>
+                <td>
+                    {% set val = row[h] %}
+                    {% if val is number and h not in ["Invoice No.", "Date", "Payment ID", "Threshold"] %}
+                        {{ "{:,.2f}".format(val) }}
+                    {% else %}
+                        {{ val }}
+                    {% endif %}
+                </td>
                 {% endfor %}
             </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    {% if data.payments_data %}
+    <div class="section-title">{{ t.payments_detail }}</div>
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.table.payment_id }}</th>
+                <th>{{ t.table.date }}</th>
+                <th>{{ t.table.method }}</th>
+                <th>{{ t.table.invoice_no }}</th>
+                <th class="{{ 'text-right' if dir == 'ltr' else 'text-left' }}">{{ t.table.amount }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in data.payments_data %}
+            <tr>
+                <td>{{ p["Payment ID"] }}</td>
+                <td>{{ p["Date"] }}</td>
+                <td>{{ p["Method"] }}</td>
+                <td>{{ p["Invoice No."] }}</td>
+                <td class="{{ 'text-right' if dir == 'ltr' else 'text-left' }} bold">{{ "{:,.2f}".format(p["Amount"]) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if data.movements %}
+    <div class="section-title">{{ t.movements_history }}</div>
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.table.date }}</th>
+                <th>{{ t.table.name }}</th>
+                <th>{{ t.table.adjustment }}</th>
+                <th>{{ t.table.reason }}</th>
+                <th>{{ t.table.user }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in data.movements %}
+            <tr>
+                <td>{{ m["Date"] }}</td>
+                <td>{{ m["Item"] }}</td>
+                <td>{{ m["Adjustment"] }}</td>
+                <td>{{ m["Reason"] }}</td>
+                <td>{{ m["User"] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
 
     <div class="footer">
         {{ t.footer_text }} | Page <span class="pageNumber"></span>

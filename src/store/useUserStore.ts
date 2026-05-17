@@ -1,40 +1,47 @@
 // src/store/useUserStore.ts
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import api from '@/api/client';
-import { registerStore, StoreKeys } from '@/api/storeRegistry';
-import toast from 'react-hot-toast';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import api from "@/api/client";
+import { registerStore, StoreKeys } from "@/api/storeRegistry";
+import toast from "react-hot-toast";
 
 // --- 1. Define Types ---
 
 export interface User {
-    user_id: number;
-    uuid: string;
-    username: string;
-    created_at: string;
-    updated_at: string;
-    is_dirty: boolean;
-    email: string;
-    business_name?: string;
-    account_type: "enterprise" | "standard" | "enterprise_tier1" | "enterprise_tier2";
-    location?: string;
-    business_logo?: any;
-    business_email?: string;
-    status: "active" | "expired" | "grace" | "trial";
-    org_id?: number;
-    org_name?: string;
-    organization_uuid?: string;
-    branch_id?: number;
-    branch_location?: string;
-    branch_uuid?: string;
-    role: "admin" | "employee" | "user";
-    distributor_id?: string;
-    deleted_at?: string;
+  user_id: number;
+  uuid: string;
+  username: string;
+  created_at: string;
+  updated_at: string;
+  is_dirty: boolean;
+  email: string;
+  business_name?: string;
+  account_type:
+    | "enterprise"
+    | "standard"
+    | "enterprise_tier1"
+    | "enterprise_tier2";
+  location?: string;
+  business_logo?: any;
+  business_email?: string;
+  status: "active" | "expired" | "grace" | "trial";
+  org_id?: number;
+  org_name?: string;
+  organization_uuid?: string;
+  branch_id?: number;
+  branch_location?: string;
+  branch_uuid?: string;
+  role: "admin" | "employee" | "user";
+  distributor_id?: string;
+  deleted_at?: string;
 }
 
-export type NewUserData = Omit<User, 'user_id' | 'created_at' | 'updated_at' | 'is_dirty'>;
+export type NewUserData = Omit<
+  User,
+  "user_id" | "created_at" | "updated_at" | "is_dirty"
+>;
 
-const resource = '/users';
+const resource = "/users";
 
 // --- 2. Define Store ---
 
@@ -51,176 +58,209 @@ export interface UserStore {
   fetchUser: (id: string) => Promise<void>;
   createUser: (data: NewUserData) => Promise<User | undefined>;
   createEmployee: (data: any) => Promise<User | undefined>;
-  updateUser: (id: number | string, data: Partial<NewUserData>) => Promise<User>;
+  updateUser: (
+    id: number | string,
+    data: Partial<NewUserData>,
+  ) => Promise<User>;
   deleteUser: (id: number | string, password: string) => Promise<void>;
   setCurrentUser: (user: User | null) => void;
 }
 
-export const useUserStore = create<UserStore>()(persist((set, get) => ({
-  users: [],
-  currentUser: null,
-  currentUserSnapshot: null,
-  isLoading: false,
-  error: null,
+export const useUserStore = create<UserStore>()(
+  persist(
+    (set, get) => ({
+      users: [],
+      currentUser: null,
+      currentUserSnapshot: null,
+      isLoading: false,
+      error: null,
 
-  setCurrentUser: (user) => {
-    set({
-      currentUser: user,
-      currentUserSnapshot: user ? { user_id: user.user_id, uuid: user.uuid } : null
-    });
-  },
+      setCurrentUser: (user) => {
+        set({
+          currentUser: user,
+          currentUserSnapshot: user
+            ? { user_id: user.user_id, uuid: user.uuid }
+            : null,
+        });
+      },
 
-  checkEmailUniqueness: async (email) => {
-    const normalized = email.trim().toLowerCase();
-    if (!normalized) return false;
-    const response = await api.post<{ isUnique: boolean }>(`${resource}/check-email-uniqueness`, { email: normalized });
-    return Boolean(response.data?.isUnique);
-  },
+      checkEmailUniqueness: async (email) => {
+        const normalized = email.trim().toLowerCase();
+        if (!normalized) return false;
+        const response = await api.post<{ isUnique: boolean }>(
+          `${resource}/check-email-uniqueness`,
+          { email: normalized },
+        );
+        return Boolean(response.data?.isUnique);
+      },
 
-  changeCurrentUserEmail: async (email) => {
-    const current = get().currentUser;
-    if (!current) return undefined;
+      changeCurrentUserEmail: async (email) => {
+        const current = get().currentUser;
+        if (!current) return undefined;
 
-    set({ isLoading: true, error: null });
-    try {
-      const isUnique = await get().checkEmailUniqueness(email);
-      if (!isUnique) {
-        throw new Error("Email already exists");
-      }
+        set({ isLoading: true, error: null });
+        try {
+          const isUnique = await get().checkEmailUniqueness(email);
+          if (!isUnique) {
+            throw new Error("Email already exists");
+          }
 
-      const updated = await get().updateUser(current.user_id, { email: email.trim().toLowerCase() });
+          const updated = await get().updateUser(current.user_id, {
+            email: email.trim().toLowerCase(),
+          });
+          localStorage.removeItem("ssc-last-email");
 
-      set({ isLoading: false });
-      return updated;
-    } catch (e: any) {
-      const errorMsg = e.response?.data?.error || e.message || "Failed to change email";
-      set({ error: errorMsg, isLoading: false });
-      throw new Error(errorMsg);
-    }
-  },
+          set({ isLoading: false });
+          return updated;
+        } catch (e: any) {
+          const errorMsg =
+            e.response?.data?.error || e.message || "Failed to change email";
+          set({ error: errorMsg, isLoading: false });
+          throw new Error(errorMsg);
+        }
+      },
 
-  fetchUsers: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.get<User[]>(resource);
-      set({ users: data.filter(u => !u.deleted_at), isLoading: false });
-    } catch (e: any) {
-      const errorMsg = e.message || "Failed to fetch users";
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-    }
-  },
+      fetchUsers: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.get<User[]>(resource);
+          set({ users: data.filter((u) => !u.deleted_at), isLoading: false });
+        } catch (e: any) {
+          const errorMsg = e.message || "Failed to fetch users";
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+        }
+      },
 
-  fetchEmployees: async (orgUuid) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.get<User[]>(resource);
-      set({ users: data, isLoading: false });
-    } catch (e: any) {
-      const errorMsg = e.message || "Failed to fetch employees";
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-    }
-  },
+      fetchEmployees: async (orgUuid) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.get<User[]>(resource);
+          set({ users: data, isLoading: false });
+        } catch (e: any) {
+          const errorMsg = e.message || "Failed to fetch employees";
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+        }
+      },
 
-  fetchUser: async (id) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.get<User>(`${resource}/${id}`);
-      set({
-        currentUser: data,
-        currentUserSnapshot: { user_id: data.user_id, uuid: data.uuid },
-        isLoading: false
-      });
-    } catch (e: any) {
-      const errorMsg = e.message || `Failed to fetch user ${id}`;
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-    }
-  },
+      fetchUser: async (id) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.get<User>(`${resource}/${id}`);
+          set({
+            currentUser: data,
+            currentUserSnapshot: { user_id: data.user_id, uuid: data.uuid },
+            isLoading: false,
+          });
+        } catch (e: any) {
+          const errorMsg = e.message || `Failed to fetch user ${id}`;
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+        }
+      },
 
-  createUser: async (newUserData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.post<User>(resource, newUserData);
-      set((state) => ({ users: [...state.users, data], isLoading: false }));
-      return data;
-    } catch (e: any) {
-      const errorMsg = e.message || "Failed to create user";
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-      return undefined;
-    }
-  },
+      createUser: async (newUserData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.post<User>(resource, newUserData);
+          set((state) => ({ users: [...state.users, data], isLoading: false }));
+          return data;
+        } catch (e: any) {
+          const errorMsg = e.message || "Failed to create user";
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+          return undefined;
+        }
+      },
 
-  createEmployee: async (employeeData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.post<User>(`${resource}/employee`, employeeData);
-      set((state) => ({ users: [...state.users, data], isLoading: false }));
-      return data;
-    } catch (e: any) {
-      const errorMsg = e.response?.data?.error || "Failed to create employee";
-      set({ error: errorMsg, isLoading: false });
-      toast.error(errorMsg);
-      console.error(errorMsg, e);
-      return undefined;
-    }
-  },
+      createEmployee: async (employeeData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.post<User>(
+            `${resource}/employee`,
+            employeeData,
+          );
+          set((state) => ({ users: [...state.users, data], isLoading: false }));
+          return data;
+        } catch (e: any) {
+          const errorMsg =
+            e.response?.data?.error || "Failed to create employee";
+          set({ error: errorMsg, isLoading: false });
+          toast.error(errorMsg);
+          console.error(errorMsg, e);
+          return undefined;
+        }
+      },
 
-  updateUser: async (id, updatedData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { data } = await api.put<User>(`${resource}/${id}`, updatedData);
-      const normalizedId =
-        typeof id === 'string' && /^\d+$/.test(id) ? Number(id) : id;
+      updateUser: async (id, updatedData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const { data } = await api.put<User>(
+            `${resource}/${id}`,
+            updatedData,
+          );
+          const normalizedId =
+            typeof id === "string" && /^\d+$/.test(id) ? Number(id) : id;
 
-      set((state) => ({
-        users: state.users.map((u) =>
-          u.user_id === normalizedId || u.uuid === id ? data : u
-        ),
-        currentUser:
-          state.currentUser &&
-          (state.currentUser.user_id === normalizedId || state.currentUser.uuid === id)
-            ? data
-            : state.currentUser,
-        isLoading: false,
-      }));
-      return data;
-    } catch (e: any) {
-      const errorMsg = e.response?.data?.error || e.message || `Failed to update user ${id}`;
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-      throw new Error(errorMsg);
-    }
-  },
+          set((state) => ({
+            users: state.users.map((u) =>
+              u.user_id === normalizedId || u.uuid === id ? data : u,
+            ),
+            currentUser:
+              state.currentUser &&
+              (state.currentUser.user_id === normalizedId ||
+                state.currentUser.uuid === id)
+                ? data
+                : state.currentUser,
+            isLoading: false,
+          }));
+          return data;
+        } catch (e: any) {
+          const errorMsg =
+            e.response?.data?.error ||
+            e.message ||
+            `Failed to update user ${id}`;
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+          throw new Error(errorMsg);
+        }
+      },
 
-  deleteUser: async (id, password) => {
-    set({ isLoading: true, error: null });
-    try {
-      await api.delete(`${resource}/${id}`, { data: { password } });
-      set((state) => ({
-        users: state.users.filter((u) => u.user_id !== id && u.uuid !== id),
-        isLoading: false,
-      }));
-    } catch (e: any) {
-      const errorMsg = e.response?.data?.error || e.message || `Failed to delete user ${id}`;
-      set({ error: errorMsg, isLoading: false });
-      console.error(errorMsg, e);
-      throw new Error(errorMsg);
-    }
-  },
-}), {
-  name: 'user-store',
-  partialize: (state) => ({ currentUserSnapshot: state.currentUserSnapshot }),
-  onRehydrateStorage: () => (state, error) => {
-    if (error || !state) return;
-    const snapshot = state.currentUserSnapshot;
-    if (snapshot?.user_id) {
-      state.fetchUser(String(snapshot.user_id));
-    }
-  }
-}));
+      deleteUser: async (id, password) => {
+        set({ isLoading: true, error: null });
+        try {
+          await api.delete(`${resource}/${id}`, { data: { password } });
+          set((state) => ({
+            users: state.users.filter((u) => u.user_id !== id && u.uuid !== id),
+            isLoading: false,
+          }));
+        } catch (e: any) {
+          const errorMsg =
+            e.response?.data?.error ||
+            e.message ||
+            `Failed to delete user ${id}`;
+          set({ error: errorMsg, isLoading: false });
+          console.error(errorMsg, e);
+          throw new Error(errorMsg);
+        }
+      },
+    }),
+    {
+      name: "user-store",
+      partialize: (state) => ({
+        currentUserSnapshot: state.currentUserSnapshot,
+      }),
+      onRehydrateStorage: () => (state, error) => {
+        if (error || !state) return;
+        const snapshot = state.currentUserSnapshot;
+        if (snapshot?.user_id) {
+          state.fetchUser(String(snapshot.user_id));
+        }
+      },
+    },
+  ),
+);
 
 registerStore(StoreKeys.User, () => {
   // Intentionally avoid eager fetch; fetchUsers should be triggered by admin-only views.

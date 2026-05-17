@@ -430,10 +430,8 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
             onClick={handleExport}
             disabled={
               isExporting ||
-              !dateRangeType ||
-              selectedFormats.length === 0 ||
-              !startDate ||
-              !endDate
+              (dateRangeType === "custom" && (!startDate || !endDate)) ||
+              selectedFormats.length === 0
             }
             className="bg-primary text-white hover:shadow-md transition-all px-8 h-10 font-bold"
           >
