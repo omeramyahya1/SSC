@@ -387,7 +387,16 @@ export function IndependentInvoiceEditor({
         type === "excel" ? "xlsx" : type
       }`;
       const fileName = sanitizeFileName(rawFileName);
-      let last_save = localStorage.getItem("last_save");
+      const lastSaveDir = localStorage.getItem("last_save");
+      const separator =
+        lastSaveDir && !/[\\/]$/.test(lastSaveDir)
+          ? lastSaveDir.includes("\\")
+            ? "\\"
+            : "/"
+          : "";
+      const defaultPath = lastSaveDir
+        ? `${lastSaveDir}${separator}${fileName}`
+        : fileName;
       const pdfMarginParams =
         type === "pdf" ? { top_mm: topMargin, bottom_mm: bottomMargin } : {};
       const response = await api.get(
@@ -402,7 +411,7 @@ export function IndependentInvoiceEditor({
       const blob = response.data;
       if (tauriDialog && tauriFs) {
         const savePath = await tauriDialog.save({
-          defaultPath: last_save + fileName,
+          defaultPath,
           filters: [
             {
               name: type.toUpperCase(),
@@ -419,7 +428,8 @@ export function IndependentInvoiceEditor({
         toast.success(
           t("invoicing.export_success", "File saved successfully!"),
         );
-        localStorage.setItem("last_save", savePath);
+        const saveDir = savePath.replace(/[\\/][^\\/]*$/, "");
+        localStorage.setItem("last_save", saveDir);
       } else {
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");

@@ -87,9 +87,11 @@ const MainContent = () => {
     setShowFirstTimeLoginPrompt(false);
   };
 
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   const handleChangePassword = () => {
     setShowFirstTimeLoginPrompt(false);
-    navigate("");
+    setIsSettingsOpen(true);
   };
 
   useEffect(() => {
@@ -114,7 +116,6 @@ const MainContent = () => {
       <InternetAlert />
       <Sidebar />
       <Outlet />
-
       <AlertDialog
         open={showFirstTimeLoginPrompt}
         onOpenChange={setShowFirstTimeLoginPrompt}
@@ -138,22 +139,19 @@ const MainContent = () => {
             >
               {t("common.later", "Later")}
             </AlertDialogCancel>
-
-            <Dialog>
-              <DialogTrigger asChild>
-                <AlertDialogAction
-                  onClick={handleChangePassword}
-                  className="bg-primary text-white hover:bg-primary/90"
-                >
-                  {t("auth.change_password_now", "Change Password Now")}
-                </AlertDialogAction>
-              </DialogTrigger>
-              <SettingsModal passwordChange={true} />
-            </Dialog>
+            <AlertDialogAction
+              onClick={handleChangePassword}
+              className="bg-primary text-white hover:bg-primary/90"
+            >
+              {t("auth.change_password_now", "Change Password Now")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
+      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <SettingsModal passwordChange={true} />
+      </Dialog>
       <AlertDialog open={showTCModal} onOpenChange={setShowTCModal}>
         <AlertDialogContent className="max-w-2xl max-h-[90vh] bg-white flex flex-col p-0 overflow-hidden">
           <AlertDialogHeader className="p-6 pb-2">

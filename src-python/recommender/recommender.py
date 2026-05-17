@@ -90,7 +90,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
                 pwr = first_spec_value(specs, ["inverter_rated_power", "power_rating_w"])
                 volt = first_spec_value(specs, ["system_voltage_v", "dc_input_voltage", "input_voltage_v", "voltage"])
                 price = x.sell_price if x.sell_price and x.sell_price > 0 else float('inf')
-                
+
                 v_match = 0 if (dc_system_voltage > 0 and volt == dc_system_voltage) or dc_system_voltage == 0 or volt == 0 else 1
                 pwr_diff = abs(pwr - required_inverter_power)
                 return (v_match, pwr_diff, price)
@@ -101,7 +101,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
             flags = []
             if selected_inverter.sell_price is None:
                 flags.append("sell price not set")
-            
+
             # Add flag if voltage was unspecified
             sel_specs = selected_inverter.technical_specs or {}
             sel_volt = first_spec_value(sel_specs, ["system_voltage_v", "dc_input_voltage", "input_voltage_v", "voltage"])
@@ -159,10 +159,11 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
         flags = []
         if not qualified_batteries and batteries:
             # Fallback: ignore capacity if no battery meets it, but still try to match voltage
-            qualified_batteries = [b for b in batteries if first_spec_value(b.technical_specs, ["battery_rated_voltage", "voltage"]) == required_unit_voltage]
+            if required_unit_voltage > 0:
+                qualified_batteries = [b for b in batteries if first_spec_value(b.technical_specs, ["battery_rated_voltage", "voltage"]) == required_unit_voltage]
             if not qualified_batteries:
                 qualified_batteries = batteries
-                flags.append("No batteries matching unit voltage found; selecting closest available")
+                flags.append("No batteries matching requirements found; selecting closest available")
             else:
                 flags.append("No batteries meet required capacity; selecting closest voltage match")
 
@@ -173,7 +174,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
                 cap = first_spec_value(specs, ["battery_rated_capacity_ah", "capacity_ah"], 0.0)
                 volt = first_spec_value(specs, ["battery_rated_voltage", "voltage"], 0.0)
                 price = b.sell_price if b.sell_price and b.sell_price > 0 else float('inf')
-                
+
                 v_match = 0 if (required_unit_voltage > 0 and volt == required_unit_voltage) or required_unit_voltage == 0 or volt == 0 else 1
                 cap_diff = abs(cap - required_unit_capacity_ah) if required_unit_capacity_ah > 0 else 0
                 return (v_match, cap_diff, price)
@@ -183,7 +184,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
 
             if selected_battery.sell_price is None:
                 flags.append("sell price not set")
-            
+
             # Add flag if voltage was unspecified
             sel_specs = selected_battery.technical_specs or {}
             sel_volt = first_spec_value(sel_specs, ["battery_rated_voltage", "voltage"], 0.0)
@@ -228,7 +229,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
             def panel_sort_key(p):
                 pwr, mpp_v = panel_specs(p)
                 price = p.sell_price if p.sell_price and p.sell_price > 0 else float('inf')
-                
+
                 # Priority 1: Meets Power Requirement
                 meets_pwr = 0 if (required_panel_power <= 0 or pwr >= required_panel_power) else 1
                 # Priority 2: Voltage Match (if specified)
@@ -236,7 +237,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
                 # Priority 3: Price
                 # Priority 4: Closest power (if power meets)
                 pwr_diff = abs(pwr - required_panel_power) if required_panel_power > 0 else 0
-                
+
                 return (meets_pwr, v_match, price, pwr_diff)
 
             panels.sort(key=panel_sort_key)
@@ -244,7 +245,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
 
             flags = []
             sel_pwr, sel_mpp_v = panel_specs(selected_panel)
-            
+
             if selected_panel.sell_price is None:
                 flags.append("sell price not set")
             if required_panel_power > 0 and sel_pwr < required_panel_power:

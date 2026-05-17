@@ -571,10 +571,13 @@ def update_user(user_id_or_uuid):
             }
 
             # 3. Execute the bulk update safely
-            db.query(User).filter(User.uuid == actor_user.uuid).update(
+            db.query(User).filter(User.uuid == item.uuid).update(
                 update_payload,
                 synchronize_session=False,
             )
+
+            db.flush()
+            db.refresh(item)
 
             # --- Supabase Direct Sync ---
             try:

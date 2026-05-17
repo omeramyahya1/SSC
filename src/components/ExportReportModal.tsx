@@ -142,8 +142,12 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
       }
 
       if (tauriDialog && tauriFs) {
+        const lastDir = lastSavePath
+          ? lastSavePath.substring(0, lastSavePath.lastIndexOf("/") + 1) ||
+            lastSavePath.substring(0, lastSavePath.lastIndexOf("\\") + 1)
+          : "";
         const savePath = await tauriDialog.save({
-          defaultPath: lastSavePath + fileName,
+          defaultPath: lastDir + fileName,
           filters: [
             {
               name:
@@ -159,7 +163,6 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({
         });
 
         if (!savePath) {
-          toast.error(t("invoicing.export_cancelled", "Export cancelled."));
           return;
         }
 

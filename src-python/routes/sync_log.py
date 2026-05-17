@@ -478,15 +478,17 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
             raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
         if hasattr(response, 'data'):
             confirmed_ids = set(str(x) for x in (response.data or []))
-            if not confirmed_ids:
-                # Do not clear local dirty flags without explicit confirmation.
-                print(f"Push for {table_name} returned no confirmed IDs. Local dirty flags were not cleared.")
 
             confirmed_count = 0
             for record in records:
                 if str(record.uuid) in confirmed_ids:
                     record.is_dirty = False
                     confirmed_count += 1
+            if confirmed_count != len(records):
+                db.rollback()
+                raise Exception(
+                    f"Push for {table_name} only confirmed {confirmed_count}/{len(records)} records."
+                )
 
             db.commit()
             print(f"Successfully pushed and confirmed {confirmed_count}/{len(records)} records to {table_name}.")

@@ -1,6 +1,7 @@
 // src/store/useProjectStore.ts
 import { create } from "zustand";
 import api from "@/api/client";
+import { useUserStore } from "./useUserStore";
 import { registerStore, StoreKeys } from "@/api/storeRegistry";
 import {
   NewProjectData,
@@ -125,12 +126,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   createProject: async (newProjectData, quickCalcData) => {
     // Optimistic UI: Create a temporary project object
     const tempId = -Date.now(); // Unique negative ID
+    const { currentUser } = useUserStore.getState();
     const optimisticProject: Project = {
       project_id: tempId,
       uuid: String(tempId),
       customer_uuid: String(tempId),
       status: "planning",
       project_location: newProjectData.project_location,
+      user_uuid: currentUser?.uuid || "",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       customer: {

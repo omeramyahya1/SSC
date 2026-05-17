@@ -626,6 +626,15 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
   };
 
   const handleVerifyEmailChangePassword = async () => {
+    if (!navigator.onLine) {
+      toast.error(
+        t(
+          "settings.internet_required_change",
+          "Internet connection required to change sensitive settings",
+        ),
+      );
+      return;
+    }
     if (!emailChangePassword.trim()) return;
     setIsVerifyingEmailChangePassword(true);
     try {

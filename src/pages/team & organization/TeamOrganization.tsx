@@ -92,16 +92,17 @@ export default function TeamOrganization() {
     }
     try {
       await deleteUser(employeeToDelete.uuid, deactivatePassword);
+      toast.success(
+        t("team.deactivate_success", "Employee deactivated successfully"),
+      );
+      setEmployeeToDelete(null);
+      await Promise.resolve(sync());
     } catch (e) {
       toast.error(t("team.deactivate_error", "Failed to deactivate employee"));
+      return;
     }
     toast.success(
       t("team.deactivate_success", "Employee deactivated successfully"),
-    );
-    sync();
-    setEmployeeToDelete(null);
-    void Promise.resolve(sync()).catch((err) =>
-      console.warn("Post-deactivate sync failed", err),
     );
   };
 
@@ -117,8 +118,9 @@ export default function TeamOrganization() {
     } catch (e: any) {
       setIsDeactivatePasswordVerified(false);
       const msg =
-        e?.response?.data?.error ||
-        t("settings.invalid_password", "Invalid password");
+        e?.response?.status === 401
+          ? t("settings.invalid_password", "Invalid password")
+          : e?.response?.data?.error || t("common.error", "Error");
       toast.error(msg);
     } finally {
       setIsVerifyingDeactivatePassword(false);
@@ -141,14 +143,12 @@ export default function TeamOrganization() {
       toast.success(
         t("team.branch_delete_success", "Branch deleted successfully"),
       );
+      setBranchToDelete(null);
+      await Promise.resolve(sync());
     } catch (e) {
       toast.error(t("team.branch_delete_error", "Failed to delete branch"));
+      return;
     }
-    sync();
-    setBranchToDelete(null);
-    void Promise.resolve(sync()).catch((err) =>
-      console.warn("Post-Branch delete sync failed", err),
-    );
   };
 
   return (

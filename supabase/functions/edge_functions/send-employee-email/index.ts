@@ -29,6 +29,13 @@ const emailWrapper = (
   `;
 };
 
+const escapeHtml = (str: string): string =>
+  String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
 const templates: any = {
   employee_branch_change: {
     en: {
@@ -36,11 +43,11 @@ const templates: any = {
       body: (p: any, date: string) =>
         emailWrapper(
           "Branch Assignment Update",
-          `<p>Hello ${p.username},</p>
-         <p>Your branch assignment at <strong>${p.org_name}</strong> has been updated.</p>
+          `<p>Hello ${escapeHtml(p.username)},</p>
+         <p>Your branch assignment at <strong>${escapeHtml(p.org_name)}</strong> has been updated.</p>
          <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #eee;">
-            <p style="margin: 5px 0;"><strong>Previous Branch:</strong> ${p.old_branch_name}</p>
-            <p style="margin: 5px 0;"><strong>New Branch:</strong> <span style="font-size: 18px; font-weight: bold; color: #0056b3;">${p.new_branch_name}</span></p>
+            <p style="margin: 5px 0;"><strong>Previous Branch:</strong> ${escapeHtml(p.old_branch_name)}</p>
+            <p style="margin: 5px 0;"><strong>New Branch:</strong> <span style="font-size: 18px; font-weight: bold; color: `#0056b3`;">${escapeHtml(p.new_branch_name)}</span></p>
          </div>
          <p>Please log in to see your updated branch information.</p>`,
           date,
@@ -70,10 +77,17 @@ serve(async (req) => {
   const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
   const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  if (!BREVO_API_KEY || !SENDER_EMAIL || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return new Response(
+      JSON.stringify({ error: "Missing required environment variables" }),
+      { status: 500 }
+    );
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   // Fetch Pending Branch Change Jobs
   const { data: pendingJobs, error: fetchError } = await supabase

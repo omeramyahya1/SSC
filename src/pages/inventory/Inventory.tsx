@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useLayoutEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,7 +49,7 @@ export default function Inventory() {
     direction: "asc",
   });
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     fetchItems();
     fetchCategories();
   }, [fetchItems, fetchCategories]);

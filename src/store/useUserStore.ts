@@ -231,8 +231,12 @@ export const useUserStore = create<UserStore>()(
         set({ isLoading: true, error: null });
         try {
           await api.delete(`${resource}/${id}`, { data: { password } });
+          const normalizedId =
+            typeof id === "string" && /^\d+$/.test(id) ? Number(id) : id;
           set((state) => ({
-            users: state.users.filter((u) => u.user_id !== id && u.uuid !== id),
+            users: state.users.filter(
+              (u) => u.user_id !== normalizedId && u.uuid !== id,
+            ),
             isLoading: false,
           }));
         } catch (e: any) {

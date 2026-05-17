@@ -43,7 +43,7 @@ BEGIN
     WHERE created_at < NOW() - INTERVAL '3 days';
 
     -------------------------------------------------------------------
-    -- STEP 3: Clear sent notifications older than 3 days
+    -- STEP 3: Clear sent notifications older than 10 days
     -------------------------------------------------------------------
     DELETE FROM public.notification_jobs
     WHERE status = 'sent'

@@ -1,5 +1,4 @@
 import io
-import pandas as pd
 import xlsxwriter
 from datetime import datetime, timedelta
 from sqlalchemy import func, and_, or_

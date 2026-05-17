@@ -132,7 +132,7 @@ REPORT_TRANSLATIONS = {
 @reporting_bp.route('/export', methods=['POST'])
 @inject_db_session
 def export_report(db):
-    data = request.json
+    data = request.json or {}
     report_type = data.get('report_type') # 'finance' or 'inventory'
     formats = data.get('formats', ['excel']) # ['excel', 'pdf']
     lang = data.get('lang', 'en')
@@ -170,10 +170,11 @@ def export_report(db):
 
         # Localize dates for display
         def _fmt_date(d_str):
-            if not d_str: return "—"
+            if not d_str:
+                return "—"
             try:
                 return datetime.fromisoformat(d_str).strftime('%d-%m-%Y')
-            except:
+            except (ValueError, TypeError):
                 return d_str
 
         date_range = f"{_fmt_date(start_date)} - {_fmt_date(end_date)}"

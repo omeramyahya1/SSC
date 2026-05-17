@@ -213,8 +213,8 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
       ) {
         payload = {
           ...payload,
-          organization_uuid: currentUser.organization_uuid ?? "",
-          branch_uuid: currentUser.branch_uuid ?? "",
+          organization_uuid: currentUser.organization_uuid ?? null,
+          branch_uuid: currentUser.branch_uuid ?? null,
         };
       }
 
@@ -398,7 +398,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                       </Label>
                       <Input
                         id={`acc-spec-value-${index}`}
-                        className={`h-8 text-sm bg-white ${row.name && !row.value && "border-semantic-error"}`}
+                        className={`h-8 text-sm bg-white ${row.name && !row.value ? "border-semantic-error" : ""}`}
                         value={row.value}
                         onChange={(e) =>
                           handleAccessorySpecChange(
