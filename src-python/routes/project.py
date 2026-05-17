@@ -218,7 +218,6 @@ def get_all_project():
             db.query(Project)
             .options(joinedload(Project.customer), joinedload(Project.user), joinedload(Project.invoices))
             .outerjoin(Invoice, Invoice.project_uuid == Project.uuid)
-            .filter(Project.deleted_at.is_(None))
         )
 
         if ctx.org_uuid:
