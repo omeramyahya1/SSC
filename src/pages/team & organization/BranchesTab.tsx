@@ -18,6 +18,7 @@ interface BranchesTabProps {
   onEditBranch: (branch: Branch) => void;
   onDeleteBranch: (branch: Branch) => void;
   isStatusRestricted?: boolean;
+  isLimitReached: boolean;
 }
 
 export function BranchesTab({

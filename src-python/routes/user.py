@@ -318,7 +318,7 @@ def check_tc_status():
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Invalid request body"}), 400
-    user_id = data.get('user_id')
+    user_id = data.get('user_uuid')
 
     if not user_id:
         return jsonify({"error": "user_id is required"}), 400
@@ -562,9 +562,22 @@ def update_user(user_id_or_uuid):
             except ValidationError as e:
                 return jsonify({"errors": e.errors()}), 400
 
-            update_data = validated_data.dict(exclude_unset=True)
-            for key, value in update_data.items():
-                setattr(item, key, value)
+            # 1. Use model_dump for Pydantic v2 (or keep .dict() if strictly on v1)
+            update_data = validated_data.model_dump(exclude_unset=True)
+
+            # 2. Map string keys to actual SQLAlchemy column objects using getattr
+            update_payload = {
+                getattr(User, key): value for key, value in update_data.items()
+            }
+
+            # 3. Execute the bulk update safely
+            db.query(User).filter(User.uuid == item.uuid).update(
+                update_payload,
+                synchronize_session=False,
+            )
+
+            db.flush()
+            db.refresh(item)
 
             # --- Supabase Direct Sync ---
             try:

@@ -39,9 +39,16 @@ BEGIN
     -------------------------------------------------------------------
     -- STEP 2: Clear sync logs older than 3 days
     -------------------------------------------------------------------
-    -- Replace 'created_at' with your actual timestamp column in sync_logs
     DELETE FROM public.sync_logs
     WHERE created_at < NOW() - INTERVAL '3 days';
+
+    -------------------------------------------------------------------
+    -- STEP 3: Clear sent notifications older than 10 days
+    -------------------------------------------------------------------
+    DELETE FROM public.notification_jobs
+    WHERE status = 'sent'
+        AND sent_at < NOW() - INTERVAL '10 days';
+
 
 EXCEPTION
     WHEN OTHERS THEN

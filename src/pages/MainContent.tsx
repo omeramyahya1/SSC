@@ -21,6 +21,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TCContent } from "@/components/ui/TCContent";
 import { Spinner } from "@/components/ui/spinner";
 import { useSync } from "@/hooks/useSync";
+import { Dialog, DialogTrigger } from "@radix-ui/react-dialog";
+import { SettingsModal } from "./dashboard/SettingsModal";
 
 const MainContent = () => {
   const { t, i18n } = useTranslation();
@@ -85,9 +87,11 @@ const MainContent = () => {
     setShowFirstTimeLoginPrompt(false);
   };
 
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   const handleChangePassword = () => {
     setShowFirstTimeLoginPrompt(false);
-    navigate("/change_password");
+    setIsSettingsOpen(true);
   };
 
   useEffect(() => {
@@ -112,7 +116,6 @@ const MainContent = () => {
       <InternetAlert />
       <Sidebar />
       <Outlet />
-
       <AlertDialog
         open={showFirstTimeLoginPrompt}
         onOpenChange={setShowFirstTimeLoginPrompt}
@@ -146,6 +149,9 @@ const MainContent = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <SettingsModal passwordChange={true} />
+      </Dialog>
       <AlertDialog open={showTCModal} onOpenChange={setShowTCModal}>
         <AlertDialogContent className="max-w-2xl max-h-[90vh] bg-white flex flex-col p-0 overflow-hidden">
           <AlertDialogHeader className="p-6 pb-2">

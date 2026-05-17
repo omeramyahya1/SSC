@@ -24,6 +24,55 @@ interface AddItemModalProps {
   onOpenChange: (isOpen: boolean) => void;
 }
 
+export const SPEC_TRANSLATIONS = {
+  categories: {
+    "Solar Panels": { en: "Solar Panels", ar: "الألواح الشمسية" },
+    Inverters: { en: "Inverters", ar: "العواكس (Inverters)" },
+    Batteries: { en: "Batteries", ar: "البطاريات" },
+  },
+  keys: {
+    panel_rated_power: { en: "Rated Power", ar: "القدرة المقدرة" },
+    panel_mpp_voltage: { en: "MPP Voltage", ar: "جهد أقصى نقطة تتبع (Vmp)" },
+    inverter_rated_power: { en: "Rated Power", ar: "القدرة المقدرة" },
+    system_voltage_v: { en: "System Voltage", ar: "جهد النظام" },
+    inverter_mppt_min_v: { en: "Min MPPT Voltage", ar: "أقل جهد لتتبع الشاحن" },
+    inverter_mppt_max_v: {
+      en: "Max MPPT Voltage",
+      ar: "أقصى جهد لتتبع الشاحن",
+    },
+    output_voltage_v: { en: "Output Voltage", ar: "جهد المخرج (AC)" },
+    battery_rated_capacity_ah: { en: "Rated Capacity", ar: "السعة المقدرة" },
+    battery_rated_voltage: { en: "Rated Voltage", ar: "الجهد المقدر" },
+    battery_max_parallel: {
+      en: "Max Parallel Connections",
+      ar: "أقصى حد للتوصيل على التوازي",
+    },
+    dod: { en: "Depth of Discharge (DoD)", ar: "عمق التفريغ (DoD)" },
+    efficiency: { en: "Efficiency", ar: "الكفاءة" },
+    battery_type: { en: "Battery Type", ar: "نوع البطارية" },
+  },
+  units: {
+    count: { en: "Qty", ar: "العدد" },
+    type: { en: "Type", ar: "النوع" },
+  },
+};
+
+const getSpecLabel = (key: string, currentLang: "en" | "ar"): string => {
+  const translation =
+    SPEC_TRANSLATIONS.keys[key as keyof typeof SPEC_TRANSLATIONS.keys];
+
+  if (translation) {
+    return translation[currentLang];
+  }
+
+  // Fallback programmatic generation if schema key missing from translation object
+  return key
+    .replace(/_/g, " ")
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
 export function AddItemModal({ onOpenChange }: AddItemModalProps) {
   const { t, i18n } = useTranslation();
   const { categories, addItem } = useInventoryStore();
@@ -184,7 +233,11 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
     formData.brand &&
     formData.category_uuid &&
     formData.buy_price > 0 &&
-    formData.sell_price > 0;
+    formData.sell_price > 0 &&
+    formData.buy_price < formData.sell_price &&
+    !Object.values(formData.technical_specs).some(
+      (value) => value.length === 0,
+    );
 
   return (
     <DialogContent
@@ -345,7 +398,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                       </Label>
                       <Input
                         id={`acc-spec-value-${index}`}
-                        className="h-8 text-sm bg-white"
+                        className={`h-8 text-sm bg-white ${row.name && !row.value ? "border-semantic-error" : ""}`}
                         value={row.value}
                         onChange={(e) =>
                           handleAccessorySpecChange(
@@ -384,73 +437,117 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 {Object.entries(selectedCategory.spec_schema || {}).map(
-                  ([key, unit]) => (
-                    <div key={key} className="grid gap-1.5">
-                      <Label htmlFor={`spec-${key}`} className="text-xs">
-                        {key
-                          .replace(/_/g, " ")
-                          .split(" ")
-                          .map(
-                            (word) =>
-                              word.charAt(0).toUpperCase() +
-                              word.slice(1).toLowerCase(),
-                          )
-                          .join(" ") + " "}
-                        ({unit})
-                      </Label>
-                      {key === "battery_type" ? (
-                        <Select
-                          onValueChange={(value) =>
-                            handleSpecChange(key, value)
-                          }
-                          value={formData.technical_specs[key] || ""}
-                          dir={i18n.dir()}
+                  ([key, unit]) => {
+                    const isRtl = i18n.dir() === "rtl";
+                    const currentLang = isRtl ? "ar" : "en";
+
+                    // Format the unit display string (keeping units in English if required)
+                    const unitText = SPEC_TRANSLATIONS.units[
+                      unit as keyof typeof SPEC_TRANSLATIONS.units
+                    ]
+                      ? SPEC_TRANSLATIONS.units[
+                          unit as keyof typeof SPEC_TRANSLATIONS.units
+                        ][currentLang]
+                      : unit;
+
+                    return (
+                      <div key={key} className="grid gap-1.5">
+                        {/* 1. Corrected Single Label Placement */}
+                        <Label
+                          htmlFor={`spec-${key}`}
+                          className="text-xs font-medium"
                         >
-                          <SelectTrigger
-                            id={`spec-${key}`}
-                            className="h-8 text-sm bg-white"
+                          {getSpecLabel(key, currentLang)}
+                          <span className="text-muted-foreground mx-1">
+                            ({unitText})
+                          </span>
+                          <span className="text-red-500">*</span>
+                        </Label>
+
+                        {/* 2. Form Input Elements */}
+                        {key === "battery_type" ? (
+                          <Select
+                            onValueChange={(value) =>
+                              handleSpecChange(key, value)
+                            }
+                            value={formData.technical_specs[key] || ""}
+                            dir={i18n.dir()}
                           >
-                            <SelectValue
-                              placeholder={t(
-                                "inventory.select_battery_type",
-                                "Select type",
-                              )}
-                            />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                            <SelectItem value="lithium">
-                              {t(
-                                "project_modal.battery_type.lithium",
-                                "Lithium-ion",
-                              )}
-                            </SelectItem>
-                            <SelectItem value="liquid">
-                              {t(
-                                "project_modal.battery_type.liquid",
-                                "Lead-Acid (Liquid)",
-                              )}
-                            </SelectItem>
-                            <SelectItem value="dry">
-                              {t(
-                                "project_modal.battery_type.dry",
-                                "Lead-Acid (AGM/Gel)",
-                              )}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input
-                          id={`spec-${key}`}
-                          type="number"
-                          className="h-8 text-sm bg-white"
-                          value={formData.technical_specs[key] || ""}
-                          onChange={(e) =>
-                            handleSpecChange(key, e.target.value)
-                          }
-                        />
-                      )}
-                    </div>
-                  ),
+                            <SelectTrigger
+                              id={`spec-${key}`}
+                              className="h-8 text-sm bg-white"
+                            >
+                              <SelectValue
+                                placeholder={t(
+                                  "inventory.select_battery_type",
+                                  "Select type",
+                                )}
+                              />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                              <SelectItem value="lithium">
+                                {t(
+                                  "project_modal.battery_type.lithium",
+                                  "Lithium-ion",
+                                )}
+                              </SelectItem>
+                              <SelectItem value="liquid">
+                                {t(
+                                  "project_modal.battery_type.liquid",
+                                  "Lead-Acid (Liquid)",
+                                )}
+                              </SelectItem>
+                              <SelectItem value="dry">
+                                {t(
+                                  "project_modal.battery_type.dry",
+                                  "Lead-Acid (AGM/Gel)",
+                                )}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id={`spec-${key}`}
+                            type="number"
+                            className={`h-8 text-sm bg-white ${
+                              !formData.technical_specs[key]
+                                ? "border-semantic-error"
+                                : ""
+                            }`}
+                            value={formData.technical_specs[key] ?? ""}
+                            onChange={(e) => {
+                              const rawValue = e.target.value;
+
+                              // 1. Allow empty input so users can delete characters
+                              if (rawValue === "") {
+                                handleSpecChange(key, "");
+                                return;
+                              }
+
+                              const numValue = Number(rawValue);
+
+                              // 2. Block negative numbers entirely
+                              if (numValue <= 0) return;
+
+                              // 3. Apply 0-100 constraint for efficiency or DoD keys
+                              const lowerKey = key.toLowerCase();
+                              const isPercentageSpec =
+                                lowerKey.includes("efficiency") ||
+                                lowerKey.includes("dod");
+
+                              if (isPercentageSpec && numValue > 100) {
+                                handleSpecChange(key, "100");
+                                return;
+                              }
+
+                              // 4. Pass the validated string value forward
+                              handleSpecChange(key, rawValue);
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  },
                 )}
               </div>
             )}
