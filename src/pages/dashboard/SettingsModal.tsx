@@ -264,6 +264,13 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
 
   const [lastSync, setLastSync] = useState("");
 
+  // Email change password verification state
+  const [emailChangePassword, setEmailChangePassword] = useState("");
+  const [isEmailChangePasswordVerified, setIsEmailChangePasswordVerified] =
+    useState(false);
+  const [isVerifyingEmailChangePassword, setIsVerifyingEmailChangePassword] =
+    useState(false);
+
   // --- Location Data (Copied from registration.tsx) ---
   const geoDataParsed = useMemo(() => parseCsv(geoDataCsv), []);
   const uniqueStates = useMemo(
@@ -324,6 +331,10 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
     }
     setEmailAvailable(null);
   }, [currentUser, isEditingPersonal, isEditingOrganization]);
+
+  useEffect(() => {
+    setIsEmailChangePasswordVerified(false);
+  }, [newEmail, emailChangePassword]);
 
   useEffect(() => {
     fetchSystemInfo();
@@ -603,12 +614,34 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
       await changeCurrentUserEmail(newEmail);
       setEmailAvailable(true); // Should be true if update successful
       setEmailValidationError(null);
+      setEmailChangePassword(""); // Reset password field
+      setIsEmailChangePasswordVerified(false); // Reset verification
       toast.success(t("settings.email_updated", "Email updated successfully"));
       sync();
     } catch (e: any) {
       toast.error(
         e?.message || t("settings.update_failed", "Failed to update settings"),
       );
+    }
+  };
+
+  const handleVerifyEmailChangePassword = async () => {
+    if (!emailChangePassword.trim()) return;
+    setIsVerifyingEmailChangePassword(true);
+    try {
+      await api.post("/authentications/verify-password", {
+        password: emailChangePassword,
+      });
+      setIsEmailChangePasswordVerified(true);
+      toast.success(t("settings.password_verified", "Password verified"));
+    } catch (e: any) {
+      setIsEmailChangePasswordVerified(false);
+      const msg =
+        e?.response?.data?.error ||
+        t("settings.invalid_password", "Invalid password");
+      toast.error(msg);
+    } finally {
+      setIsVerifyingEmailChangePassword(false);
     }
   };
 
@@ -1167,7 +1200,7 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
                   <div className="space-y-4 max-w-sm">
                     <div className="space-y-2">
                       <Label className="text-xs font-bold text-neutral/40 ">
-                        {t("registration.email", "Email")}
+                        {t("settings.email_new", "New Email")}
                       </Label>
                       <div className="relative">
                         <Input
@@ -1187,20 +1220,70 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
                         </p>
                       )}
                     </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold text-neutral/40 ">
+                        {t("registration.password", "Password")}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          value={emailChangePassword}
+                          onChange={(e) =>
+                            setEmailChangePassword(e.target.value)
+                          }
+                          className="bg-white border-[1px] border-primary-gray rounded-xl h-12 font-medium"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute end-0 top-0 h-full px-4 flex items-center justify-center text-neutral/40 hover:text-primary outline-none"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4 opacity-70" />
+                          ) : (
+                            <Eye className="w-4 h-4 opacity-70" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
                     <div className="flex gap-2">
-                      <Button
-                        onClick={handleUpdateEmail}
-                        disabled={
-                          isCheckingEmail ||
-                          !!emailValidationError ||
-                          emailAvailable === false ||
-                          !newEmail.trim()
-                        }
-                        className="h-12 rounded-xl font-bold flex-1 gap-2"
-                      >
-                        <Save className="w-4 h-4" />{" "}
-                        {t("settings.update_email", "Update")}
-                      </Button>
+                      {isEmailChangePasswordVerified ? (
+                        <Button
+                          onClick={handleUpdateEmail}
+                          disabled={
+                            isCheckingEmail ||
+                            !!emailValidationError ||
+                            emailAvailable === false ||
+                            !newEmail.trim()
+                          }
+                          className="h-12 rounded-xl font-bold flex-1 gap-2"
+                        >
+                          <Save className="w-4 h-4" />{" "}
+                          {t("settings.update_email", "Update")}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={handleVerifyEmailChangePassword}
+                          disabled={
+                            isVerifyingEmailChangePassword ||
+                            !emailChangePassword.trim() ||
+                            isCheckingEmail ||
+                            !!emailValidationError ||
+                            emailAvailable === false ||
+                            !newEmail.trim()
+                          }
+                          className="h-12 rounded-xl font-bold flex-1 gap-2"
+                        >
+                          {isVerifyingEmailChangePassword ? (
+                            t("common.verifying", "Verifying...")
+                          ) : (
+                            <>
+                              <KeyRound className="w-4 h-4" />{" "}
+                              {t("common.verify_password", "Verify Password")}
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
