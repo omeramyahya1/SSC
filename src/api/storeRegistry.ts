@@ -6,7 +6,6 @@ export const StoreKeys = {
   SystemInfo: "SystemInfoStore",
   SystemConfiguration: "SystemConfigurationStore",
   Appliance: "ApplianceStore",
-  Inventory: "InventoryStore",
   ProjectComponent: "ProjectComponentStore",
   Invoice: "InvoiceStore",
   Payment: "PaymentStore",
@@ -16,7 +15,7 @@ export const StoreKeys = {
   SyncLog: "SyncLogStore",
   ApplicationSettings: "ApplicationSettingsStore",
   Branch: "BranchStore",
-  Organization: "OrganizationStore"
+  Organization: "OrganizationStore",
 } as const;
 
 export type StoreKey = (typeof StoreKeys)[keyof typeof StoreKeys];
