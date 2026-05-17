@@ -85,7 +85,7 @@
   "dashboard.toast.trash_emptied": "تم إفراغ سلة المهملات.",
   "dashboard.Sales": "المبيعات",
   "auth.change_password_now": "تغيير كلمة المرور الآن",
-  "auth.first_login_desc": "لأمنك، يُنصح بتغيير كلمة المرور ويمكنك تأجيل ذلك لاحقًا.",
+  "auth.first_login_desc": "يُنصح بتغيير كلمة المرور ويمكنك تأجيل ذلك لاحقًا.",
   "auth.first_login_title": "تسجيل الدخول لأول مرة",
   "login.banner.title": "لنبدأ",
   "login.create_account_link": "إنشاء حساب جديد",
