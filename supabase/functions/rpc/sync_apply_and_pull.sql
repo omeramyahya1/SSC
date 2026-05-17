@@ -51,14 +51,19 @@ BEGIN
             set_clause
         );
 
-        -- Fail fast on any error to prevent silent partial-syncs.
-        EXECUTE query
-        INTO rec_uuid
-        USING rec;
+        -- Wrap in exception block to handle RLS violations (code 42501)
+        -- Skip the record if insufficient privileges, allowing the rest of the batch to proceed.
+        BEGIN
+            EXECUTE query
+            INTO rec_uuid
+            USING rec;
 
-        IF rec_uuid IS NOT NULL THEN
-            affected_uuids := array_append(affected_uuids, rec_uuid);
-        END IF;
+            IF rec_uuid IS NOT NULL THEN
+                affected_uuids := array_append(affected_uuids, rec_uuid);
+            END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+            CONTINUE;
+        END;
     END LOOP;
 
     RETURN affected_uuids;

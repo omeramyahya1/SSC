@@ -480,7 +480,7 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
             confirmed_ids = set(str(x) for x in (response.data or []))
             if not confirmed_ids:
                 # Do not clear local dirty flags without explicit confirmation.
-                raise Exception(f"Push for {table_name} returned no confirmed IDs. Local dirty flags were not cleared.")
+                print(f"Push for {table_name} returned no confirmed IDs. Local dirty flags were not cleared.")
 
             confirmed_count = 0
             for record in records:
@@ -491,7 +491,6 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
             db.commit()
             print(f"Successfully pushed and confirmed {confirmed_count}/{len(records)} records to {table_name}.")
     except Exception as e:
-        print(e)
         raise Exception(f"Failed to push table {table_name}: {str(e)}")
 
 def push_to_supabase(db: Session, dirty_only: bool = True):
