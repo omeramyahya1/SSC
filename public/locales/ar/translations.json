@@ -126,6 +126,7 @@
   "project_modal.total_power": "الطاقة",
   "project_modal.use_hours_night": "ساعات البطارية",
   "project_modal.wattage": "القدرة (واط)",
+  "common.generate_report": "تقرير",
   "common.required": "مطلوب",
   "common.must_be_between_0_1": "يجب أن يكون بين 0 و 1",
   "common.must_be_1_or_greater": "يجب أن يكون 1 أو أكبر",

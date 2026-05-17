@@ -516,11 +516,14 @@ export function InvoiceEditor({ project, User, onBack }: InvoiceEditorProps) {
       );
 
       const blob = response.data;
+      let last_save = localStorage.getItem("last_save");
+
+      // make a logic if last_save, then open the directory of last_save path
 
       // 1) Save/download the file first (don't block file delivery on DB upsert)
       if (tauriDialog && tauriFs) {
         const savePath = await tauriDialog.save({
-          defaultPath: fileName,
+          defaultPath: last_save + fileName,
           filters: [
             {
               name: type.toUpperCase(),
@@ -539,6 +542,7 @@ export function InvoiceEditor({ project, User, onBack }: InvoiceEditorProps) {
         toast.success(
           t("invoicing.export_success", "File saved successfully!"),
         );
+        localStorage.setItem("last_save", savePath);
       } else {
         // Fallback to browser download if not in Tauri
         const url = window.URL.createObjectURL(blob);

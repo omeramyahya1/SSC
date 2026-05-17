@@ -126,6 +126,7 @@
   "project_modal.total_power": "Power",
   "project_modal.use_hours_night": "Battery Hrs",
   "project_modal.wattage": "Wattage (W)",
+  "common.generate_report": "Report",
   "common.required": "Required",
   "common.must_be_between_0_1": "Must be between 0 and 1",
   "common.must_be_1_or_greater": "Must be 1 or greater",

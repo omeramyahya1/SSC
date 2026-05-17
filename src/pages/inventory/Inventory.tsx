@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog } from "@/components/ui/dialog";
+import { FileOutput } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -165,7 +166,7 @@ export default function Inventory() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsHistoryModalOpen(true)}
-                className="h-auto px-4 border-gray-200"
+                className="h-auto px-4 border-gray-200 hover:shadow-lg"
               >
                 <img
                   src="/eva-icons (2)/outline/clock.png"
@@ -178,14 +179,10 @@ export default function Inventory() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsExportModalOpen(true)}
-                className="h-auto px-4 border-primary text-primary"
+                className="group hover:bg-primary hover:text-white hover:shadow-lg"
               >
-                <img
-                  src="/eva-icons (2)/outline/download.png"
-                  alt="export"
-                  className="w-5 h-5 opacity-70"
-                />
-                {t("common.export", "Export")}
+                <FileOutput className="h-4 w-4 text-gray-700 group-hover:text-white" />
+                {t("common.generate_report", "Report")}
               </Button>
               <Button
                 type="button"
