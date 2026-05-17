@@ -179,7 +179,11 @@ const SearchableSelect = ({
   );
 };
 
-export function SettingsModal() {
+interface SettingsModalProps {
+  passwordChange: boolean;
+}
+
+export function SettingsModal({ passwordChange }: SettingsModalProps) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const {
@@ -254,7 +258,9 @@ export function SettingsModal() {
 
   const [isSavingPersonal, setIsSavingPersonal] = useState(false);
   const [isSavingOrganization, setIsSavingOrganization] = useState(false);
-  const [activeTab, setActiveTab] = useState("profile"); // New state for active tab
+  const [activeTab, setActiveTab] = useState(
+    passwordChange ? "security" : "profile",
+  ); // New state for active tab
 
   const [lastSync, setLastSync] = useState("");
 

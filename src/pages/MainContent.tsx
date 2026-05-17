@@ -21,6 +21,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TCContent } from "@/components/ui/TCContent";
 import { Spinner } from "@/components/ui/spinner";
 import { useSync } from "@/hooks/useSync";
+import { Dialog, DialogTrigger } from "@radix-ui/react-dialog";
+import { SettingsModal } from "./dashboard/SettingsModal";
 
 const MainContent = () => {
   const { t, i18n } = useTranslation();
@@ -87,7 +89,7 @@ const MainContent = () => {
 
   const handleChangePassword = () => {
     setShowFirstTimeLoginPrompt(false);
-    navigate("/change_password");
+    navigate("");
   };
 
   useEffect(() => {
@@ -136,12 +138,18 @@ const MainContent = () => {
             >
               {t("common.later", "Later")}
             </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleChangePassword}
-              className="bg-primary text-white hover:bg-primary/90"
-            >
-              {t("auth.change_password_now", "Change Password Now")}
-            </AlertDialogAction>
+
+            <Dialog>
+              <DialogTrigger asChild>
+                <AlertDialogAction
+                  onClick={handleChangePassword}
+                  className="bg-primary text-white hover:bg-primary/90"
+                >
+                  {t("auth.change_password_now", "Change Password Now")}
+                </AlertDialogAction>
+              </DialogTrigger>
+              <SettingsModal passwordChange={true} />
+            </Dialog>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
