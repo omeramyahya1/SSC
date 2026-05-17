@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import api from '@/api/client';
-import { registerStore, StoreKeys } from '@/api/storeRegistry';
+import { create } from "zustand";
+import api from "@/api/client";
+import { registerStore, StoreKeys } from "@/api/storeRegistry";
 
 // --- 1. Define Types ---
 
@@ -16,8 +16,11 @@ export interface Branch {
   deleted_at?: string | null;
 }
 
-export type NewBranchData = Omit<Branch, 'branch_id' | 'uuid' | 'created_at' | 'updated_at' | 'is_dirty' | 'deleted_at'>;
-const resource = '/branches';
+export type NewBranchData = Omit<
+  Branch,
+  "branch_id" | "uuid" | "created_at" | "updated_at" | "is_dirty" | "deleted_at"
+>;
+const resource = "/branches";
 
 // --- 2. Define Store ---
 
@@ -27,14 +30,15 @@ export interface BranchStore {
   isLoading: boolean;
   error: string | null;
   lastFetchParams: {
-      org_uuid?: string;
-    };
-  fetchBranches: (params?: {
-      org_uuid?: string;
-    }) => Promise<void>;
-  fetchBranch: (id: number) => Promise<void>;
+    org_uuid?: string;
+  };
+  fetchBranches: (params?: { org_uuid?: string }) => Promise<void>;
+  fetchBranch: (id: string) => Promise<void>;
   createBranch: (data: NewBranchData) => Promise<Branch | undefined>;
-  updateBranch: (id: number, data: Partial<NewBranchData>) => Promise<Branch | undefined>;
+  updateBranch: (
+    id: number,
+    data: Partial<NewBranchData>,
+  ) => Promise<Branch | undefined>;
   deleteBranch: (id: number) => Promise<void>;
   setCurrentBranch: (branch: Branch | null) => void;
 }
@@ -54,11 +58,13 @@ export const useBranchStore = create<BranchStore>((set, get) => ({
     const resolvedParams = params ?? get().lastFetchParams;
     set({ isLoading: true, error: null });
     try {
-      const { data } = await api.get<Branch[]>(resource, { params: resolvedParams });
+      const { data } = await api.get<Branch[]>(resource, {
+        params: resolvedParams,
+      });
       set({
-        branches: data.filter(b => !b.deleted_at),
+        branches: data.filter((b) => !b.deleted_at),
         isLoading: false,
-        lastFetchParams: resolvedParams ?? {}
+        lastFetchParams: resolvedParams ?? {},
       });
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch branches";
@@ -83,7 +89,10 @@ export const useBranchStore = create<BranchStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.post<Branch>(resource, newBranchData);
-      set((state) => ({ branches: [...state.branches, data], isLoading: false }));
+      set((state) => ({
+        branches: [...state.branches, data],
+        isLoading: false,
+      }));
       return data;
     } catch (e: any) {
       const errorMsg = e.message || "Failed to create branch";
@@ -99,7 +108,8 @@ export const useBranchStore = create<BranchStore>((set, get) => ({
       const { data } = await api.put<Branch>(`${resource}/${id}`, updatedData);
       set((state) => ({
         branches: state.branches.map((b) => (b.branch_id === id ? data : b)),
-        currentBranch: state.currentBranch?.branch_id === id ? data : state.currentBranch,
+        currentBranch:
+          state.currentBranch?.branch_id === id ? data : state.currentBranch,
         isLoading: false,
       }));
       return data;
