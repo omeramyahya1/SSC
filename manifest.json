@@ -1,0 +1,9 @@
+{
+"latest_version": "0.1.0",
+"critical_min_version": "0.1.0",
+"notification": {
+"id": "welcome_v1",
+"message": "Welcome to the new Solar System Calculator!",
+"type": "info"
+}
+}
