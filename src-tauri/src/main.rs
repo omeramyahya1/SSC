@@ -20,6 +20,17 @@ struct AppState {
     python_process: Mutex<Option<PythonProcess>>,
 }
 
+const SIDECAR_GRACE_SECONDS_ENV: &str = "SIDECAR_GRACE_SECONDS";
+const DEFAULT_GRACE_SECONDS: u64 = 5;
+
+fn python_shutdown_grace_duration() -> Duration {
+    let secs = std::env::var(SIDECAR_GRACE_SECONDS_ENV)
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(DEFAULT_GRACE_SECONDS);
+    Duration::from_secs(secs)
+}
+
 /* -------- Splash → Main transition -------- */
 #[tauri::command]
 fn splash_screen(app: AppHandle) -> Result<(), String> {
@@ -141,7 +152,7 @@ fn main() {
                             match process {
                                 PythonProcess::Child(mut child) => {
                                     // Wait briefly for Python to exit, then force cleanup.
-                                    let deadline = Instant::now() + Duration::from_secs(5);
+                                    let deadline = Instant::now() + python_shutdown_grace_duration();
                                     loop {
                                         if matches!(child.try_wait(), Ok(Some(_))) {
                                             break;
@@ -158,7 +169,7 @@ fn main() {
                                     // CommandChild doesn't have a public try_wait/wait in the same way,
                                     // but we can at least sleep briefly to allow graceful exit before 
                                     // Tauri's own cleanup or we can kill it.
-                                    std::thread::sleep(Duration::from_secs(2));
+                                    std::thread::sleep(python_shutdown_grace_duration());
                                     let _ = child.kill();
                                 }
                             }

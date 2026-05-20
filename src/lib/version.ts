@@ -20,11 +20,16 @@ export const compareVersions = (v1: string, v2: string): number => {
   const parts2 = v2.replace(/^v/, "").split(".");
 
   for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-    const p1 = parts1[i] === undefined ? 0 : Number(parts1[i]);
-    const p2 = parts2[i] === undefined ? 0 : Number(parts2[i]);
-    if (!Number.isFinite(p1) || !Number.isFinite(p2)) {
+    const raw1 = parts1[i];
+    const raw2 = parts2[i];
+    if (
+      (raw1 !== undefined && !/^\d+$/.test(raw1)) ||
+      (raw2 !== undefined && !/^\d+$/.test(raw2))
+    ) {
       throw new Error(`Invalid version format: "${v1}" vs "${v2}"`);
     }
+    const p1 = raw1 === undefined ? 0 : Number(raw1);
+    const p2 = raw2 === undefined ? 0 : Number(raw2);
     if (p1 > p2) return 1;
     if (p1 < p2) return -1;
   }

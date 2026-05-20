@@ -74,5 +74,5 @@ export const useSync = () => {
     return () => clearInterval(id);
   }, [isLoggedIn, requestSync]);
 
-  return { sync: performSync, isSyncing, lastSyncTime };
+  return { sync: requestSync, isSyncing, lastSyncTime };
 };

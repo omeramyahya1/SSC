@@ -966,7 +966,7 @@
   "reporting.ranges.last_quarter": "الربع الأخير",
   "reporting.ranges.ytd": "منذ بداية العام",
   "reporting.ranges.last_year": "العام الماضي",
-  "reporting.ranges.custom": "فترة زمنية مخصصة مخصص",
+  "reporting.ranges.custom": "فترة زمنية مخصصة",
   "reporting.error.select_format": "يرجى اختيار نوع ملف واحد على الأقل",
   "reporting.error.export_failed": "فشل في إنشاء التقرير",
   "reporting.success.exported": "تم إصدار التقرير بنجاح",
