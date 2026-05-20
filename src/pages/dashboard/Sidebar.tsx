@@ -259,10 +259,10 @@ export function Sidebar() {
                 variant="outline"
                 size="icon"
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className={`group ${isCollapsed ? "hover:bg-gray-700" : "bg-gray-700"}`}
+                className={`group rounded-base w-12 h-12 ${isCollapsed ? "hover:bg-gray-700" : "bg-gray-700"}`}
               >
                 <SidebarOpen
-                  className={`h-6 w-6 text-gray-700 group-hover:text-white ${i18n.dir() === "rtl" && "rotate-180"}`}
+                  className={`h-auto w-auto text-gray-700 group-hover:text-white ${i18n.dir() === "rtl" && "rotate-180"}`}
                 />
               </Button>
             ) : (

@@ -1,15 +1,17 @@
 {
   "name": "ssc",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:beta": "vite --mode beta",
     "build": "npm run build:py && tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint",
     "tauri": "tauri",
-    "build:py": "src-python/.venv/bin/python -m PyInstaller src-python/main.py --name python-sidecar-x86_64-unknown-linux-gnu --onefile --distpath src-tauri --clean"
+    "tauri:beta": "SSC_MODE=beta tauri dev",
+    "build:py": "node scripts/build_py_sidecar.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

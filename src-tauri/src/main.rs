@@ -82,7 +82,10 @@ fn main() {
             let db_dir_str = app_data_dir.to_string_lossy().to_string();
             let backend_port = choose_backend_port();
             let backend_port_str = backend_port.to_string();
-            let backend_mode = if cfg!(debug_assertions) { "dev" } else { "prod" };
+            let backend_mode = std::env::var("SSC_MODE")
+                .ok()
+                .filter(|v| v == "dev" || v == "beta" || v == "prod")
+                .unwrap_or_else(|| (if cfg!(debug_assertions) { "dev" } else { "prod" }).to_string());
 
             let state = AppState {
                 python_process: Mutex::new(None),
@@ -127,7 +130,7 @@ fn main() {
                     .arg("--port")
                     .arg(&backend_port_str)
                     .arg("--mode")
-                    .arg(backend_mode)
+                    .arg(&backend_mode)
                     .spawn()
                     .expect("failed to start python backend - verify virtual environment exists");
                 
@@ -142,7 +145,7 @@ fn main() {
                     .sidecar("python-sidecar")
                     .expect("failed to find sidecar 'python-sidecar'")
                     .env("SSC_DB_DIR", &db_dir_str)
-                    .args(["--port", &backend_port_str, "--mode", backend_mode])
+                    .args(["--port", &backend_port_str, "--mode", &backend_mode])
                     .spawn()
                     .expect("failed to spawn python sidecar");
                 
