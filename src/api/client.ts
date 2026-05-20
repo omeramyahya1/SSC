@@ -3,14 +3,15 @@ import axios, { AxiosError } from "axios";
 import { matchRefreshTargets } from "./refreshMap";
 import { scheduleRefresh } from "./refreshQueue";
 import { refreshStores } from "./storeRegistry";
+import { getBackendBaseUrl } from "./backendBaseUrl";
 
 const api = axios.create({
-  baseURL: "http://127.0.0.1:5000/", // Flask backend
   timeout: 10000,
 });
 
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
+    config.baseURL = await getBackendBaseUrl();
     const token = localStorage.getItem("access_token");
 
     if (token) {

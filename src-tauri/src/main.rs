@@ -18,6 +18,7 @@ enum PythonProcess {
 
 struct AppState {
     python_process: Mutex<Option<PythonProcess>>,
+    backend_port: u16,
 }
 
 const SIDECAR_GRACE_SECONDS_ENV: &str = "SIDECAR_GRACE_SECONDS";
@@ -51,6 +52,18 @@ fn splash_screen(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn backend_base_url(state: State<AppState>) -> String {
+    format!("http://127.0.0.1:{}/", state.backend_port)
+}
+
+fn choose_backend_port() -> u16 {
+    std::net::TcpListener::bind(("127.0.0.1", 0))
+        .and_then(|listener| listener.local_addr())
+        .map(|addr| addr.port())
+        .expect("failed to choose a random open port for the backend")
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -59,10 +72,7 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![splash_screen])
-        .manage(AppState {
-            python_process: Mutex::new(None),
-        })
+        .invoke_handler(tauri::generate_handler![splash_screen, backend_base_url])
         .setup(|app| {
             let app_data_dir = app.path().app_local_data_dir().expect("failed to get app data dir");
             
@@ -70,6 +80,15 @@ fn main() {
             std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
 
             let db_dir_str = app_data_dir.to_string_lossy().to_string();
+            let backend_port = choose_backend_port();
+            let backend_port_str = backend_port.to_string();
+            let backend_mode = if cfg!(debug_assertions) { "dev" } else { "prod" };
+
+            let state = AppState {
+                python_process: Mutex::new(None),
+                backend_port,
+            };
+            app.manage(state);
 
             #[cfg(debug_assertions)]
             {
@@ -100,10 +119,15 @@ fn main() {
                 println!("Project Root detected as: {:?}", root_dir);
                 println!("Searching for python at: {:?}", python_exe);
                 println!("Running script at: {:?}", script_path);
+                println!("Backend will listen on: 127.0.0.1:{}", backend_port);
 
                 let python_process = Command::new(&python_exe)
                     .env("SSC_DB_DIR", &db_dir_str)
                     .arg(&script_path)
+                    .arg("--port")
+                    .arg(&backend_port_str)
+                    .arg("--mode")
+                    .arg(backend_mode)
                     .spawn()
                     .expect("failed to start python backend - verify virtual environment exists");
                 
@@ -118,6 +142,7 @@ fn main() {
                     .sidecar("python-sidecar")
                     .expect("failed to find sidecar 'python-sidecar'")
                     .env("SSC_DB_DIR", &db_dir_str)
+                    .args(["--port", &backend_port_str, "--mode", backend_mode])
                     .spawn()
                     .expect("failed to spawn python sidecar");
                 
@@ -146,7 +171,8 @@ fn main() {
 
                             // Best-effort graceful shutdown via API
                             if let Ok(client) = client {
-                                let _ = client.post("http://localhost:5000/shutdown").send();
+                                let url = format!("http://127.0.0.1:{}/shutdown", state.backend_port);
+                                let _ = client.post(url).send();
                             }
 
                             match process {
