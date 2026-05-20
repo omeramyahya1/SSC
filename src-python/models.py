@@ -24,9 +24,16 @@ class TimestampDirtyMixin:
 
 # --- 2. Configuration for Local SQLite ---
 
-# Define the local database path relative to the project structure
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE_PATH = os.path.join(BASE_DIR, 'db', 'local_data.db')
+# Define the local database path
+# Priority: Environment variable (set by Tauri) > Default local path
+DB_DIR = os.environ.get("SSC_DB_DIR")
+
+if DB_DIR:
+    DB_FILE_PATH = os.path.join(DB_DIR, 'local_data.db')
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DB_FILE_PATH = os.path.join(BASE_DIR, 'db', 'local_data.db')
+
 SQLITE_URL = f"sqlite:///{DB_FILE_PATH}"
 
 # --- 3. Define Models ---
