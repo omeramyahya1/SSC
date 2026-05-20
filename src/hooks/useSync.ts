@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useSyncLogStore } from "@/store/useSyncLogStore";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
+import { useVersionStore } from "@/store/useVersionStore";
 
 export const useSync = () => {
   const { performSync, isSyncing, lastSyncTime } = useSyncLogStore();
   const { currentAuthentication } = useAuthenticationStore();
+  const { isUpdateRequired } = useVersionStore();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const location = useLocation();
-
   const isLoggedIn = !!currentAuthentication?.is_logged_in;
 
   // keep latest isSyncing for event handlers / effects
@@ -21,7 +22,7 @@ export const useSync = () => {
   const lastRequestAtRef = useRef(0);
 
   const requestSync = useCallback(() => {
-    if (!isLoggedIn || !isOnline) return; // prevent performing syncs when offline
+    if (!isLoggedIn || !isOnline || isUpdateRequired) return; // prevent sync if update required
     if (isSyncingRef.current) return;
 
     const now = Date.now();

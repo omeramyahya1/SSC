@@ -15,6 +15,7 @@ import CustomersPage from "./pages/customers/Customers";
 import Inventory from "./pages/inventory/Inventory";
 import Sales from "./pages/sales/Sales"
 import TeamOrganization from "./pages/team & organization/TeamOrganization";
+import { VersionHandler } from "./components/versioning/VersionHandler";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
@@ -89,7 +90,9 @@ function App() {
   }
 
   return (
-    <Routes>
+    <>
+      <VersionHandler />
+      <Routes>
       {isLoggedIn ? (
         <>
           <Route path="/home" element={<MainContent />}>
@@ -113,6 +116,7 @@ function App() {
         </>
       )}
     </Routes>
+    </>
   );
 }
 

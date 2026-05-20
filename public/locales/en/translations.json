@@ -972,5 +972,14 @@
   "reporting.success.exported": "Report exported successfully",
   "common.export": "Export",
   "common.exporting": "Exporting...",
-  "common.all_branches": "All Branches"
+  "common.all_branches": "All Branches",
+  "versioning.beta_title": "Beta Version",
+  "versioning.beta_description": "This version is for testing only. Do not use for production projects. We are not responsible for any data loss.",
+  "versioning.notification_title": "Announcement",
+  "versioning.update_required_title": "Update Required",
+  "versioning.update_required_description": "A major update has been released. You must update the application to continue using it and sync your data.",
+  "versioning.update_now": "Update Now",
+  "versioning.update_available": "New version {{version}} is available!",
+  "versioning.update": "Update",
+  "common.understand": "I Understand"
 }

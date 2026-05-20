@@ -972,5 +972,14 @@
   "reporting.success.exported": "تم تصدير التقرير بنجاح",
   "common.export": "تصدير",
   "common.exporting": "جاري التصدير...",
-  "common.all_branches": "جميع الفروع"
+  "common.all_branches": "جميع الفروع",
+  "versioning.beta_title": "نسخة بيتا (تجريبية)",
+  "versioning.beta_description": "هذه النسخة للاختبار فقط. لا تستخدمها للمشاريع الفعلية. نحن لسنا مسؤولين عن أي فقدان للبيانات.",
+  "versioning.notification_title": "تنبيه",
+  "versioning.update_required_title": "تحديث مطلوب",
+  "versioning.update_required_description": "تم إصدار تحديث رئيسي. يجب عليك تحديث التطبيق لمواصلة استخدامه ومزامنة بياناتك.",
+  "versioning.update_now": "تحديث الآن",
+  "versioning.update_available": "نسخة جديدة {{version}} متاحة!",
+  "versioning.update": "تحديث",
+  "common.understand": "أنا أفهم"
 }
