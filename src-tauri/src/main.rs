@@ -8,6 +8,8 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
+use tauri_plugin_shell::ShellExt;
+
 struct AppState {
     python_process: Mutex<Option<Child>>,
 }
@@ -33,29 +35,79 @@ fn splash_screen(app: AppHandle) -> Result<(), String> {
 }
 
 fn main() {
-    /* -------- Start Python backend (dev only) -------- */
-    #[cfg(debug_assertions)]
-    let python_process_handle = {
-        let child = Command::new(
-            "/mnt/726A655027961F23/Software Projects/Solar System Calculator (SaaS)/Dev/SSC/src-python/.venv/bin/python",
-        )
-        .current_dir("..")
-        .arg("src-python/main.py")
-        .spawn()
-        .expect("failed to start python backend");
-        Some(child)
-    };
-
-    #[cfg(not(debug_assertions))]
-    let python_process_handle = None;
-
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![splash_screen])
         .manage(AppState {
-            python_process: Mutex::new(python_process_handle),
+            python_process: Mutex::new(None),
+        })
+        .setup(|app| {
+            let app_data_dir = app.path().app_local_data_dir().expect("failed to get app data dir");
+            
+            // Ensure the directory exists
+            std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
+
+            let db_dir_str = app_data_dir.to_string_lossy().to_string();
+
+            #[cfg(debug_assertions)]
+            {
+                let mut root_dir = std::env::current_dir().expect("failed to get current dir");
+                
+                // If we are inside src-tauri, go up one level to the project root
+                if root_dir.ends_with("src-tauri") {
+                    root_dir.pop();
+                }
+                
+                // Build Python Executable Path
+                let mut python_exe = root_dir.clone();
+                python_exe.push("src-python");
+                python_exe.push(".venv");
+                if cfg!(target_os = "windows") {
+                    python_exe.push("Scripts");
+                    python_exe.push("python.exe");
+                } else {
+                    python_exe.push("bin");
+                    python_exe.push("python");
+                }
+
+                // Build Script Path
+                let mut script_path = root_dir.clone();
+                script_path.push("src-python");
+                script_path.push("main.py");
+
+                println!("Project Root detected as: {:?}", root_dir);
+                println!("Searching for python at: {:?}", python_exe);
+                println!("Running script at: {:?}", script_path);
+
+                let python_process = Command::new(&python_exe)
+                    .env("SSC_DB_DIR", &db_dir_str)
+                    .arg(&script_path)
+                    .spawn()
+                    .expect("failed to start python backend - verify virtual environment exists");
+                
+                let state: State<AppState> = app.handle().state();
+                *state.python_process.lock().unwrap() = Some(python_process);
+            }
+
+            #[cfg(not(debug_assertions))]
+            {
+                // In production, we use the sidecar
+                let (_rx, _child) = app.shell()
+                    .sidecar("python-sidecar")
+                    .expect("failed to find sidecar 'python-sidecar'")
+                    .env("SSC_DB_DIR", &db_dir_str)
+                    .spawn()
+                    .expect("failed to spawn python sidecar");
+                
+                // We don't necessarily need to store the sidecar child for killing
+                // because Tauri kills sidecars when the main process exits.
+            }
+            Ok(())
         })
         /* -------- Graceful shutdown on close -------- */
         .on_window_event(|window, event| {

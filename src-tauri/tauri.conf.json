@@ -15,23 +15,23 @@
     "withGlobalTauri": true,
     "windows": [
       {
-      "label": "main",
-      "title": "ssc",
-      "width": 800,
-      "height": 600,
-      "center": true,
-      "visible": false
-    },
+        "label": "main",
+        "title": "ssc",
+        "width": 800,
+        "height": 600,
+        "center": true,
+        "visible": false
+      },
       {
-      "label": "splash",
-      "url": "src/splash.html",
-      "width": 400,
-      "height": 300,
-      "decorations": false,
-      "resizable": false,
-      "visible": true,
-      "center": true
-    }
+        "label": "splash",
+        "url": "src/splash.html",
+        "width": 400,
+        "height": 300,
+        "decorations": false,
+        "resizable": false,
+        "visible": true,
+        "center": true
+      }
     ],
     "security": {
       "csp": null
@@ -41,6 +41,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": [
+      "python-sidecar"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -50,5 +53,12 @@
     ]
   },
 
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://raw.githubusercontent.com/omeramyahya1/SSC/main/update.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGODA1N0UzQzM3MzA5RjMKUldUekNYUEQ0MWVBSDcyVTdZMGo5V1luMUVkWHFWZjFuai9melhranNKaGtqZVM4YkRJa1dVRlcK"
+    }
+  }
 }

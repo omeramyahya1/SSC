@@ -7,6 +7,18 @@
     "core:default",
     "opener:allow-open-url",
     "dialog:allow-save",
-    "fs:allow-write-file"
+    "fs:allow-write-file",
+    "process:default",
+    "updater:default",
+    "shell:allow-execute",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "args": [],
+          "sidecar": "python-sidecar"
+        }
+      ]
+    }
   ]
 }

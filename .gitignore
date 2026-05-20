@@ -30,6 +30,8 @@ __pycache__/
 *.pyc
 *.db
 *.env
+.env
+.env.*
 .fuse_*
 dist/
 build/
@@ -43,3 +45,10 @@ keys.py
 
 .gemini/
 gha-creds-*.json
+
+# Tauri updater / signing material (keep private keys out of git)
+src-tauri/signer.key
+src-tauri/signer.key.pub
+
+# Local sidecar build artifacts (built per-platform in release/CI)
+src-tauri/python-sidecar-*
