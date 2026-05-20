@@ -30,7 +30,7 @@ export const useSync = () => {
     lastRequestAtRef.current = now;
 
     performSync();
-  }, [isLoggedIn, isOnline, performSync]);
+  }, [isLoggedIn, isOnline, isUpdateRequired, performSync]);
 
   useEffect(() => {
     const handleStatusChange = () => setIsOnline(navigator.onLine);

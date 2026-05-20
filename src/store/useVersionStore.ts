@@ -10,6 +10,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { check, Update } from "@tauri-apps/plugin-updater";
 
 interface VersionStore {
+  hasDismissedBetaWarning: boolean;
   channel: AppChannel;
   currentVersion: string;
   manifest: AppManifest | null;
@@ -24,7 +25,7 @@ interface VersionStore {
   error: string | null;
 
   checkVersion: () => Promise<void>;
-  installUpdate: () => Promise<void>;
+  installUpdate: () => Promise<boolean>;
   closeBetaWarning: () => void;
   closeNotification: () => void;
 }
@@ -33,6 +34,7 @@ const MANIFEST_URL =
   "https://raw.githubusercontent.com/omeramyahya1/SSC/main/manifest.json";
 
 export const useVersionStore = create<VersionStore>((set, get) => ({
+  hasDismissedBetaWarning: false,
   channel: getAppChannel(),
   currentVersion: "0.0.0",
   manifest: null,
@@ -65,7 +67,8 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
         compareVersions(currentVersion, manifest.latest_version) < 0;
 
       // Beta Warning: show if channel is beta
-      const isBetaWarningOpen = channel === "beta";
+      const { hasDismissedBetaWarning } = get();
+      const isBetaWarningOpen = channel === "beta" && !hasDismissedBetaWarning;
 
       // Notification: show if manifest has a new notification ID
       const lastSeenNotificationId = localStorage.getItem(
@@ -94,7 +97,7 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
 
   installUpdate: async () => {
     const { tauriUpdate } = get();
-    if (!tauriUpdate) return;
+    if (!tauriUpdate) return false;
 
     try {
       set({ isDownloading: true, downloadProgress: 0 });
@@ -118,12 +121,15 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
             break;
         }
       });
+      return true;
     } catch (e: any) {
       set({ error: e.message, isDownloading: false });
+      return false;
     }
   },
 
-  closeBetaWarning: () => set({ isBetaWarningOpen: false }),
+  closeBetaWarning: () =>
+    set({ isBetaWarningOpen: false, hasDismissedBetaWarning: true }),
   closeNotification: () => {
     const { manifest } = get();
     if (manifest?.notification) {

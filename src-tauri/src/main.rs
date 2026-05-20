@@ -8,10 +8,16 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
+use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
+enum PythonProcess {
+    Child(Child),
+    Sidecar(CommandChild),
+}
+
 struct AppState {
-    python_process: Mutex<Option<Child>>,
+    python_process: Mutex<Option<PythonProcess>>,
 }
 
 /* -------- Splash → Main transition -------- */
@@ -91,21 +97,21 @@ fn main() {
                     .expect("failed to start python backend - verify virtual environment exists");
                 
                 let state: State<AppState> = app.handle().state();
-                *state.python_process.lock().unwrap() = Some(python_process);
+                *state.python_process.lock().unwrap() = Some(PythonProcess::Child(python_process));
             }
 
             #[cfg(not(debug_assertions))]
             {
                 // In production, we use the sidecar
-                let (_rx, _child) = app.shell()
+                let (_rx, child) = app.shell()
                     .sidecar("python-sidecar")
                     .expect("failed to find sidecar 'python-sidecar'")
                     .env("SSC_DB_DIR", &db_dir_str)
                     .spawn()
                     .expect("failed to spawn python sidecar");
                 
-                // We don't necessarily need to store the sidecar child for killing
-                // because Tauri kills sidecars when the main process exits.
+                let state: State<AppState> = app.handle().state();
+                *state.python_process.lock().unwrap() = Some(PythonProcess::Sidecar(child));
             }
             Ok(())
         })
@@ -122,28 +128,39 @@ fn main() {
                         // Get State INSIDE the thread
                         let state: State<AppState> = app.state();
 
-                        if let Some(mut child) = state.python_process.lock().unwrap().take() {
+                        if let Some(process) = state.python_process.lock().unwrap().take() {
                             let client = reqwest::blocking::Client::builder()
                                 .timeout(Duration::from_secs(2))
                                 .build();
 
-                            // Best-effort graceful shutdown
+                            // Best-effort graceful shutdown via API
                             if let Ok(client) = client {
                                 let _ = client.post("http://localhost:5000/shutdown").send();
                             }
 
-                            // Wait briefly for Python to exit, then force cleanup.
-                            let deadline = Instant::now() + Duration::from_secs(5);
-                            loop {
-                                if matches!(child.try_wait(), Ok(Some(_))) {
-                                    break;
+                            match process {
+                                PythonProcess::Child(mut child) => {
+                                    // Wait briefly for Python to exit, then force cleanup.
+                                    let deadline = Instant::now() + Duration::from_secs(5);
+                                    loop {
+                                        if matches!(child.try_wait(), Ok(Some(_))) {
+                                            break;
+                                        }
+                                        if Instant::now() >= deadline {
+                                            let _ = child.kill();
+                                            let _ = child.wait();
+                                            break;
+                                        }
+                                        std::thread::sleep(Duration::from_millis(100));
+                                    }
                                 }
-                                if Instant::now() >= deadline {
+                                PythonProcess::Sidecar(child) => {
+                                    // CommandChild doesn't have a public try_wait/wait in the same way,
+                                    // but we can at least sleep briefly to allow graceful exit before 
+                                    // Tauri's own cleanup or we can kill it.
+                                    std::thread::sleep(Duration::from_secs(2));
                                     let _ = child.kill();
-                                    let _ = child.wait();
-                                    break;
                                 }
-                                std::thread::sleep(Duration::from_millis(100));
                             }
                         }
 

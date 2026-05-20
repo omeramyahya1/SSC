@@ -10,7 +10,6 @@
     "fs:allow-write-file",
     "process:default",
     "updater:default",
-    "shell:allow-execute",
     {
       "identifier": "shell:allow-spawn",
       "allow": [
