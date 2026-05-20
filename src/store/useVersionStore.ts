@@ -5,6 +5,7 @@ import {
   AppManifest,
   compareVersions,
   getAppChannel,
+  isPrereleaseVersion,
 } from "@/lib/version";
 import { getVersion } from "@tauri-apps/api/app";
 import { check, Update } from "@tauri-apps/plugin-updater";
@@ -32,6 +33,13 @@ interface VersionStore {
 
 const MANIFEST_URL =
   "https://raw.githubusercontent.com/omeramyahya1/SSC/main/manifest.json";
+
+function isUpdateVersionAllowed(channel: AppChannel, version: string): boolean {
+  if (channel === "dev") return true;
+  const prerelease = isPrereleaseVersion(version);
+  if (channel === "beta") return prerelease;
+  return !prerelease;
+}
 
 export const useVersionStore = create<VersionStore>((set, get) => ({
   hasDismissedBetaWarning: false,
@@ -61,10 +69,18 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
       const tauriUpdate = await check();
 
       const isUpdateRequired =
+        isUpdateVersionAllowed(channel, manifest.critical_min_version) &&
         compareVersions(currentVersion, manifest.critical_min_version) < 0;
-      const isUpdateAvailable =
-        tauriUpdate?.available ||
+
+      const tauriAllowed =
+        !!tauriUpdate?.available &&
+        (!tauriUpdate.version || isUpdateVersionAllowed(channel, tauriUpdate.version));
+
+      const manifestAllowed =
+        isUpdateVersionAllowed(channel, manifest.latest_version) &&
         compareVersions(currentVersion, manifest.latest_version) < 0;
+
+      const isUpdateAvailable = tauriAllowed || manifestAllowed;
 
       // Beta Warning: show if channel is beta
       const { hasDismissedBetaWarning } = get();
