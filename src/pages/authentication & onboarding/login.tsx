@@ -12,7 +12,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import { useUserStore } from "@/store/useUserStore";
 import api from '@/api/client';
-import { LoginResponse } from '@/store/useAuthenticationStore';
+import { LoginResponse, Authentication } from '@/store/useAuthenticationStore';
 import { Button } from '@/components/ui/button';
 import { Spinner } from "@/components/ui/spinner"; // Import Spinner component
 
@@ -85,7 +85,21 @@ export default function LoginScreen() {
 
       // Update Zustand stores
       setCurrentUser(user);
-      setCurrentAuthentication(authentication);
+      const mappedAuth: Authentication = {
+        auth_id: authentication.auth_id,
+        user_uuid: user.uuid,
+        password_hash: "",
+        password_salt: "",
+        current_jwt: authentication.current_jwt,
+        jwt_issued_at: authentication.jwt_issued_at ?? "",
+        device_id: authentication.device_id,
+        is_logged_in: authentication.is_logged_in,
+        last_active: authentication.last_active ?? "",
+        created_at: authentication.created_at,
+        updated_at: authentication.updated_at,
+        is_dirty: authentication.is_dirty,
+      };
+      setCurrentAuthentication(mappedAuth);
 
       if (user?.role === "employee") {
         if (user.status !== "active") {

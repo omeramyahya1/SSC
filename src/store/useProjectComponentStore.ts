@@ -107,7 +107,7 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
         set({ isLoading: true, error: null });
         try {
             const payload = scope ? { ...bleResults, scope } : bleResults;
-            const { data } = await api.post<ProjectComponent[]>(`/recommendations/projects/${projectUuid}/recommend`, payload);
+            await api.post<ProjectComponent[]>(`/recommendations/projects/${projectUuid}/recommend`, payload);
             // After recommending, we should probably re-fetch components to get the full objects with items
             const { data: fullComponents } = await api.get<ProjectComponent[]>(`/inventory/projects/${projectUuid}/components`);
             set({ components: fullComponents, isLoading: false, lastProjectUuid: projectUuid });

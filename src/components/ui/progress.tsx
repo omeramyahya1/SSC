@@ -4,7 +4,6 @@ import * as React from "react"
 import * as ProgressPrimitive from "@radix-ui/react-progress"
 
 import { cn } from "@/lib/utils"
-import { dir } from "i18next"
 import i18n from "@/i18"
 
 const Progress = React.forwardRef<

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useVersionStore } from "@/store/useVersionStore";
 import {
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { relaunch } from "@tauri-apps/plugin-process";
 
-export const VersionHandler: React.FC = () => {
+export const VersionHandler = () => {
   const { t } = useTranslation();
   const [showOptionalUpdate, setShowOptionalUpdate] = useState(true);
   const {

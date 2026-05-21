@@ -213,8 +213,8 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
       ) {
         payload = {
           ...payload,
-          organization_uuid: currentUser.organization_uuid ?? null,
-          branch_uuid: currentUser.branch_uuid ?? null,
+          organization_uuid: currentUser.organization_uuid ?? "",
+          branch_uuid: currentUser.branch_uuid ?? "",
         };
       }
 

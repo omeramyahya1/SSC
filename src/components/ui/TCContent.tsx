@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from './spinner';
 
@@ -25,7 +24,7 @@ interface TCContentProps {
   metadata?: TCMetadata;
 }
 
-export const TCContent: React.FC<TCContentProps> = ({ content, isLoading, metadata }) => {
+export const TCContent = ({ content, isLoading, metadata }: TCContentProps) => {
   const { t, i18n } = useTranslation();
 
   if (isLoading) {

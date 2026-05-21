@@ -21,12 +21,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TCContent } from "@/components/ui/TCContent";
 import { Spinner } from "@/components/ui/spinner";
 import { useSync } from "@/hooks/useSync";
-import { Dialog, DialogTrigger } from "@radix-ui/react-dialog";
+import { Dialog } from "@radix-ui/react-dialog";
 import { SettingsModal } from "./dashboard/SettingsModal";
 
 const MainContent = () => {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
+  useNavigate();
   useSync();
   const {
     showFirstTimeLoginPrompt,

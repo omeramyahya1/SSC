@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Dialog,
@@ -43,11 +43,11 @@ interface ExportReportModalProps {
   reportType: "finance" | "inventory";
 }
 
-export const ExportReportModal: React.FC<ExportReportModalProps> = ({
+export const ExportReportModal = ({
   isOpen,
   onClose,
   reportType,
-}) => {
+}: ExportReportModalProps) => {
   const { t, i18n } = useTranslation();
   const { currentUser } = useUserStore();
   const { branches } = useBranchStore();

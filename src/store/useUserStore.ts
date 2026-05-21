@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import api from "@/api/client";
 import { registerStore, StoreKeys } from "@/api/storeRegistry";
-import toast from "react-hot-toast";
+import { toast } from "react-hot-toast";
 
 // --- 1. Define Types ---
 
@@ -124,7 +124,10 @@ export const useUserStore = create<UserStore>()(
         set({ isLoading: true, error: null });
         try {
           const { data } = await api.get<User[]>(resource);
-          set({ users: data.filter((u) => !u.deleted_at), isLoading: false });
+          set({
+            users: data.filter((u: User) => !u.deleted_at),
+            isLoading: false,
+          });
         } catch (e: any) {
           const errorMsg = e.message || "Failed to fetch users";
           set({ error: errorMsg, isLoading: false });
@@ -132,7 +135,7 @@ export const useUserStore = create<UserStore>()(
         }
       },
 
-      fetchEmployees: async (orgUuid) => {
+      fetchEmployees: async (_orgUuid) => {
         set({ isLoading: true, error: null });
         try {
           const { data } = await api.get<User[]>(resource);

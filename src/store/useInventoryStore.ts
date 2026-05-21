@@ -53,7 +53,7 @@ interface InventoryState {
     adjustStock: (itemUuid: string, adjustment: number, reason: string) => Promise<void>;
 }
 
-export const useInventoryStore = create<InventoryState>((set, get) => ({
+export const useInventoryStore = create<InventoryState>((set) => ({
     items: [],
     categories: [],
     isLoading: false,
