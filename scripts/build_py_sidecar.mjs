@@ -53,5 +53,32 @@ const result = spawnSync(pythonExe, args, { stdio: "inherit" });
 if (result.error) {
   fail(String(result.error));
 }
-process.exit(result.status ?? 1);
 
+if (result.status !== 0) {
+  process.exit(result.status ?? 1);
+}
+
+// Tauri's bundler looks for external binaries with the target triple suffix:
+// e.g. python-sidecar-x86_64-unknown-linux-gnu
+const targetTriple =
+  process.env.TAURI_ENV_TARGET_TRIPLE ||
+  process.env.TARGET ||
+  process.env.SSC_TARGET_TRIPLE ||
+  (isWindows ? "x86_64-pc-windows-msvc" : "x86_64-unknown-linux-gnu");
+
+const baseName = "python-sidecar";
+const ext = isWindows ? ".exe" : "";
+const builtPath = path.join(distPath, `${baseName}${ext}`);
+const suffixedPath = path.join(distPath, `${baseName}-${targetTriple}${ext}`);
+
+if (!fs.existsSync(builtPath)) {
+  fail(`Expected PyInstaller output not found: ${builtPath}`);
+}
+
+try {
+  fs.copyFileSync(builtPath, suffixedPath);
+} catch (e) {
+  fail(`Failed to create Tauri-suffixed sidecar binary: ${String(e)}`);
+}
+
+process.exit(0);
