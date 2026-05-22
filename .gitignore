@@ -51,4 +51,5 @@ src-tauri/signer.key
 src-tauri/signer.key.pub
 
 # Local sidecar build artifacts (built per-platform in release/CI)
-src-tauri/python-sidecar*
+src-tauri/python-sidecar-*
+src-tauri/python-sidecar

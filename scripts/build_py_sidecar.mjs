@@ -37,16 +37,31 @@ if (!fs.existsSync(entry)) {
 }
 
 const distPath = path.join(repoRoot, "src-tauri");
+// const args = [
+//   "-m",
+//   "PyInstaller",
+//   entry,
+//   "--collect-all",
+//   "numpy",
+//   "--collect-all",
+//   "pandas",
+//   "--collect-all",
+//   "weasyprint",
+//   "--name",
+//   "python-sidecar",
+//   "--onefile",
+//   "--distpath",
+//   distPath,
+//   "--clean",
+// ];
+
 const args = [
-  "-m",
-  "PyInstaller",
-  entry,
-  "--name",
-  "python-sidecar",
+  "-m", "nuitka",
+  "--standalone",
   "--onefile",
-  "--distpath",
-  distPath,
-  "--clean",
+  "--plugin-enable=numpy", // Dedicated plugin ensures pandas/numpy work perfectly
+  "--output-dir=" + distPath,
+  entry
 ];
 
 const result = spawnSync(pythonExe, args, { stdio: "inherit" });

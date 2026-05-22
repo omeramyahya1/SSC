@@ -75,7 +75,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![splash_screen, backend_base_url])
         .setup(|app| {
             let app_data_dir = app.path().app_local_data_dir().expect("failed to get app data dir");
-            
+
             // Ensure the directory exists
             std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
 
@@ -86,6 +86,7 @@ fn main() {
                 .ok()
                 .filter(|v| v == "dev" || v == "beta" || v == "prod")
                 .unwrap_or_else(|| (if cfg!(debug_assertions) { "dev" } else { "prod" }).to_string());
+            let app_version = app.package_info().version.to_string();
 
             let state = AppState {
                 python_process: Mutex::new(None),
@@ -96,12 +97,12 @@ fn main() {
             #[cfg(debug_assertions)]
             {
                 let mut root_dir = std::env::current_dir().expect("failed to get current dir");
-                
+
                 // If we are inside src-tauri, go up one level to the project root
                 if root_dir.ends_with("src-tauri") {
                     root_dir.pop();
                 }
-                
+
                 // Build Python Executable Path
                 let mut python_exe = root_dir.clone();
                 python_exe.push("src-python");
@@ -126,6 +127,7 @@ fn main() {
 
                 let python_process = Command::new(&python_exe)
                     .env("SSC_DB_DIR", &db_dir_str)
+                    .env("SSC_APP_VERSION", &app_version)
                     .arg(&script_path)
                     .arg("--port")
                     .arg(&backend_port_str)
@@ -133,7 +135,7 @@ fn main() {
                     .arg(&backend_mode)
                     .spawn()
                     .expect("failed to start python backend - verify virtual environment exists");
-                
+
                 let state: State<AppState> = app.handle().state();
                 *state.python_process.lock().unwrap() = Some(PythonProcess::Child(python_process));
             }
@@ -145,10 +147,11 @@ fn main() {
                     .sidecar("python-sidecar")
                     .expect("failed to find sidecar 'python-sidecar'")
                     .env("SSC_DB_DIR", &db_dir_str)
+                    .env("SSC_APP_VERSION", &app_version)
                     .args(["--port", &backend_port_str, "--mode", &backend_mode])
                     .spawn()
                     .expect("failed to spawn python sidecar");
-                
+
                 let state: State<AppState> = app.handle().state();
                 *state.python_process.lock().unwrap() = Some(PythonProcess::Sidecar(child));
             }
@@ -196,7 +199,7 @@ fn main() {
                                 }
                                 PythonProcess::Sidecar(child) => {
                                     // CommandChild doesn't have a public try_wait/wait in the same way,
-                                    // but we can at least sleep briefly to allow graceful exit before 
+                                    // but we can at least sleep briefly to allow graceful exit before
                                     // Tauri's own cleanup or we can kill it.
                                     std::thread::sleep(python_shutdown_grace_duration());
                                     let _ = child.kill();

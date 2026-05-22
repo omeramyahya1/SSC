@@ -76,4 +76,4 @@ if __name__ == "__main__":
     else:
         from waitress import serve
         print("Serving for prod mode")
-        serve(app, host="127.0.0.1", port=port)
+        serve(app, host="127.0.0.1", port=port, threads=12)

@@ -2,7 +2,6 @@ from flask import Blueprint, request, send_file, jsonify
 from utils import get_db
 from models import Project, Invoice, ProjectComponent, Customer
 from sqlalchemy.orm import joinedload
-import pandas as pd
 import io
 import os
 from datetime import datetime
@@ -13,6 +12,17 @@ try:
     from weasyprint import HTML
 except ImportError:
     HTML = None
+
+
+def _get_pandas():
+    try:
+        import pandas as pd  # type: ignore
+        return pd
+    except Exception as e:
+        raise RuntimeError(
+            "Optional dependency 'pandas' failed to import. "
+            "This feature is required for export endpoints."
+        ) from e
 
 export_bp = Blueprint('export_bp', __name__, url_prefix='/export')
 
@@ -129,9 +139,11 @@ def _load_geo_data():
     global _geo_df
     if _geo_df is None:
         try:
+            pd = _get_pandas()
             _geo_df = pd.read_csv(GEO_DATA_PATH)
         except Exception as e:
             print(f"Warning: Could not load geo_data.csv for export localization: {e}")
+            pd = _get_pandas()
             _geo_df = pd.DataFrame()
     return _geo_df
 
@@ -258,6 +270,7 @@ def export_excel(project_uuid):
                 "Total": float((comp.price_at_sale or 0) * comp.quantity)
             })
 
+        pd = _get_pandas()
         df_items = pd.DataFrame(items_data)
 
         # Totals and Metadata
@@ -274,8 +287,10 @@ def export_excel(project_uuid):
                 {"Field": "Discount Percent", "Value": f"{details.get('discount_percent') or 0}%"},
                 {"Field": "Grand Total", "Value": float(invoice.amount or 0)},
             ]
+            pd = _get_pandas()
             df_summary = pd.DataFrame(summary_data)
         else:
+            pd = _get_pandas()
             df_summary = pd.DataFrame([{"Field": "Status", "Value": "No Invoice Created"}])
 
         # Sheet 2: System Configuration
@@ -293,9 +308,11 @@ def export_excel(project_uuid):
             add_section("Inverter", config.get('inverter', {}))
             add_section("Battery Bank", config.get('battery_bank', {}))
 
+        pd = _get_pandas()
         df_config = pd.DataFrame(config_data)
 
         output = io.BytesIO()
+        pd = _get_pandas()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_items.to_excel(writer, sheet_name='Invoice Items', index=False)
             df_summary.to_excel(writer, sheet_name='Invoice Summary', index=False)
@@ -321,6 +338,7 @@ def export_excel_invoice(invoice_uuid):
         lang = request.args.get('lang', 'en')
         localized_location = _get_localized_location(details.get("project_location"), lang)
 
+        pd = _get_pandas()
         df_items = pd.DataFrame([{
             "Item": i["name"],
             "Brand": i["brand"],
@@ -345,9 +363,11 @@ def export_excel_invoice(invoice_uuid):
             {"Field": "Discount Amount", "Value": float(discount_amount)},
             {"Field": "Grand Total", "Value": float(invoice.amount or 0)},
         ]
+        pd = _get_pandas()
         df_summary = pd.DataFrame(summary_data)
 
         output = io.BytesIO()
+        pd = _get_pandas()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_items.to_excel(writer, sheet_name='Invoice Items', index=False)
             df_summary.to_excel(writer, sheet_name='Invoice Summary', index=False)
@@ -605,6 +625,7 @@ def export_csv(project_uuid):
                 "Total": float((comp.price_at_sale or 0) * comp.quantity)
             })
 
+        pd = _get_pandas()
         df = pd.DataFrame(items_data)
         output = io.BytesIO()
         df.to_csv(output, index=False, encoding='utf-8')
@@ -625,6 +646,7 @@ def export_csv_invoice(invoice_uuid):
             return jsonify({"error": "Invoice not found"}), 404
 
         items, _subtotal = _build_independent_items(invoice)
+        pd = _get_pandas()
         df = pd.DataFrame([{
             "Item": i["name"],
             "Brand": i["brand"],
