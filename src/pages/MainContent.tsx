@@ -26,7 +26,6 @@ import { SettingsModal } from "./dashboard/SettingsModal";
 
 const MainContent = () => {
   const { t, i18n } = useTranslation();
-  useNavigate();
   useSync();
   const {
     showFirstTimeLoginPrompt,

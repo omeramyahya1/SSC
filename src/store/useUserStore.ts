@@ -135,7 +135,7 @@ export const useUserStore = create<UserStore>()(
         }
       },
 
-      fetchEmployees: async (_orgUuid) => {
+      fetchEmployees: async () => {
         set({ isLoading: true, error: null });
         try {
           const { data } = await api.get<User[]>(resource);

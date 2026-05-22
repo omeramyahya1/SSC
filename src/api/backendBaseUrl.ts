@@ -9,8 +9,7 @@ export async function getBackendBaseUrl(): Promise<string> {
     cached = url;
     return url;
   } catch {
-    cached = "http://127.0.0.1:5000/";
-    return cached;
+    return "http://127.0.0.1:5000/";
   }
 }
 

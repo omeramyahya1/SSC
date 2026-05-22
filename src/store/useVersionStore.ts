@@ -72,15 +72,17 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
         isUpdateVersionAllowed(channel, manifest.critical_min_version) &&
         compareVersions(currentVersion, manifest.critical_min_version) < 0;
 
-      const tauriAllowed =
-        !!tauriUpdate?.available &&
-        (!tauriUpdate.version || isUpdateVersionAllowed(channel, tauriUpdate.version));
+      const eligibleTauriUpdate =
+        tauriUpdate?.available &&
+        (!tauriUpdate.version || isUpdateVersionAllowed(channel, tauriUpdate.version))
+          ? tauriUpdate
+          : null;
 
       const manifestAllowed =
         isUpdateVersionAllowed(channel, manifest.latest_version) &&
         compareVersions(currentVersion, manifest.latest_version) < 0;
 
-      const isUpdateAvailable = tauriAllowed || manifestAllowed;
+      const isUpdateAvailable = !!eligibleTauriUpdate || manifestAllowed;
 
       // Beta Warning: show if channel is beta
       const { hasDismissedBetaWarning } = get();
@@ -98,7 +100,7 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
         channel,
         currentVersion,
         manifest,
-        tauriUpdate,
+        tauriUpdate: eligibleTauriUpdate,
         isBetaWarningOpen,
         isNotificationOpen,
         isUpdateRequired,

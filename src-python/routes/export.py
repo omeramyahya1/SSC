@@ -143,8 +143,7 @@ def _load_geo_data():
             _geo_df = pd.read_csv(GEO_DATA_PATH)
         except Exception as e:
             print(f"Warning: Could not load geo_data.csv for export localization: {e}")
-            pd = _get_pandas()
-            _geo_df = pd.DataFrame()
+            _geo_df = None
     return _geo_df
 
 def _get_localized_location(location_str, lang):

@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 from PyInstaller.utils.hooks import collect_all
 
 datas = []
@@ -12,8 +13,9 @@ tmp_ret = collect_all('weasyprint')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
+ROOT = os.path.abspath(os.path.dirname(__file__))
 a = Analysis(
-    ['/mnt/726A655027961F23/Software Projects/Solar System Calculator (SaaS)/Dev/SSC/src-python/main.py'],
+    [os.path.join(ROOT, 'src-python', 'main.py')],
     pathex=[],
     binaries=binaries,
     datas=datas,

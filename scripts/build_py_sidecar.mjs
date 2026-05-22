@@ -60,6 +60,7 @@ const args = [
   "--standalone",
   "--onefile",
   "--plugin-enable=numpy", // Dedicated plugin ensures pandas/numpy work perfectly
+  "--output-filename=python-sidecar-x86_64-unknown-linux-gnu",
   "--output-dir=" + distPath,
   entry
 ];
@@ -87,7 +88,8 @@ const builtPath = path.join(distPath, `${baseName}${ext}`);
 const suffixedPath = path.join(distPath, `${baseName}-${targetTriple}${ext}`);
 
 if (!fs.existsSync(builtPath)) {
-  fail(`Expected PyInstaller output not found: ${builtPath}`);
+  // fail(`Expected PyInstaller output not found: ${builtPath}`);
+  fail(`Expected Nuitka output not found: ${builtPath}`);
 }
 
 try {

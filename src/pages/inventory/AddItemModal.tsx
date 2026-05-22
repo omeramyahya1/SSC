@@ -24,6 +24,21 @@ interface AddItemModalProps {
   onOpenChange: (isOpen: boolean) => void;
 }
 
+interface FormDataType {
+  name: string;
+  brand: string;
+  model: string;
+  sku: string;
+  category_uuid: string;
+  quantity_on_hand: number;
+  low_stock_threshold: number;
+  branch_uuid: string | null | any;       // Allows string or null
+  organization_uuid: string | null; // Allows string or null
+  buy_price: number;
+  sell_price: number;
+  technical_specs: Record<string, any>;
+}
+
 export const SPEC_TRANSLATIONS = {
   categories: {
     "Solar Panels": { en: "Solar Panels", ar: "الألواح الشمسية" },
@@ -78,7 +93,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
   const { categories, addItem } = useInventoryStore();
   const { currentUser } = useUserStore();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataType>({
     name: "",
     brand: "",
     model: "",
@@ -86,8 +101,8 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
     category_uuid: "",
     quantity_on_hand: 0,
     low_stock_threshold: 10,
-    branch_uuid: "",
-    organization_uuid: "",
+    branch_uuid: null,
+    organization_uuid: null,
     buy_price: 0,
     sell_price: 0,
     technical_specs: {} as Record<string, any>,
@@ -213,8 +228,8 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
       ) {
         payload = {
           ...payload,
-          organization_uuid: currentUser.organization_uuid ?? "",
-          branch_uuid: currentUser.branch_uuid ?? "",
+          organization_uuid: currentUser.organization_uuid ?? null,
+          branch_uuid: currentUser.branch_uuid ?? null,
         };
       }
 
