@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { useSyncLogStore } from "@/store/useSyncLogStore";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import { useVersionStore } from "@/store/useVersionStore";
+import { refreshStores, registerStore, StoreKeys } from "@/api/storeRegistry";
 
 export const useSync = () => {
   const { performSync, isSyncing, lastSyncTime } = useSyncLogStore();
@@ -54,6 +55,8 @@ export const useSync = () => {
     const timeoutId = window.setTimeout(() => {
       if (isSyncingRef.current) return;
       requestSync();
+      // Refresh all stores to ensure UI has latest local data after sync
+        refreshStores(Object.values(StoreKeys));
     }, 10000);
 
     return () => window.clearTimeout(timeoutId);
@@ -73,6 +76,10 @@ export const useSync = () => {
     const id = setInterval(() => requestSync(), 2 * 60 * 1000);
     return () => clearInterval(id);
   }, [isLoggedIn, requestSync]);
+
+  registerStore(StoreKeys.SyncLog, () => {
+    useSyncLogStore.getState().fetchSyncLogs();
+  });
 
   return { sync: requestSync, isSyncing, lastSyncTime };
 };
