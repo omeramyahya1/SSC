@@ -202,7 +202,12 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
     isLoading: isSystemInfoLoading,
     fetchSystemInfo,
   } = useSystemInfoStore();
-  const { needsTCUpdate, latestTC } = useApplicationSettingsStore();
+  const {
+    needsTCUpdate,
+    latestTC,
+    checkTCStatus,
+    isTCLoading,
+  } = useApplicationSettingsStore();
 
   const isEmployee = currentUser?.role === "employee";
   const isEnterprise = currentUser
@@ -339,6 +344,12 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
   useEffect(() => {
     fetchSystemInfo();
   }, [fetchSystemInfo]);
+
+  useEffect(() => {
+    if (activeTab === "system" && !latestTC && currentUser?.user_uuid) {
+      checkTCStatus(currentUser.user_uuid);
+    }
+  }, [activeTab, latestTC, currentUser?.user_uuid, checkTCStatus]);
 
   const handleSavePersonalProfile = async () => {
     if (!currentUser) return;
@@ -1514,10 +1525,13 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
                         <div className="flex-1 overflow-hidden px-6">
                           <ScrollArea className="h-[60vh] mt-4 border-2 p-4 rounded-2xl bg-neutral/5">
                             <TCContent
+                              isLoading={isTCLoading}
                               content={
                                 latestTC?.content?.[
                                   i18n.language === "ar" ? "ar" : "en"
-                                ]
+                                ] ||
+                                latestTC?.content?.en ||
+                                latestTC?.content?.ar
                               }
                               metadata={latestTC?.content?.metadata}
                             />

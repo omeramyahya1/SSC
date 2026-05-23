@@ -27,6 +27,7 @@ export interface ApplicationSettingsStore {
   settings: ApplicationSettings[];
   currentSetting: ApplicationSettings | null;
   isLoading: boolean;
+  isTCLoading: boolean;
   needsTCUpdate: boolean;
   latestTC: any | null;
   error: string | null;
@@ -44,6 +45,7 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
   settings: [],
   currentSetting: null,
   isLoading: false,
+  isTCLoading: false,
   needsTCUpdate: false,
   latestTC: null,
   error: null,
@@ -72,9 +74,10 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
 
   checkTCStatus: async (userId) => {
     if (!userId) return;
+    set({ isTCLoading: true });
     try {
       console.log("checkTCStatus called for userId", userId);
-      const { data } = await api.post('/users/check-tc-status', { user_id: userId });
+      const { data } = await api.post('/users/check-tc-status', { user_uuid: userId });
 
       console.log("checkTCStatus result", data);
       const { needs_update, latest_tc_id, latest_tc_content } = data;
@@ -93,10 +96,12 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
       console.log("Final needs update:", finalNeedsUpdate);
       set({
         needsTCUpdate: finalNeedsUpdate,
-        latestTC: { id: latest_tc_id, content: latest_tc_content }
+        latestTC: { id: latest_tc_id, content: latest_tc_content },
+        isTCLoading: false
       });
     } catch (e) {
       console.error("Failed to check TC status", e);
+      set({ isTCLoading: false });
     }
   },
 

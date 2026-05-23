@@ -169,7 +169,9 @@ const MainContent = () => {
             <ScrollArea className="h-[50vh] border-2 p-4 rounded-base bg-neutral/5">
               <TCContent
                 content={
-                  latestTC?.content?.[i18n.language === "ar" ? "ar" : "en"]
+                  latestTC?.content?.[i18n.language === "ar" ? "ar" : "en"] ||
+                  latestTC?.content?.en ||
+                  latestTC?.content?.ar
                 }
                 metadata={latestTC?.content?.metadata}
               />
