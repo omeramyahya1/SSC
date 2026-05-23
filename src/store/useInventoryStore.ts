@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import api from '@/api/client';
 import { registerStore, StoreKeys } from '@/api/storeRegistry';
+import isEqual from 'lodash/isEqual';
 
 export interface InventoryCategory {
     uuid: string;
@@ -44,9 +45,9 @@ interface InventoryState {
     isLoading: boolean;
     error: string | null;
 
-    refreshInventory: () => Promise<void>;
-    fetchCategories: () => Promise<void>;
-    fetchItems: () => Promise<void>;
+    refreshInventory: (options?: { silent?: boolean }) => Promise<void>;
+    fetchCategories: (options?: { silent?: boolean }) => Promise<void>;
+    fetchItems: (options?: { silent?: boolean }) => Promise<void>;
     addItem: (item: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     updateItem: (uuid: string, updates: Partial<InventoryItem>) => Promise<InventoryItem | undefined>;
     deleteItem: (uuid: string) => Promise<void>;
@@ -59,38 +60,77 @@ export const useInventoryStore = create<InventoryState>((set) => ({
     isLoading: false,
     error: null,
 
-    refreshInventory: async () => {
-        set({ isLoading: true, error: null });
+    refreshInventory: async (options) => {
+        if (!options?.silent) set({ isLoading: true, error: null });
         try {
             const [categoriesRes, itemsRes] = await Promise.all([
                 api.get<InventoryCategory[]>('/inventory/categories'),
                 api.get<InventoryItem[]>('/inventory/items'),
             ]);
-            set({
-                categories: categoriesRes.data,
-                items: itemsRes.data,
-                isLoading: false,
+
+            set((state) => {
+                const nextCategories = isEqual(state.categories, categoriesRes.data)
+                    ? state.categories
+                    : categoriesRes.data;
+
+                const itemsChanged = !isEqual(state.items, itemsRes.data);
+                let nextItems = state.items;
+
+                if (itemsChanged) {
+                    // Reconcile: Preserve references for identical items to block unnecessary rerenders
+                    nextItems = itemsRes.data.map((newItem) => {
+                        const existingItem = state.items.find((i) => i.uuid === newItem.uuid);
+                        return existingItem && isEqual(existingItem, newItem) ? existingItem : newItem;
+                    });
+
+                    // If the final reconciled array is structurally identical to the previous one, keep the previous reference
+                    if (isEqual(state.items, nextItems)) {
+                        nextItems = state.items;
+                    }
+                }
+
+                return {
+                    categories: nextCategories,
+                    items: nextItems,
+                    isLoading: false,
+                };
             });
         } catch (e: any) {
             set({ error: e.message || "Failed to refresh inventory", isLoading: false });
         }
     },
 
-    fetchCategories: async () => {
-        set({ isLoading: true, error: null });
+    fetchCategories: async (options) => {
+        if (!options?.silent) set({ isLoading: true, error: null });
         try {
             const { data } = await api.get<InventoryCategory[]>('/inventory/categories');
-            set({ categories: data, isLoading: false });
+            set((state) => ({
+                categories: isEqual(state.categories, data) ? state.categories : data,
+                isLoading: false,
+            }));
         } catch (e: any) {
             set({ error: e.message || "Failed to fetch categories", isLoading: false });
         }
     },
 
-    fetchItems: async () => {
-        set({ isLoading: true, error: null });
+    fetchItems: async (options) => {
+        if (!options?.silent) set({ isLoading: true, error: null });
         try {
             const { data } = await api.get<InventoryItem[]>('/inventory/items');
-            set({ items: data, isLoading: false });
+            set((state) => {
+                const itemsChanged = !isEqual(state.items, data);
+                if (!itemsChanged) return { isLoading: false };
+
+                const nextItems = data.map((newItem) => {
+                    const existingItem = state.items.find((i) => i.uuid === newItem.uuid);
+                    return existingItem && isEqual(existingItem, newItem) ? existingItem : newItem;
+                });
+
+                return {
+                    items: isEqual(state.items, nextItems) ? state.items : nextItems,
+                    isLoading: false,
+                };
+            });
         } catch (e: any) {
             set({ error: e.message || "Failed to fetch items", isLoading: false });
         }
@@ -162,5 +202,5 @@ export const useInventoryStore = create<InventoryState>((set) => ({
 
 registerStore(StoreKeys.Inventory, () => {
   const { refreshInventory } = useInventoryStore.getState();
-  refreshInventory();
+  refreshInventory({ silent: true });
 });

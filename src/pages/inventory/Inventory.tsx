@@ -101,19 +101,7 @@ export default function Inventory() {
   };
 
   const renderContent = () => {
-    // 1. Critical: Always show loading state if isLoading is true
-    if (isLoading) {
-      return (
-        <div className="flex flex-col justify-center items-center h-64 bg-white rounded-xl border border-dashed border-gray-200">
-          <Spinner className="w-10 h-10 text-primary" />
-          <p className="text-sm text-muted-foreground mt-2">
-            {t("common.loading", "Loading...")}
-          </p>
-        </div>
-      );
-    }
-
-    if (error) {
+    if (error && items.length === 0) {
       return (
         <div className="flex justify-center items-center h-64">
           <Alert variant="destructive" className="max-w-md">
@@ -126,8 +114,8 @@ export default function Inventory() {
       );
     }
 
-    // 2. Empty State (Add this for better UX)
-    if (filteredAndSortedItems.length === 0) {
+    // Empty State (Show when no items and not loading)
+    if (filteredAndSortedItems.length === 0 && !isLoading) {
       return (
         <div className="flex flex-col justify-center items-center h-64 bg-white rounded-xl border">
           <p className="text-gray-400">
@@ -137,6 +125,8 @@ export default function Inventory() {
       );
     }
 
+    // If loading for the first time with no items, we can still show a minimal state or nothing, 
+    // but we avoid the full-page spinner that blocks everything.
     return (
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <InventoryTable

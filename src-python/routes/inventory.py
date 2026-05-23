@@ -12,6 +12,13 @@ import logging
 
 inventory_bp = Blueprint('inventory_bp', __name__, url_prefix='/inventory')
 
+
+class _InsufficientStock(Exception):
+                pass
+
+class _ItemNotFound(Exception):
+    pass
+
 # --- Categories ---
 
 def _get_current_user(db):
@@ -398,9 +405,11 @@ def delete_item(uuid):
 def create_adjustment():
     with get_db() as db:
         try:
+            # 1. Authenticate and verify user context first
             current_user, error_response = _get_current_user(db)
             if error_response:
                 return error_response
+
             scope = _get_inventory_scope(current_user)
 
             try:
@@ -408,58 +417,56 @@ def create_adjustment():
             except ValidationError as e:
                 return jsonify({"errors": e.errors()}), 400
 
-            class _InsufficientStock(Exception):
-                pass
+            # 2. Check permission context BEFORE initiating the row-level update lock
+            # This protects your internal helper queries from conflicting with with_for_update()
+            scoped_item = _get_scoped_item(db, scope, validated_data.item_uuid)
+            if not scoped_item:
+                return jsonify({"error": "Not authorized to adjust this item or item not found."}), 403
 
-            class _ItemNotFound(Exception):
-                pass
-
-            new_adjustment = None
-            try:
-                with db.begin():
-                    item = (
-                        db.query(InventoryItem)
-                        .filter(InventoryItem.uuid == validated_data.item_uuid)
-                        .with_for_update()
-                        .first()
-                    )
-                    if not item:
-                        raise _ItemNotFound()
-                    scoped_item = _get_scoped_item(db, scope, item.uuid)
-                    if not scoped_item:
-                        return jsonify({"error": "Not authorized to adjust this item."}), 403
-
-                    # Validate that the adjustment doesn't result in negative stock
-                    if item.quantity_on_hand + validated_data.adjustment < 0:
-                        raise _InsufficientStock()
-
-                    # Centralized Stock Logic: update quantity_on_hand
-                    item.quantity_on_hand += validated_data.adjustment
-                    item.is_dirty = True
-
-                    payload = validated_data.dict(exclude_unset=True)
-                    payload.pop("organization_uuid", None)
-                    payload.pop("branch_uuid", None)
-                    payload.pop("user_uuid", None)
-                    if scope["org_uuid"]:
-                        payload["organization_uuid"] = scope["org_uuid"]
-                        payload["branch_uuid"] = scope["branch_uuid"] or item.branch_uuid
-                        payload["user_uuid"] = current_user.uuid
-                    else:
-                        payload["organization_uuid"] = None
-                        payload["branch_uuid"] = None
-                        payload["user_uuid"] = scope["user_uuid"]
-
-                    new_adjustment = StockAdjustment(**payload)
-                    new_adjustment.is_dirty = True
-                    db.add(new_adjustment)
-            except _ItemNotFound:
+            # 3. Safely acquire row lock on the scoped item now that authority is confirmed
+            item = (
+                db.query(InventoryItem)
+                .filter(InventoryItem.uuid == validated_data.item_uuid)
+                .with_for_update()
+                .first()
+            )
+            if not item:
                 return jsonify({"error": "Item not found"}), 404
-            except _InsufficientStock:
+
+            # 4. Validate that the adjustment doesn't result in negative stock
+            if item.quantity_on_hand + validated_data.adjustment < 0:
                 return jsonify({"error": "Stock quantity cannot become negative."}), 400
 
-            db.refresh(new_adjustment)
-            return jsonify(model_to_dict(new_adjustment)), 201
+            # 5. Mutate the inventory record securely
+            item.quantity_on_hand += validated_data.adjustment
+            item.is_dirty = True
+
+            # 6. Build the payload matching multi-tenant/standalone scope conditions
+            payload = validated_data.dict(exclude_unset=True)
+            payload.pop("organization_uuid", None)
+            payload.pop("branch_uuid", None)
+            payload.pop("user_uuid", None)
+
+            if scope.get("org_uuid"):
+                payload["organization_uuid"] = scope["org_uuid"]
+                payload["branch_uuid"] = scope["branch_uuid"] or item.branch_uuid
+                payload["user_uuid"] = current_user.uuid
+            else:
+                payload["organization_uuid"] = None
+                payload["branch_uuid"] = None
+                payload["user_uuid"] = scope.get("user_uuid")
+
+            new_adjustment = StockAdjustment(**payload)
+            new_adjustment.is_dirty = True
+            db.add(new_adjustment)
+
+            # 7. Commit changes and close transaction safely
+            db.commit()
+
+            # Construct response safe from thread-racing mutations
+            response_data = model_to_dict(new_adjustment)
+            return jsonify(response_data), 201
+
         except Exception as e:
             db.rollback()
             logging.exception("Error creating stock adjustment")

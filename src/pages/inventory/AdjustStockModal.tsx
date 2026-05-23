@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -19,6 +19,38 @@ export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) 
     const [adjustment, setAdjustment] = useState<number>(0);
     const [reason, setReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+
+    const startIncrement = () => {
+        // Increment once immediately on click
+        setAdjustment(prev => prev + 1);
+
+        // Start repeating after a short delay
+        timerRef.current = setInterval(() => {
+            setAdjustment(prev => prev + 1);
+        }, 100); // Changes value every 100 milliseconds
+    };
+
+    const startDecrement = () => {
+        // Decrement once immediately on click
+        setAdjustment(prev => prev - 1);
+
+        // Start repeating after a short delay
+        timerRef.current = setInterval(() => {
+            setAdjustment(prev => prev - 1);
+        }, 100); // Changes value every 100 milliseconds
+    };
+
+    const stopChange = () => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+    };
+
 
     const handleSubmit = async () => {
         if (adjustment === 0) {
@@ -78,23 +110,31 @@ export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) 
                             variant="outline"
                             size="icon"
                             className="h-10 w-10 flex-shrink-0"
+                            disabled={item.quantity_on_hand + adjustment <= 0}
                             onClick={() => setAdjustment(prev => prev - 1)}
+                            onMouseDown={startDecrement}
+                            onMouseUp={stopChange}
+                            onMouseLeave={stopChange}
                         >
                             <img src="/eva-icons (2)/outline/minus.png" alt="minus" className="w-5 h-5 opacity-60" />
                         </Button>
                         <Input
                             id="adjustment"
                             type="number"
+                            min={1 - item.quantity_on_hand}
                             value={adjustment}
                             onChange={e => setAdjustment(parseInt(e.target.value, 10) || 0)}
                             className="text-center font-bold text-lg"
                         />
+
                         <Button
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="h-10 w-10 flex-shrink-0"
-                            onClick={() => setAdjustment(prev => prev + 1)}
+                            className="h-10 w-10 flex-shrink-0 select-none"
+                            onMouseDown={startIncrement}
+                            onMouseUp={stopChange}
+                            onMouseLeave={stopChange} // Stops if mouse drags away
                         >
                             <img src="/eva-icons (2)/outline/plus.png" alt="plus" className="w-5 h-5 opacity-60" />
                         </Button>
@@ -106,7 +146,7 @@ export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) 
 
                 <div className="grid gap-2">
                     <Label htmlFor="reason" className="font-semibold">
-                        {t('inventory.adjustment_reason', 'Reason for Adjustment')} *
+                        {t('inventory.adjustment_reason', 'Reason for Adjustment')} <span className='text-semantic-error'>*</span>
                     </Label>
                     <Input
                         id="reason"
