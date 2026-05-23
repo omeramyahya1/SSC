@@ -26,10 +26,16 @@ def get_geo_data(location: str="Khartoum"):
         if not location or not location.strip():
            location = "Khartoum"
         # Construct the absolute path for the CSV file
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        csv_path = os.path.join(base_dir, 'dataset', 'geo_data.csv')
-        pd = _get_pandas()
-        geo_df = pd.read_csv(csv_path)
+        if getattr(sys, 'frozen', False):
+            if "__compiled__" in globals():
+                # Points to the temporary folder where Nuitka unzipped the dataset
+                base_path = os.path.dirname(sys.argv[0])
+                geo_df = pd.read_csv(os.path.join(base_path, "dataset", "geo_data.csv"))
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            csv_path = os.path.join(base_dir, 'dataset', 'geo_data.csv')
+            pd = _get_pandas()
+            geo_df = pd.read_csv(csv_path)
 
         # Search for the location (case-insensitive)
         city = location.split(',')[0]

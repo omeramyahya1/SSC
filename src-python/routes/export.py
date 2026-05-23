@@ -4,6 +4,7 @@ from models import Project, Invoice, ProjectComponent, Customer
 from sqlalchemy.orm import joinedload
 import io
 import os
+import sys
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from urllib.parse import quote
@@ -26,7 +27,22 @@ def _get_pandas():
 
 export_bp = Blueprint('export_bp', __name__, url_prefix='/export')
 
-TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), '..', 'pdf_engine', 'templates')
+# --- Resource Path Resolution ---
+if getattr(sys, 'frozen', False) and "__compiled__" in globals():
+    # Bundled mode (Nuitka)
+    BUNDLE_DIR = os.path.dirname(sys.argv[0])
+    TEMPLATE_DIR = os.path.join(BUNDLE_DIR, 'templates')
+    GEO_DATA_PATH = os.path.join(BUNDLE_DIR, 'dataset', 'geo_data.csv')
+    LOGO_PATH = os.path.join(BUNDLE_DIR, 'ssc.svg')
+    ASSETS_DIR = os.path.join(BUNDLE_DIR, 'assets')
+else:
+    # Development mode
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    TEMPLATE_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'pdf_engine', 'templates'))
+    GEO_DATA_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', 'ble', 'dataset', 'geo_data.csv'))
+    LOGO_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'public', 'ssc.svg'))
+    ASSETS_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'pdf_engine', 'assets'))
+
 jinja_env = Environment(
     loader=FileSystemLoader(TEMPLATE_DIR),
     autoescape=select_autoescape(enabled_extensions=('html', 'xml')),
@@ -132,7 +148,6 @@ BLE_LABELS = {
     }
 }
 
-GEO_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ble', 'dataset', 'geo_data.csv'))
 _geo_df = None
 
 def _load_geo_data():
@@ -142,7 +157,7 @@ def _load_geo_data():
             pd = _get_pandas()
             _geo_df = pd.read_csv(GEO_DATA_PATH)
         except Exception as e:
-            print(f"Warning: Could not load geo_data.csv for export localization: {e}")
+            print(f"Warning: Could not load geo_data.csv from {GEO_DATA_PATH}: {e}")
             _geo_df = None
     return _geo_df
 
@@ -180,11 +195,10 @@ def _clamp_margin_mm(value, *, default=0.0, min_value=0.0, max_value=40.0):
 
 def _load_ssc_logo_svg():
     try:
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-        svg_path = os.path.join(repo_root, 'public', 'ssc.svg')
-        with open(svg_path, 'r', encoding='utf-8') as f:
+        with open(LOGO_PATH, 'r', encoding='utf-8') as f:
             return f.read()
-    except Exception:
+    except Exception as e:
+        print(f"Warning: Could not load logo from {LOGO_PATH}: {e}")
         return None
 
 def _svg_to_data_uri(svg_text: str | None):

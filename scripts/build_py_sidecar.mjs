@@ -59,11 +59,22 @@ const args = [
   "-m", "nuitka",
   "--standalone",
   "--onefile",
-  "--plugin-enable=numpy", // Dedicated plugin ensures pandas/numpy work perfectly
+  "--include-data-dir=src-python/ble/dataset=dataset",
+  "--include-onefile-external-data=dataset", // Crucial for --onefile mode
+  "--include-data-dir=src-python/pdf_engine/templates=templates",
+  "--include-onefile-external-data=templates",
+  "--include-data-dir=src-python/pdf_engine/assets=assets",
+  "--include-onefile-external-data=assets",
+  "--include-data-files=public/ssc.svg=ssc.svg",
+  "--include-onefile-external-data=ssc.svg",
+  "--plugin-enable=numpy",
+  "--include-package=weasyprint",
+  "--include-package=jinja2",
   "--output-filename=python-sidecar-x86_64-unknown-linux-gnu",
   "--output-dir=" + distPath,
   entry
 ];
+
 
 const result = spawnSync(pythonExe, args, { stdio: "inherit" });
 if (result.error) {
