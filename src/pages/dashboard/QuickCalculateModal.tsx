@@ -23,7 +23,7 @@ import { useLocationData } from '@/hooks/useLocationData';
 import { ProjectAppliance } from '@/store/useApplianceStore'; // Keep ProjectAppliance interface
 import { useBleStore } from '@/store/useBleStore';
 import { cn } from "@/lib/utils";
-import { PlusIcon, MinusIcon, Calculator, AlertCircle, Sliders, Sheet, Info, Sun, Zap, BatteryCharging } from 'lucide-react';
+import { PlusIcon, MinusIcon, Calculator, AlertCircle, Sliders, Sheet, Info, Sun, Zap, BatteryCharging, Copy } from 'lucide-react';
 import { QuickCalcConvertedData } from './CreateProjectModal'; // Import for type
 import useLocalStorage from '@/hooks/useLocalStorage';
 import { toast } from 'react-hot-toast';
@@ -858,7 +858,7 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                                 )
                                 }
                             </Accordion>
-                            <div className="flex gap-2 mt-4" dir={i18n.dir()}>
+                            <div className="flex gap-2 mt-4 mb-2" dir={i18n.dir()}>
                                 <Button
                                     onClick={handleConvertClick}
                                     disabled={!bleResults?.data || !bleSettings.project_location_state || !bleSettings.project_location_city}
@@ -873,7 +873,7 @@ export function QuickCalculateModal({ onConvert }: QuickCalculateModalProps) {
                                     variant="outline"
                                     className="w-full"
                                 >
-                                    <img src="/eva-icons (2)/outline/copy.png" alt="copy" className="w-5 h-5 ltr:mr-2 rtl:ml-2" />
+                                    <Copy className='h-5 w-5'/>
                                     <span>{t('project_modal.copy_results', 'Copy Results')}</span>
                                 </Button>
                             </div>
