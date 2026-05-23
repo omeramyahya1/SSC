@@ -228,58 +228,68 @@ ON public.projects FOR ALL USING (
 
 -- 1. SYSTEM CONFIGURATIONS
 ALTER TABLE public.system_configurations ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "System Configurations temporary pass" ON public.system_configurations;
-DROP POLICY IF EXISTS "System Config: Access via parent Project" ON public.system_configurations;
 DROP POLICY IF EXISTS "System Configurations secure access" ON public.system_configurations;
+DROP POLICY IF EXISTS "System Configurations secure reading/mutations" ON public.system_configurations;
+DROP POLICY IF EXISTS "System Configurations open insertion" ON public.system_configurations;
 
-CREATE POLICY "System Configurations secure access"
-ON public.system_configurations FOR ALL
-USING (
+
+CREATE POLICY "System Configurations open insertion"
+ON public.system_configurations
+FOR INSERT
+WITH CHECK (
     is_superadmin()
-    -- Otherwise, check project relationships for Users, Admins and Employees
+    OR EXISTS (
+        SELECT 1 FROM public.users u
+        WHERE u.id = jwt_user_id()
+    )
+);
+
+CREATE POLICY "System Configurations secure reading/mutations"
+ON public.system_configurations
+FOR ALL -- Applies to SELECT, UPDATE, and DELETE actions
+USING (
+    -- 1. Super admins bypass all restrictions
+    is_superadmin()
+
+    -- 2. Validate row access via the linked parent project reference
     OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.system_config_id = system_configurations.id
         AND (
-            -- Standard Users: Must own the parent project
+            -- User Role: Isolated to their own user_uuid projects
             (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
-            OR
-            -- Admins: Can see all within the same organization
-            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
-            OR
-            -- Employees: Restrict to projects in their own branch
-            (
+
+            -- Admin Role: Global cross-branch visibility within their organization
+            OR (
+                jwt_app_role() = 'admin'
+                AND p.organization_id = jwt_org_id()
+            )
+
+            -- Employee Role: Restricted to operations in their branch only
+            OR (
                 jwt_app_role() = 'employee'
                 AND p.organization_id = jwt_org_id()
-                AND EXISTS (
-                    SELECT 1 FROM public.users u
-                    WHERE u.id = p.user_id
-                    AND u.organization_id = jwt_org_id()
-                    AND u.branch_id = jwt_branch_id()
-                )
+                AND p.branch_id = jwt_branch_id()
             )
         )
     )
 )
 WITH CHECK (
+    -- Protect updates/deletions using the same parent project evaluation
     is_superadmin()
     OR EXISTS (
         SELECT 1 FROM public.projects p
         WHERE p.system_config_id = system_configurations.id
         AND (
             (jwt_app_role() = 'user' AND p.user_id = jwt_user_id())
-            OR
-            (jwt_app_role() = 'admin' AND p.organization_id = jwt_org_id())
-            OR
-            (
+            OR (
+                jwt_app_role() = 'admin'
+                AND p.organization_id = jwt_org_id()
+            )
+            OR (
                 jwt_app_role() = 'employee'
                 AND p.organization_id = jwt_org_id()
-                AND EXISTS (
-                    SELECT 1 FROM public.users u
-                    WHERE u.id = p.user_id
-                    AND u.organization_id = jwt_org_id()
-                    AND u.branch_id = jwt_branch_id()
-                )
+                AND p.branch_id = jwt_branch_id()
             )
         )
     )

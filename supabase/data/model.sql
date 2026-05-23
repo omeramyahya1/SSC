@@ -364,7 +364,6 @@ CREATE TABLE public.system_configurations (
   updated_at timestamp with time zone DEFAULT now(),
   deleted_at timestamp with time zone,
   is_dirty boolean DEFAULT false,
-  project_id uuid,
   CONSTRAINT system_configurations_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.terms_and_conditions (
