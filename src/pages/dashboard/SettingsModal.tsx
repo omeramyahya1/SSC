@@ -346,10 +346,10 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
   }, [fetchSystemInfo]);
 
   useEffect(() => {
-    if (activeTab === "system" && !latestTC && currentUser?.user_uuid) {
-      checkTCStatus(currentUser.user_uuid);
+    if (activeTab === "system" && !latestTC && currentUser?.uuid) {
+      checkTCStatus(currentUser.uuid);
     }
-  }, [activeTab, latestTC, currentUser?.user_uuid, checkTCStatus]);
+  }, [activeTab, latestTC, currentUser?.uuid, checkTCStatus]);
 
   const handleSavePersonalProfile = async () => {
     if (!currentUser) return;
