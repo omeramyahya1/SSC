@@ -269,7 +269,12 @@ USING (
             OR (
                 jwt_app_role() = 'employee'
                 AND p.organization_id = jwt_org_id()
-                AND p.branch_id = jwt_branch_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
             )
         )
     )
@@ -289,7 +294,12 @@ WITH CHECK (
             OR (
                 jwt_app_role() = 'employee'
                 AND p.organization_id = jwt_org_id()
-                AND p.branch_id = jwt_branch_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = p.user_id
+                    AND u.organization_id = jwt_org_id()
+                    AND u.branch_id = jwt_branch_id()
+                )
             )
         )
     )

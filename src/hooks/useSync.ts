@@ -5,6 +5,8 @@ import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import { useVersionStore } from "@/store/useVersionStore";
 import { refreshStores, registerStore, StoreKeys } from "@/api/storeRegistry";
 
+let isSyncLogStoreRegistered = false;
+
 export const useSync = () => {
   const { performSync, isSyncing, lastSyncTime } = useSyncLogStore();
   const { currentAuthentication } = useAuthenticationStore();
@@ -22,7 +24,7 @@ export const useSync = () => {
   // optional: collapse bursts (mount + navigation, etc.)
   const lastRequestAtRef = useRef(0);
 
-  const requestSync = useCallback(() => {
+  const requestSync = useCallback(async () => {
     if (!isLoggedIn || !isOnline || isUpdateRequired) return; // prevent sync if update required
     if (isSyncingRef.current) return;
 
@@ -30,7 +32,7 @@ export const useSync = () => {
     if (now - lastRequestAtRef.current < 2000) return; // tweak or remove
     lastRequestAtRef.current = now;
 
-    performSync();
+    await performSync();
   }, [isLoggedIn, isOnline, isUpdateRequired, performSync]);
 
   useEffect(() => {
@@ -52,11 +54,11 @@ export const useSync = () => {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    const timeoutId = window.setTimeout(() => {
+    const timeoutId = window.setTimeout(async () => {
       if (isSyncingRef.current) return;
-      requestSync();
+      await requestSync();
       // Refresh all stores to ensure UI has latest local data after sync
-        refreshStores(Object.values(StoreKeys));
+      refreshStores(Object.values(StoreKeys));
     }, 10000);
 
     return () => window.clearTimeout(timeoutId);
@@ -77,9 +79,12 @@ export const useSync = () => {
     return () => clearInterval(id);
   }, [isLoggedIn, requestSync]);
 
-  registerStore(StoreKeys.SyncLog, () => {
-    useSyncLogStore.getState().fetchSyncLogs();
-  });
+  if (!isSyncLogStoreRegistered) {
+    registerStore(StoreKeys.SyncLog, () => {
+      useSyncLogStore.getState().fetchSyncLogs();
+    });
+    isSyncLogStoreRegistered = true;
+  }
 
   return { sync: requestSync, isSyncing, lastSyncTime };
 };

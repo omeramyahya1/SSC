@@ -72,7 +72,7 @@ const args = [
   "--plugin-enable=numpy",
   "--include-package=weasyprint",
   "--include-package=jinja2",
-  "--output-filename=python-sidecar-x86_64-unknown-linux-gnu",
+  "--output-filename=python-sidecar",
   "--output-dir=" + distPath,
   entry
 ];

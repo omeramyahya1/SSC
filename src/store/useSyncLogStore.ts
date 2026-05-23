@@ -59,7 +59,7 @@ export const useSyncLogStore = create<SyncLogStore>((set, get) => ({
 
       const parseDate = (dateStr: string) => {
           // If the date string doesn't have a timezone indicator, assume it's UTC
-          const normalized = (dateStr.includes('Z') || dateStr.includes('+'))
+          const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(dateStr)
               ? dateStr
               : `${dateStr}Z`;
           return new Date(normalized).getTime();

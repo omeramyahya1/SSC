@@ -901,7 +901,9 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
         return [];
     }, [data.locationState]);
 
+
     setValid(true); // always skippable
+
 
     const handleCityChange = (cityVal: string) => {
         const cityObj = cities.find(c => c.value === cityVal);

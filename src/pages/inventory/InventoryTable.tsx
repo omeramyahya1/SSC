@@ -188,6 +188,7 @@ const InventoryRow = React.memo(({
     return (
         prev.showSKU === next.showSKU &&
         prev.showSpecs === next.showSpecs &&
+        prev.i18n.language === next.i18n.language &&
         isEqual(prev.item, next.item)
     );
 });

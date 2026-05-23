@@ -419,19 +419,14 @@ def create_adjustment():
 
             # 2. Check permission context BEFORE initiating the row-level update lock
             # This protects your internal helper queries from conflicting with with_for_update()
-            scoped_item = _get_scoped_item(db, scope, validated_data.item_uuid)
-            if not scoped_item:
-                return jsonify({"error": "Not authorized to adjust this item or item not found."}), 403
-
-            # 3. Safely acquire row lock on the scoped item now that authority is confirmed
-            item = (
-                db.query(InventoryItem)
-                .filter(InventoryItem.uuid == validated_data.item_uuid)
-                .with_for_update()
-                .first()
-            )
+            item = _apply_item_scope(
+                db.query(InventoryItem).filter(
+                    InventoryItem.uuid == validated_data.item_uuid,
+                ),
+                scope,
+            ).with_for_update().first()
             if not item:
-                return jsonify({"error": "Item not found"}), 404
+                return jsonify({"error": "Not authorized to adjust this item or item not found."}), 403
 
             # 4. Validate that the adjustment doesn't result in negative stock
             if item.quantity_on_hand + validated_data.adjustment < 0:

@@ -487,7 +487,7 @@ export function IndependentInvoiceEditor({
       );
     }
   }, [
-    user?.uuid,
+    currentUser?.uuid,
     currentInvoice,
     shippingFee,
     installationFee,

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -50,6 +50,10 @@ export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) 
             timerRef.current = null;
         }
     };
+
+    useEffect(() => {
+        return () => stopChange();
+    }, []);
 
 
     const handleSubmit = async () => {
@@ -111,7 +115,6 @@ export function AdjustStockModal({ item, onOpenChange }: AdjustStockModalProps) 
                             size="icon"
                             className="h-10 w-10 flex-shrink-0"
                             disabled={item.quantity_on_hand + adjustment <= 0}
-                            onClick={() => setAdjustment(prev => prev - 1)}
                             onMouseDown={startDecrement}
                             onMouseUp={stopChange}
                             onMouseLeave={stopChange}

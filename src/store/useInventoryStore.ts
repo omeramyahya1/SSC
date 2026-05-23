@@ -92,6 +92,7 @@ export const useInventoryStore = create<InventoryState>((set) => ({
                 return {
                     categories: nextCategories,
                     items: nextItems,
+                    error: null,
                     isLoading: false,
                 };
             });
@@ -106,6 +107,7 @@ export const useInventoryStore = create<InventoryState>((set) => ({
             const { data } = await api.get<InventoryCategory[]>('/inventory/categories');
             set((state) => ({
                 categories: isEqual(state.categories, data) ? state.categories : data,
+                error: null,
                 isLoading: false,
             }));
         } catch (e: any) {
@@ -128,6 +130,7 @@ export const useInventoryStore = create<InventoryState>((set) => ({
 
                 return {
                     items: isEqual(state.items, nextItems) ? state.items : nextItems,
+                    error: null,
                     isLoading: false,
                 };
             });

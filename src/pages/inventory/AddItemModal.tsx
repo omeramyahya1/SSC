@@ -32,7 +32,7 @@ interface FormDataType {
   category_uuid: string;
   quantity_on_hand: number;
   low_stock_threshold: number;
-  branch_uuid: string | null | any;       // Allows string or null
+  branch_uuid: string | null;       // Allows string or null
   organization_uuid: string | null; // Allows string or null
   buy_price: number;
   sell_price: number;
