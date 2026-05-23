@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     if mode == "dev":
         print("Serving for dev mode")
-        app.run(host="127.0.0.1", port=port, debug=True, use_reloader=False)
+        app.run(host="127.0.0.1", port=port, debug=True, use_reloader=True)
     else:
         from waitress import serve
         print("Serving for prod mode")
