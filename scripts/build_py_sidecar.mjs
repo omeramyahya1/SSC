@@ -59,6 +59,8 @@ const args = [
   "-m", "nuitka",
   "--standalone",
   "--onefile",
+  "--cache-mode=all", // enable caching features
+  "--file-reference-choice=runtime", // Force Nuitka to reuse previously compiled modules
   "--include-data-dir=src-python/ble/dataset=dataset",
   "--include-onefile-external-data=dataset", // Crucial for --onefile mode
   "--include-data-dir=src-python/pdf_engine/templates=templates",
