@@ -17,11 +17,16 @@ export const getChannelFromVersion = (version: string): AppChannel => {
 };
 
 export const getAppChannel = (version?: string): AppChannel => {
-  if (version) {
-    return getChannelFromVersion(version);
-  }
+
   const raw = import.meta.env.VITE_APP_CHANNEL;
-  return raw === "dev" || raw === "beta" || raw === "prod" ? raw : "prod";
+  const envChannel =
+    raw === "dev" || raw === "beta" || raw === "prod" ? raw : "prod";
+
+  if (envChannel === "dev") {
+    return "dev";
+  }
+
+  return version ? getChannelFromVersion(version) : envChannel;
 };
 
 type SemVer = {

@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { useUserStore } from "@/store/useUserStore";
 import { useBranchStore } from "@/store/useBranchStore";
-import { useEffect } from "react";
 import { FinancesDashboard } from "./FinancesDashboard";
 import { InvoicesList } from "./InvoicesList";
 import { PaymentsList } from "./PaymentsList";
@@ -33,11 +32,12 @@ import { Dialog } from "@/components/ui/dialog";
 import { useInvoiceStore } from "@/store/useInvoiceStore";
 import { useCustomerStore } from "@/store/useCustomerStore";
 import { toast } from "react-hot-toast";
+import { cn } from "@/lib/utils";
 
 export default function Sales() {
   const { t, i18n } = useTranslation();
   const { currentUser } = useUserStore();
-  const { branches, fetchBranches } = useBranchStore();
+  const { branches } = useBranchStore();
   const { createInvoice } = useInvoiceStore();
   const { createCustomer } = useCustomerStore();
 
@@ -55,6 +55,7 @@ export default function Sales() {
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
 
   const isExpired = currentUser?.status === "expired";
+  const isAdmin = currentUser?.role === "admin";
 
   const handleCreateIndependentInvoice = async (data: any) => {
     if (isExpired) {

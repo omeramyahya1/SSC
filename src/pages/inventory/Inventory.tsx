@@ -21,6 +21,7 @@ import { InventoryHistoryModal } from "./InventoryHistoryModal";
 import { ExportReportModal } from "@/components/ExportReportModal";
 import { cn } from "@/lib/utils";
 import { SubscriptionBanner } from "../dashboard/SubscriptionBanner";
+import {toast} from "react-hot-toast";
 
 export type SortOption =
   | "name"
@@ -54,7 +55,7 @@ export default function Inventory() {
   }, [fetchItems, fetchCategories]);
 
   const filteredAndSortedItems = useMemo(() => {
-    if (!items || isLoading) return [];
+    if (!items) return [];
     const filtered = items.filter((item) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =

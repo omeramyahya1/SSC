@@ -19,6 +19,8 @@ import {
 import { SidebarClose, SidebarOpen, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { toast } from "react-hot-toast";
+import { t } from "i18next";
 
 const SidebarItem = ({
   icon,
@@ -38,6 +40,7 @@ const SidebarItem = ({
   showSidebarContent: boolean;
 }) => {
   const { i18n } = useTranslation();
+  const { currentUser } = useUserStore();
 
   const isExpired = currentUser?.status === "expired";
 

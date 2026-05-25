@@ -23,4 +23,6 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS trg_cascade_subscription_status ON public.subscriptions;
 CREATE TRIGGER trg_cascade_subscription_status
 AFTER UPDATE OF status ON public.subscriptions
-FOR EACH ROW EXECUTE FUNCTION public.cascade_subscription_status();
+FOR EACH ROW
+WHEN (OLD.status IS DISTINCT FROM NEW.status)
+EXECUTE FUNCTION public.cascade_subscription_status();

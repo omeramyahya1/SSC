@@ -63,17 +63,21 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     const expires = currentSubscription.expiration_date ? new Date(currentSubscription.expiration_date) : null;
     const graceEnd = currentSubscription.grace_period_end ? new Date(currentSubscription.grace_period_end) : null;
 
-    let newStatus: "active" | "expired" | "grace" | "trial" = currentSubscription.status as any || "active";
+    const isTrial =
+      currentSubscription.type === "trial" ||
+      currentSubscription.status === "trial";
+    let newStatus: "active" | "expired" | "grace" | "trial" =
+      isTrial ? "trial" : (currentSubscription.status as any) || "active";
 
     if (expires) {
       const effectiveGraceEnd = graceEnd || new Date(expires.getTime() + 7 * 24 * 60 * 60 * 1000);
-      
+
       if (now > effectiveGraceEnd) {
         newStatus = "expired";
       } else if (now > expires) {
         newStatus = "grace";
-      } else {
-        newStatus = "active";
+     } else {
+        newStatus = isTrial ? "trial" : "active";
       }
     }
 
@@ -94,9 +98,9 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       // Sort by creation to find the latest non-pending
       const sorted = [...data].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       const active = sorted.find((s) => s.status !== "pending") ?? null;
-      
+
       set({ subscriptions: data, currentSubscription: active, isLoading: false });
-      
+
       // Perform local evaluation after fetch
       get().evaluateLocalStatus();
     } catch (e: any) {
@@ -108,7 +112,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
   refreshSubscriptionStatus: async (user_uuid?: string) => {
     if (!user_uuid) return;
-    
+
     try {
       // 1. Trigger server-side enforcement via RPC
       const { data, error } = await supabase.rpc('sync_and_enforce_subscription', {
@@ -117,7 +121,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       if (error) throw error;
       console.log("Server-side subscription sync result:", data);
-      
+
       // 2. Refresh local data which will pull the updated status
       await get().fetchSubscriptions(user_uuid);
     } catch (e: any) {

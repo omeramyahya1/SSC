@@ -5,9 +5,9 @@ CREATE TABLE public.app_notifications (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   message_en text NOT NULL,
   message_ar text NOT NULL,
-  type text DEFAULT 'info'::text CHECK (type = ANY (ARRAY['info'::text, 'warning'::text, 'promo'::text])),
-  is_active boolean DEFAULT true,
-  created_at timestamp with time zone DEFAULT now(),
+  type text NOT NULL DEFAULT 'info'::text CHECK (type = ANY (ARRAY['info'::text, 'warning'::text, 'promo'::text])),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT app_notifications_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.appliances (

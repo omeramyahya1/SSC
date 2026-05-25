@@ -37,8 +37,8 @@ export const VersionHandler = () => {
   const { i18n } = useTranslation();
   const currentMessage =
     i18n.language === "ar"
-      ? activeNotification?.message_ar
-      : activeNotification?.message_en;
+      ? activeNotification?.message_ar || activeNotification?.message_en
+      : activeNotification?.message_en || activeNotification?.message_ar;
 
   const { systemInfo, fetchSystemInfo } = useSystemInfoStore();
 
