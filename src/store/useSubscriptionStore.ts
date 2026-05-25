@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import api from '@/api/client';
 import { registerStore, StoreKeys } from '@/api/storeRegistry';
 import { useUserStore } from '@/store/useUserStore';
+import { supabase } from '@/lib/supabaseClient';
 
 // --- 1. Define Types ---
 
@@ -16,7 +17,7 @@ export interface Subscription {
   expiration_date: string;
   grace_period_end: string;
   type: "trial" | "monthly" | "annual" | "lifetime";
-  status: "active" | "expired" | "trial" | "pending" | null;
+  status: "active" | "expired" | "grace" | "trial" | "pending" | null;
   license_code: string;
   tampered: boolean;
 }
@@ -39,6 +40,7 @@ export interface SubscriptionStore {
   deleteSubscription: (id: string) => Promise<void>;
   setCurrentSubscription: (subscription: Subscription | null) => void;
   refreshSubscriptionStatus: (user_uuid?: string) => Promise<void>;
+  evaluateLocalStatus: () => void;
 }
 
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -51,6 +53,37 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     set({ currentSubscription: subscription });
   },
 
+  evaluateLocalStatus: () => {
+    const { currentSubscription } = get();
+    const { currentUser, updateUser } = useUserStore.getState();
+
+    if (!currentSubscription || !currentUser) return;
+
+    const now = new Date();
+    const expires = currentSubscription.expiration_date ? new Date(currentSubscription.expiration_date) : null;
+    const graceEnd = currentSubscription.grace_period_end ? new Date(currentSubscription.grace_period_end) : null;
+
+    let newStatus: "active" | "expired" | "grace" | "trial" = currentSubscription.status as any || "active";
+
+    if (expires) {
+      const effectiveGraceEnd = graceEnd || new Date(expires.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      if (now > effectiveGraceEnd) {
+        newStatus = "expired";
+      } else if (now > expires) {
+        newStatus = "grace";
+      } else {
+        newStatus = "active";
+      }
+    }
+
+    if (currentUser.status !== newStatus) {
+      console.log(`Local subscription evaluation: Changing status from ${currentUser.status} to ${newStatus}`);
+      // Update local state and backend via sync
+      updateUser(currentUser.uuid, { status: newStatus }).catch(console.error);
+    }
+  },
+
   fetchSubscriptions: async (user_uuid?: string) => {
     if (!user_uuid) return;
     set({ isLoading: true, error: null });
@@ -58,8 +91,14 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       const { data } = await api.get<Subscription[]>(
         `${resource}?user_uuid=${encodeURIComponent(user_uuid)}`
       );
-      const active = data.find((s) => s.status === "active") ?? null;
+      // Sort by creation to find the latest non-pending
+      const sorted = [...data].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const active = sorted.find((s) => s.status !== "pending") ?? null;
+      
       set({ subscriptions: data, currentSubscription: active, isLoading: false });
+      
+      // Perform local evaluation after fetch
+      get().evaluateLocalStatus();
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch subscriptions";
       set({ error: errorMsg, isLoading: false });
@@ -68,7 +107,23 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   },
 
   refreshSubscriptionStatus: async (user_uuid?: string) => {
+    if (!user_uuid) return;
+    
+    try {
+      // 1. Trigger server-side enforcement via RPC
+      const { data, error } = await supabase.rpc('sync_and_enforce_subscription', {
+        p_user_id: user_uuid
+      });
+
+      if (error) throw error;
+      console.log("Server-side subscription sync result:", data);
+      
+      // 2. Refresh local data which will pull the updated status
       await get().fetchSubscriptions(user_uuid);
+    } catch (e: any) {
+      console.error("Failed to refresh subscription status via RPC, falling back to local fetch:", e);
+      await get().fetchSubscriptions(user_uuid);
+    }
   },
 
   fetchSubscription: async (id) => {

@@ -1,10 +1,12 @@
 import { Sidebar } from "./dashboard/Sidebar";
 import { InternetAlert } from "./dashboard/InternetAlert";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import { useApplicationSettingsStore } from "@/store/useApplicationSettingsStore";
+import { useUserStore } from "@/store/useUserStore";
+import { useSubscriptionStore } from "@/store/useSubscriptionStore";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -23,9 +25,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { useSync } from "@/hooks/useSync";
 import { Dialog } from "@radix-ui/react-dialog";
 import { SettingsModal } from "./dashboard/SettingsModal";
+import { AlertCircle, CreditCard, Settings as SettingsIcon } from "lucide-react";
 
 const MainContent = () => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   useSync();
   const {
     showFirstTimeLoginPrompt,
@@ -39,14 +44,23 @@ const MainContent = () => {
     recordTCAgreement,
     currentSetting,
   } = useApplicationSettingsStore();
+  const { currentUser } = useUserStore();
+  const { currentSubscription, refreshSubscriptionStatus } =
+    useSubscriptionStore();
+
   const [isAgreeing, setIsAgreeing] = useState(false);
   const [showTCModal, setShowTCModal] = useState(false);
 
   useEffect(() => {
     if (currentAuthentication?.user_uuid) {
       checkTCStatus(currentAuthentication.user_uuid);
+      refreshSubscriptionStatus(currentAuthentication.user_uuid);
     }
-  }, [currentAuthentication?.user_uuid, checkTCStatus]);
+  }, [
+    currentAuthentication?.user_uuid,
+    checkTCStatus,
+    refreshSubscriptionStatus,
+  ]);
 
   useEffect(() => {
     if (currentSetting) {
@@ -57,25 +71,13 @@ const MainContent = () => {
   }, [needsTCUpdate, currentSetting]);
 
   const handleAgreeTC = async () => {
-    console.log("handleAgreeTC start", {
-      latestTCId: latestTC?.id,
-      hasSetting: !!currentSetting,
-    });
-
-    if (!latestTC?.id) {
-      console.warn("No latestTC id found, returning early");
-      return;
-    }
-
+    if (!latestTC?.id) return;
     setIsAgreeing(true);
     try {
-      console.log("Calling recordTCAgreement for", latestTC.id);
       await recordTCAgreement(latestTC.id);
-      console.log("recordTCAgreement success");
       setShowTCModal(false);
       toast.success(t("tc.success.title", "Terms Accepted"));
     } catch (e) {
-      console.error("Failed to agree to T&C", e);
       toast.error(t("tc.error", "Failed to save agreement"));
     } finally {
       setIsAgreeing(false);
@@ -93,28 +95,108 @@ const MainContent = () => {
     setIsSettingsOpen(true);
   };
 
-  useEffect(() => {
-    const stopDrop = (e: any) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
+  const isExpired = currentUser?.status === "expired";
+  const isGrace = currentUser?.status === "grace";
+  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "user";
 
-    // 'dragover' must be prevented for 'drop' to be blocked
-    window.addEventListener("dragover", stopDrop, false);
-    window.addEventListener("drop", stopDrop, false);
-
-    return () => {
-      window.removeEventListener("dragover", stopDrop);
-      window.removeEventListener("drop", stopDrop);
-    };
-  }, []);
+  // Check if current route is allowed during expiration
+  const isAllowedRoute =
+    location.pathname.includes("/subscription") ||
+    location.pathname.includes("/settings");
 
   return (
-    <div className="flex h-screen w-full font-sans">
+    <div className="flex h-screen w-full font-sans relative overflow-hidden">
       <Toaster />
       <InternetAlert />
       <Sidebar />
-      <Outlet />
+
+      {/* Main App Content */}
+      <main className="flex-1 relative overflow-hidden">
+        {/* Grace Period Banner */}
+        {isGrace && (
+          <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={18} />
+              <p className="text-sm font-medium">
+                {t(
+                  "sub.grace_warning",
+                  "Your subscription has expired. You are currently in a grace period. Please renew to avoid service interruption.",
+                )}
+              </p>
+            </div>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white text-amber-600 border-white hover:bg-amber-50"
+                onClick={() => navigate("/subscription")}
+              >
+                {t("sub.renew_now", "Renew Now")}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Blocking Overlay for Expired Accounts */}
+        {isExpired && !isAllowedRoute && (
+          <div className="absolute inset-0 z-[100] bg-background/80 backdrop-blur-md flex items-center justify-center p-6">
+            <div className="bg-white border-2 border-destructive/20 shadow-2xl rounded-2xl max-w-lg w-full p-8 text-center space-y-6">
+              <div className="w-20 h-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
+                <AlertCircle size={40} />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-3xl font-black text-neutral">
+                  {t("sub.expired_title", "Subscription Expired")}
+                </h2>
+                <p className="text-neutral/60">
+                  {isAdmin
+                    ? t(
+                        "sub.expired_desc_admin",
+                        "Your access has been suspended due to an expired subscription. Please renew your plan to continue using all features.",
+                      )
+                    : t(
+                        "sub.expired_desc_employee",
+                        "Your organization's subscription has expired. Please contact your administrator to restore access.",
+                      )}
+                </p>
+              </div>
+
+              {isAdmin ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <Button
+                    className="h-12 gap-2 text-lg font-bold"
+                    onClick={() => navigate("/subscription")}
+                  >
+                    <CreditCard size={20} />
+                    {t("sub.manage_subscription", "Manage Subscription")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-12 gap-2 text-lg font-bold"
+                    onClick={() => setIsSettingsOpen(true)}
+                  >
+                    <SettingsIcon size={20} />
+                    {t("sub.go_to_settings", "Settings")}
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-4 bg-neutral/5 rounded-xl border border-neutral/10">
+                  <p className="text-sm font-medium text-neutral/40 italic">
+                    {t(
+                      "sub.contact_admin_help",
+                      "Tip: Your admin can renew the plan from the Subscription section.",
+                    )}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <Outlet />
+      </main>
+
+      {/* Modals and Dialogs */}
       <AlertDialog
         open={showFirstTimeLoginPrompt}
         onOpenChange={setShowFirstTimeLoginPrompt}
@@ -151,6 +233,7 @@ const MainContent = () => {
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <SettingsModal passwordChange={true} />
       </Dialog>
+
       <AlertDialog open={showTCModal} onOpenChange={setShowTCModal}>
         <AlertDialogContent className="max-w-2xl max-h-[90vh] bg-white flex flex-col p-0 overflow-hidden">
           <AlertDialogHeader className="p-6 pb-2">

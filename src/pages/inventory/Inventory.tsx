@@ -167,8 +167,17 @@ export default function Inventory() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsExportModalOpen(true)}
-                className="group hover:bg-primary hover:text-white hover:shadow-lg"
+                onClick={() => {
+                  if (isExpired) {
+                    toast.error(t("sub.feature_locked"));
+                  } else {
+                    setIsExportModalOpen(true);
+                  }
+                }}
+                className={cn(
+                  "group hover:bg-primary hover:text-white hover:shadow-lg",
+                  isExpired && "opacity-50 grayscale cursor-not-allowed",
+                )}
               >
                 <FileOutput className="h-4 w-4 text-gray-700 group-hover:text-white" />
                 {t("common.generate_report", "Report")}

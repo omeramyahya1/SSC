@@ -54,15 +54,18 @@ export default function Sales() {
   // Filtering state for Admin/HQ views
   const [selectedBranch, setSelectedBranch] = useState<string>("all");
 
-  const isAdmin = currentUser?.role === "admin";
-
-  useEffect(() => {
-    if (isAdmin && currentUser?.organization_uuid) {
-      fetchBranches({ org_uuid: currentUser.organization_uuid });
-    }
-  }, [isAdmin, currentUser?.organization_uuid, fetchBranches]);
+  const isExpired = currentUser?.status === "expired";
 
   const handleCreateIndependentInvoice = async (data: any) => {
+    if (isExpired) {
+      toast.error(
+        t(
+          "sub.action_locked",
+          "This action is locked. Please renew your subscription.",
+        ),
+      );
+      return;
+    }
     try {
       let customerUuid = data.customer_uuid;
 
@@ -165,8 +168,17 @@ export default function Sales() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsExportModalOpen(true)}
-              className="group hover:bg-primary hover:text-white hover:shadow-lg"
+              onClick={() => {
+                if (isExpired) {
+                  toast.error(t("sub.feature_locked"));
+                } else {
+                  setIsExportModalOpen(true);
+                }
+              }}
+              className={cn(
+                "group hover:bg-primary hover:text-white hover:shadow-lg",
+                isExpired && "opacity-50 grayscale cursor-not-allowed",
+              )}
             >
               <FileOutput className="h-4 w-4 text-gray-700 group-hover:text-white" />
               {t("common.generate_report", "Report")}
@@ -179,9 +191,18 @@ export default function Sales() {
               {t("finances.add_payment", "Add Payment")}
             </Button>
             <Button
-              onClick={() => setIsCreateInvoiceModalOpen(true)}
+              onClick={() => {
+                if (isExpired) {
+                  toast.error(t("sub.feature_locked"));
+                } else {
+                  setIsCreateInvoiceModalOpen(true);
+                }
+              }}
               variant="default"
-              className="text-white hover:bg-primary/5 hover:shadow-lg"
+              className={cn(
+                "text-white hover:bg-primary/5 hover:shadow-lg",
+                isExpired && "opacity-50 grayscale cursor-not-allowed",
+              )}
             >
               <FilePlus className="h-4 w-4" />
               {t("finances.create_invoice", "Create Invoice")}

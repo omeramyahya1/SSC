@@ -39,9 +39,15 @@ const SidebarItem = ({
 }) => {
   const { i18n } = useTranslation();
 
+  const isExpired = currentUser?.status === "expired";
+
   const content = (
     <div
-      className={`flex flex-row gap-4 ${!showSidebarContent ? "justify-center" : "justify-start"}`}
+      className={cn(
+        "flex flex-row gap-4",
+        !showSidebarContent ? "justify-center" : "justify-start",
+        isExpired && to === "/home/inventory" && "opacity-50 grayscale",
+      )}
     >
       {icon !== "sales" ? (
         <img
@@ -62,11 +68,28 @@ const SidebarItem = ({
   );
 
   if (to) {
+    const isLocked = isExpired && to === "/home/inventory";
+
     return (
       <NavLink
-        to={to}
+        to={isLocked ? "#" : to}
+        onClick={(e) => {
+          if (isLocked) {
+            e.preventDefault();
+            toast.error(
+              t(
+                "sub.feature_locked",
+                "This feature is locked. Please renew your subscription.",
+              ),
+            );
+          }
+        }}
         className={({ isActive }) =>
-          `w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm flex items-center ${isActive && !isSelected ? "bg-white shadow-sm [&_img]:opacity-100" : ""}`
+          cn(
+            "w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm flex items-center",
+            isActive && !isSelected && !isLocked && "bg-white shadow-sm [&_img]:opacity-100",
+            isLocked && "cursor-not-allowed",
+          )
         }
       >
         {content}
