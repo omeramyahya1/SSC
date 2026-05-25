@@ -55,16 +55,40 @@ const distPath = path.join(repoRoot, "src-tauri");
 //   "--clean",
 // ];
 
+// const args = [
+//   "-m", "PyInstaller",
+//   "--clean",                       // Wipes cache folders before building
+//   "--onefile",                     // Compiles into a single binary runner executable
+//   "--name=python-sidecar",          // Maps to --output-filename
+//   "--distpath=" + distPath,         // Maps to --output-dir
+
+//   // Include Data Directories & Assets (Format: "source_path:dest_path")
+//   "--add-data=src-python/ble/dataset:dataset",
+//   "--add-data=src-python/pdf_engine/templates:templates",
+//   "--add-data=src-python/pdf_engine/assets:assets",
+//   "--add-data=public/ssc.svg:.",    // Places ssc.svg in the root execution context
+
+//   // Hidden Imports (Ensures dynamic modules like Jinja templates and Weasyprint styles bundle correctly)
+//   "--hidden-import=jinja2",
+//   "--hidden-import=weasyprint",
+//   "--hidden-import=pandas",
+//   "--hidden-import=alembic",
+
+//   entry
+// ];
+
 const args = [
   "-m", "nuitka",
   "--standalone",
   "--onefile",
-  "--cache-mode=all", // enable caching features
   "--file-reference-choice=runtime", // Force Nuitka to reuse previously compiled modules
   "--include-data-dir=src-python/ble/dataset=dataset",
   "--include-onefile-external-data=dataset", // Crucial for --onefile mode
   "--include-data-dir=src-python/pdf_engine/templates=templates",
   "--include-onefile-external-data=templates",
+  "--company-name=oay",
+  "--product-name=ssc",
+  "--product-version=0.1.1",
   "--include-data-dir=src-python/pdf_engine/assets=assets",
   "--include-onefile-external-data=assets",
   "--include-data-files=public/ssc.svg=ssc.svg",
