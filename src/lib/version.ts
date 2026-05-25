@@ -10,9 +10,16 @@ export interface AppManifest {
   };
 }
 
-export const getAppChannel = (): AppChannel => {
+export const getChannelFromVersion = (version: string): AppChannel => {
+  return isPrereleaseVersion(version) ? "beta" : "prod";
+};
+
+export const getAppChannel = (version?: string): AppChannel => {
+  if (version) {
+    return getChannelFromVersion(version);
+  }
   const raw = import.meta.env.VITE_APP_CHANNEL;
-  return raw === "dev" || raw === "beta" || raw === "prod" ? raw : "dev";
+  return raw === "dev" || raw === "beta" || raw === "prod" ? raw : "prod";
 };
 
 type SemVer = {

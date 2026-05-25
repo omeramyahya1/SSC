@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useVersionStore } from "@/store/useVersionStore";
+import { useSystemInfoStore } from "@/store/useSystemInfoStore";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,13 +33,20 @@ export const VersionHandler = () => {
     tauriUpdate,
   } = useVersionStore();
 
+  const { systemInfo, fetchSystemInfo } = useSystemInfoStore();
+
   useEffect(() => {
-    checkVersion();
+    fetchSystemInfo();
+  }, [fetchSystemInfo]);
+
+  useEffect(() => {
+    const version = systemInfo?.app_version;
+    checkVersion(version);
 
     // Check for updates periodically every hour
-    const interval = setInterval(checkVersion, 3600000);
+    const interval = setInterval(() => checkVersion(version), 3600000);
     return () => clearInterval(interval);
-  }, [checkVersion]);
+  }, [checkVersion, systemInfo?.app_version]);
 
   const handleUpdate = async () => {
     await installUpdate();

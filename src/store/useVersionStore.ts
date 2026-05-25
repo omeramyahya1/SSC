@@ -56,33 +56,41 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
   downloadProgress: 0,
   error: null,
 
-  checkVersion: async () => {
+  checkVersion: async (versionOverride?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const currentVersion = await getVersion();
-      const channel = getAppChannel();
+      const currentVersion = versionOverride || (await getVersion());
+      const channel = getAppChannel(currentVersion);
 
       // 1. Fetch our custom manifest for logic/notifications
       const { data: manifest } = await axios.get<AppManifest>(MANIFEST_URL);
 
-      // 2. Check for Tauri updates (for download/install)
-      const tauriUpdate = await check();
+      // 2. Check for updates ONLY if NOT in beta
+      let tauriUpdate: Update | null = null;
+      let isUpdateRequired = false;
+      let isUpdateAvailable = false;
 
-      const isUpdateRequired =
-        isUpdateVersionAllowed(channel, manifest.critical_min_version) &&
-        compareVersions(currentVersion, manifest.critical_min_version) < 0;
+      if (channel !== "beta") {
+        tauriUpdate = await check();
 
-      const eligibleTauriUpdate =
-        tauriUpdate?.available &&
-        (!tauriUpdate.version || isUpdateVersionAllowed(channel, tauriUpdate.version))
-          ? tauriUpdate
-          : null;
+        isUpdateRequired =
+          isUpdateVersionAllowed(channel, manifest.critical_min_version) &&
+          compareVersions(currentVersion, manifest.critical_min_version) < 0;
 
-      const manifestAllowed =
-        isUpdateVersionAllowed(channel, manifest.latest_version) &&
-        compareVersions(currentVersion, manifest.latest_version) < 0;
+        const eligibleTauriUpdate =
+          tauriUpdate?.available &&
+          (!tauriUpdate.version ||
+            isUpdateVersionAllowed(channel, tauriUpdate.version))
+            ? tauriUpdate
+            : null;
 
-      const isUpdateAvailable = !!eligibleTauriUpdate || manifestAllowed;
+        const manifestAllowed =
+          isUpdateVersionAllowed(channel, manifest.latest_version) &&
+          compareVersions(currentVersion, manifest.latest_version) < 0;
+
+        isUpdateAvailable = !!eligibleTauriUpdate || manifestAllowed;
+        tauriUpdate = eligibleTauriUpdate;
+      }
 
       // Beta Warning: show if channel is beta
       const { hasDismissedBetaWarning } = get();
@@ -100,7 +108,7 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
         channel,
         currentVersion,
         manifest,
-        tauriUpdate: eligibleTauriUpdate,
+        tauriUpdate,
         isBetaWarningOpen,
         isNotificationOpen,
         isUpdateRequired,
