@@ -1,6 +1,15 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.app_notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  message_en text NOT NULL,
+  message_ar text NOT NULL,
+  type text DEFAULT 'info'::text CHECK (type = ANY (ARRAY['info'::text, 'warning'::text, 'promo'::text])),
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT app_notifications_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.appliances (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   project_id uuid,

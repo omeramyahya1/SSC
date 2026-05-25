@@ -879,3 +879,11 @@ using (
   bucket_id = 'SSC'
   and public.get_jwt_claim('sub') is not null
 );
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE app_notifications ENABLE ROW LEVEL SECURITY;
+
+-- Create a policy to allow anyone to read active notifications
+CREATE POLICY "Allow public read-only access to active notifications"
+ON app_notifications FOR SELECT
+USING (is_active = true);

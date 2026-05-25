@@ -6,15 +6,18 @@ import {
   compareVersions,
   getAppChannel,
   isPrereleaseVersion,
+  SupabaseNotification,
 } from "@/lib/version";
 import { getVersion } from "@tauri-apps/api/app";
 import { check, Update } from "@tauri-apps/plugin-updater";
+import { supabase } from "@/lib/supabaseClient";
 
 interface VersionStore {
   hasDismissedBetaWarning: boolean;
   channel: AppChannel;
   currentVersion: string;
   manifest: AppManifest | null;
+  activeNotification: SupabaseNotification | null;
   tauriUpdate: Update | null;
   isLoading: boolean;
   isBetaWarningOpen: boolean;
@@ -46,6 +49,7 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
   channel: getAppChannel(),
   currentVersion: "0.0.0",
   manifest: null,
+  activeNotification: null,
   tauriUpdate: null,
   isLoading: false,
   isBetaWarningOpen: false,
@@ -65,7 +69,17 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
       // 1. Fetch our custom manifest for logic/notifications
       const { data: manifest } = await axios.get<AppManifest>(MANIFEST_URL);
 
-      // 2. Check for updates ONLY if NOT in beta
+      // 2. Fetch the latest active notification from Supabase
+      const { data: notifications } = await supabase
+        .from("app_notifications")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      const activeNotification = (notifications?.[0] as SupabaseNotification) || null;
+
+      // 3. Check for updates ONLY if NOT in beta
       let tauriUpdate: Update | null = null;
       let isUpdateRequired = false;
       let isUpdateAvailable = false;
@@ -96,18 +110,19 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
       const { hasDismissedBetaWarning } = get();
       const isBetaWarningOpen = channel === "beta" && !hasDismissedBetaWarning;
 
-      // Notification: show if manifest has a new notification ID
+      // Notification: show if supabase has a new notification ID
       const lastSeenNotificationId = localStorage.getItem(
         "last_seen_notification_id",
       );
       const isNotificationOpen =
-        !!manifest.notification &&
-        manifest.notification.id !== lastSeenNotificationId;
+        !!activeNotification &&
+        activeNotification.id !== lastSeenNotificationId;
 
       set({
         channel,
         currentVersion,
         manifest,
+        activeNotification,
         tauriUpdate,
         isBetaWarningOpen,
         isNotificationOpen,
@@ -157,11 +172,11 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
   closeBetaWarning: () =>
     set({ isBetaWarningOpen: false, hasDismissedBetaWarning: true }),
   closeNotification: () => {
-    const { manifest } = get();
-    if (manifest?.notification) {
+    const { activeNotification } = get();
+    if (activeNotification) {
       localStorage.setItem(
         "last_seen_notification_id",
-        manifest.notification.id,
+        activeNotification.id,
       );
     }
     set({ isNotificationOpen: false });

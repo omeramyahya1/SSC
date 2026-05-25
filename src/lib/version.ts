@@ -1,13 +1,15 @@
 export type AppChannel = "dev" | "beta" | "prod";
 
+export interface SupabaseNotification {
+  id: string;
+  message_en: string;
+  message_ar: string;
+  type: "info" | "warning" | "promo";
+}
+
 export interface AppManifest {
   latest_version: string;
   critical_min_version: string;
-  notification?: {
-    id: string;
-    message: string;
-    type: "info" | "warning" | "promo";
-  };
 }
 
 export const getChannelFromVersion = (version: string): AppChannel => {

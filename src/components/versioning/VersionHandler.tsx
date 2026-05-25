@@ -30,8 +30,15 @@ export const VersionHandler = () => {
     isDownloading,
     downloadProgress,
     manifest,
+    activeNotification,
     tauriUpdate,
   } = useVersionStore();
+
+  const { i18n } = useTranslation();
+  const currentMessage =
+    i18n.language === "ar"
+      ? activeNotification?.message_ar
+      : activeNotification?.message_en;
 
   const { systemInfo, fetchSystemInfo } = useSystemInfoStore();
 
@@ -83,7 +90,7 @@ export const VersionHandler = () => {
               {t("versioning.notification_title")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {manifest?.notification?.message}
+              {currentMessage}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
