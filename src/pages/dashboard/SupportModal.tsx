@@ -79,7 +79,7 @@ export function SupportModal() {
     }, []);
 
     const handleSubmitTicket = async () => {
-        if (!currentUser?.uuid || !currentAuthentication?.current_jwt) {
+        if (!currentUser?.uuid) {
             toast.error(t('common.error', 'Error'));
             return;
         }

@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { useInventoryStore } from "@/store/useInventoryStore";
 import { useUserStore } from "@/store/useUserStore";
-import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { InventoryTable, SortConfig } from "./InventoryTable";
 import { AddItemModal } from "./AddItemModal";
@@ -125,7 +124,7 @@ export default function Inventory() {
       );
     }
 
-    // If loading for the first time with no items, we can still show a minimal state or nothing, 
+    // If loading for the first time with no items, we can still show a minimal state or nothing,
     // but we avoid the full-page spinner that blocks everything.
     return (
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">

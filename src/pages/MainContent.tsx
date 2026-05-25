@@ -1,6 +1,6 @@
 import { Sidebar } from "./dashboard/Sidebar";
 import { InternetAlert } from "./dashboard/InternetAlert";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";

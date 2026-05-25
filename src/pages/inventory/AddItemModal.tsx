@@ -32,8 +32,8 @@ interface FormDataType {
   category_uuid: string;
   quantity_on_hand: number;
   low_stock_threshold: number;
-  branch_uuid: string | null;       // Allows string or null
-  organization_uuid: string | null; // Allows string or null
+  branch_uuid: string | undefined;       // Allows string or null
+  organization_uuid: string | undefined; // Allows string or null
   buy_price: number;
   sell_price: number;
   technical_specs: Record<string, any>;
@@ -101,8 +101,8 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
     category_uuid: "",
     quantity_on_hand: 0,
     low_stock_threshold: 10,
-    branch_uuid: null,
-    organization_uuid: null,
+    branch_uuid: undefined,
+    organization_uuid: undefined,
     buy_price: 0,
     sell_price: 0,
     technical_specs: {} as Record<string, any>,
@@ -228,8 +228,8 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
       ) {
         payload = {
           ...payload,
-          organization_uuid: currentUser.organization_uuid ?? null,
-          branch_uuid: currentUser.branch_uuid ?? null,
+          organization_uuid: currentUser.organization_uuid ?? undefined,
+          branch_uuid: currentUser.branch_uuid ?? undefined,
         };
       }
 
