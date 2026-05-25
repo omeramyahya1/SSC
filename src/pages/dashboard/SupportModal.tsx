@@ -17,7 +17,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {toast} from 'react-hot-toast';
 import { useUserStore } from '@/store/useUserStore';
 import useLocalStorage from '@/hooks/useLocalStorage';
-import { useAuthenticationStore } from '@/store/useAuthenticationStore';
 
 export function SupportModal() {
     const { t, i18n } = useTranslation();
@@ -27,7 +26,6 @@ export function SupportModal() {
     const [view, setView] = useState<'channels' | 'ticket'>('channels');
 
     const { currentUser } = useUserStore();
-    const { currentAuthentication } = useAuthenticationStore();
     const [lastSentTime, setLastSentTime] = useLocalStorage<number>('last_support_ticket_sent', 0);
     const [now, setNow] = useState(Date.now());
 
@@ -79,8 +77,9 @@ export function SupportModal() {
     }, []);
 
     const handleSubmitTicket = async () => {
-        if (!currentUser?.uuid) {
+        if (!currentUser) {
             toast.error(t('common.error', 'Error'));
+            console.log(currentUser)
             return;
         }
         if (remainingTime > 0) {
