@@ -1,6 +1,6 @@
 import { Sidebar } from "./dashboard/Sidebar";
 import { InternetAlert } from "./dashboard/InternetAlert";
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
@@ -25,11 +25,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { useSync } from "@/hooks/useSync";
 import { Dialog } from "@radix-ui/react-dialog";
 import { SettingsModal } from "./dashboard/SettingsModal";
-import { AlertCircle, CreditCard, Settings as SettingsIcon } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 const MainContent = () => {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const location = useLocation();
   useSync();
   const {
@@ -45,7 +44,7 @@ const MainContent = () => {
     currentSetting,
   } = useApplicationSettingsStore();
   const { currentUser } = useUserStore();
-  const { currentSubscription, refreshSubscriptionStatus } =
+  const { refreshSubscriptionStatus } =
     useSubscriptionStore();
 
   const [isAgreeing, setIsAgreeing] = useState(false);
@@ -89,6 +88,8 @@ const MainContent = () => {
   };
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [hasDismissedExpirationOverlay, setHasDismissedExpirationOverlay] =
+    useState(false);
 
   const handleChangePassword = () => {
     setShowFirstTimeLoginPrompt(false);
@@ -114,7 +115,7 @@ const MainContent = () => {
       <main className="flex-1 relative overflow-hidden">
         {/* Grace Period Banner */}
         {isGrace && (
-          <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between animate-in slide-in-from-top duration-300">
+          <div className="bg-semantic-warning text-white px-4 py-2 flex items-center justify-between animate-in slide-in-from-top duration-300">
             <div className="flex items-center gap-2">
               <AlertCircle size={18} />
               <p className="text-sm font-medium">
@@ -124,25 +125,15 @@ const MainContent = () => {
                 )}
               </p>
             </div>
-            {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-white text-amber-600 border-white hover:bg-amber-50"
-                onClick={() => navigate("/subscription")}
-              >
-                {t("sub.renew_now", "Renew Now")}
-              </Button>
-            )}
           </div>
         )}
 
         {/* Blocking Overlay for Expired Accounts */}
-        {isExpired && !isAllowedRoute && (
+        {isExpired && !isAllowedRoute && !hasDismissedExpirationOverlay && (
           <div className="absolute inset-0 z-[100] bg-background/80 backdrop-blur-md flex items-center justify-center p-6">
             <div className="bg-white border-2 border-destructive/20 shadow-2xl rounded-2xl max-w-lg w-full p-8 text-center space-y-6">
               <div className="w-20 h-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
-                <AlertCircle size={40} />
+                <AlertCircle size={40} className="text-semantic-error" />
               </div>
               <div className="space-y-2">
                 <h2 className="text-3xl font-black text-neutral">
@@ -161,34 +152,14 @@ const MainContent = () => {
                 </p>
               </div>
 
-              {isAdmin ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    className="h-12 gap-2 text-lg font-bold"
-                    onClick={() => navigate("/subscription")}
-                  >
-                    <CreditCard size={20} />
-                    {t("sub.manage_subscription", "Manage Subscription")}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-12 gap-2 text-lg font-bold"
-                    onClick={() => setIsSettingsOpen(true)}
-                  >
-                    <SettingsIcon size={20} />
-                    {t("sub.go_to_settings", "Settings")}
-                  </Button>
-                </div>
-              ) : (
-                <div className="p-4 bg-neutral/5 rounded-xl border border-neutral/10">
-                  <p className="text-sm font-medium text-neutral/40 italic">
-                    {t(
-                      "sub.contact_admin_help",
-                      "Tip: Your admin can renew the plan from the Subscription section.",
-                    )}
-                  </p>
-                </div>
-              )}
+              <div className="flex flex-row gap-2 justify-center">
+                <Button
+                  className="h-12 px-8 text-lg font-bold"
+                  onClick={() => setHasDismissedExpirationOverlay(true)}
+                >
+                  {t("common.confirm", "Confirm")}
+                </Button>
+              </div>
             </div>
           </div>
         )}

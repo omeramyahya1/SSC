@@ -126,6 +126,7 @@
   "project_modal.total_power": "Power",
   "project_modal.use_hours_night": "Battery Hrs",
   "project_modal.wattage": "Wattage (W)",
+  "common.confirm": "Confirm",
   "common.generate_report": "Report",
   "common.required": "Required",
   "common.must_be_between_0_1": "Must be between 0 and 1",
@@ -981,5 +982,19 @@
   "versioning.update_now": "Update Now",
   "versioning.update_available": "New version {{version}} is available!",
   "versioning.update": "Update",
-  "common.understand": "I Understand"
+  "common.understand": "I Understand",
+  "sub.action_locked": "This action is locked. Please renew your subscription.",
+  "sub.contact_admin_help": "Tip: Your admin can renew the plan from the Subscription section.",
+  "sub.expired_desc_admin": "Your access has been suspended due to an expired subscription. Please renew your plan to continue using all features.",
+  "sub.expired_desc_employee": "Your organization's subscription has expired. Please contact your administrator to restore access.",
+  "sub.expired_title": "Subscription Expired",
+  "sub.feature_locked": "This feature is locked. Please renew your subscription.",
+  "sub.go_to_settings": "Settings",
+  "sub.grace_warning": "Your subscription has expired. You are currently in a grace period. Please renew to avoid service interruption.",
+  "sub.manage_subscription": "Manage Subscription",
+  "sub.renew_now": "Renew Now",
+  "sync.failed": "Sync failed. Please check your connection.",
+  "sync.offline_toast": "You are offline. Sync will resume when connection is restored.",
+  "finances.": "",
+  "finances.methods.": ""
 }

@@ -778,6 +778,7 @@
   "team.employee_name": "اسم الموظف",
   "team.branch_changed_success": "تم تغيير الفرع بنجاح",
   "team.edit_employee": "تعديل الموظف",
+  "common.confirm": "تأكيد",
   "common.apply": "تطبيق",
   "common.close": "إغلاق",
   "common.continue": "متابعة",
@@ -981,5 +982,19 @@
   "versioning.update_now": "تحديث الآن",
   "versioning.update_available": "نسخة جديدة {{version}} متاحة!",
   "versioning.update": "تحديث",
-  "common.understand": "أوافق"
+  "common.understand": "أوافق",
+  "sub.action_locked": "هذا الإجراء مقفل. يرجى تجديد اشتراكك.",
+  "sub.contact_admin_help": "نصيحة: يمكن للمسؤول تجديد الخطة من قسم الاشتراك.",
+  "sub.expired_desc_admin": "تم تعليق وصولك بسبب انتهاء صلاحية الاشتراك. يرجى تجديد خطتك لمواصلة استخدام جميع الميزات.",
+  "sub.expired_desc_employee": "انتهت صلاحية اشتراك مؤسستك. يرجى الاتصال بالمسؤول لاستعادة الوصول.",
+  "sub.expired_title": "انتهى الاشتراك",
+  "sub.feature_locked": "هذه الميزة مقفلة. يرجى تجديد اشتراكك.",
+  "sub.go_to_settings": "الإعدادات",
+  "sub.grace_warning": "انتهت صلاحية اشتراكك. أنت حاليًا في فترة سماح. يرجى التجديد لتجنب انقطاع الخدمة.",
+  "sub.manage_subscription": "إدارة الاشتراك",
+  "sub.renew_now": "جدد الآن",
+  "sync.failed": "فشلت المزامنة. يرجى التحقق من الاتصال.",
+  "sync.offline_toast": "أنت غير متصل بالإنترنت. ستستأنف المزامنة عند استعادة الاتصال.",
+  "finances.": "",
+  "finances.methods.": ""
 }
