@@ -79,7 +79,6 @@ export function SupportModal() {
     const handleSubmitTicket = async () => {
         if (!currentUser) {
             toast.error(t('common.error', 'Error'));
-            console.log(currentUser)
             return;
         }
         if (remainingTime > 0) {
