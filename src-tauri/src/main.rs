@@ -9,10 +9,12 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
 use tauri_plugin_shell::process::CommandChild;
+#[cfg(not(debug_assertions))]
 use tauri_plugin_shell::ShellExt;
 
 enum PythonProcess {
     Child(Child),
+    #[allow(dead_code)]
     Sidecar(CommandChild),
 }
 
