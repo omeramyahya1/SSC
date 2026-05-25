@@ -76,7 +76,7 @@ export const VersionHandler = () => {
       </AlertDialog>
 
       {/* Global Notification Dialog */}
-      <AlertDialog open={isNotificationOpen} onOpenChange={closeNotification}>
+      <AlertDialog open={isBetaWarningOpen? false : isNotificationOpen} onOpenChange={closeNotification}>
         <AlertDialogContent className="bg-white">
           <AlertDialogHeader>
             <AlertDialogTitle>

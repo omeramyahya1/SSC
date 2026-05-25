@@ -25,7 +25,7 @@ interface VersionStore {
   downloadProgress: number;
   error: string | null;
 
-  checkVersion: () => Promise<void>;
+  checkVersion: (version: any) => Promise<void>;
   installUpdate: () => Promise<boolean>;
   closeBetaWarning: () => void;
   closeNotification: () => void;
