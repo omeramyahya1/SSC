@@ -48,6 +48,7 @@ const MainContent = () => {
   const { refreshSubscriptionStatus } =
     useSubscriptionStore();
   const { fetchOrganizations } = useOrganizationStore();
+  const { fetchSubscriptions } = useSubscriptionStore();
 
   const [isAgreeing, setIsAgreeing] = useState(false);
   const [showTCModal, setShowTCModal] = useState(false);
@@ -57,6 +58,7 @@ const MainContent = () => {
       checkTCStatus(currentAuthentication.user_uuid);
       refreshSubscriptionStatus(currentAuthentication.user_uuid);
       fetchOrganizations();
+      fetchSubscriptions();
     }
   }, [
     currentAuthentication?.user_uuid,
