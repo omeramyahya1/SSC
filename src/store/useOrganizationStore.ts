@@ -43,6 +43,20 @@ export const useOrganizationStore = create<OrganizationStore>((set) => ({
     try {
       const { data } = await api.get<Organization[]>(resource);
       set({ organizations: data, isLoading: false });
+      
+      // Automatically set current organization if user is associated with one
+      const { useUserStore } = await import('./useUserStore');
+      const currentUser = useUserStore.getState().currentUser;
+      
+      if (currentUser?.organization_uuid) {
+        const current = data.find(org => org.uuid === currentUser.organization_uuid);
+        if (current) {
+          set({ currentOrganization: current });
+        }
+      } else if (data.length > 0) {
+        // Fallback for admins or users without a specific UUID set yet
+        set({ currentOrganization: data[0] });
+      }
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch organizations";
       set({ error: errorMsg, isLoading: false });

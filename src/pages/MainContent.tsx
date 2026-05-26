@@ -26,6 +26,7 @@ import { useSync } from "@/hooks/useSync";
 import { Dialog } from "@radix-ui/react-dialog";
 import { SettingsModal } from "./dashboard/SettingsModal";
 import { AlertCircle } from "lucide-react";
+import { useOrganizationStore } from "@/store/useOrganizationStore";
 
 const MainContent = () => {
   const { t, i18n } = useTranslation();
@@ -46,6 +47,7 @@ const MainContent = () => {
   const { currentUser } = useUserStore();
   const { refreshSubscriptionStatus } =
     useSubscriptionStore();
+  const { fetchOrganizations } = useOrganizationStore();
 
   const [isAgreeing, setIsAgreeing] = useState(false);
   const [showTCModal, setShowTCModal] = useState(false);
@@ -54,11 +56,13 @@ const MainContent = () => {
     if (currentAuthentication?.user_uuid) {
       checkTCStatus(currentAuthentication.user_uuid);
       refreshSubscriptionStatus(currentAuthentication.user_uuid);
+      fetchOrganizations();
     }
   }, [
     currentAuthentication?.user_uuid,
     checkTCStatus,
     refreshSubscriptionStatus,
+    fetchOrganizations,
   ]);
 
   useEffect(() => {

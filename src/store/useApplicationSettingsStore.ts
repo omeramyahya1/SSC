@@ -82,7 +82,7 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
       console.log("checkTCStatus result", data);
       const { needs_update, latest_tc_id, latest_tc_content } = data;
 
-      // Double check against local settings in case sync is pending
+      // Ensure we have current setting
       let currentSetting = get().currentSetting;
       if (!currentSetting && get().settings.length > 0) {
         currentSetting = get().settings[0];
@@ -92,7 +92,23 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
       const localAgreedId = currentSetting?.other_settings?.agreed_tc_id;
       console.log("Local agreed ID:", localAgreedId, "Latest TC ID:", latest_tc_id);
 
-      const finalNeedsUpdate = needs_update || (currentSetting && localAgreedId !== latest_tc_id);
+      // TRUST the backend for needs_update. 
+      // The false negative happens because we were forcing needs_update=true 
+      // if local state didn't match, even if the user already agreed in the cloud.
+      const finalNeedsUpdate = needs_update;
+
+      // SILENTLY update local settings if cloud says no update needed but local is behind
+      if (!needs_update && localAgreedId !== latest_tc_id && currentSetting) {
+        console.log("Silent local T&C update to match cloud status");
+        get().updateSetting(currentSetting.uuid, {
+          other_settings: {
+            ...currentSetting.other_settings,
+            agreed_tc_id: latest_tc_id,
+            agreed_at: new Date().toISOString()
+          }
+        });
+      }
+
       console.log("Final needs update:", finalNeedsUpdate);
       set({
         needsTCUpdate: finalNeedsUpdate,
@@ -133,7 +149,6 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
       console.log("Updating local settings with", updatedOtherSettings);
 
       // 1. Update local DB (Python sync engine will handle the rest)
-      // Use the UUID for the update to ensure it's found
       const updated = await get().updateSetting(setting.uuid, {
         other_settings: updatedOtherSettings
       });
@@ -149,6 +164,14 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
       console.log("Agreement recorded in cloud Supabase table");
 
       set({ needsTCUpdate: false });
+
+      // 3. Trigger immediate sync to push the local change to the cloud
+      try {
+        const { useSyncLogStore } = await import('./useSyncLogStore');
+        useSyncLogStore.getState().performSync();
+      } catch (syncError) {
+        console.warn("Failed to trigger sync after T&C agreement:", syncError);
+      }
 
     } catch (e: any) {
       const errorMsg = e.response?.data?.error || e.message || "Failed to record agreement";
