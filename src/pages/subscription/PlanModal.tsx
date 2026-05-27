@@ -1054,7 +1054,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
                 placeholder="e.g. REF-123456"
-                className="h-12 font-bold"
+                className={`h-12 font-bold ${referenceNumber.length === 0 ? "border-semantic-error" : ""}`}
               />
             </div>
             <div className="space-y-1.5">

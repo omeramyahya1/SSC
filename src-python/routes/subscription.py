@@ -6,12 +6,12 @@ from schemas import SubscriptionCreate, SubscriptionUpdate
 from serializer import model_to_dict
 from datetime import datetime, timedelta, timezone
 from supabase_client import get_service_role_client
-from .sync_log import sync_table, SYNC_CONFIG, _map_cloud_to_local # Import sync helpers + reverse mapper
+from .sync_log import sync_table, SYNC_CONFIG, _map_cloud_to_local, _build_sync_scope # Import sync helpers + reverse mapper
 import time # Import time for delays
 import json # Import json for parsing
 from postgrest.exceptions import APIError # Import APIError for specific handling
 from utils import get_server_time_or_none
-# ... (rest of imports)
+from sqlalchemy import or_
 
 subscription_bp = Blueprint('subscription_bp', __name__, url_prefix='/subscriptions')
 
@@ -26,8 +26,10 @@ def _parse_timestamptz(value):
             s = s[:-1] + '+00:00'
         try:
             dt = datetime.fromisoformat(s)
-            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-        except ValueError:
+            parsed = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+            return parsed
+        except ValueError as e:
+            print(f"Failed to parse timestamp '{value}': {e}")
             return None
     return None
 
@@ -36,6 +38,8 @@ def _compute_statuses(now_utc: datetime, sub: dict):
     sub_type = (sub.get("type") or "").lower()
     expires = _parse_timestamptz(sub.get("expiration_date"))
     grace_end = _parse_timestamptz(sub.get("grace_period_end"))
+
+    print(f"Computing status: Now={now_utc.isoformat()}, Expires={expires.isoformat() if expires else 'None'}, GraceEnd={grace_end.isoformat() if grace_end else 'None'}")
 
     if expires and grace_end is None:
         grace_end = expires + timedelta(days=7)
@@ -53,13 +57,14 @@ def _compute_statuses(now_utc: datetime, sub: dict):
         user_status = "trial"
     elif expires is None:
         user_status = "active"
-    elif now_utc > grace_end:
+    elif grace_end and now_utc > grace_end:
         user_status = "expired"
-    elif now_utc > expires:
+    elif expires and now_utc > expires:
         user_status = "grace"
     else:
         user_status = "active"
 
+    print(f"Calculated: sub_status={subscription_status}, user_status={user_status}")
     return subscription_status, user_status, expires, grace_end
 
 def _enforce_cloud_and_refresh_local(user_uuid: str):
@@ -69,6 +74,7 @@ def _enforce_cloud_and_refresh_local(user_uuid: str):
     - subscriptions.status: active|expired|trial|pending (no grace)
     - users.status: active|grace|expired|trial
     """
+    print(f"Enforcing subscription status for user {user_uuid}...")
     service_client = get_service_role_client()
     now_utc = get_server_time_or_none() or datetime.now(timezone.utc)
     if now_utc.tzinfo is None:
@@ -83,10 +89,12 @@ def _enforce_cloud_and_refresh_local(user_uuid: str):
     ).data
 
     if not caller_user:
+        print(f"User {user_uuid} not found in cloud.")
         return {"target_owner_id": user_uuid, "org_id": None, "role": None}
 
     org_id = caller_user.get("organization_id")
     role = caller_user.get("role")
+    print(f"Caller role: {role}, OrgID: {org_id}")
 
     target_owner_id = user_uuid
     if org_id and role in ("admin", "employee"):
@@ -100,6 +108,7 @@ def _enforce_cloud_and_refresh_local(user_uuid: str):
         ).data
         if admin_row and admin_row.get("id"):
             target_owner_id = admin_row["id"]
+            print(f"Targeting subscription owner (admin): {target_owner_id}")
 
     sub_rows = (
         service_client.table("subscriptions")
@@ -112,6 +121,7 @@ def _enforce_cloud_and_refresh_local(user_uuid: str):
     ).data or []
 
     if not sub_rows:
+        print(f"No non-pending subscriptions found for target user {target_owner_id}")
         return {"target_owner_id": target_owner_id, "org_id": org_id, "role": role}
 
     subscription_cloud = sub_rows[0]
@@ -123,6 +133,7 @@ def _enforce_cloud_and_refresh_local(user_uuid: str):
     if (subscription_cloud.get("status") != subscription_status) or (
         expires is not None and subscription_cloud.get("grace_period_end") is None
     ):
+        print(f"Updating cloud subscription status to {subscription_status}")
         service_client.table("subscriptions").update(
             {
                 "status": subscription_status,
@@ -141,6 +152,7 @@ def _enforce_cloud_and_refresh_local(user_uuid: str):
 
     # Cascade cloud users.status (enterprise) or update just the caller (standard).
     if org_id and role in ("admin", "employee"):
+        print(f"Cascading user status {user_status} to all users in org {org_id}")
         service_client.table("users").update({"status": user_status}).eq("organization_id", org_id).execute()
         users_cloud = (
             service_client.table("users")
@@ -149,6 +161,7 @@ def _enforce_cloud_and_refresh_local(user_uuid: str):
             .execute()
         ).data or []
     else:
+        print(f"Updating status {user_status} for individual user {user_uuid}")
         service_client.table("users").update({"status": user_status}).eq("id", user_uuid).execute()
         users_cloud = [
             (
@@ -162,6 +175,7 @@ def _enforce_cloud_and_refresh_local(user_uuid: str):
 
     # Upsert cloud rows into local SQLite.
     with get_db() as db:
+        print(f"Upserting {len(users_cloud)} cloud users and subscription locally...")
         # Upsert subscription under its true owner (admin for enterprise).
         _upsert_from_cloud(db, Subscription, subscription_cloud)
         for u in users_cloud:
@@ -365,6 +379,14 @@ def create_and_sync_subscription():
 
     with get_db() as db:
         try:
+            # Resolve user for sync scope
+            user = db.query(User).filter(User.uuid == user_uuid).first()
+            if not user:
+                return jsonify({"error": "User not found locally"}), 404
+            
+            scope = _build_sync_scope(db, user)
+            print(f"Creating subscription for user {user_uuid} with scope: {scope}")
+
             # 1. Determine expiration date
             expiration_date = datetime.utcnow()
             if billing_cycle == 'Monthly':
@@ -389,54 +411,58 @@ def create_and_sync_subscription():
             }
             new_subscription = Subscription(**new_subscription_data)
             db.add(new_subscription)
-            # Ensure the new row is visible to subsequent queries within this session
-            # without committing early (avoids orphaned committed rows if sync fails).
             db.flush()
+            print(f"Local subscription record flushed: {new_subscription.uuid}")
 
-            # 3. Sync the new subscription to Supabase immediately
+            # 3. Sync the new subscription to Supabase immediately with retries
             subscription_config = next((config for config in SYNC_CONFIG if config["model"] == Subscription), None)
             if not subscription_config:
                 raise Exception("Subscription sync configuration not found.")
 
-            sync_table(db, Subscription, subscription_config["table_name"], subscription_config["mapper"], dirty_only=True)
+            sync_retries = 3
+            sync_success = False
+            for attempt in range(sync_retries):
+                try:
+                    print(f"Pushing subscription to cloud (Attempt {attempt+1}/{sync_retries})...")
+                    sync_table(db, Subscription, subscription_config["table_name"], subscription_config["mapper"], scope=scope, dirty_only=True)
+                    sync_success = True
+                    break
+                except Exception as sync_err:
+                    print(f"Sync attempt {attempt+1} failed: {sync_err}")
+                    if attempt < sync_retries - 1:
+                        time.sleep(1) # Wait before retry
+            
+            if not sync_success:
+                raise Exception("Failed to sync subscription to cloud after multiple attempts.")
 
             # 4. Verify remote availability with retries
             service_client = get_service_role_client()
-            retries = 3
-            delay = 0.5 # seconds
+            verify_retries = 5
+            verify_delay = 1.0 # seconds
             remote_subscription_found = False
 
-            for i in range(retries):
+            for i in range(verify_retries):
                 try:
-                    # Query Supabase directly to ensure the subscription is visible
+                    print(f"Verifying remote availability (Attempt {i+1}/{verify_retries})...")
                     response = service_client.table('subscriptions').select('id').eq('id', new_subscription.uuid).execute()
                     if response.data and len(response.data) > 0:
                         remote_subscription_found = True
+                        print("Subscription verified in cloud.")
                         break
                 except Exception as e:
                     print(f"Attempt {i+1} to verify remote subscription failed: {e}")
-                time.sleep(delay)
+                time.sleep(verify_delay)
 
             if not remote_subscription_found:
                 # Compensate: remove the local row AND best-effort delete any cloud row
-                # that may have been pushed, to avoid orphaned records on either side.
+                print(f"COMPENSATION: Subscription {new_subscription.uuid} not verified in cloud. Cleaning up...")
                 try:
                     service_client.table("subscriptions").delete().eq("id", new_subscription.uuid).execute()
                 except Exception as remote_cleanup_error:
-                    print(
-                        f"Failed to cleanup remote subscription {new_subscription.uuid} "
-                        f"after verification failure: {remote_cleanup_error}"
-                    )
-                try:
-                    local_sub = db.query(Subscription).filter_by(uuid=new_subscription.uuid).first()
-                    if local_sub:
-                        db.delete(local_sub)
-                        db.commit()
-                except Exception as cleanup_error:
-                    print(
-                        f"Failed to cleanup local subscription {new_subscription.uuid} after remote verification failure: {cleanup_error}"
-                    )
-                raise Exception(f"New subscription {new_subscription.uuid} not found in remote database after retries.")
+                    print(f"Failed to cleanup remote subscription: {remote_cleanup_error}")
+                
+                # SQLAlchemy rollback handled by context manager on exception
+                raise Exception(f"New subscription {new_subscription.uuid} not found in remote database after verification retries.")
 
             return jsonify({"new_subscription_uuid": new_subscription.uuid}), 200
 
@@ -535,6 +561,13 @@ def cancel_subscription(item_id):
         if item.deleted_at is not None:
             return jsonify({"status": "ok", "subscription_uuid": item.uuid}), 200
 
+        # Resolve user for sync scope
+        user = db.query(User).filter(User.uuid == item.user_uuid).first()
+        if not user:
+            return jsonify({"error": "Subscription owner not found locally"}), 404
+        
+        scope = _build_sync_scope(db, user)
+
         item.deleted_at = datetime.utcnow()
         item.is_dirty = True
 
@@ -548,6 +581,7 @@ def cancel_subscription(item_id):
                 Subscription,
                 subscription_config["table_name"],
                 subscription_config["mapper"],
+                scope=scope,
                 dirty_only=True,
             )
         except Exception as e:
