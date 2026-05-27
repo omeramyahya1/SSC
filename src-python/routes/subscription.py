@@ -387,6 +387,53 @@ def create_and_sync_subscription():
             scope = _build_sync_scope(db, user)
             print(f"Creating subscription for user {user_uuid} with scope: {scope}")
 
+            # Determine normalized plan identifier stored on subscriptions.type
+            normalized_type = billing_cycle.lower()
+            if normalized_type not in {"monthly", "annual", "lifetime"}:
+                return jsonify({"error": "Invalid billing_cycle"}), 400
+
+            # Idempotency: if there's an existing pending subscription for the same plan, return it.
+            owner_uuid = user_uuid
+            if user.organization_uuid and user.role in ("admin", "employee"):
+                admin = db.query(User).filter(
+                    User.organization_uuid == user.organization_uuid,
+                    User.role == "admin",
+                    User.deleted_at == None,
+                ).first()
+                if admin:
+                    owner_uuid = admin.uuid
+
+            existing_pending_local = db.query(Subscription).filter(
+                Subscription.user_uuid == owner_uuid,
+                Subscription.status == "pending",
+                Subscription.type == normalized_type,
+                Subscription.deleted_at == None,
+            ).order_by(Subscription.created_at.desc()).first()
+
+            if existing_pending_local:
+                return jsonify({"new_subscription_uuid": existing_pending_local.uuid, "message": "Pending subscription already exists for this plan"}), 200
+
+            # Cloud check (prevents duplicates if local is stale)
+            try:
+                service_client = get_service_role_client()
+                existing_pending_cloud = (
+                    service_client.table("subscriptions")
+                    .select("*")
+                    .eq("user_id", owner_uuid)
+                    .eq("status", "pending")
+                    .eq("type", normalized_type)
+                    .order("created_at", desc=True)
+                    .limit(1)
+                    .execute()
+                ).data or []
+                if existing_pending_cloud:
+                    pending_cloud_row = existing_pending_cloud[0]
+                    _upsert_from_cloud(db, Subscription, pending_cloud_row)
+                    db.commit()
+                    return jsonify({"new_subscription_uuid": pending_cloud_row.get("id"), "message": "Pending subscription already exists for this plan"}), 200
+            except Exception as e:
+                print(f"Warning: Cloud pending-subscription check failed (continuing with local creation): {e}")
+
             # 1. Determine expiration date
             expiration_date = datetime.utcnow()
             if billing_cycle == 'Monthly':
@@ -397,12 +444,9 @@ def create_and_sync_subscription():
                 expiration_date = None # Lifetime subscriptions might not have a hard expiration
 
             # 2. Create new Subscription locally
-            normalized_type = billing_cycle.lower()
-            if normalized_type not in {"monthly", "annual", "lifetime"}:
-                return jsonify({"error": "Invalid billing_cycle"}), 400
-
             new_subscription_data = {
-                "user_uuid": user_uuid,
+                # Org-centric model: employees renew under the org admin subscription owner.
+                "user_uuid": owner_uuid,
                 "type": normalized_type,
                 "status": "pending", # Set to pending until payment is approved
                 "expiration_date": expiration_date,
