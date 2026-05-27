@@ -60,7 +60,6 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
     const now = new Date();
     const expires = currentSubscription.expiration_date ? new Date(currentSubscription.expiration_date) : null;
-    const graceEnd = currentSubscription.grace_period_end ? new Date(currentSubscription.grace_period_end) : null;
 
     const isTrial =
       currentSubscription.type === "trial" ||
@@ -69,13 +68,9 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       isTrial ? "trial" : (currentSubscription.status as any) || "active";
 
     if (expires) {
-      const effectiveGraceEnd = graceEnd || new Date(expires.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-      if (now > effectiveGraceEnd) {
+      if (now > expires) {
         newStatus = "expired";
-      } else if (now > expires) {
-        newStatus = "grace";
-     } else {
+      } else {
         newStatus = isTrial ? "trial" : "active";
       }
     }
