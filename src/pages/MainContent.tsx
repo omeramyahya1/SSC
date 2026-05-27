@@ -102,8 +102,15 @@ const MainContent = () => {
     setIsSettingsOpen(true);
   };
 
-  const isExpired = currentUser?.status === "expired";
-  const isGrace = currentUser?.status === "grace";
+  // Real-time subscription status calculation
+  const { currentSubscription } = useSubscriptionStore();
+  const now = new Date();
+  const expires = currentSubscription?.expiration_date ? new Date(currentSubscription.expiration_date) : null;
+  const graceEnd = currentSubscription?.grace_period_end ? new Date(currentSubscription.grace_period_end) : 
+                   expires ? new Date(expires.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
+
+  const isExpired = (currentUser?.status === "expired") || (graceEnd && now > graceEnd);
+  const isGrace = (currentUser?.status === "grace") || (expires && now > expires && (!graceEnd || now <= graceEnd));
   const isAdmin = currentUser?.role === "admin" || currentUser?.role === "user";
 
   // Check if current route is allowed during expiration
@@ -118,7 +125,7 @@ const MainContent = () => {
       <Sidebar />
 
       {/* Main App Content */}
-      <main className="flex-1 relative overflow-hidden">
+      <main className="flex-1 relative overflow-y-auto">
         {/* Grace Period Banner */}
         {isGrace && (
           <div className="bg-semantic-warning text-white px-4 py-2 flex items-center justify-between animate-in slide-in-from-top duration-300">

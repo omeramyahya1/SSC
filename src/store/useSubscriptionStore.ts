@@ -55,7 +55,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
   evaluateLocalStatus: () => {
     const { currentSubscription } = get();
-    const { currentUser, updateUser } = useUserStore.getState();
+    const { currentUser } = useUserStore.getState();
 
     if (!currentSubscription || !currentUser) return;
 
@@ -82,9 +82,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     }
 
     if (currentUser.status !== newStatus) {
-      console.log(`Local subscription evaluation: Changing status from ${currentUser.status} to ${newStatus}`);
-      // Update local state and backend via sync
-      updateUser(currentUser.uuid, { status: newStatus }).catch(console.error);
+      console.log(`Local subscription evaluation: Current user status is ${currentUser.status}, subscription suggests ${newStatus}`);
     }
   },
 
@@ -121,9 +119,17 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       if (error) throw error;
       console.log("Server-side subscription sync result:", data);
+      
+      const newStatus = data?.new_status;
 
       // 2. Refresh local data which will pull the updated status
       await get().fetchSubscriptions(user_uuid);
+
+      // 3. Trigger immediate sync if status changed to a locked state
+      if (newStatus === 'expired' || newStatus === 'grace') {
+        const { useSyncLogStore } = await import('./useSyncLogStore');
+        useSyncLogStore.getState().performSync();
+      }
     } catch (e: any) {
       console.error("Failed to refresh subscription status via RPC, falling back to local fetch:", e);
       await get().fetchSubscriptions(user_uuid);

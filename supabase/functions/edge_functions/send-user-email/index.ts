@@ -309,6 +309,96 @@ const templates: Templates = {
       },
     },
   },
+  subscription_expired: {
+    en: {
+      subject: "Subscription Expired - SSC",
+      body: (p, lang, date) => {
+        let title = "Your Subscription Has Expired";
+        let message = "";
+        if (p.role === 'admin') {
+          message = `<p>Hello ${p.username || "Admin"},</p>
+          <p>Your organization's subscription for SSC has expired. Access for your team has been suspended.</p>
+          <p>Please renew your plan to restore access and continue using all features.</p>`;
+        } else if (p.role === 'employee') {
+          message = `<p>Hello ${p.username || "User"},</p>
+          <p>Your organization's subscription for SSC has expired. Access has been temporarily suspended.</p>
+          <p>Please contact your administrator to restore access.</p>`;
+        } else {
+          message = `<p>Hello ${p.username || "User"},</p>
+          <p>Your subscription for SSC has expired. Access has been suspended.</p>
+          <p>Please renew your plan to continue using all features.</p>`;
+        }
+        return emailWrapper(title, message, date, lang);
+      },
+    },
+    ar: {
+      subject: "انتهى الاشتراك - SSC",
+      body: (p, lang, date) => {
+        let title = "لقد انتهى اشتراكك";
+        let message = "";
+        if (p.role === 'admin') {
+          message = `<p>مرحباً ${p.username || "مسؤول"},</p>
+          <p>لقد انتهى اشتراك منظمتك في SSC. تم تعليق الوصول لفريقك.</p>
+          <p>يرجى تجديد خطتك لاستعادة الوصول والاستمرار في استخدام جميع الميزات.</p>`;
+        } else if (p.role === 'employee') {
+          message = `<p>مرحباً ${p.username || "مستخدم"},</p>
+          <p>لقد انتهى اشتراك منظمتك في SSC. تم تعليق الوصول مؤقتاً.</p>
+          <p>يرجى التواصل مع المسؤول الخاص بك لاستعادة الوصول.</p>`;
+        } else {
+          message = `<p>مرحباً ${p.username || "مستخدم"},</p>
+          <p>لقد انتهى اشتراكك في SSC. تم تعليق الوصول.</p>
+          <p>يرجى تجديد خطتك للاستمرار في استخدام جميع الميزات.</p>`;
+        }
+        return emailWrapper(title, message, date, lang);
+      },
+    },
+  },
+  subscription_grace_period: {
+    en: {
+      subject: "Action Required: Subscription Grace Period - SSC",
+      body: (p, lang, date) => {
+        let title = "Your Subscription is in Grace Period";
+        let message = "";
+        const graceEnd = p.grace_period_end ? new Date(p.grace_period_end).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US') : 'soon';
+        if (p.role === 'admin') {
+          message = `<p>Hello ${p.username || "Admin"},</p>
+          <p>Your organization's subscription for SSC has expired, but you are currently in a grace period until ${graceEnd}.</p>
+          <p>Please renew your plan soon to avoid service interruption for your team.</p>`;
+        } else if (p.role === 'employee') {
+          message = `<p>Hello ${p.username || "User"},</p>
+          <p>Your organization's subscription for SSC has expired. You are currently in a grace period until ${graceEnd}.</p>
+          <p>Please contact your administrator to ensure continued service.</p>`;
+        } else {
+          message = `<p>Hello ${p.username || "User"},</p>
+          <p>Your subscription for SSC has expired, but you are currently in a grace period until ${graceEnd}.</p>
+          <p>Please renew your plan soon to avoid service interruption.</p>`;
+        }
+        return emailWrapper(title, message, date, lang);
+      },
+    },
+    ar: {
+      subject: "إجراء مطلوب: فترة سماح الاشتراك - SSC",
+      body: (p, lang, date) => {
+        let title = "اشتراكك في فترة السماح";
+        let message = "";
+        const graceEnd = p.grace_period_end ? new Date(p.grace_period_end).toLocaleDateString('ar-EG') : 'قريباً';
+        if (p.role === 'admin') {
+          message = `<p>مرحباً ${p.username || "مسؤول"},</p>
+          <p>لقد انتهى اشتراك منظمتك في SSC، ولكنك حالياً في فترة سماح حتى ${graceEnd}.</p>
+          <p>يرجى تجديد خطتك قريباً لتجنب انقطاع الخدمة لفريقك.</p>`;
+        } else if (p.role === 'employee') {
+          message = `<p>مرحباً ${p.username || "مستخدم"},</p>
+          <p>لقد انتهى اشتراك منظمتك في SSC. أنت حالياً في فترة سماح حتى ${graceEnd}.</p>
+          <p>يرجى التواصل مع المسؤول الخاص بك لضمان استمرار الخدمة.</p>`;
+        } else {
+          message = `<p>مرحباً ${p.username || "مستخدم"},</p>
+          <p>لقد انتهى اشتراكك في SSC، ولكنك حالياً في فترة سماح حتى ${graceEnd}.</p>
+          <p>يرجى تجديد خطتك قريباً لتجنب انقطاع الخدمة.</p>`;
+        }
+        return emailWrapper(title, message, date, lang);
+      },
+    },
+  },
 };
 
 serve(async (req) => {
@@ -339,7 +429,7 @@ serve(async (req) => {
     .from("notification_jobs")
     .select("*")
     .eq("status", "pending")
-    .in("recipient_role", ["user", "admin"]); // admin here is an org admin and not the super admin
+    .in("recipient_role", ["user", "admin", "employee"]); // admin here is an org admin and not the super admin
 
   if (fetchError) {
     return new Response(JSON.stringify({ error: fetchError.message }), {

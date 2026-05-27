@@ -2,20 +2,44 @@
 CREATE OR REPLACE FUNCTION public.sync_and_enforce_subscription(p_user_id uuid)
 RETURNS json AS $$
 DECLARE
+    v_target_user_id uuid;
+    v_org_id uuid;
     v_sub_id uuid;
     v_expires timestamptz;
     v_grace_end timestamptz;
-    v_new_status public.subscriptions.status%TYPE;
+    v_new_status text;
     v_now timestamptz := now();
+    v_debug_msg text;
 BEGIN
-    -- Get the most recent non-pending subscription for the user
+    -- 1. Identify the target user who owns the subscription
+    SELECT organization_id INTO v_org_id FROM public.users WHERE id = p_user_id;
+
+    IF v_org_id IS NOT NULL THEN
+        -- Find the admin of this organization
+        SELECT id INTO v_target_user_id FROM public.users 
+        WHERE organization_id = v_org_id AND role = 'admin'
+        LIMIT 1;
+        
+        v_debug_msg := 'Org flow. OrgID: ' || v_org_id || ', AdminID: ' || COALESCE(v_target_user_id::text, 'NULL');
+        
+        -- Fallback to the provided user if no admin found
+        IF v_target_user_id IS NULL THEN
+            v_target_user_id := p_user_id;
+        END IF;
+    ELSE
+        -- Individual user
+        v_target_user_id := p_user_id;
+        v_debug_msg := 'Individual flow. UserID: ' || p_user_id;
+    END IF;
+
+    -- 2. Get the most recent non-pending subscription for the target user
     SELECT id, expiration_date, grace_period_end INTO v_sub_id, v_expires, v_grace_end
     FROM public.subscriptions
-    WHERE user_id = p_user_id AND status != 'pending'
+    WHERE user_id = v_target_user_id AND status != 'pending'
     ORDER BY created_at DESC LIMIT 1;
 
     IF v_sub_id IS NULL THEN
-        RETURN json_build_object('success', false, 'message', 'No subscription found');
+        RETURN json_build_object('success', false, 'message', 'No subscription found', 'debug', v_debug_msg);
     END IF;
 
     -- Default grace_period_end to expiration_date + 7 days if NULL
@@ -23,9 +47,8 @@ BEGIN
         v_grace_end := v_expires + interval '7 days';
     END IF;
 
-    -- Calculate Status
+    -- 3. Calculate Status
     IF v_expires IS NULL THEN
-        -- Likely a lifetime subscription or one without expiration
         v_new_status := 'active';
     ELSIF v_now > v_grace_end THEN
         v_new_status := 'expired';
@@ -35,18 +58,22 @@ BEGIN
         v_new_status := 'active';
     END IF;
 
-    -- Update only if status changed to avoid redundant trigger firing
+    v_debug_msg := v_debug_msg || '. SubID: ' || v_sub_id || ', NewStatus: ' || v_new_status;
+
+    -- 4. Update only if status changed to avoid redundant trigger firing
+    -- Use explicit casting to the USER-DEFINED enum type
     UPDATE public.subscriptions
-    SET status = v_new_status,
-        grace_period_end = v_grace_end, -- Ensure grace period is persisted if it was null
+    SET status = v_new_status::public.subscriptions.status,
+        grace_period_end = v_grace_end,
         updated_at = v_now
-    WHERE id = v_sub_id AND status != v_new_status;
+    WHERE id = v_sub_id AND status::text != v_new_status;
 
     RETURN json_build_object(
         'success', true,
         'new_status', v_new_status,
         'expiration_date', v_expires,
-        'grace_period_end', v_grace_end
+        'grace_period_end', v_grace_end,
+        'debug', v_debug_msg
     );
 END;
 $$ LANGUAGE plpgsql;
