@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import api from '@/api/client';
 import { registerStore, StoreKeys } from '@/api/storeRegistry';
 import { useUserStore } from '@/store/useUserStore';
-import { supabase } from '@/lib/supabaseClient';
 
 // --- 1. Define Types ---
 
@@ -111,35 +110,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   refreshSubscriptionStatus: async (user_uuid?: string) => {
     if (!user_uuid) return;
 
-    try {
-      // 1. Trigger server-side enforcement via RPC
-      const { data, error } = await supabase.rpc('sync_and_enforce_subscription', {
-        p_user_id: user_uuid
-      });
-
-      if (error) throw error;
-      console.log("Server-side subscription sync result:", data);
-      
-      const newStatus = data?.new_status as Subscription["status"] | undefined;
-      const effectiveUserStatus = data?.effective_user_status as ("active" | "expired" | "grace" | "trial") | undefined;
-      const { currentUser } = useUserStore.getState();
-
-      // 2. Refresh local data which will pull the updated status
-      await get().fetchSubscriptions(user_uuid);
-
-      // 3. Trigger immediate sync if status changed to a locked state
-      const shouldSync =
-        (effectiveUserStatus === 'expired' || effectiveUserStatus === 'grace') &&
-        (!!currentUser?.status && currentUser.status !== effectiveUserStatus);
-
-      if (shouldSync || newStatus === 'expired') {
-        const { useSyncLogStore } = await import('./useSyncLogStore');
-        useSyncLogStore.getState().performSync();
-      }
-    } catch (e: any) {
-      console.error("Failed to refresh subscription status via RPC, falling back to local fetch:", e);
-      await get().fetchSubscriptions(user_uuid);
-    }
+    // Server-side enforcement is handled by the local Python backend when fetching subscriptions.
+    await get().fetchSubscriptions(user_uuid);
   },
 
   fetchSubscription: async (id) => {

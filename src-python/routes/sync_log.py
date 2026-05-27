@@ -806,6 +806,13 @@ def sync():
         try:
             push_to_supabase(db)
             pull_from_supabase(db)
+            # Enforce subscription/user status after pulling fresh cloud data.
+            # This also covers flows where the UI doesn't fetch /subscriptions immediately after login.
+            try:
+                from .subscription import _enforce_cloud_and_refresh_local
+                _enforce_cloud_and_refresh_local(user_uuid)
+            except Exception as e:
+                print(f"Warning: Post-sync subscription enforcement failed for user_uuid={user_uuid}: {e}")
             _create_and_push_final_sync_log(db, start_time)
 
             end_time = datetime.utcnow()
