@@ -120,13 +120,19 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       if (error) throw error;
       console.log("Server-side subscription sync result:", data);
       
-      const newStatus = data?.new_status;
+      const newStatus = data?.new_status as Subscription["status"] | undefined;
+      const effectiveUserStatus = data?.effective_user_status as ("active" | "expired" | "grace" | "trial") | undefined;
+      const { currentUser } = useUserStore.getState();
 
       // 2. Refresh local data which will pull the updated status
       await get().fetchSubscriptions(user_uuid);
 
       // 3. Trigger immediate sync if status changed to a locked state
-      if (newStatus === 'expired' || newStatus === 'grace') {
+      const shouldSync =
+        (effectiveUserStatus === 'expired' || effectiveUserStatus === 'grace') &&
+        (!!currentUser?.status && currentUser.status !== effectiveUserStatus);
+
+      if (shouldSync || newStatus === 'expired') {
         const { useSyncLogStore } = await import('./useSyncLogStore');
         useSyncLogStore.getState().performSync();
       }

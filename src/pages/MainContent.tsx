@@ -58,13 +58,14 @@ const MainContent = () => {
       checkTCStatus(currentAuthentication.user_uuid);
       refreshSubscriptionStatus(currentAuthentication.user_uuid);
       fetchOrganizations();
-      fetchSubscriptions();
+      fetchSubscriptions(currentAuthentication.user_uuid);
     }
   }, [
     currentAuthentication?.user_uuid,
     checkTCStatus,
     refreshSubscriptionStatus,
     fetchOrganizations,
+    fetchSubscriptions,
   ]);
 
   useEffect(() => {
