@@ -79,32 +79,32 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
 
       const activeNotification = (notifications?.[0] as SupabaseNotification) || null;
 
-      // 3. Check for updates ONLY if NOT in beta
+      // 3. Check for updates
       let tauriUpdate: Update | null = null;
       let isUpdateRequired = false;
       let isUpdateAvailable = false;
 
-      if (channel !== "beta") {
-        tauriUpdate = await check();
+      // We allow beta to check for updates too. 
+      // isUpdateVersionAllowed will ensure they only see beta updates.
+      tauriUpdate = await check();
 
-        isUpdateRequired =
-          isUpdateVersionAllowed(channel, manifest.critical_min_version) &&
-          compareVersions(currentVersion, manifest.critical_min_version) < 0;
+      isUpdateRequired =
+        isUpdateVersionAllowed(channel, manifest.critical_min_version) &&
+        compareVersions(currentVersion, manifest.critical_min_version) < 0;
 
-        const eligibleTauriUpdate =
-          tauriUpdate?.available &&
-          (!tauriUpdate.version ||
-            isUpdateVersionAllowed(channel, tauriUpdate.version))
-            ? tauriUpdate
-            : null;
+      const eligibleTauriUpdate =
+        tauriUpdate?.available &&
+        (!tauriUpdate.version ||
+          isUpdateVersionAllowed(channel, tauriUpdate.version))
+          ? tauriUpdate
+          : null;
 
-        const manifestAllowed =
-          isUpdateVersionAllowed(channel, manifest.latest_version) &&
-          compareVersions(currentVersion, manifest.latest_version) < 0;
+      const manifestAllowed =
+        isUpdateVersionAllowed(channel, manifest.latest_version) &&
+        compareVersions(currentVersion, manifest.latest_version) < 0;
 
-        isUpdateAvailable = !!eligibleTauriUpdate || manifestAllowed;
-        tauriUpdate = eligibleTauriUpdate;
-      }
+      isUpdateAvailable = !!eligibleTauriUpdate || manifestAllowed;
+      tauriUpdate = eligibleTauriUpdate;
 
       // Beta Warning: show if channel is beta
       const { hasDismissedBetaWarning } = get();
