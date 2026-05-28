@@ -40,7 +40,7 @@
 
   "bundle": {
     "active": true,
-    "targets": ["deb"],
+    "targets": ["deb", "appimage"],
     "externalBin": [
       "python-sidecar"
     ],

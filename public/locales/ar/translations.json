@@ -785,7 +785,6 @@
   "team.edit_employee": "تعديل الموظف",
   "common.confirm": "تأكيد",
   "common.apply": "تطبيق",
-  "common.close": "إغلاق",
   "common.continue": "متابعة",
   "common.internet_required": "مطلوب اتصال بالإنترنت",
   "customers.invalid_email": "البريد الإلكتروني غير صالح",
@@ -987,7 +986,8 @@
   "versioning.update_now": "تحديث الآن",
   "versioning.update_available": "نسخة جديدة {{version}} متاحة!",
   "versioning.update": "تحديث",
-  "common.understand": "أوافق",
+  "versioning.finalizing_title": "جاري إكمال التحديث",
+  "versioning.finalizing_description": "سيعيد التطبيق تشغيل نفسه تلقائيًا.",
   "sub.action_locked": "هذا الإجراء مقفل. يرجى تجديد اشتراكك.",
   "sub.contact_admin_help": "نصيحة: يمكن للمسؤول تجديد الخطة من قسم الاشتراك.",
   "sub.expired_desc_admin": "تم تعليق وصولك بسبب انتهاء صلاحية الاشتراك. يرجى تجديد خطتك لمواصلة استخدام جميع الميزات.",
@@ -1001,5 +1001,6 @@
   "sync.failed": "فشلت المزامنة. يرجى التحقق من الاتصال.",
   "sync.offline_toast": "أنت غير متصل بالإنترنت. ستستأنف المزامنة عند استعادة الاتصال.",
   "finances.": "",
-  "finances.methods.": ""
+  "finances.methods.": "",
+  "downloading": "جاري التنزيل..."
 }

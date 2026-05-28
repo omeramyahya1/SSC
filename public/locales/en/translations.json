@@ -784,7 +784,6 @@
   "team.branch_changed_success": "Branch changed successfully",
   "team.edit_employee": "Edit Employee",
   "common.apply": "Apply",
-  "common.close": "Close",
   "common.continue": "Continue",
   "common.internet_required": "Internet Required",
   "customers.invalid_email": "Invalid Email",
@@ -987,7 +986,8 @@
   "versioning.update_now": "Update Now",
   "versioning.update_available": "New version {{version}} is available!",
   "versioning.update": "Update",
-  "common.understand": "I Understand",
+  "versioning.finalizing_title": "Finalizing Update",
+  "versioning.finalizing_description": "The application will restart automatically.",
   "sub.action_locked": "This action is locked. Please renew your subscription.",
   "sub.contact_admin_help": "Tip: Your admin can renew the plan from the Subscription section.",
   "sub.expired_desc_admin": "Your access has been suspended due to an expired subscription. Please renew your plan to continue using all features.",
@@ -1001,5 +1001,6 @@
   "sync.failed": "Sync failed. Please check your connection.",
   "sync.offline_toast": "You are offline. Sync will resume when connection is restored.",
   "finances.": "",
-  "finances.methods.": ""
+  "finances.methods.": "",
+  "downloading": "Donwloading..."
 }

@@ -55,6 +55,40 @@ fn splash_screen(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn prepare_for_update(state: State<AppState>) -> Result<(), String> {
+    if let Some(process) = state.python_process.lock().unwrap().take() {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build();
+
+        // Best-effort graceful shutdown via API
+        if let Ok(client) = client {
+            let url = format!("http://127.0.0.1:{}/shutdown", state.backend_port);
+            let _ = client.post(url).send();
+        }
+
+        match process {
+            PythonProcess::Child(mut child) => {
+                let deadline = Instant::now() + python_shutdown_grace_duration();
+                while Instant::now() < deadline {
+                    if matches!(child.try_wait(), Ok(Some(_))) {
+                        return Ok(());
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            PythonProcess::Sidecar(child) => {
+                std::thread::sleep(python_shutdown_grace_duration());
+                let _ = child.kill();
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn backend_base_url(state: State<AppState>) -> String {
     format!("http://127.0.0.1:{}/", state.backend_port)
 }
@@ -74,7 +108,7 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![splash_screen, backend_base_url])
+        .invoke_handler(tauri::generate_handler![splash_screen, backend_base_url, prepare_for_update])
         .setup(|app| {
             let app_data_dir = app.path().app_local_data_dir().expect("failed to get app data dir");
 

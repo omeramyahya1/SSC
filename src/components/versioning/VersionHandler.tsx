@@ -14,10 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { invoke } from "@tauri-apps/api/core";
 
 export const VersionHandler = () => {
   const { t } = useTranslation();
   const [showOptionalUpdate, setShowOptionalUpdate] = useState(true);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const {
     checkVersion,
     installUpdate,
@@ -56,13 +58,40 @@ export const VersionHandler = () => {
   }, [checkVersion, systemInfo?.app_version]);
 
   const handleUpdate = async () => {
-    await installUpdate();
-    // After install, we should relaunch
-    await relaunch();
+    try {
+      // 1. Install the update (downloads and prepares)
+      await installUpdate();
+
+      // 2. Start finalizing UI
+      setIsFinalizing(true);
+
+      // 3. Gracefully shut down the Python sidecar
+      await invoke("prepare_for_update");
+
+      // 4. Relaunch the application
+      await relaunch();
+    } catch (error) {
+      console.error("Update failed:", error);
+      setIsFinalizing(false);
+    }
   };
 
   return (
     <>
+      {/* Finalizing Overlay */}
+      {isFinalizing && (
+        <div className="fixed inset-0 z-[10000] bg-background/90 backdrop-blur-2xl flex items-center justify-center p-4">
+          <div className="text-center animate-pulse">
+            <h2 className="text-xl font-semibold mb-2">
+              {t("versioning.finalizing_title")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t("versioning.finalizing_description")}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Beta Warning Modal */}
       <AlertDialog open={isBetaWarningOpen} onOpenChange={closeBetaWarning}>
         <AlertDialogContent className="bg-white">
@@ -128,21 +157,23 @@ export const VersionHandler = () => {
       {/* Minor Update Toast/Banner */}
       {isUpdateAvailable && !isUpdateRequired && showOptionalUpdate && (
         <div className="fixed bottom-4 end-4 z-[50] animate-in slide-in-from-right">
-          <div className="bg-white border text-primary-foreground px-4 py-3 rounded-lg shadow-lg flex flex-col gap-2 min-w-[300px]">
+          <div className="bg-white border-[1.5px] text-primary-foreground px-4 py-3 rounded-lg shadow-lg flex flex-col gap-2 min-w-[300px]">
             <div className="flex items-center justify-between gap-4">
-              <p
-                className="absolute top-2 start-2 hover:cursor-pointer"
+              {!isDownloading && (
+                <p
+                className="absolute align-middle start-2 ms-1 hover:cursor-pointer"
                 onClick={() => setShowOptionalUpdate(false)}
               >
                 X
               </p>
-              <p className="text-sm font-medium ms-4">
-                {t("versioning.update_available", {
+              )}
+              <p className="text-sm font-bold ms-4">
+                {isDownloading? t("downloading"):t("versioning.update_available", {
                   version: tauriUpdate?.version || manifest?.latest_version,
                 })}
               </p>
               {!isDownloading && (
-                <Button variant="default" size="sm" onClick={handleUpdate}>
+                <Button variant="default" size="sm" className="font-bold" onClick={handleUpdate}>
                   {t("versioning.update")}
                 </Button>
               )}
@@ -151,7 +182,7 @@ export const VersionHandler = () => {
               <div className="space-y-1">
                 <Progress
                   value={downloadProgress}
-                  className="h-1 bg-primary-foreground/20"
+                  className="h-2 bg-primary-foreground/20 border"
                 />
                 <p className="text-[10px] text-right">
                   {Math.round(downloadProgress)}%
