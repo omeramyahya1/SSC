@@ -288,12 +288,8 @@ export const useAuthenticationStore = create<AuthenticationStore>()(
       }),
       onRehydrateStorage: () => (state, error) => {
         if (error || !state) return;
-        const snapshot = state.currentAuthenticationSnapshot;
-        if (snapshot?.auth_id) {
-          state.fetchAuthentication(snapshot.auth_id);
-        } else if (snapshot?.is_logged_in) {
-          state.fetchLatestAuthentication();
-        }
+        // Automatic fetching removed to prevent premature calls before backend readiness.
+        // Initialization is now handled explicitly in App.tsx.
       },
     },
   ),
