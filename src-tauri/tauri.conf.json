@@ -41,6 +41,7 @@
   "bundle": {
     "active": true,
     "targets": ["deb", "appimage"],
+    "createUpdaterArtifacts": true,
     "externalBin": [
       "python-sidecar"
     ],
@@ -62,7 +63,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://raw.githubusercontent.com/omeramyahya1/SSC/main/latest-beta.json"
+        "https://raw.githubusercontent.com/omeramyahya1/SSC/beta-1/latest-beta.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGODA1N0UzQzM3MzA5RjMKUldUekNYUEQ0MWVBSDcyVTdZMGo5V1luMUVkWHFWZjFuai9melhranNKaGtqZVM4YkRJa1dVRlcK"
     }

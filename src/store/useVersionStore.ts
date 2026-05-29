@@ -34,8 +34,10 @@ interface VersionStore {
   closeNotification: () => void;
 }
 
-const MANIFEST_URL =
-  "https://raw.githubusercontent.com/omeramyahya1/SSC/main/manifest.json";
+const MANIFEST_URLS: Record<Exclude<AppChannel, "dev">, string> = {
+  beta: "https://raw.githubusercontent.com/omeramyahya1/SSC/beta-1/manifest.json",
+  prod: "https://raw.githubusercontent.com/omeramyahya1/SSC/main/manifest.json",
+};
 
 function isUpdateVersionAllowed(channel: AppChannel, version: string): boolean {
   if (channel === "dev") return true;
@@ -67,7 +69,9 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
       const channel = getAppChannel(currentVersion);
 
       // 1. Fetch our custom manifest for logic/notifications
-      const { data: manifest } = await axios.get<AppManifest>(MANIFEST_URL);
+      const manifestUrl =
+        channel === "dev" ? MANIFEST_URLS.beta : MANIFEST_URLS[channel];
+      const { data: manifest } = await axios.get<AppManifest>(manifestUrl);
 
       // 2. Fetch the latest active notification from Supabase
       const { data: notifications } = await supabase
