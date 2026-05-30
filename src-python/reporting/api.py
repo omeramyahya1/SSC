@@ -202,16 +202,16 @@ def export_report(db):
         # If enterprise (org_uuid present), include scope
         show_scope = True if org_uuid else False
         scope = t['all_branches']
-        
+
         if branch_uuid:
             branch = db.query(Branch).filter(Branch.uuid == branch_uuid).first()
-            scope = f"{t.get('branch', 'Branch')}: {branch.name if branch else branch_uuid}"
+            scope = f"{t['table'].get('branch', 'Branch')}: {branch.name if branch else branch_uuid}"
         elif user_uuid:
             user = db.query(User).filter(User.uuid == user_uuid).first()
-            scope = f"{t.get('user', 'User')}: {user.username if user else user_uuid}"
+            scope = f"{t['table'].get('user', 'User')}: {user.username if user else user_uuid}"
 
         table_headers = list(table_data[0].keys()) if table_data else []
-        
+
         ssc_logo_svg = _load_ssc_logo_svg()
         ssc_logo_data_uri = _svg_to_data_uri(ssc_logo_svg)
 

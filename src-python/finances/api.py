@@ -65,15 +65,25 @@ def get_payments(db):
 
     # Filter by org/branch via Join
     if org_uuid or branch_uuid:
-        from sqlalchemy import or_
+        from sqlalchemy import and_, or_
         from models import User
         query = query.join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
                      .outerjoin(Project, Invoice.project_uuid == Project.uuid) \
                      .join(User, Invoice.user_uuid == User.uuid)
         if org_uuid:
-            query = query.filter(or_(Project.organization_uuid == org_uuid, User.organization_uuid == org_uuid))
+            query = query.filter(
+                or_(
+                    Project.organization_uuid == org_uuid,
+                    and_(Invoice.project_uuid.is_(None), User.organization_uuid == org_uuid),
+                )
+            )
         if branch_uuid:
-            query = query.filter(or_(Project.branch_uuid == branch_uuid, User.branch_uuid == branch_uuid))
+            query = query.filter(
+                or_(
+                    Project.branch_uuid == branch_uuid,
+                    and_(Invoice.project_uuid.is_(None), User.branch_uuid == branch_uuid),
+                )
+            )
 
     if invoice_uuid:
         query = query.filter(Payment.invoice_uuid == invoice_uuid)
@@ -210,7 +220,7 @@ def create_finance_payment():
                 name = invoice.project.customer.full_name if invoice.project.customer else "N/A"
                 enriched_data['project_name'] = name
                 enriched_data['customer_name'] = name
-            
+
             return jsonify(enriched_data), 201
 
         except Exception as e:

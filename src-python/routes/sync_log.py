@@ -784,10 +784,18 @@ def sync():
     print(f"Synchronization process started at {start_time.isoformat()} UTC.")
 
     with get_db() as db:
-        user_uuid_row = db.query(models.User.uuid).first()
-        if not user_uuid_row:
-             return jsonify({"status": "failed", "error": "No user found in local DB."}), 404
-        user_uuid = user_uuid_row[0]
+        # [MODIFIED] Load the specific logged-in authentication row
+        auth = (
+            db.query(models.Authentication)
+            .filter(models.Authentication.is_logged_in.is_(True))
+            .order_by(models.Authentication.last_active.desc())
+            .first()
+        )
+        if not auth:
+             return jsonify({"status": "failed", "error": "No authenticated session found."}), 401
+
+        user_uuid = auth.user_uuid
+        device_id = _ensure_device_id(db, user_uuid)
 
         # Check if already tampered
         tampered_subscription = db.query(models.Subscription).filter(
@@ -818,13 +826,17 @@ def sync():
 
         # [NEW] Verify cloud session validity to enforce single-session policy
         try:
-            device_id = _ensure_device_id(db, user_uuid)
             if not check_session_validity(user_uuid, device_id):
-                 db.query(models.Authentication).filter_by(user_uuid=user_uuid).update({"is_logged_in": False, "is_dirty": True})
+                 auth.is_logged_in = False
+                 auth.is_dirty = True
                  db.commit()
                  return jsonify({"status": "failed", "error": "Session expired because this account signed in elsewhere."}), 401
         except Exception as e:
-            print(f"Warning: Session validation during sync failed: {e}")
+            # If check_session_validity raises, invalidate local session to be safe
+            auth.is_logged_in = False
+            auth.is_dirty = True
+            db.commit()
+            return jsonify({"status": "failed", "error": f"Session validation failed: {e}"}), 401
 
         # If all checks pass, proceed with normal sync
         try:
