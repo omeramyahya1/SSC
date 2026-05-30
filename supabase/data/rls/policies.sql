@@ -278,6 +278,11 @@ USING (
             )
         )
     )
+    -- 3. [NEW] Allow temporary visibility for orphans during sync to prevent deadlock
+    OR (
+        NOT EXISTS (SELECT 1 FROM public.projects p WHERE p.system_config_id = id)
+        AND created_at > now() - interval '1 hour'
+    )
 )
 WITH CHECK (
     -- Protect updates/deletions using the same parent project evaluation
@@ -302,6 +307,11 @@ WITH CHECK (
                 )
             )
         )
+    )
+    -- Allow insertion/update of orphans (sync period)
+    OR (
+        NOT EXISTS (SELECT 1 FROM public.projects p WHERE p.system_config_id = id)
+        AND created_at > now() - interval '1 hour'
     )
 );
 
@@ -489,6 +499,7 @@ USING (
         SELECT 1 FROM public.invoices i
         WHERE i.id = payments.invoice_id
     )
+    OR created_by_user_uuid = jwt_user_id()
 )
 WITH CHECK (
     is_superadmin()
@@ -496,6 +507,7 @@ WITH CHECK (
         SELECT 1 FROM public.invoices i
         WHERE i.id = payments.invoice_id
     )
+    OR created_by_user_uuid = jwt_user_id()
 );
 -- 3.7. Strictly Private User Data
 
@@ -595,7 +607,7 @@ ON public.inventory_categories
 FOR INSERT
 WITH CHECK (
     is_superadmin()
-    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'admin' AND (organization_id = jwt_org_id() OR (organization_id IS NULL AND jwt_org_id() IS NULL)))
     OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
 );
 
@@ -604,21 +616,21 @@ ON public.inventory_categories
 FOR UPDATE
 USING (
     is_superadmin()
-    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'admin' AND (organization_id = jwt_org_id() OR (organization_id IS NULL AND jwt_org_id() IS NULL)))
     OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
 )
 WITH CHECK (
     is_superadmin()
-    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'admin' AND (organization_id = jwt_org_id() OR (organization_id IS NULL AND jwt_org_id() IS NULL)))
     OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
-);
+);inventory_categories
 
 CREATE POLICY "Allow authorized delete on inventory_categories"
 ON public.inventory_categories
 FOR DELETE
 USING (
     is_superadmin()
-    OR (jwt_app_role() = 'admin' AND organization_id = jwt_org_id())
+    OR (jwt_app_role() = 'admin' AND (organization_id = jwt_org_id() OR (organization_id IS NULL AND jwt_org_id() IS NULL)))
     OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
 );
 

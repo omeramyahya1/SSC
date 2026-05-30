@@ -1,6 +1,16 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, verify_password, require_internet, get_server_time_or_none, is_jwt_expired_offline
+from utils import (
+    get_db,
+    get_by_id_or_uuid,
+    generate_salt,
+    hash_password,
+    verify_password,
+    require_internet,
+    get_server_time_or_none,
+    is_jwt_expired_offline,
+    check_session_validity
+)
 from models import Authentication, User, Subscription, SyncLog
 from schemas import AuthenticationCreate, AuthenticationUpdate
 from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication
@@ -60,6 +70,14 @@ def login_user():
 
         # Check if the existing JWT is valid for offline login
         if user_auth.current_jwt and not is_jwt_expired_offline(user_auth.jwt_issued_at):
+            # [NEW] If online, verify cloud session validity to enforce single-session policy
+            if get_server_time_or_none():
+                 if not check_session_validity(user.uuid, user_auth.device_id):
+                     # If invalidated in the cloud, mark as logged out locally
+                     db.query(Authentication).filter_by(user_uuid=user.uuid).update({"is_logged_in": False, "is_dirty": True})
+                     db.commit()
+                     return jsonify({"error": "Session expired because this account signed in elsewhere."}), 401
+
             # --- 2a. OFFLINE LOGIN SUCCESS ---
             print("JWT is valid, performing offline login.")
             # Mark other sessions as logged out and create a new one, reusing the valid JWT

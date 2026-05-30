@@ -15,7 +15,7 @@ DECLARE
     u RECORD;
     v_latest_auth RECORD; -- To hold the user's most recent auth record
 BEGIN
-    -- 1. Fetch User Metadata
+    -- 1. Fetch User Metadata and lock the user row to prevent concurrency issues
     SELECT
         organization_id,
         branch_id,
@@ -23,18 +23,21 @@ BEGIN
         distributor_id
     INTO u
     FROM public.users
-    WHERE id = p_user_id;
+    WHERE id = p_user_id
+    FOR UPDATE;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'User not found';
     END IF;
 
-    -- 2. ADDED: Fetch the latest auth record to get the hash and salt
+    -- 2. Fetch the latest auth record to get the hash and salt
+    -- Also lock any existing auth records for this user
     SELECT * INTO v_latest_auth
     FROM public.authentications
     WHERE user_id = p_user_id
     ORDER BY created_at DESC
-    LIMIT 1;
+    LIMIT 1
+    FOR UPDATE;
 
     -- If the user exists but has no auth records, something is wrong.
     IF NOT FOUND THEN
@@ -42,9 +45,10 @@ BEGIN
     END IF;
 
     -- 3. Invalidate previous sessions for this specific user
+    -- Single active session enforcement: only this device will be logged in
     UPDATE public.authentications
-    SET is_logged_in = false
-    WHERE user_id = p_user_id AND device_id <> p_device_id;
+    SET is_logged_in = false, is_dirty = true
+    WHERE user_id = p_user_id AND is_logged_in = true;
 
     -- 4. Retrieve Secret from Vault
     SELECT decrypted_secret INTO v_secret
@@ -74,16 +78,16 @@ BEGIN
         'HS256'
     );
 
-    -- 6. MODIFIED: Upsert the authentication record, now including hash and salt on INSERT
+    -- 6. Insert the new authentication record
     INSERT INTO public.authentications (
         user_id, device_id,
-        password_hash, password_salt, -- Ensure these are included
-        current_jwt, jwt_issued_at, is_logged_in, updated_at
+        password_hash, password_salt,
+        current_jwt, jwt_issued_at, is_logged_in, updated_at, is_dirty
     )
     VALUES (
         p_user_id, p_device_id,
-        v_latest_auth.password_hash, v_latest_auth.password_salt, -- Copy from latest record
-        v_jwt, v_issued_at, true, now()
+        v_latest_auth.password_hash, v_latest_auth.password_salt,
+        v_jwt, v_issued_at, true, now(), false
     );
 
     -- 7. Return as JSON object and timestamp
@@ -91,4 +95,4 @@ BEGIN
         json_build_object('token', v_jwt) as jwt_info,
         v_issued_at as issued_at;
 END;
-$$
+$$;

@@ -92,8 +92,8 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
       const localAgreedId = currentSetting?.other_settings?.agreed_tc_id;
       console.log("Local agreed ID:", localAgreedId, "Latest TC ID:", latest_tc_id);
 
-      // TRUST the backend for needs_update. 
-      // The false negative happens because we were forcing needs_update=true 
+      // TRUST the backend for needs_update.
+      // The false negative happens because we were forcing needs_update=true
       // if local state didn't match, even if the user already agreed in the cloud.
       const finalNeedsUpdate = needs_update;
 
@@ -106,7 +106,7 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
             agreed_tc_id: latest_tc_id,
             agreed_at: new Date().toISOString()
           }
-        });
+        }).catch(e => console.warn("Silent T&C sync failed:", e));
       }
 
       console.log("Final needs update:", finalNeedsUpdate);

@@ -65,12 +65,15 @@ def get_payments(db):
 
     # Filter by org/branch via Join
     if org_uuid or branch_uuid:
+        from sqlalchemy import or_
+        from models import User
         query = query.join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
-                     .join(Project, Invoice.project_uuid == Project.uuid)
+                     .outerjoin(Project, Invoice.project_uuid == Project.uuid) \
+                     .join(User, Invoice.user_uuid == User.uuid)
         if org_uuid:
-            query = query.filter(Project.organization_uuid == org_uuid)
+            query = query.filter(or_(Project.organization_uuid == org_uuid, User.organization_uuid == org_uuid))
         if branch_uuid:
-            query = query.filter(Project.branch_uuid == branch_uuid)
+            query = query.filter(or_(Project.branch_uuid == branch_uuid, User.branch_uuid == branch_uuid))
 
     if invoice_uuid:
         query = query.filter(Payment.invoice_uuid == invoice_uuid)
@@ -198,7 +201,17 @@ def create_finance_payment():
                 apply_payment_to_invoice(db, new_payment.invoice_uuid)
 
             db.commit()
-            return jsonify(model_to_dict(new_payment)), 201
+
+            # 3. Return enriched DTO for immediate UI update
+            enriched_data = model_to_dict(new_payment)
+            enriched_data['invoice_id'] = invoice.invoice_id
+            enriched_data['invoice_access'] = invoice_access_flags(ctx, invoice)
+            if invoice.project:
+                name = invoice.project.customer.full_name if invoice.project.customer else "N/A"
+                enriched_data['project_name'] = name
+                enriched_data['customer_name'] = name
+            
+            return jsonify(enriched_data), 201
 
         except Exception as e:
             logger.exception(f"Failed to process payment for invoice {invoice_uuid or 'unknown'}")

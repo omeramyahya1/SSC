@@ -2,7 +2,7 @@ CREATE OR REPLACE FUNCTION public.sync_apply_and_pull(
     p_table_name text,
     p_records jsonb
 )
-RETURNS uuid[]
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY INVOKER
 AS $$
@@ -12,11 +12,13 @@ DECLARE
     set_clause text;
     query text;
     affected_uuids uuid[] := '{}';
+    failures jsonb := '[]'::jsonb;
+    error_msg text;
+    error_detail text;
+    error_hint text;
 BEGIN
     -- [NEW] Set the sync flag for this transaction only
     PERFORM set_config('app.is_sync', 'true', true);
-
-    -- [Existing Logic Starts Here] ------------------------------
 
     -- Basic sanitization
     IF NOT EXISTS (
@@ -51,8 +53,6 @@ BEGIN
             set_clause
         );
 
-        -- Wrap in exception block to handle RLS violations (code 42501)
-        -- Skip the record if insufficient privileges, allowing the rest of the batch to proceed.
         BEGIN
             EXECUTE query
             INTO rec_uuid
@@ -61,11 +61,24 @@ BEGIN
             IF rec_uuid IS NOT NULL THEN
                 affected_uuids := array_append(affected_uuids, rec_uuid);
             END IF;
-        EXCEPTION WHEN insufficient_privilege THEN
-            CONTINUE;
+        EXCEPTION WHEN OTHERS THEN
+            GET STACKED DIAGNOSTICS 
+                error_msg = MESSAGE_TEXT,
+                error_detail = PG_EXCEPTION_DETAIL,
+                error_hint = PG_EXCEPTION_HINT;
+            
+            failures := failures || jsonb_build_object(
+                'id', rec->>'id',
+                'error', error_msg,
+                'detail', error_detail,
+                'hint', error_hint
+            );
         END;
     END LOOP;
 
-    RETURN affected_uuids;
+    RETURN jsonb_build_object(
+        'confirmed_ids', affected_uuids,
+        'failures', failures
+    );
 END;
 $$;

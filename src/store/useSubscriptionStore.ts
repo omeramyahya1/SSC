@@ -39,7 +39,7 @@ export interface SubscriptionStore {
   deleteSubscription: (id: string) => Promise<void>;
   setCurrentSubscription: (subscription: Subscription | null) => void;
   refreshSubscriptionStatus: (user_uuid?: string) => Promise<void>;
-  evaluateLocalStatus: () => void;
+  logStatusMismatch: () => void;
 }
 
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -52,7 +52,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     set({ currentSubscription: subscription });
   },
 
-  evaluateLocalStatus: () => {
+  logStatusMismatch: () => {
     const { currentSubscription } = get();
     const { currentUser } = useUserStore.getState();
 
@@ -94,7 +94,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       set({ subscriptions: data, currentSubscription: active, isLoading: false });
 
       // Perform local evaluation after fetch
-      get().evaluateLocalStatus();
+      get().logStatusMismatch();
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch subscriptions";
       set({ error: errorMsg, isLoading: false });

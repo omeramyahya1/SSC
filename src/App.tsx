@@ -27,6 +27,7 @@ function App() {
   const { currentAuthentication, fetchLatestAuthentication } = useAuthenticationStore();
 
   useEffect(() => {
+    let aborted = false;
     const hydrateAndCheckAuth = async () => {
       // 1. Wait for Backend Readiness
       const baseUrl = await getBackendBaseUrl();
@@ -34,9 +35,9 @@ function App() {
       const timeout = 60000; // 60 seconds
       let isReady = false;
 
-      while (!isReady) {
+      while (!isReady && !aborted) {
         if (Date.now() - startTime > timeout) {
-          setBackendError(t("errors.backend_timeout"));
+          if (!aborted) setBackendError(t("errors.backend_timeout"));
           return;
         }
 
@@ -52,6 +53,7 @@ function App() {
           await new Promise(r => setTimeout(r, 1000));
         }
       }
+      if (aborted) return;
 
       // 2. Hydrate stores from data pre-loaded by the splash screen
       const preloadedUser = localStorage.getItem('preloaded-user');
@@ -104,7 +106,8 @@ function App() {
     };
 
     hydrateAndCheckAuth();
-  }, [fetchLatestAuthentication]);
+    return () => { aborted = true; };
+  }, [fetchLatestAuthentication, t]);
 
   useEffect(() => {
     // This effect runs whenever currentAuthentication changes or after the initial fetch
@@ -124,7 +127,7 @@ function App() {
           <p className="mb-6 text-muted-foreground">
             {backendError}
           </p>
-          <button 
+          <button
             className="w-full bg-primary text-primary-foreground py-2 rounded-md hover:bg-primary/90"
             onClick={() => window.location.reload()}
           >

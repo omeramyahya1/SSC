@@ -1000,7 +1000,5 @@
   "sub.renew_now": "Renew Now",
   "sync.failed": "Sync failed. Please check your connection.",
   "sync.offline_toast": "You are offline. Sync will resume when connection is restored.",
-  "finances.": "",
-  "finances.methods.": "",
-  "downloading": "Donwloading..."
+  "downloading": "Downloading..."
 }

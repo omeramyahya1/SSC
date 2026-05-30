@@ -239,13 +239,12 @@ export function Sidebar() {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!currentSubscription && currentUser?.uuid && !subscriptionFetched) {
+    if (currentUser?.uuid && !subscriptionFetched) {
       fetchSubscriptions(currentUser.uuid).finally(() =>
         setSubscriptionFetched(true),
       );
     }
   }, [
-    currentSubscription,
     fetchSubscriptions,
     currentUser?.uuid,
     subscriptionFetched,

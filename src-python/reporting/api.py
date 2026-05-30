@@ -10,6 +10,8 @@ import os
 import io
 import zipfile
 from datetime import datetime
+from urllib.parse import quote
+from models import Branch, User
 
 try:
     from weasyprint import HTML
@@ -18,7 +20,24 @@ except ImportError:
 
 reporting_bp = Blueprint('reporting_bp', __name__, url_prefix='/reporting')
 
-TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), '..', 'pdf_engine', 'templates')
+# --- Resource Path Resolution ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_DIR = os.path.join(BASE_DIR, '..', 'pdf_engine', 'templates')
+LOGO_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'public', 'ssc.svg'))
+
+def _load_ssc_logo_svg():
+    try:
+        with open(LOGO_PATH, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        print(f"Warning: Could not load logo from {LOGO_PATH}: {e}")
+        return None
+
+def _svg_to_data_uri(svg_text: str | None):
+    if not svg_text:
+        return None
+    return f"data:image/svg+xml;charset=utf-8,{quote(svg_text)}"
+
 jinja_env = Environment(
     loader=FileSystemLoader(TEMPLATE_DIR),
     autoescape=select_autoescape(enabled_extensions=('html', 'xml')),
@@ -179,25 +198,38 @@ def export_report(db):
 
         date_range = f"{_fmt_date(start_date)} - {_fmt_date(end_date)}"
 
-        # Determine scope string
+        # Determine scope string and visibility
+        # If enterprise (org_uuid present), include scope
+        show_scope = True if org_uuid else False
         scope = t['all_branches']
-        if branch_uuid: scope = f"Branch: {branch_uuid}"
-        elif user_uuid: scope = f"User: {user_uuid}"
+        
+        if branch_uuid:
+            branch = db.query(Branch).filter(Branch.uuid == branch_uuid).first()
+            scope = f"{t.get('branch', 'Branch')}: {branch.name if branch else branch_uuid}"
+        elif user_uuid:
+            user = db.query(User).filter(User.uuid == user_uuid).first()
+            scope = f"{t.get('user', 'User')}: {user.username if user else user_uuid}"
 
         table_headers = list(table_data[0].keys()) if table_data else []
+        
+        ssc_logo_svg = _load_ssc_logo_svg()
+        ssc_logo_data_uri = _svg_to_data_uri(ssc_logo_svg)
 
         html_string = template.render(
             title=title,
             date_range=date_range,
             generated_at=datetime.now().strftime('%d-%m-%Y %H:%M'),
             scope=scope,
+            show_scope=show_scope,
             data=report_data,
             table_title=table_title,
             table_headers=table_headers,
             table_data=table_data,
             t=t,
             lang=lang,
-            dir='rtl' if lang == 'ar' else 'ltr'
+            dir='rtl' if lang == 'ar' else 'ltr',
+            watermark_text='Made with SSC - Internal Report',
+            ssc_logo_data_uri=ssc_logo_data_uri
         )
 
         pdf_io = io.BytesIO()

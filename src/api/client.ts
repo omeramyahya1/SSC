@@ -4,6 +4,7 @@ import { matchRefreshTargets } from "./refreshMap";
 import { scheduleRefresh } from "./refreshQueue";
 import { refreshStores } from "./storeRegistry";
 import { getBackendBaseUrl } from "./backendBaseUrl";
+import { toast } from "react-hot-toast";
 
 const api = axios.create({
   timeout: 10000,
@@ -55,8 +56,11 @@ api.interceptors.response.use(
       const status = error.response.status;
 
       if (status === 401) {
+        const errorData = error.response.data as any;
+        if (errorData?.error?.includes("Session expired")) {
+          toast.error(errorData.error, { id: "session-expired" });
+        }
         console.warn("Unauthorized — redirect to login");
-        // Optional: logout logic here
       }
 
       if (status >= 500) {

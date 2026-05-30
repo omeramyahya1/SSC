@@ -136,6 +136,30 @@ def is_jwt_expired_offline(jwt_issued_at):
     # Use client's current UTC time for the check
     return datetime.now(timezone.utc) > expiration_time
 
+def check_session_validity(user_uuid, device_id):
+    """
+    Checks with Supabase if the current session (user_uuid + device_id) is still valid (is_logged_in=True).
+    Returns True if valid, False if explicitly invalidated, or True on connection failure (fail-safe).
+    """
+    from supabase_client import get_service_role_client
+    try:
+        supabase = get_service_role_client()
+        response = (
+            supabase.table('authentications')
+            .select('is_logged_in')
+            .eq('user_id', user_uuid)
+            .eq('device_id', device_id)
+            .order('created_at', desc=True)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return response.data[0].get('is_logged_in', False)
+        return False
+    except Exception as e:
+        print(f"Session validation check failed: {e}")
+        return True # Fail-safe: assume valid if check fails due to connectivity
+
 if __name__ == "__main__":
     password = "Abcd1234"
     salt = generate_salt()

@@ -48,7 +48,6 @@ const MainContent = () => {
   const { refreshSubscriptionStatus } =
     useSubscriptionStore();
   const { fetchOrganizations } = useOrganizationStore();
-  const { fetchSubscriptions } = useSubscriptionStore();
 
   const [isAgreeing, setIsAgreeing] = useState(false);
   const [showTCModal, setShowTCModal] = useState(false);
@@ -58,14 +57,12 @@ const MainContent = () => {
       checkTCStatus(currentAuthentication.user_uuid);
       refreshSubscriptionStatus(currentAuthentication.user_uuid);
       fetchOrganizations();
-      fetchSubscriptions(currentAuthentication.user_uuid);
     }
   }, [
     currentAuthentication?.user_uuid,
     checkTCStatus,
     refreshSubscriptionStatus,
     fetchOrganizations,
-    fetchSubscriptions,
   ]);
 
   useEffect(() => {
@@ -107,12 +104,12 @@ const MainContent = () => {
   const { currentSubscription } = useSubscriptionStore();
   const now = new Date();
   const expires = currentSubscription?.expiration_date ? new Date(currentSubscription.expiration_date) : null;
-  const graceEnd = currentSubscription?.grace_period_end ? new Date(currentSubscription.grace_period_end) : 
+  const graceEnd = currentSubscription?.grace_period_end ? new Date(currentSubscription.grace_period_end) :
                    expires ? new Date(expires.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
 
   const isExpired = (currentUser?.status === "expired") || (graceEnd && now > graceEnd);
   const isGrace = (currentUser?.status === "grace") || (expires && now > expires && (!graceEnd || now <= graceEnd));
-  const isAdmin = currentUser?.role === "admin" || currentUser?.role === "user";
+  const canManageSubscription = currentUser?.role === "admin" || currentUser?.role === "user";
 
   // Check if current route is allowed during expiration
   const isAllowedRoute =
@@ -154,7 +151,7 @@ const MainContent = () => {
                   {t("sub.expired_title", "Subscription Expired")}
                 </h2>
                 <p className="text-neutral/60">
-                  {isAdmin
+                  {canManageSubscription
                     ? t(
                         "sub.expired_desc_admin",
                         "Your access has been suspended due to an expired subscription. Please renew your plan to continue using all features.",

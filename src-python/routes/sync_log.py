@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
-from utils import get_db
+from utils import get_db, check_session_validity
 import models
 from sqlalchemy import LargeBinary, Numeric
 from decimal import Decimal
@@ -476,23 +476,37 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
         response = supabase.rpc("sync_apply_and_pull", {"p_table_name": table_name, "p_records": payloads}).execute()
         if hasattr(response, 'error') and response.error:
             raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
+        
         if hasattr(response, 'data'):
-            confirmed_ids = set(str(x) for x in (response.data or []))
+            data = response.data
+            confirmed_ids = set(str(x) for x in (data.get('confirmed_ids') or []))
+            failures = data.get('failures') or []
 
             confirmed_count = 0
             for record in records:
                 if str(record.uuid) in confirmed_ids:
                     record.is_dirty = False
                     confirmed_count += 1
+            
+            if failures:
+                print(f"Errors during push for {table_name}: {failures}")
+                # We raise if any record failed to ensure atomicity/visibility of sync issues
+                first_failure = failures[0]
+                raise Exception(
+                    f"Push for {table_name} failed for {len(failures)} records. "
+                    f"First error: {first_failure.get('error')} (ID: {first_failure.get('id')})"
+                )
+
             if confirmed_count != len(records):
                 db.rollback()
                 raise Exception(
-                    f"Push for {table_name} only confirmed {confirmed_count}/{len(records)} records."
+                    f"Push for {table_name} only confirmed {confirmed_count}/{len(records)} records without explicit failure reports."
                 )
 
             db.commit()
             print(f"Successfully pushed and confirmed {confirmed_count}/{len(records)} records to {table_name}.")
     except Exception as e:
+        db.rollback()
         raise Exception(f"Failed to push table {table_name}: {str(e)}")
 
 def push_to_supabase(db: Session, dirty_only: bool = True):
@@ -801,6 +815,16 @@ def sync():
                 return jsonify({"status": "tamper_detected", "message": "Time discrepancy detected. Account is being locked."}), 403
         except Exception as e:
             return jsonify({"status": "failed", "error": f"Heartbeat check failed: {e}"}), 500
+
+        # [NEW] Verify cloud session validity to enforce single-session policy
+        try:
+            device_id = _ensure_device_id(db, user_uuid)
+            if not check_session_validity(user_uuid, device_id):
+                 db.query(models.Authentication).filter_by(user_uuid=user_uuid).update({"is_logged_in": False, "is_dirty": True})
+                 db.commit()
+                 return jsonify({"status": "failed", "error": "Session expired because this account signed in elsewhere."}), 401
+        except Exception as e:
+            print(f"Warning: Session validation during sync failed: {e}")
 
         # If all checks pass, proceed with normal sync
         try:

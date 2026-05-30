@@ -242,7 +242,7 @@ def _refresh_local_after_activation(service_client, user_uuid: str, new_subscrip
             .filter(
                 Subscription.user_uuid == user_uuid,
                 Subscription.uuid != new_subscription_uuid,
-                Subscription.deleted_at == None,
+                Subscription.deleted_at.is_(None),
                 Subscription.status != "expired",
             )
             .all()
@@ -383,7 +383,7 @@ def create_and_sync_subscription():
             user = db.query(User).filter(User.uuid == user_uuid).first()
             if not user:
                 return jsonify({"error": "User not found locally"}), 404
-            
+
             scope = _build_sync_scope(db, user)
             print(f"Creating subscription for user {user_uuid} with scope: {scope}")
 
@@ -398,7 +398,7 @@ def create_and_sync_subscription():
                 admin = db.query(User).filter(
                     User.organization_uuid == user.organization_uuid,
                     User.role == "admin",
-                    User.deleted_at == None,
+                    User.deleted_at.is_(None)
                 ).first()
                 if admin:
                     owner_uuid = admin.uuid
@@ -407,7 +407,7 @@ def create_and_sync_subscription():
                 Subscription.user_uuid == owner_uuid,
                 Subscription.status == "pending",
                 Subscription.type == normalized_type,
-                Subscription.deleted_at == None,
+                Subscription.deleted_at.is_(None)
             ).order_by(Subscription.created_at.desc()).first()
 
             if existing_pending_local:
@@ -475,7 +475,7 @@ def create_and_sync_subscription():
                     print(f"Sync attempt {attempt+1} failed: {sync_err}")
                     if attempt < sync_retries - 1:
                         time.sleep(1) # Wait before retry
-            
+
             if not sync_success:
                 raise Exception("Failed to sync subscription to cloud after multiple attempts.")
 
@@ -504,7 +504,7 @@ def create_and_sync_subscription():
                     service_client.table("subscriptions").delete().eq("id", new_subscription.uuid).execute()
                 except Exception as remote_cleanup_error:
                     print(f"Failed to cleanup remote subscription: {remote_cleanup_error}")
-                
+
                 # SQLAlchemy rollback handled by context manager on exception
                 raise Exception(f"New subscription {new_subscription.uuid} not found in remote database after verification retries.")
 
@@ -609,7 +609,7 @@ def cancel_subscription(item_id):
         user = db.query(User).filter(User.uuid == item.user_uuid).first()
         if not user:
             return jsonify({"error": "Subscription owner not found locally"}), 404
-        
+
         scope = _build_sync_scope(db, user)
 
         item.deleted_at = datetime.utcnow()

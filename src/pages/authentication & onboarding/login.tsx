@@ -11,6 +11,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import { useUserStore } from "@/store/useUserStore";
+import { useSubscriptionStore } from "@/store/useSubscriptionStore";
 import api from '@/api/client';
 import { LoginResponse, Authentication } from '@/store/useAuthenticationStore';
 import { Button } from '@/components/ui/button';
@@ -100,6 +101,9 @@ export default function LoginScreen() {
         is_dirty: authentication.is_dirty,
       };
       setCurrentAuthentication(mappedAuth);
+
+      // Hydrate subscription data immediately to prevent empty states in Sidebar/Dashboard
+      useSubscriptionStore.getState().fetchSubscriptions(user.uuid);
 
       if (user?.role === "employee") {
         if (user.status !== "active") {
