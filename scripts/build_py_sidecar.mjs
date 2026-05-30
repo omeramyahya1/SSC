@@ -94,6 +94,8 @@ const args = [
   "--include-data-files=public/ssc.svg=ssc.svg",
   "--include-onefile-external-data=ssc.svg",
   "--plugin-enable=numpy",
+  "--collect-all=rasterio",       // <-- Forces Nuitka to grab the embedded GDAL DLLs
+  "--include-package=rasterio",    // <-- Explicitly includes the rasterio code bindings
   "--include-package=weasyprint",
   "--include-package=jinja2",
   "--output-filename=python-sidecar",

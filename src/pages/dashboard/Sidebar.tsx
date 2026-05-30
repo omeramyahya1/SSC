@@ -267,7 +267,7 @@ export function Sidebar() {
     <>
       <Dialog onOpenChange={(open) => !open && setNonNavSelected(null)}>
         <div
-          className={`flex flex-col bg-primary-gray transition-all duration-300 ease-in-out ${isCollapsed ? "w-20" : "w-64"}`}
+          className={`flex flex-col h-full bg-primary-gray transition-all duration-300 ease-in-out ${isCollapsed ? "w-20" : "w-64"}`}
           onMouseEnter={() => {
             setIsHovering(true);
           }}

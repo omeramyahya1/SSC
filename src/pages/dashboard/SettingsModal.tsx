@@ -742,7 +742,7 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
       className="w-[85vw] max-w-4xl h-[85vh] p-0 pb-2 overflow-hidden bg-white border-none rounded-3xl shadow-2xl flex flex-col"
       dir={i18n.dir()}
     >
-      <DialogHeader className="p-8 pb-4 bg-gray-50/50">
+      <DialogHeader className="p-8 pb-4">
         <DialogTitle className="text-3xl font-black">
           {t("dashboard.settings", "Settings")}
         </DialogTitle>
