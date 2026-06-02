@@ -47,6 +47,7 @@ import { useAuthenticationStore } from '@/store/useAuthenticationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useApplicationSettingsStore } from '@/store/useApplicationSettingsStore';
 import toast from 'react-hot-toast';
+import { refreshStores, StoreKeys } from '@/api/storeRegistry';
 
 // --- Constants ---
 const TOTAL_STAGES = 8;
@@ -1345,7 +1346,7 @@ const Stage8 = () => {
     }, []);
 
 
-    const handleDashboard = async () => {
+    const handleFinish = async () => {
         setIsLoading(true);
         setError(null);
         try {
@@ -1373,7 +1374,8 @@ const Stage8 = () => {
                     localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
                     console.log(4)
                 }
-                navigate('/dashboard');
+                refreshStores(Object.values(StoreKeys));
+                navigate('/login');
             } else {
                 throw new Error("Could not retrieve latest authentication data.");
             }
@@ -1425,8 +1427,8 @@ const Stage8 = () => {
                             <p className="text-red-500 text-sm mb-4">{error}</p>
                         )}
                         <div className="space-y-4">
-                            <Button onClick={handleDashboard} className='w-full text-white' size="lg" disabled={isLoading}>
-                                {isLoading ? <Spinner /> : t('registration.go_dashboard', 'Go to Dashboard')}
+                            <Button onClick={handleFinish} className='w-full text-white' size="lg" disabled={isLoading}>
+                                {isLoading ? <Spinner /> : t('registration.finish', 'Finish')}
                             </Button>
                             <Link to="/help" className="block text-sm text-primary hover:underline">
                                 {t('registration.report_issue', 'Report an issue')}

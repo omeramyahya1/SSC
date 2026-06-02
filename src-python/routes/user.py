@@ -267,6 +267,9 @@ def register_user():
         cloud_plan_type = plan_mapping.get(payload.plan_type.lower(), 'trial')
         user_status = 'trial' if cloud_plan_type == "trial" else "active"
 
+        # [NEW] Role assignment: Enterprise accounts are 'admin', Standard accounts are 'user'
+        user_role = 'admin' if 'enterprise' in payload.account_type.lower() else 'user'
+
         try:
             service_client = get_service_role_client()
             service_client.rpc('register_user', {
@@ -283,7 +286,7 @@ def register_user():
                 'p_location': user_location,
                 'p_org_id': new_org_uuid,
                 'p_branch_id': new_branch_uuid,
-                'p_role': 'admin',
+                'p_role': user_role,
                 'p_plan_type': cloud_plan_type,
                 'p_sub_uuid': new_sub_uuid,
                 'p_user_status': user_status
@@ -301,7 +304,7 @@ def register_user():
             business_name=payload.stage4.businessName, account_type=payload.account_type,
             location=user_location,
             organization_uuid=new_org_uuid, branch_uuid=new_branch_uuid,
-            status=user_status, role='admin', is_dirty=False
+            status=user_status, role=user_role, is_dirty=False
         )
         db.merge(new_user)
 
