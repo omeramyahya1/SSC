@@ -66,6 +66,8 @@ BEGIN
         UPDATE public.subscriptions
         SET
             license_code = v_generated_license_code,
+            expiration_date = v_sub_expiration_date,
+            grace_period_end = v_sub_grace_period_end,
             updated_at = NOW(),
             is_dirty = true
         WHERE id = NEW.subscription_id;

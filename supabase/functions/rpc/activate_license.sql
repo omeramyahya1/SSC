@@ -82,10 +82,9 @@ BEGIN
 EXCEPTION
   -- FIX: Intercepts unhandled physical system faults and packages them inside valid JSON
   WHEN OTHERS THEN
+    RAISE LOG 'activate_license failed for user %: %', p_user_uuid, SQLERRM;
     RETURN jsonb_build_object(
-      'success', false,
-      'message', 'Internal activation failure',
-      'error_details', SQLERRM
+      'message', 'Internal activation failure'
     );
 END;
 $$;

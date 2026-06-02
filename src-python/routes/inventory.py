@@ -135,30 +135,46 @@ def get_categories():
             return error_response
         scope = _get_inventory_scope(current_user)
 
-        items = db.query(InventoryCategory).filter(InventoryCategory.deleted_at.is_(None)).all()
-
-        # Check if we have the specific global categories. If not, seed them.
+        # [MODIFIED] Fetch ALL categories including soft-deleted ones to prevent unique constraint violations during re-seeding
+        items = db.query(InventoryCategory).all()
+        existing_map = {str(i.uuid): i for i in items}
         global_ids = {CAT_SOLAR_PANELS, CAT_INVERTERS, CAT_BATTERIES, CAT_ACCESSORIES}
-        existing_ids = {str(i.uuid) for i in items}
 
-        if global_ids.issubset(existing_ids):
-            # Only return the global ones to ensure consistency
-            return jsonify([model_to_dict(i) for i in items if str(i.uuid) in global_ids])
+        # Check if all global categories are present and active
+        all_active = True
+        for gid in global_ids:
+            item = existing_map.get(gid)
+            if not item or item.deleted_at is not None:
+                all_active = False
+                break
+        
+        if all_active:
+            # Return only the global ones to ensure consistency
+            return jsonify([model_to_dict(existing_map[gid]) for gid in global_ids])
 
-        # Seeding logic for global records
-        defaults = []
+        # Seeding/Restoration logic for global records
         for cat in _default_inventory_categories():
-            if str(cat["uuid"]) not in existing_ids:
+            uuid_str = str(cat["uuid"])
+            if uuid_str in existing_map:
+                # [RESTORE] If row exists but is deleted or stale, update and reactivate it
+                item = existing_map[uuid_str]
+                item.deleted_at = None
+                item.name = cat["name"]
+                item.spec_schema = cat["spec_schema"]
+                item.organization_uuid = None
+                item.user_uuid = None
+                item.is_dirty = False
+            else:
+                # [INSERT] Create new record if missing entirely
                 item = InventoryCategory(
                     uuid=cat["uuid"],
                     name=cat["name"],
                     spec_schema=cat["spec_schema"],
-                    organization_uuid=None, # Global
-                    user_uuid=None, # Global
-                    is_dirty=False # Do not push to cloud automatically; cloud must be seeded by superadmin
+                    organization_uuid=None,
+                    user_uuid=None,
+                    is_dirty=False
                 )
                 db.add(item)
-                defaults.append(item)
 
         db.commit()
 

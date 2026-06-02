@@ -230,16 +230,21 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     );
   }, [subscriptionPayments, latestSubscription]);
 
+    const shouldActivate = useMemo(
+    () => hasPendingPayment || latestSubscription?.status === "pending",
+    [hasPendingPayment, latestSubscription?.status],
+  );
+
   useEffect(() => {
     if (isOpen) {
       const status = currentUser?.status;
       if (status === "grace" || status === "expired" || status === "trial") {
-        setView(hasPendingPayment || latestSubscription?.status == "pending" ? "activate" : "upgrade");
+        setView(shouldActivate ? "activate" : "upgrade");
       } else {
         setView("status");
       }
     }
-  }, [isOpen, currentUser?.status, hasPendingPayment]);
+  }, [isOpen, currentUser?.status, shouldActivate]);
 
   useEffect(() => {
     if (view === "upgrade" && pricingData.length === 0) {
