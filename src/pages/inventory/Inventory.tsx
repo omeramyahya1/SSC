@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/select";
 import { useInventoryStore } from "@/store/useInventoryStore";
 import { useUserStore } from "@/store/useUserStore";
-import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { InventoryTable, SortConfig } from "./InventoryTable";
 import { AddItemModal } from "./AddItemModal";
@@ -22,6 +21,7 @@ import { InventoryHistoryModal } from "./InventoryHistoryModal";
 import { ExportReportModal } from "@/components/ExportReportModal";
 import { cn } from "@/lib/utils";
 import { SubscriptionBanner } from "../dashboard/SubscriptionBanner";
+import {toast} from "react-hot-toast";
 
 export type SortOption =
   | "name"
@@ -55,7 +55,7 @@ export default function Inventory() {
   }, [fetchItems, fetchCategories]);
 
   const filteredAndSortedItems = useMemo(() => {
-    if (!items || isLoading) return [];
+    if (!items) return [];
     const filtered = items.filter((item) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
@@ -101,19 +101,7 @@ export default function Inventory() {
   };
 
   const renderContent = () => {
-    // 1. Critical: Always show loading state if isLoading is true
-    if (isLoading) {
-      return (
-        <div className="flex flex-col justify-center items-center h-64 bg-white rounded-xl border border-dashed border-gray-200">
-          <Spinner className="w-10 h-10 text-primary" />
-          <p className="text-sm text-muted-foreground mt-2">
-            {t("common.loading", "Loading...")}
-          </p>
-        </div>
-      );
-    }
-
-    if (error) {
+    if (error && items.length === 0) {
       return (
         <div className="flex justify-center items-center h-64">
           <Alert variant="destructive" className="max-w-md">
@@ -126,8 +114,8 @@ export default function Inventory() {
       );
     }
 
-    // 2. Empty State (Add this for better UX)
-    if (filteredAndSortedItems.length === 0) {
+    // Empty State (Show when no items and not loading)
+    if (filteredAndSortedItems.length === 0 && !isLoading) {
       return (
         <div className="flex flex-col justify-center items-center h-64 bg-white rounded-xl border">
           <p className="text-gray-400">
@@ -137,6 +125,8 @@ export default function Inventory() {
       );
     }
 
+    // If loading for the first time with no items, we can still show a minimal state or nothing,
+    // but we avoid the full-page spinner that blocks everything.
     return (
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <InventoryTable
@@ -150,7 +140,7 @@ export default function Inventory() {
 
   return (
     <main
-      className="flex-1 flex flex-col bg-gray-50 overflow-y-auto"
+      className="flex-1 flex flex-col h-full overflow-y-auto"
       dir={i18n.dir()}
     >
       <SubscriptionBanner />
@@ -178,8 +168,17 @@ export default function Inventory() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setIsExportModalOpen(true)}
-                className="group hover:bg-primary hover:text-white hover:shadow-lg"
+                onClick={() => {
+                  if (isExpired) {
+                    toast.error(t("sub.feature_locked"));
+                  } else {
+                    setIsExportModalOpen(true);
+                  }
+                }}
+                className={cn(
+                  "group hover:bg-primary hover:text-white hover:shadow-lg",
+                  isExpired && "opacity-50 grayscale cursor-not-allowed",
+                )}
               >
                 <FileOutput className="h-4 w-4 text-gray-700 group-hover:text-white" />
                 {t("common.generate_report", "Report")}

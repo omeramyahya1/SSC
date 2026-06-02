@@ -7,6 +7,7 @@ from werkzeug.exceptions import HTTPException
 from db_setup import create_db_and_tables
 import signal
 import os
+import argparse
 
 
 # --- Flask App Setup ---
@@ -61,5 +62,18 @@ def shutdown():
 
 # --- Run the Flask app ---
 if __name__ == "__main__":
-    app.run(port=5000, debug=True, use_reloader=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--mode", type=str, default=os.environ.get("SSC_MODE", "dev"))
+    args = parser.parse_args()
 
+    port = int(args.port)
+    mode = (args.mode or "dev").lower()
+
+    if mode == "dev":
+        print("Serving for dev mode")
+        app.run(host="127.0.0.1", port=port, debug=True, use_reloader=True)
+    else:
+        from waitress import serve
+        print("Serving for prod mode")
+        serve(app, host="127.0.0.1", port=port, threads=12)

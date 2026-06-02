@@ -142,7 +142,7 @@ const SearchableSelect = ({ items, value, onValueChange, placeholder, disabled }
 
 // --- Constants ---
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^\+?[0-9\s-()]{7,20}$/; // Basic international phone number regex
+const PHONE_REGEX = /^\+?[0-9\s-()]{10,15}$/; // Basic international phone number regex
 
 const ContactSales = () => {
     const { t, i18n } = useTranslation();
@@ -454,7 +454,7 @@ const ContactSales = () => {
                                 <Button
                                     type="submit"
                                     className="w-full h-12 rounded-xl text-lg font-bold mt-4"
-                                    disabled={isSubmitting || remainingTime > 0 || enterpriseName === '' || contactEmail === '' || phoneNumber === '' || locationCity === '' || meetingPreference === ''}
+                                    disabled={isSubmitting || remainingTime > 0 || enterpriseName === '' || contactEmail === '' || phoneNumber === '' || locationCity === '' || meetingPreference === '' || !PHONE_REGEX.test(phoneNumber)}
                                 >
                                     {isSubmitting ? <Spinner /> : (remainingTime > 0 ? `${t('contact_sales.wait')} ${formatRemainingTime(remainingTime)}` : t('contact_sales.submit_button'))}
                                 </Button>

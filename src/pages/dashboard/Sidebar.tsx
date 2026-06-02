@@ -19,6 +19,8 @@ import {
 import { SidebarClose, SidebarOpen, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { toast } from "react-hot-toast";
+import { t } from "i18next";
 
 const SidebarItem = ({
   icon,
@@ -38,10 +40,17 @@ const SidebarItem = ({
   showSidebarContent: boolean;
 }) => {
   const { i18n } = useTranslation();
+  const { currentUser } = useUserStore();
+
+  const isExpired = currentUser?.status === "expired";
 
   const content = (
     <div
-      className={`flex flex-row gap-4 ${!showSidebarContent ? "justify-center" : "justify-start"}`}
+      className={cn(
+        "flex flex-row gap-4",
+        !showSidebarContent ? "justify-center" : "justify-start",
+        isExpired && to === "/home/inventory" && "opacity-50 grayscale",
+      )}
     >
       {icon !== "sales" ? (
         <img
@@ -62,11 +71,28 @@ const SidebarItem = ({
   );
 
   if (to) {
+    const isLocked = isExpired && to === "/home/inventory";
+
     return (
       <NavLink
-        to={to}
+        to={isLocked ? "#" : to}
+        onClick={(e) => {
+          if (isLocked) {
+            e.preventDefault();
+            toast.error(
+              t(
+                "sub.feature_locked",
+                "This feature is locked. Please renew your subscription.",
+              ),
+            );
+          }
+        }}
         className={({ isActive }) =>
-          `w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm flex items-center ${isActive && !isSelected ? "bg-white shadow-sm [&_img]:opacity-100" : ""}`
+          cn(
+            "w-full group justify-start gap-4 px-4 h-12 text-md rounded-lg hover:bg-white hover:shadow-sm flex items-center",
+            isActive && !isSelected && !isLocked && "bg-white shadow-sm [&_img]:opacity-100",
+            isLocked && "cursor-not-allowed",
+          )
         }
       >
         {content}
@@ -213,13 +239,12 @@ export function Sidebar() {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (!currentSubscription && currentUser?.uuid && !subscriptionFetched) {
+    if (currentUser?.uuid && !subscriptionFetched) {
       fetchSubscriptions(currentUser.uuid).finally(() =>
         setSubscriptionFetched(true),
       );
     }
   }, [
-    currentSubscription,
     fetchSubscriptions,
     currentUser?.uuid,
     subscriptionFetched,
@@ -241,7 +266,7 @@ export function Sidebar() {
     <>
       <Dialog onOpenChange={(open) => !open && setNonNavSelected(null)}>
         <div
-          className={`flex flex-col bg-primary-gray transition-all duration-300 ease-in-out ${isCollapsed ? "w-20" : "w-64"}`}
+          className={`flex flex-col h-full bg-primary-gray transition-all duration-300 ease-in-out ${isCollapsed ? "w-20" : "w-64"}`}
           onMouseEnter={() => {
             setIsHovering(true);
           }}
@@ -259,10 +284,10 @@ export function Sidebar() {
                 variant="outline"
                 size="icon"
                 onClick={() => setIsCollapsed(!isCollapsed)}
-                className={`group ${isCollapsed ? "hover:bg-gray-700" : "bg-gray-700"}`}
+                className={`group rounded-base w-12 h-12 ${isCollapsed ? "hover:bg-gray-700" : "bg-gray-700"}`}
               >
                 <SidebarOpen
-                  className={`h-6 w-6 text-gray-700 group-hover:text-white ${i18n.dir() === "rtl" && "rotate-180"}`}
+                  className={`h-auto w-auto text-gray-700 group-hover:text-white ${i18n.dir() === "rtl" && "rotate-180"}`}
                 />
               </Button>
             ) : (

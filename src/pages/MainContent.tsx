@@ -1,10 +1,12 @@
 import { Sidebar } from "./dashboard/Sidebar";
 import { InternetAlert } from "./dashboard/InternetAlert";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Toaster, toast } from "react-hot-toast";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import { useApplicationSettingsStore } from "@/store/useApplicationSettingsStore";
+import { useUserStore } from "@/store/useUserStore";
+import { useSubscriptionStore } from "@/store/useSubscriptionStore";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -21,12 +23,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { TCContent } from "@/components/ui/TCContent";
 import { Spinner } from "@/components/ui/spinner";
 import { useSync } from "@/hooks/useSync";
-import { Dialog, DialogTrigger } from "@radix-ui/react-dialog";
+import { Dialog } from "@radix-ui/react-dialog";
 import { SettingsModal } from "./dashboard/SettingsModal";
+import { AlertCircle } from "lucide-react";
+import { useOrganizationStore } from "@/store/useOrganizationStore";
 
 const MainContent = () => {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
+  const location = useLocation();
   useSync();
   const {
     showFirstTimeLoginPrompt,
@@ -40,14 +44,26 @@ const MainContent = () => {
     recordTCAgreement,
     currentSetting,
   } = useApplicationSettingsStore();
+  const { currentUser } = useUserStore();
+  const { refreshSubscriptionStatus } =
+    useSubscriptionStore();
+  const { fetchOrganizations } = useOrganizationStore();
+
   const [isAgreeing, setIsAgreeing] = useState(false);
   const [showTCModal, setShowTCModal] = useState(false);
 
   useEffect(() => {
     if (currentAuthentication?.user_uuid) {
       checkTCStatus(currentAuthentication.user_uuid);
+      refreshSubscriptionStatus(currentAuthentication.user_uuid);
+      fetchOrganizations();
     }
-  }, [currentAuthentication?.user_uuid, checkTCStatus]);
+  }, [
+    currentAuthentication?.user_uuid,
+    checkTCStatus,
+    refreshSubscriptionStatus,
+    fetchOrganizations,
+  ]);
 
   useEffect(() => {
     if (currentSetting) {
@@ -58,25 +74,13 @@ const MainContent = () => {
   }, [needsTCUpdate, currentSetting]);
 
   const handleAgreeTC = async () => {
-    console.log("handleAgreeTC start", {
-      latestTCId: latestTC?.id,
-      hasSetting: !!currentSetting,
-    });
-
-    if (!latestTC?.id) {
-      console.warn("No latestTC id found, returning early");
-      return;
-    }
-
+    if (!latestTC?.id) return;
     setIsAgreeing(true);
     try {
-      console.log("Calling recordTCAgreement for", latestTC.id);
       await recordTCAgreement(latestTC.id);
-      console.log("recordTCAgreement success");
       setShowTCModal(false);
       toast.success(t("tc.success.title", "Terms Accepted"));
     } catch (e) {
-      console.error("Failed to agree to T&C", e);
       toast.error(t("tc.error", "Failed to save agreement"));
     } finally {
       setIsAgreeing(false);
@@ -88,34 +92,93 @@ const MainContent = () => {
   };
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [hasDismissedExpirationOverlay, setHasDismissedExpirationOverlay] =
+    useState(false);
 
   const handleChangePassword = () => {
     setShowFirstTimeLoginPrompt(false);
     setIsSettingsOpen(true);
   };
 
-  useEffect(() => {
-    const stopDrop = (e: any) => {
-      e.preventDefault();
-      e.stopPropagation();
-    };
+  // Real-time subscription status calculation
+  const { currentSubscription } = useSubscriptionStore();
+  const now = new Date();
+  const expires = currentSubscription?.expiration_date ? new Date(currentSubscription.expiration_date) : null;
+  const graceEnd = currentSubscription?.grace_period_end ? new Date(currentSubscription.grace_period_end) :
+                   expires ? new Date(expires.getTime() + 7 * 24 * 60 * 60 * 1000) : null;
 
-    // 'dragover' must be prevented for 'drop' to be blocked
-    window.addEventListener("dragover", stopDrop, false);
-    window.addEventListener("drop", stopDrop, false);
+  const isExpired = (currentUser?.status === "expired") || (graceEnd && now > graceEnd);
+  const isGrace = (currentUser?.status === "grace") || (expires && now > expires && (!graceEnd || now <= graceEnd));
+  const canManageSubscription = currentUser?.role === "admin" || currentUser?.role === "user";
 
-    return () => {
-      window.removeEventListener("dragover", stopDrop);
-      window.removeEventListener("drop", stopDrop);
-    };
-  }, []);
+  // Check if current route is allowed during expiration
+  const isAllowedRoute =
+    location.pathname.includes("/subscription") ||
+    location.pathname.includes("/settings");
 
   return (
-    <div className="flex h-screen w-full font-sans">
+    <div className="flex h-screen w-full font-sans relative overflow-hidden">
       <Toaster />
       <InternetAlert />
       <Sidebar />
-      <Outlet />
+
+      {/* Main App Content */}
+      <main className="flex-1 relative overflow-y-auto">
+        {/* Grace Period Banner */}
+        {isGrace && (
+          <div className="bg-semantic-warning text-white px-4 py-2 flex items-center justify-between animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2">
+              <AlertCircle size={18} />
+              <p className="text-sm font-medium">
+                {t(
+                  "sub.grace_warning",
+                  "Your subscription has expired. You are currently in a grace period. Please renew to avoid service interruption.",
+                )}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Blocking Overlay for Expired Accounts */}
+        {isExpired && !isAllowedRoute && !hasDismissedExpirationOverlay && (
+          <div className="absolute inset-0 z-[100] bg-background/80 backdrop-blur-md flex items-center justify-center p-6">
+            <div className="bg-white border-2 border-destructive/20 shadow-2xl rounded-2xl max-w-lg w-full p-8 text-center space-y-6">
+              <div className="w-20 h-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto">
+                <AlertCircle size={40} className="text-semantic-error" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-3xl font-black text-neutral">
+                  {t("sub.expired_title", "Subscription Expired")}
+                </h2>
+                <p className="text-neutral/60">
+                  {canManageSubscription
+                    ? t(
+                        "sub.expired_desc_admin",
+                        "Your access has been suspended due to an expired subscription. Please renew your plan to continue using all features.",
+                      )
+                    : t(
+                        "sub.expired_desc_employee",
+                        "Your organization's subscription has expired. Please contact your administrator to restore access.",
+                      )}
+                </p>
+              </div>
+
+              <div className="flex flex-row gap-2 justify-center">
+                <Button
+                  className="h-12 px-8 text-lg font-bold"
+                  onClick={() => setHasDismissedExpirationOverlay(true)}
+                >
+                  {t("common.confirm", "Confirm")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Outlet />
+      </main>
+
+      {/* Modals and Dialogs */}
       <AlertDialog
         open={showFirstTimeLoginPrompt}
         onOpenChange={setShowFirstTimeLoginPrompt}
@@ -152,6 +215,7 @@ const MainContent = () => {
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
         <SettingsModal passwordChange={true} />
       </Dialog>
+
       <AlertDialog open={showTCModal} onOpenChange={setShowTCModal}>
         <AlertDialogContent className="max-w-2xl max-h-[90vh] bg-white flex flex-col p-0 overflow-hidden">
           <AlertDialogHeader className="p-6 pb-2">
@@ -170,7 +234,9 @@ const MainContent = () => {
             <ScrollArea className="h-[50vh] border-2 p-4 rounded-base bg-neutral/5">
               <TCContent
                 content={
-                  latestTC?.content?.[i18n.language === "ar" ? "ar" : "en"]
+                  latestTC?.content?.[i18n.language === "ar" ? "ar" : "en"] ||
+                  latestTC?.content?.en ||
+                  latestTC?.content?.ar
                 }
                 metadata={latestTC?.content?.metadata}
               />

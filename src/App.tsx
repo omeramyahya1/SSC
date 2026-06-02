@@ -17,13 +17,45 @@ import Sales from "./pages/sales/Sales"
 import TeamOrganization from "./pages/team & organization/TeamOrganization";
 import { VersionHandler } from "./components/versioning/VersionHandler";
 
+import { useTranslation } from "react-i18next";
+import { getBackendBaseUrl } from "./api/backendBaseUrl";
+
 function App() {
+  const { t } = useTranslation();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [backendError, setBackendError] = useState<string | null>(null);
   const { currentAuthentication, fetchLatestAuthentication } = useAuthenticationStore();
 
   useEffect(() => {
+    let aborted = false;
     const hydrateAndCheckAuth = async () => {
-      // Hydrate stores from data pre-loaded by the splash screen
+      // 1. Wait for Backend Readiness
+      const baseUrl = await getBackendBaseUrl();
+      const startTime = Date.now();
+      const timeout = 60000; // 60 seconds
+      let isReady = false;
+
+      while (!isReady && !aborted) {
+        if (Date.now() - startTime > timeout) {
+          if (!aborted) setBackendError(t("errors.backend_timeout"));
+          return;
+        }
+
+        try {
+          const res = await fetch(`${baseUrl}health`);
+          if (res.ok) {
+            isReady = true;
+          } else {
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        } catch (e) {
+          // Swallow connection errors and retry
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+      if (aborted) return;
+
+      // 2. Hydrate stores from data pre-loaded by the splash screen
       const preloadedUser = localStorage.getItem('preloaded-user');
       const preloadedSettings = localStorage.getItem('preloaded-settings');
 
@@ -74,7 +106,8 @@ function App() {
     };
 
     hydrateAndCheckAuth();
-  }, [fetchLatestAuthentication]);
+    return () => { aborted = true; };
+  }, [fetchLatestAuthentication, t]);
 
   useEffect(() => {
     // This effect runs whenever currentAuthentication changes or after the initial fetch
@@ -83,6 +116,27 @@ function App() {
     }
   }, [currentAuthentication]);
 
+
+  if (backendError) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-background flex items-center justify-center p-4">
+        <div className="bg-white border shadow-lg rounded-lg max-w-md w-full p-6 text-center">
+          <h2 className="text-2xl font-bold mb-4 text-destructive">
+            {t("errors.connection_failed")}
+          </h2>
+          <p className="mb-6 text-muted-foreground">
+            {backendError}
+          </p>
+          <button
+            className="w-full bg-primary text-primary-foreground py-2 rounded-md hover:bg-primary/90"
+            onClick={() => window.location.reload()}
+          >
+            {t("common.retry")}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoggedIn === null) {
     // Render a loading state or nothing while we determine auth status

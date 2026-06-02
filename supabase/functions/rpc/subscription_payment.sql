@@ -9,9 +9,10 @@ CREATE OR REPLACE FUNCTION public.subscription_payment(
   p_trx_screenshot text DEFAULT NULL,
   p_distributor_id uuid DEFAULT NULL
 )
-RETURNS json
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   v_user_id uuid;
@@ -19,7 +20,26 @@ DECLARE
   v_final_distributor_id uuid;
   v_commission_percent integer;
   v_commission_amount double precision;
+  v_existing_payment_id uuid;
 BEGIN
+  -- 0. Idempotency: if there's already an under_processing payment for this subscription, return it.
+  SELECT sp.id
+  INTO v_existing_payment_id
+  FROM public.subscription_payments sp
+  WHERE sp.subscription_id = p_subscription_uuid
+    AND sp.status::text = 'under_processing'
+    AND sp.deleted_at IS NULL
+  ORDER BY sp.created_at DESC
+  LIMIT 1;
+
+  IF v_existing_payment_id IS NOT NULL THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'message', 'Payment already under processing',
+      'payment_id', v_existing_payment_id
+    );
+  END IF;
+
   -- 1. Get the user_id and existing distributor_id associated with the subscription
   SELECT s.user_id, u.distributor_id
   INTO v_user_id, v_existing_distributor_id
@@ -28,7 +48,7 @@ BEGIN
   WHERE s.id = p_subscription_uuid;
 
   IF v_user_id IS NULL THEN
-    RETURN json_build_object('success', false, 'message', 'Subscription or User not found');
+    RETURN jsonb_build_object('success', false, 'message', 'Subscription or User not found');
   END IF;
 
   -- 2. Determine the final distributor_id to use
@@ -58,7 +78,8 @@ BEGIN
     p_trx_no,
     p_trx_screenshot,
     'under_processing'
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
 
   -- 5. Handle commission if a distributor is linked
   IF v_final_distributor_id IS NOT NULL THEN
@@ -87,7 +108,7 @@ BEGIN
     END IF;
   END IF;
 
-  RETURN json_build_object(
+  RETURN jsonb_build_object(
     'success', true,
     'message', 'Payment recorded successfully',
     'payment_id', p_payment_uuid
@@ -95,6 +116,6 @@ BEGIN
 
 EXCEPTION
   WHEN OTHERS THEN
-    RETURN json_build_object('success', false, 'message', SQLERRM);
+    RETURN jsonb_build_object('success', false, 'message', SQLERRM);
 END;
 $$;

@@ -5,15 +5,19 @@ import {
   AppManifest,
   compareVersions,
   getAppChannel,
+  isPrereleaseVersion,
+  SupabaseNotification,
 } from "@/lib/version";
 import { getVersion } from "@tauri-apps/api/app";
 import { check, Update } from "@tauri-apps/plugin-updater";
+import { supabase } from "@/lib/supabaseClient";
 
 interface VersionStore {
   hasDismissedBetaWarning: boolean;
   channel: AppChannel;
   currentVersion: string;
   manifest: AppManifest | null;
+  activeNotification: SupabaseNotification | null;
   tauriUpdate: Update | null;
   isLoading: boolean;
   isBetaWarningOpen: boolean;
@@ -24,20 +28,30 @@ interface VersionStore {
   downloadProgress: number;
   error: string | null;
 
-  checkVersion: () => Promise<void>;
+  checkVersion: (version: any) => Promise<void>;
   installUpdate: () => Promise<boolean>;
   closeBetaWarning: () => void;
   closeNotification: () => void;
 }
 
-const MANIFEST_URL =
-  "https://raw.githubusercontent.com/omeramyahya1/SSC/main/manifest.json";
+const MANIFEST_URLS: Record<Exclude<AppChannel, "dev">, string> = {
+  beta: "https://raw.githubusercontent.com/omeramyahya1/SSC/beta-1/manifest.json",
+  prod: "https://raw.githubusercontent.com/omeramyahya1/SSC/main/manifest.json",
+};
+
+function isUpdateVersionAllowed(channel: AppChannel, version: string): boolean {
+  if (channel === "dev") return true;
+  const prerelease = isPrereleaseVersion(version);
+  if (channel === "beta") return prerelease;
+  return !prerelease;
+}
 
 export const useVersionStore = create<VersionStore>((set, get) => ({
   hasDismissedBetaWarning: false,
   channel: getAppChannel(),
   currentVersion: "0.0.0",
   manifest: null,
+  activeNotification: null,
   tauriUpdate: null,
   isLoading: false,
   isBetaWarningOpen: false,
@@ -48,40 +62,71 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
   downloadProgress: 0,
   error: null,
 
-  checkVersion: async () => {
+  checkVersion: async (versionOverride?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const currentVersion = await getVersion();
-      const channel = getAppChannel();
+      const currentVersion = versionOverride || (await getVersion());
+      const channel = getAppChannel(currentVersion);
 
       // 1. Fetch our custom manifest for logic/notifications
-      const { data: manifest } = await axios.get<AppManifest>(MANIFEST_URL);
+      const manifestUrl =
+        channel === "dev" ? MANIFEST_URLS.beta : MANIFEST_URLS[channel];
+      const { data: manifest } = await axios.get<AppManifest>(manifestUrl);
 
-      // 2. Check for Tauri updates (for download/install)
-      const tauriUpdate = await check();
+      // 2. Fetch the latest active notification from Supabase
+      const { data: notifications } = await supabase
+        .from("app_notifications")
+        .select("*")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-      const isUpdateRequired =
+      const activeNotification = (notifications?.[0] as SupabaseNotification) || null;
+
+      // 3. Check for updates
+      let tauriUpdate: Update | null = null;
+      let isUpdateRequired = false;
+      let isUpdateAvailable = false;
+
+      // We allow beta to check for updates too. 
+      // isUpdateVersionAllowed will ensure they only see beta updates.
+      tauriUpdate = await check();
+
+      isUpdateRequired =
+        isUpdateVersionAllowed(channel, manifest.critical_min_version) &&
         compareVersions(currentVersion, manifest.critical_min_version) < 0;
-      const isUpdateAvailable =
-        tauriUpdate?.available ||
+
+      const eligibleTauriUpdate =
+        tauriUpdate?.available &&
+        (!tauriUpdate.version ||
+          isUpdateVersionAllowed(channel, tauriUpdate.version))
+          ? tauriUpdate
+          : null;
+
+      const manifestAllowed =
+        isUpdateVersionAllowed(channel, manifest.latest_version) &&
         compareVersions(currentVersion, manifest.latest_version) < 0;
+
+      isUpdateAvailable = !!eligibleTauriUpdate || manifestAllowed;
+      tauriUpdate = eligibleTauriUpdate;
 
       // Beta Warning: show if channel is beta
       const { hasDismissedBetaWarning } = get();
       const isBetaWarningOpen = channel === "beta" && !hasDismissedBetaWarning;
 
-      // Notification: show if manifest has a new notification ID
+      // Notification: show if supabase has a new notification ID
       const lastSeenNotificationId = localStorage.getItem(
         "last_seen_notification_id",
       );
       const isNotificationOpen =
-        !!manifest.notification &&
-        manifest.notification.id !== lastSeenNotificationId;
+        !!activeNotification &&
+        activeNotification.id !== lastSeenNotificationId;
 
       set({
         channel,
         currentVersion,
         manifest,
+        activeNotification,
         tauriUpdate,
         isBetaWarningOpen,
         isNotificationOpen,
@@ -131,11 +176,11 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
   closeBetaWarning: () =>
     set({ isBetaWarningOpen: false, hasDismissedBetaWarning: true }),
   closeNotification: () => {
-    const { manifest } = get();
-    if (manifest?.notification) {
+    const { activeNotification } = get();
+    if (activeNotification) {
       localStorage.setItem(
         "last_seen_notification_id",
-        manifest.notification.id,
+        activeNotification.id,
       );
     }
     set({ isNotificationOpen: false });

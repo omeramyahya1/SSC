@@ -1,7 +1,7 @@
 // src/store/useSyncLogStore.ts
 import { create } from 'zustand';
 import api from '@/api/client';
-import { registerStore, StoreKeys, refreshStores } from '@/api/storeRegistry';
+import { registerStore, StoreKeys } from '@/api/storeRegistry';
 import toast from 'react-hot-toast';
 import i18next from 'i18next';
 
@@ -56,11 +56,11 @@ export const useSyncLogStore = create<SyncLogStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const { data } = await api.get<SyncLog[]>(resource);
-      
+
       const parseDate = (dateStr: string) => {
           // If the date string doesn't have a timezone indicator, assume it's UTC
-          const normalized = (dateStr.includes('Z') || dateStr.includes('+')) 
-              ? dateStr 
+          const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(dateStr)
+              ? dateStr
               : `${dateStr}Z`;
           return new Date(normalized).getTime();
       };
@@ -159,9 +159,6 @@ export const useSyncLogStore = create<SyncLogStore>((set, get) => ({
         await api.post('/sync_logs/sync', {}, { timeout: 60000 });
         set({ lastSyncTime: new Date().toISOString() });
         // Success: Don't show toast as per requirements
-
-        // Refresh all stores to ensure UI has latest local data after sync
-        refreshStores(Object.values(StoreKeys));
     } catch (e: any) {
         console.error("Sync process failed:", e);
         toast.error(i18next.t('sync.failed'));

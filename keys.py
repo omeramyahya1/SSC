@@ -153,6 +153,10 @@ def main() -> int:
     # Find keys that are in JSON but not used by t("...") calls
     candidate_unused = sorted(k for k in json_union if k not in t_keys)
 
+    # Find keys that are used in code but missing from JSON files
+    missing_in_en = sorted(k for k in t_keys if k not in en_keys)
+    missing_in_ar = sorted(k for k in t_keys if k not in ar_keys)
+
     print("Loading src/ text for plain-string searching...")
     all_src_text = load_all_src_text(SRC_PAGES)
 
@@ -166,6 +170,17 @@ def main() -> int:
     print(f"t() keys found in src: {len(t_keys)}")
     print(f"EN translation keys: {len(en_keys)}")
     print(f"AR translation keys: {len(ar_keys)}")
+    
+    if missing_in_en:
+        print(f"\n[!] Keys missing in EN translation ({len(missing_in_en)}):")
+        for k in missing_in_en:
+            print(f"  - {k}")
+    
+    if missing_in_ar:
+        print(f"\n[!] Keys missing in AR translation ({len(missing_in_ar)}):")
+        for k in missing_in_ar:
+            print(f"  - {k}")
+
     print()
     print(f"Keys in JSON but NOT found in src (t() or plain text): {len(truly_unused)}")
     print(f"Keys deletable (present in BOTH EN+AR): {len(deletable)}")

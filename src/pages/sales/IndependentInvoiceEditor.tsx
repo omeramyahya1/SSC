@@ -26,7 +26,7 @@ import api from "@/api/client";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useInvoiceStore, InvoiceDetails } from "@/store/useInvoiceStore";
 import { Customer } from "@/store/useCustomerStore";
-import { User } from "@/store/useUserStore";
+import { User, useUserStore } from "@/store/useUserStore";
 import { InventoryItem, useInventoryStore } from "@/store/useInventoryStore";
 import { InventorySelectorModal } from "@/pages/dashboard/components selection/InventorySelectorModal";
 
@@ -100,7 +100,7 @@ export function IndependentInvoiceEditor({
   const { fetchItems, fetchCategories } = useInventoryStore();
 
   const { getClimateDataForCity } = useLocationData();
-
+  const { currentUser } = useUserStore();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [manualItems, setManualItems] = useState<ManualItem[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryLineItem[]>([]);
@@ -448,7 +448,7 @@ export function IndependentInvoiceEditor({
   };
 
   const handleIssue = useCallback(async () => {
-    if (!user?.uuid) {
+    if (!currentUser?.uuid) {
       toast.error(t("invoicing.error_no_user", "User not authenticated."));
       return;
     }
@@ -477,7 +477,7 @@ export function IndependentInvoiceEditor({
         invoice_items: { manual: manualItems, inventory: inventoryItems },
         amount: grandTotal,
       });
-      await issueInvoice(currentInvoice.uuid, user.uuid);
+      await issueInvoice(currentInvoice.uuid, currentUser.uuid);
       toast.success(
         t("invoicing.issue_success", "Invoice issued successfully!"),
       );
@@ -487,7 +487,7 @@ export function IndependentInvoiceEditor({
       );
     }
   }, [
-    user?.uuid,
+    currentUser?.uuid,
     currentInvoice,
     shippingFee,
     installationFee,

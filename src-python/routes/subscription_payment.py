@@ -8,13 +8,39 @@ from .sync_log import upload_blob
 
 import base64
 import uuid
+import json
 
 import logging
 logger = logging.getLogger(__name__)
 
 from supabase_client import get_service_role_client
+from postgrest.exceptions import APIError
 
 subscription_payment_bp = Blueprint('subscription_payment_bp', __name__, url_prefix='/subscription_payments')
+
+def _parse_success_json_from_api_error_details(details):
+    """
+    Some Supabase/PostgREST edge cases return a successful JSON payload in APIError.details
+    while raising an exception with message "JSON could not be generated".
+    """
+    if details is None:
+        return None
+
+    raw = details
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8", errors="replace")
+    elif not isinstance(raw, str):
+        raw = str(raw)
+
+    # details may look like: b'{"success" : true, ...}'
+    if raw.startswith("b'") and raw.endswith("'"):
+        raw = raw[2:-1]
+
+    raw = raw.strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return None
 
 @subscription_payment_bp.route('/', methods=['POST'])
 def create_subscription_payment():
@@ -37,7 +63,7 @@ def create_subscription_payment():
         ).first()
 
         if existing_pending:
-            return jsonify({"error": "A payment is already under processing for this subscription."}), 400
+            return jsonify({"payment": model_to_dict(existing_pending), "message": "Payment already under processing"}), 200
 
         # Fetch the user associated with this subscription to get the distributor_id
         subscription = db.query(Subscription).filter(Subscription.uuid == subscription_uuid).first()
@@ -111,6 +137,38 @@ def create_subscription_payment():
                 'p_distributor_id': final_distributor_id # Use the verified ID
             }
 
+            # Idempotency (cloud): if there is already an under_processing payment, return it.
+            existing_cloud = (
+                service_client.table("subscription_payments")
+                .select("*")
+                .eq("subscription_id", subscription_uuid)
+                .eq("status", "under_processing")
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            ).data or []
+            if existing_cloud:
+                # Keep local + cloud consistent
+                existing_cloud_payment = existing_cloud[0]
+                existing_local = db.query(SubscriptionPayment).filter(SubscriptionPayment.uuid == existing_cloud_payment.get("id")).first()
+                if not existing_local:
+                    # Create a local mirror row (no bytes; trx_screenshot is a URL in cloud)
+                    mirror = SubscriptionPayment(
+                        uuid=str(existing_cloud_payment.get("id")),
+                        subscription_uuid=subscription_uuid,
+                        amount=existing_cloud_payment.get("amount"),
+                        payment_method=existing_cloud_payment.get("payment_method"),
+                        trx_no=existing_cloud_payment.get("trx_no"),
+                        trx_screenshot=None,
+                        status=existing_cloud_payment.get("status") or "under_processing",
+                        is_dirty=False,
+                    )
+                    db.add(mirror)
+                    db.commit()
+                    db.refresh(mirror)
+                    return jsonify({"payment": model_to_dict(mirror), "message": "Payment already under processing"}), 200
+                return jsonify({"payment": model_to_dict(existing_local), "message": "Payment already under processing"}), 200
+
             rpc_response = service_client.rpc('subscription_payment', rpc_params).execute()
 
             rpc_data = getattr(rpc_response, 'data', None) or {}
@@ -123,6 +181,18 @@ def create_subscription_payment():
                 db.delete(new_item)
                 db.commit()
                 return jsonify({"error": "Payment registration failed remotely", "details": err_msg}), 502
+        except APIError as e:
+            # Known edge case: PostgREST can raise "JSON could not be generated" even when details contain success JSON.
+            msg = getattr(e, "message", "") or ""
+            details = getattr(e, "details", None)
+            parsed = _parse_success_json_from_api_error_details(details)
+            if "JSON could not be generated" in msg and isinstance(parsed, dict) and parsed.get("success") is True:
+                return jsonify(model_to_dict(new_item)), 201
+
+            logger.error(f"Failed to call remote RPC for payment {payment_uuid}: {e}", exc_info=True)
+            db.delete(new_item)
+            db.commit()
+            return jsonify({"error": "Payment registration failed remotely", "details": msg}), 502
         except Exception as e:
             logger.error(f"Failed to call remote RPC for payment {payment_uuid}: {e}", exc_info=True)
             db.delete(new_item)

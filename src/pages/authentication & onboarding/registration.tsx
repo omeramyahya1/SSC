@@ -47,6 +47,7 @@ import { useAuthenticationStore } from '@/store/useAuthenticationStore';
 import { useUserStore } from '@/store/useUserStore';
 import { useApplicationSettingsStore } from '@/store/useApplicationSettingsStore';
 import toast from 'react-hot-toast';
+import { refreshStores, StoreKeys } from '@/api/storeRegistry';
 
 // --- Constants ---
 const TOTAL_STAGES = 8;
@@ -142,7 +143,7 @@ export default function RegistrationScreen() {
                     setPricingIsLoading(false);
                 }
             };    fetchPricing();
-    
+
     const fetchBankDetails = async () => {
         try {
             const response = await api.get('/users/bank-accounts');
@@ -282,8 +283,8 @@ export default function RegistrationScreen() {
           // Construct reference number with account number if available
           const selectedMethod = formData.stage6.paymentMethod?.toLowerCase();
           const accountNo = bankDetails?.[selectedMethod]?.account_number;
-          const finalReferenceNumber = accountNo 
-              ? `${formData.stage7.referenceNumber} | ${accountNo}` 
+          const finalReferenceNumber = accountNo
+              ? `${formData.stage7.referenceNumber} | ${accountNo}`
               : formData.stage7.referenceNumber;
 
           // Construct a clean payload matching the backend DTO
@@ -437,9 +438,15 @@ export default function RegistrationScreen() {
 
           <footer className="relative pt-8 mt-auto w-full ">
             <div className="flex flex-col items-center justify-between">
-              <div className="w-24"></div>
 
-              {currentStage < 8 && (
+              {submissionError && currentStage === 7 && (
+                  <div className="text-red-500 text-sm mt-2 text-center flex items-center gap-2 mb-5">
+                      <AlertCircle className="w-4 h-4" /> {submissionError}
+                  </div>
+              )}
+
+              <div className='flex flex-row justify-between w-full'>
+                {currentStage < 8 && (
                 <div className="w-full max-w-xs mx-auto">
                   <Progress value={progressPercentage} className="h-3 bg-white border border-x-primary-gray shadow-md" />
                   <p className="text-center text-sm text-neutral/60 mt-2">
@@ -447,14 +454,7 @@ export default function RegistrationScreen() {
                   </p>
                 </div>
               )}
-
-              {submissionError && currentStage === 7 && (
-                  <div className="text-red-500 text-sm mt-2 text-center flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" /> {submissionError}
-                  </div>
-              )}
-
-              <div className="w-24 flex justify-end absolute bottom-0 end-0">
+              <div className="w-24 flex">
                 {currentStage < TOTAL_STAGES && formData.stage3.plan !== 'Tier2' && (
                   <Button
                     onClick={handleNext}
@@ -473,6 +473,7 @@ export default function RegistrationScreen() {
                         : t('registration.next', 'Next')}
                   </Button>
                 )}
+              </div>
               </div>
             </div>
           </footer>
@@ -778,7 +779,7 @@ const Stage3 = ({ setValid, fetchedPricingData, pricingIsLoading }: { setValid: 
                         <CardContent className="space-y-6">
                             <div className="space-y-2">
                                 <Label className="font-bold">{t('registration.employees_count', 'Number of Employees')}: {data.employees}</Label>
-                                <Slider disabled={data.plan !== 'Tier1'} defaultValue={[data.employees]} max={20} min={1} step={1} onValueChange={(vals) => updateFormData('stage3', {employees: vals[0]})}
+                                <Slider disabled={data.plan !== 'Tier1'} defaultValue={[data.employees]} max={50} min={1} step={1} onValueChange={(vals) => updateFormData('stage3', {employees: vals[0]})}
                                   onClick={(e) => { e.stopPropagation(); handlePlanSelect('Tier1'); }} dir={i18n.dir()}/>
                             </div>
                             <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
@@ -901,9 +902,9 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
         return [];
     }, [data.locationState]);
 
-    useEffect(() => {
-        setValid(true); // Always skippable
-    }, [setValid]);
+
+    setValid(true); // always skippable
+
 
     const handleCityChange = (cityVal: string) => {
         const cityObj = cities.find(c => c.value === cityVal);
@@ -921,7 +922,7 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
     return (
       <div className="space-y-4 w-full mx-auto md:mx-0">
         <CommonHeader title='' text={accountType === 'Enterprise' ? t('registration.org_info', 'Organization Info') : t('registration.business_info', 'Business Info')} />
-        <p className="text-sm text-neutral/50 -mt-6 mb-6 ps-1">{t('registration.optional', '(Optional)')}</p>
+        <p className="text-sm text-neutral/50 mb-6 text-center">{t('registration.optional', '(Optional)')}</p>
 
         <div className="space-y-1.5">
           <Label className="block text-sm font-bold text-neutral/80 ps-1">
@@ -942,8 +943,6 @@ const Stage4 = ({ setValid }: { setValid: (v: boolean) => void }) => {
            <SearchableSelect items={cities.map(c => ({ value: c.value, label: isArabic ? c.label_ar : c.label_en }))} value={data.locationCity}
                onValueChange={handleCityChange} placeholder={t('registration.select_city', 'Select city')} disabled={!data.locationState} />
         </div>
-
-
       </div>
     );
 };
@@ -1194,7 +1193,7 @@ const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData, bankDetails }: 
                   <AccordionItem key={method} value={method}>
                       <AccordionTrigger className="hover:no-underline">
                         <div className="flex items-center gap-4 w-full">
-                            <div className={`w-10 h-10 rounded-base overflow-hidden flex items-center justify-center transition-colors border ${data.paymentMethod === method ? 'border-primary shadow-sm' : 'border-neutral/10'}`}>
+                            <div className={`w-10 h-10 rounded-base overflow-hidden flex items-center justify-center transition-colors border border-neutral/10`}>
                                 <img src={`/bank_icons/${method.toLowerCase()}.jpg`} className="w-full h-full object-cover" alt={t('registration.card_alt', "icon")}/>
                             </div>
                             <span className={data.paymentMethod === method ? 'font-bold text-primary' : ''}>{method}</span>
@@ -1215,7 +1214,7 @@ const Stage6 = ({ setValid, calculatedPrice, fetchedPricingData, bankDetails }: 
                                         <div className="font-semibold">
                                             {t('registration.account_name', 'Account Name')}: {bankDetails[method.toLowerCase()]?.account_name}
                                         </div>
-                                        <div className="font-mono text-lg">
+                                        <div className="font-mono font-bold text-2xl text-primary">
                                             {bankDetails[method.toLowerCase()]?.account_number}
                                         </div>
                                     </div>
@@ -1332,7 +1331,7 @@ const Stage8 = () => {
         setError(null);
         try {
             // Use a longer timeout for the sync process
-            await api.post('/sync_logs/sync', {}, { timeout: 60000 }); // 60-second timeout
+            await api.post('/sync_logs/sync', { registration: true }, { timeout: 60000 }); // 60-second timeout
             setSyncStatus('success');
         } catch (err: any) {
             console.error("Initial sync failed:", err);
@@ -1347,7 +1346,7 @@ const Stage8 = () => {
     }, []);
 
 
-    const handleDashboard = async () => {
+    const handleFinish = async () => {
         setIsLoading(true);
         setError(null);
         try {
@@ -1375,7 +1374,8 @@ const Stage8 = () => {
                     localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
                     console.log(4)
                 }
-                navigate('/dashboard');
+                refreshStores(Object.values(StoreKeys));
+                navigate('/login');
             } else {
                 throw new Error("Could not retrieve latest authentication data.");
             }
@@ -1427,8 +1427,8 @@ const Stage8 = () => {
                             <p className="text-red-500 text-sm mb-4">{error}</p>
                         )}
                         <div className="space-y-4">
-                            <Button onClick={handleDashboard} className='w-full text-white' size="lg" disabled={isLoading}>
-                                {isLoading ? <Spinner /> : t('registration.go_dashboard', 'Go to Dashboard')}
+                            <Button onClick={handleFinish} className='w-full text-white' size="lg" disabled={isLoading}>
+                                {isLoading ? <Spinner /> : t('registration.finish', 'Finish')}
                             </Button>
                             <Link to="/help" className="block text-sm text-primary hover:underline">
                                 {t('registration.report_issue', 'Report an issue')}

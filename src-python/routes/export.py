@@ -2,9 +2,9 @@ from flask import Blueprint, request, send_file, jsonify
 from utils import get_db
 from models import Project, Invoice, ProjectComponent, Customer
 from sqlalchemy.orm import joinedload
-import pandas as pd
 import io
 import os
+import sys
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from urllib.parse import quote
@@ -14,9 +14,35 @@ try:
 except ImportError:
     HTML = None
 
+
+def _get_pandas():
+    try:
+        import pandas as pd  # type: ignore
+        return pd
+    except Exception as e:
+        raise RuntimeError(
+            "Optional dependency 'pandas' failed to import. "
+            "This feature is required for export endpoints."
+        ) from e
+
 export_bp = Blueprint('export_bp', __name__, url_prefix='/export')
 
-TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), '..', 'pdf_engine', 'templates')
+# --- Resource Path Resolution ---
+if getattr(sys, 'frozen', False) and "__compiled__" in globals():
+    # Bundled mode (Nuitka)
+    BUNDLE_DIR = os.path.dirname(sys.argv[0])
+    TEMPLATE_DIR = os.path.join(BUNDLE_DIR, 'templates')
+    GEO_DATA_PATH = os.path.join(BUNDLE_DIR, 'dataset', 'geo_data.csv')
+    LOGO_PATH = os.path.join(BUNDLE_DIR, 'ssc.svg')
+    ASSETS_DIR = os.path.join(BUNDLE_DIR, 'assets')
+else:
+    # Development mode
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    TEMPLATE_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'pdf_engine', 'templates'))
+    GEO_DATA_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', 'ble', 'dataset', 'geo_data.csv'))
+    LOGO_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'public', 'ssc.svg'))
+    ASSETS_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'pdf_engine', 'assets'))
+
 jinja_env = Environment(
     loader=FileSystemLoader(TEMPLATE_DIR),
     autoescape=select_autoescape(enabled_extensions=('html', 'xml')),
@@ -122,17 +148,17 @@ BLE_LABELS = {
     }
 }
 
-GEO_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'ble', 'dataset', 'geo_data.csv'))
 _geo_df = None
 
 def _load_geo_data():
     global _geo_df
     if _geo_df is None:
         try:
+            pd = _get_pandas()
             _geo_df = pd.read_csv(GEO_DATA_PATH)
         except Exception as e:
-            print(f"Warning: Could not load geo_data.csv for export localization: {e}")
-            _geo_df = pd.DataFrame()
+            print(f"Warning: Could not load geo_data.csv from {GEO_DATA_PATH}: {e}")
+            _geo_df = None
     return _geo_df
 
 def _get_localized_location(location_str, lang):
@@ -169,11 +195,10 @@ def _clamp_margin_mm(value, *, default=0.0, min_value=0.0, max_value=40.0):
 
 def _load_ssc_logo_svg():
     try:
-        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-        svg_path = os.path.join(repo_root, 'public', 'ssc.svg')
-        with open(svg_path, 'r', encoding='utf-8') as f:
+        with open(LOGO_PATH, 'r', encoding='utf-8') as f:
             return f.read()
-    except Exception:
+    except Exception as e:
+        print(f"Warning: Could not load logo from {LOGO_PATH}: {e}")
         return None
 
 def _svg_to_data_uri(svg_text: str | None):
@@ -258,6 +283,7 @@ def export_excel(project_uuid):
                 "Total": float((comp.price_at_sale or 0) * comp.quantity)
             })
 
+        pd = _get_pandas()
         df_items = pd.DataFrame(items_data)
 
         # Totals and Metadata
@@ -274,8 +300,10 @@ def export_excel(project_uuid):
                 {"Field": "Discount Percent", "Value": f"{details.get('discount_percent') or 0}%"},
                 {"Field": "Grand Total", "Value": float(invoice.amount or 0)},
             ]
+            pd = _get_pandas()
             df_summary = pd.DataFrame(summary_data)
         else:
+            pd = _get_pandas()
             df_summary = pd.DataFrame([{"Field": "Status", "Value": "No Invoice Created"}])
 
         # Sheet 2: System Configuration
@@ -293,9 +321,11 @@ def export_excel(project_uuid):
             add_section("Inverter", config.get('inverter', {}))
             add_section("Battery Bank", config.get('battery_bank', {}))
 
+        pd = _get_pandas()
         df_config = pd.DataFrame(config_data)
 
         output = io.BytesIO()
+        pd = _get_pandas()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_items.to_excel(writer, sheet_name='Invoice Items', index=False)
             df_summary.to_excel(writer, sheet_name='Invoice Summary', index=False)
@@ -321,6 +351,7 @@ def export_excel_invoice(invoice_uuid):
         lang = request.args.get('lang', 'en')
         localized_location = _get_localized_location(details.get("project_location"), lang)
 
+        pd = _get_pandas()
         df_items = pd.DataFrame([{
             "Item": i["name"],
             "Brand": i["brand"],
@@ -345,9 +376,11 @@ def export_excel_invoice(invoice_uuid):
             {"Field": "Discount Amount", "Value": float(discount_amount)},
             {"Field": "Grand Total", "Value": float(invoice.amount or 0)},
         ]
+        pd = _get_pandas()
         df_summary = pd.DataFrame(summary_data)
 
         output = io.BytesIO()
+        pd = _get_pandas()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df_items.to_excel(writer, sheet_name='Invoice Items', index=False)
             df_summary.to_excel(writer, sheet_name='Invoice Summary', index=False)
@@ -605,6 +638,7 @@ def export_csv(project_uuid):
                 "Total": float((comp.price_at_sale or 0) * comp.quantity)
             })
 
+        pd = _get_pandas()
         df = pd.DataFrame(items_data)
         output = io.BytesIO()
         df.to_csv(output, index=False, encoding='utf-8')
@@ -625,6 +659,7 @@ def export_csv_invoice(invoice_uuid):
             return jsonify({"error": "Invoice not found"}), 404
 
         items, _subtotal = _build_independent_items(invoice)
+        pd = _get_pandas()
         df = pd.DataFrame([{
             "Item": i["name"],
             "Brand": i["brand"],

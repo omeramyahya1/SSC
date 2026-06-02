@@ -230,16 +230,21 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     );
   }, [subscriptionPayments, latestSubscription]);
 
+    const shouldActivate = useMemo(
+    () => hasPendingPayment || latestSubscription?.status === "pending",
+    [hasPendingPayment, latestSubscription?.status],
+  );
+
   useEffect(() => {
     if (isOpen) {
       const status = currentUser?.status;
       if (status === "grace" || status === "expired" || status === "trial") {
-        setView(hasPendingPayment ? "activate" : "upgrade");
+        setView(shouldActivate ? "activate" : "upgrade");
       } else {
         setView("status");
       }
     }
-  }, [isOpen, currentUser?.status, hasPendingPayment]);
+  }, [isOpen, currentUser?.status, shouldActivate]);
 
   useEffect(() => {
     if (view === "upgrade" && pricingData.length === 0) {
@@ -1054,7 +1059,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
                 placeholder="e.g. REF-123456"
-                className="h-12 font-bold"
+                className={`h-12 font-bold ${referenceNumber.length === 0 ? "border-semantic-error" : ""}`}
               />
             </div>
             <div className="space-y-1.5">

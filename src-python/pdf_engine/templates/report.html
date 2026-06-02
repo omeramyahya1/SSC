@@ -6,6 +6,9 @@
         @page {
             size: A4;
             margin: 15mm;
+            @bottom-center {
+                content: element(ssc_footer);
+            }
         }
         body {
             font-family: {{'Inter' if dir == 'ltr' else 'Cairo'}}, sans-serif;
@@ -79,15 +82,25 @@
             border-bottom: 1px solid #f3f4f6;
             font-size: 9pt;
         }
-        .footer {
-            position: fixed;
-            bottom: 0;
+        .ssc-footer {
+            position: running(ssc_footer);
             width: 100%;
             text-align: center;
-            font-size: 8pt;
+            font-size: 9pt;
             color: #9ca3af;
-            border-top: 1px solid #f3f4f6;
-            padding-top: 2mm;
+            opacity: 0.55;
+        }
+        .ssc-footer-inner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2mm;
+            white-space: nowrap;
+        }
+        .ssc-footer img {
+            width: 10pt;
+            height: 10pt;
+            object-fit: contain;
         }
         .text-right { text-align: right; }
         .text-left { text-align: left; }
@@ -96,6 +109,15 @@
     </style>
 </head>
 <body>
+    <div class="ssc-footer">
+        <div class="ssc-footer-inner">
+            {% if ssc_logo_data_uri %}
+                <img src="{{ ssc_logo_data_uri }}" alt="SSC" />
+            {% endif %}
+            <span>{{ watermark_text }}</span>
+        </div>
+    </div>
+
     <div class="header">
         <div>
             <h1>{{ title }}</h1>
@@ -103,7 +125,9 @@
         </div>
         <div class="meta">
             <p>{{ t.generated_on }}: {{ generated_at }}</p>
+            {% if show_scope %}
             <p>{{ t.scope }}: {{ scope }}</p>
+            {% endif %}
         </div>
     </div>
 
@@ -137,7 +161,7 @@
 
     {% if data.state_performance or data.method_breakdown or data.user_breakdown %}
     <div class="section-title">{{ t.performance_metrics }}</div>
-    
+
     {% if data.state_performance %}
     <h4 style="margin: 4mm 0 2mm 0;">{{ t.performance_metrics }}</h4>
     <table>
@@ -174,7 +198,7 @@
             </table>
         </div>
         {% endif %}
-        
+
         {% if data.user_breakdown %}
         <div style="flex: 1;">
             <h4 style="margin: 4mm 0 2mm 0;">{{ t.created_by_breakdown }}</h4>
@@ -272,9 +296,5 @@
         </tbody>
     </table>
     {% endif %}
-
-    <div class="footer">
-        {{ t.footer_text }} | Page <span class="pageNumber"></span>
-    </div>
 </body>
 </html>

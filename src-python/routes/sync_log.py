@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 from typing import Optional
 from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
-from utils import get_db
+from utils import get_db, check_session_validity
 import models
+from auth_schemas import IsRegistration
 from sqlalchemy import LargeBinary, Numeric
 from decimal import Decimal
 from supabase_client import get_user_client, get_service_role_client, get_anon_client
@@ -476,32 +477,47 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
         response = supabase.rpc("sync_apply_and_pull", {"p_table_name": table_name, "p_records": payloads}).execute()
         if hasattr(response, 'error') and response.error:
             raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
+
         if hasattr(response, 'data'):
-            confirmed_ids = set(str(x) for x in (response.data or []))
+            data = response.data
+            confirmed_ids = set(str(x) for x in (data.get('confirmed_ids') or []))
+            failures = data.get('failures') or []
 
             confirmed_count = 0
             for record in records:
                 if str(record.uuid) in confirmed_ids:
                     record.is_dirty = False
                     confirmed_count += 1
+
+            if failures:
+                print(f"Errors during push for {table_name}: {failures}")
+                # We raise if any record failed to ensure atomicity/visibility of sync issues
+                first_failure = failures[0]
+                raise Exception(
+                    f"Push for {table_name} failed for {len(failures)} records. "
+                    f"First error: {first_failure.get('error')} (ID: {first_failure.get('id')})"
+                )
+
             if confirmed_count != len(records):
                 db.rollback()
                 raise Exception(
-                    f"Push for {table_name} only confirmed {confirmed_count}/{len(records)} records."
+                    f"Push for {table_name} only confirmed {confirmed_count}/{len(records)} records without explicit failure reports."
                 )
 
             db.commit()
             print(f"Successfully pushed and confirmed {confirmed_count}/{len(records)} records to {table_name}.")
     except Exception as e:
+        db.rollback()
         raise Exception(f"Failed to push table {table_name}: {str(e)}")
 
-def push_to_supabase(db: Session, dirty_only: bool = True):
-    auth_record = (
-        db.query(models.Authentication)
-        .filter(models.Authentication.is_logged_in.is_(True))
-        .order_by(models.Authentication.last_active.desc())
-        .first()
-    )
+def push_to_supabase(db: Session, dirty_only: bool = True, auth_record: models.Authentication = None):
+    if not auth_record:
+        auth_record = (
+            db.query(models.Authentication)
+            .filter(models.Authentication.is_logged_in.is_(True))
+            .order_by(models.Authentication.last_active.desc())
+            .first()
+        )
 
     if not auth_record:
         raise Exception("No authenticated user found in local DB.")
@@ -518,13 +534,13 @@ def push_to_supabase(db: Session, dirty_only: bool = True):
         # Re-raise exceptions from sync_table to ensure atomicity of the overall sync
         sync_table(db, config["model"], table_name, config["mapper"], scope=scope, dirty_only=dirty_only)
 
-def _ensure_device_id(db: Session, user_uuid: str) -> str:
+def _ensure_device_id(db: Session, auth_uuid: str) -> str:
     """
     Uses existing Authentication.device_id if present; otherwise generates and persists one.
     """
     auth = (
         db.query(models.Authentication)
-        .filter(models.Authentication.user_uuid == user_uuid)
+        .filter(models.Authentication.uuid == auth_uuid)
         .order_by(models.Authentication.created_at.desc())
         .first()
     )
@@ -586,13 +602,14 @@ def _get_last_sync_cursor(db: Session, user_uuid: str, device_id: str, supabase)
     # Default for initial sync: Jan 1, 2000 UTC.
     return datetime(2000, 1, 1, tzinfo=timezone.utc)
 
-def pull_from_supabase(db: Session):
-    auth_record = (
-        db.query(models.Authentication)
-        .filter(models.Authentication.is_logged_in == True)
-        .order_by(models.Authentication.last_active.desc())
-        .first()
-    )
+def pull_from_supabase(db: Session, auth_record: models.Authentication = None):
+    if not auth_record:
+        auth_record = (
+            db.query(models.Authentication)
+            .filter(models.Authentication.is_logged_in == True)
+            .order_by(models.Authentication.last_active.desc())
+            .first()
+        )
     if not auth_record:
         return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
 
@@ -699,15 +716,16 @@ def pull_from_supabase(db: Session):
         # Always ensure the flag is reset, even if an error occurs
         setattr(db, 'is_pull_sync_active', False)
 
-def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
+def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime, auth_record: models.Authentication = None):
     print("\n--- Finalizing sync operation ---")
     # Explicitly query for the UUID as a scalar to avoid passing a Row/Tuple object.
-    auth_record = (
-        db.query(models.Authentication)
-        .filter(models.Authentication.is_logged_in == True)
-        .order_by(models.Authentication.last_active.desc())
-        .first()
-    )
+    if not auth_record:
+        auth_record = (
+            db.query(models.Authentication)
+            .filter(models.Authentication.is_logged_in == True)
+            .order_by(models.Authentication.last_active.desc())
+            .first()
+        )
     if not auth_record:
         return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
 
@@ -769,11 +787,34 @@ def sync():
     start_time = datetime.now(timezone.utc)
     print(f"Synchronization process started at {start_time.isoformat()} UTC.")
 
+    raw_payload = request.get_json(silent=True)
+    if not isinstance(raw_payload, dict):
+        raw_payload = {}
+    payload = IsRegistration(**raw_payload)
+    registration = payload.registration
+
     with get_db() as db:
-        user_uuid_row = db.query(models.User.uuid).first()
-        if not user_uuid_row:
-             return jsonify({"status": "failed", "error": "No user found in local DB."}), 404
-        user_uuid = user_uuid_row[0]
+        # Load the specific logged-in authentication row
+        auth = (
+            db.query(models.Authentication)
+            .filter(models.Authentication.is_logged_in.is_(True))
+            .order_by(models.Authentication.last_active.desc())
+            .first()
+        )
+
+        # [BYPASS] If no active session, but this is a registration sync, look for the newest auth record
+        if not auth and registration:
+            auth = (
+                db.query(models.Authentication)
+                .order_by(models.Authentication.created_at.desc())
+                .first()
+            )
+
+        if not auth:
+             return jsonify({"status": "failed", "error": "No authenticated session found."}), 401
+
+        user_uuid = auth.user_uuid
+        device_id = _ensure_device_id(db, auth.uuid)
 
         # Check if already tampered
         tampered_subscription = db.query(models.Subscription).filter(
@@ -785,7 +826,7 @@ def sync():
             try:
                 # User is already flagged, only allow pulling for updates.
                 print("Account is locked. Performing pull-only sync.")
-                pull_from_supabase(db)
+                pull_from_supabase(db, auth_record=auth)
                 return jsonify({"status": "tamper_lock", "message": "Account locked due to suspected tampering. Only pull sync is allowed."}), 403
             except Exception as e:
                 return jsonify({"status": "failed", "error": str(e)}), 500
@@ -797,16 +838,39 @@ def sync():
                 # heart_beat has now flagged the user.
                 # Push this change to the server immediately.
                 print("Tampering detected. Pushing lock status to server.")
-                push_to_supabase(db) # This will push the subscription.tampered=True change
+                push_to_supabase(db, auth_record=auth) # This will push the subscription.tampered=True change
                 return jsonify({"status": "tamper_detected", "message": "Time discrepancy detected. Account is being locked."}), 403
         except Exception as e:
             return jsonify({"status": "failed", "error": f"Heartbeat check failed: {e}"}), 500
 
+        # [NEW] Verify cloud session validity to enforce single-session policy
+        # [BYPASS] Skip this check during registration sync to eliminate bottlenecks
+        if not registration:
+            try:
+                if not check_session_validity(user_uuid, device_id):
+                     auth.is_logged_in = False
+                     auth.is_dirty = True
+                     db.commit()
+                     return jsonify({"status": "failed", "error": "Session expired because this account signed in elsewhere."}), 401
+            except Exception as e:
+                # If check_session_validity raises, invalidate local session to be safe
+                auth.is_logged_in = False
+                auth.is_dirty = True
+                db.commit()
+                return jsonify({"status": "failed", "error": f"Session validation failed: {e}"}), 401
+
         # If all checks pass, proceed with normal sync
         try:
-            push_to_supabase(db)
-            pull_from_supabase(db)
-            _create_and_push_final_sync_log(db, start_time)
+            push_to_supabase(db, auth_record=auth)
+            pull_from_supabase(db, auth_record=auth)
+            # Enforce subscription/user status after pulling fresh cloud data.
+            # This also covers flows where the UI doesn't fetch /subscriptions immediately after login.
+            try:
+                from .subscription import _enforce_cloud_and_refresh_local
+                _enforce_cloud_and_refresh_local(user_uuid)
+            except Exception as e:
+                print(f"Warning: Post-sync subscription enforcement failed for user_uuid={user_uuid}: {e}")
+            _create_and_push_final_sync_log(db, start_time, auth_record=auth)
 
             end_time = datetime.utcnow()
             # duration = (end_time - start_time).total_seconds()

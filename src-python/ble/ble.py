@@ -6,10 +6,19 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import math
-import pandas as pd
 from models import ApplicationSettings
 
 # --- Helper Functions ---
+
+def _get_pandas():
+    try:
+        import pandas as pd  # type: ignore
+        return pd
+    except Exception as e:
+        raise RuntimeError(
+            "Optional dependency 'pandas' failed to import. "
+            "This feature is required for geo dataset loading."
+        ) from e
 
 def get_geo_data(location: str="Khartoum"):
     """Load geo data from CSV and find the matching location."""
@@ -17,8 +26,12 @@ def get_geo_data(location: str="Khartoum"):
         if not location or not location.strip():
            location = "Khartoum"
         # Construct the absolute path for the CSV file
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        csv_path = os.path.join(base_dir, 'dataset', 'geo_data.csv')
+        pd = _get_pandas()
+        if getattr(sys, 'frozen', False) and "__compiled__" in globals():
+            base_dir = os.path.dirname(sys.argv[0])
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+        csv_path = os.path.join(base_dir, "dataset", "geo_data.csv")
         geo_df = pd.read_csv(csv_path)
 
         # Search for the location (case-insensitive)
@@ -407,4 +420,3 @@ class BLE:
             return self._construct_response()
         except Exception as e:
             return {"status": "error", "message": str(e)}
-

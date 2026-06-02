@@ -16,7 +16,7 @@ export interface Subscription {
   expiration_date: string;
   grace_period_end: string;
   type: "trial" | "monthly" | "annual" | "lifetime";
-  status: "active" | "expired" | "trial" | "pending" | null;
+  status: "active" | "expired" | "grace" | "trial" | "pending" | null;
   license_code: string;
   tampered: boolean;
 }
@@ -39,6 +39,7 @@ export interface SubscriptionStore {
   deleteSubscription: (id: string) => Promise<void>;
   setCurrentSubscription: (subscription: Subscription | null) => void;
   refreshSubscriptionStatus: (user_uuid?: string) => Promise<void>;
+  logStatusMismatch: () => void;
 }
 
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -51,6 +52,39 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     set({ currentSubscription: subscription });
   },
 
+  logStatusMismatch: () => {
+    const { currentSubscription } = get();
+    const { currentUser } = useUserStore.getState();
+
+    if (!currentSubscription || !currentUser) return;
+
+    const now = new Date();
+    const expires = currentSubscription.expiration_date ? new Date(currentSubscription.expiration_date) : null;
+    const graceEnd = currentSubscription.grace_period_end
+      ? new Date(currentSubscription.grace_period_end)
+      : null;
+
+    const isTrial =
+      currentSubscription.type === "trial" ||
+      currentSubscription.status === "trial";
+    let newStatus: "active" | "expired" | "grace" | "trial" =
+      isTrial ? "trial" : (currentSubscription.status as any) || "active";
+
+    if (expires) {
+      if (graceEnd && now > expires) {
+        newStatus = "expired";
+    } else if (now > expires) {
+      newStatus = isTrial ? "trial" : "grace";
+      } else {
+        newStatus = isTrial ? "trial" : "active";
+      }
+    }
+
+    if (currentUser.status !== newStatus) {
+      console.log(`Local subscription evaluation: Current user status is ${currentUser.status}, subscription suggests ${newStatus}`);
+    }
+  },
+
   fetchSubscriptions: async (user_uuid?: string) => {
     if (!user_uuid) return;
     set({ isLoading: true, error: null });
@@ -58,8 +92,14 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       const { data } = await api.get<Subscription[]>(
         `${resource}?user_uuid=${encodeURIComponent(user_uuid)}`
       );
-      const active = data.find((s) => s.status === "active") ?? null;
+      // Sort by creation to find the latest non-pending
+      const sorted = [...data].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const active = sorted.find((s) => s.status !== "pending") ?? null;
+
       set({ subscriptions: data, currentSubscription: active, isLoading: false });
+
+      // Perform local evaluation after fetch
+      get().logStatusMismatch();
     } catch (e: any) {
       const errorMsg = e.message || "Failed to fetch subscriptions";
       set({ error: errorMsg, isLoading: false });
@@ -68,7 +108,10 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   },
 
   refreshSubscriptionStatus: async (user_uuid?: string) => {
-      await get().fetchSubscriptions(user_uuid);
+    if (!user_uuid) return;
+
+    // Server-side enforcement is handled by the local Python backend when fetching subscriptions.
+    await get().fetchSubscriptions(user_uuid);
   },
 
   fetchSubscription: async (id) => {

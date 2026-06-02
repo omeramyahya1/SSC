@@ -185,6 +185,10 @@ def register_user():
         new_user_uuid = existing_user.uuid if existing_user else str(uuid.uuid4())
         new_auth_uuid = existing_auth.uuid if existing_auth else str(uuid.uuid4())
 
+        # Check for existing subscription if resuming
+        existing_sub = db.query(Subscription).filter(Subscription.user_uuid == new_user_uuid).first() if existing_user else None
+        new_sub_uuid = existing_sub.uuid if existing_sub else str(uuid.uuid4())
+
         # Salt and Hashing (Only if new or needing reset)
         # Reuse existing credentials on resume; generate fresh ones for new registrations.
         if existing_auth:
@@ -244,21 +248,48 @@ def register_user():
                         if not b_response.data:
                             raise Exception("Branch not found.")
                         new_branch_uuid = b_response.data[0]['id']
-
-
-
                     except Exception as e:
                         return jsonify({"error": "Cloud Org creation failed"}), 500
 
-                return jsonify({"error": "Cloud Org creation failed"}), 500
+                else:
+                    return jsonify({"error": "Cloud Org creation failed"}), 500
 
         # --- 4. CLOUD USER REGISTRATION (IDEMPOTENT) ---
+        user_location = f"{payload.stage4.locationCity}, {payload.stage4.locationState}" if payload.stage4.locationCity and payload.stage4.locationState else (payload.stage4.locationCity or payload.stage4.locationState)
+
+        # Mapping frontend plans to enum types expected by Postgres
+        plan_mapping = {
+            'free_trial': 'trial',
+            'monthly': 'monthly',
+            'annual': 'annual',
+            'lifetime': 'lifetime'
+        }
+        cloud_plan_type = plan_mapping.get(payload.plan_type.lower(), 'trial')
+        user_status = 'trial' if cloud_plan_type == "trial" else "active"
+
+        # [NEW] Role assignment: Enterprise accounts are 'admin', Standard accounts are 'user'
+        user_role = 'admin' if 'enterprise' in payload.account_type.lower() else 'user'
+
         try:
             service_client = get_service_role_client()
             service_client.rpc('register_user', {
-                'p_user_uuid': new_user_uuid, 'p_username': stage1.username, 'p_email': normalized_email,
-                'p_auth_uuid': new_auth_uuid, 'p_password_hash': hashed_pw, 'p_password_salt': salt,
-                'p_device_id': device_id, 'p_distributor_id': payload.distributor_id
+                'p_user_uuid': new_user_uuid,
+                'p_username': stage1.username,
+                'p_email': normalized_email,
+                'p_auth_uuid': new_auth_uuid,
+                'p_password_hash': hashed_pw,
+                'p_password_salt': salt,
+                'p_device_id': device_id,
+                'p_distributor_id': payload.distributor_id,
+                'p_account_type': payload.account_type,
+                'p_business_name': payload.stage4.businessName,
+                'p_location': user_location,
+                'p_org_id': new_org_uuid,
+                'p_branch_id': new_branch_uuid,
+                'p_role': user_role,
+                'p_plan_type': cloud_plan_type,
+                'p_sub_uuid': new_sub_uuid,
+                'p_user_status': user_status
             }).execute()
         except Exception as e:
             # If the cloud says user exists, we proceed. If it's a different error, we stop.
@@ -268,23 +299,65 @@ def register_user():
 
         # --- 5. LOCAL RECORD SYNC ---
         # Use merge() instead of add() to update existing partial records without crashing
-        user_status = 'trial' if payload.plan_type == "trial" else "active"
-
         new_user = User(
             uuid=new_user_uuid, username=stage1.username, email=normalized_email,
             business_name=payload.stage4.businessName, account_type=payload.account_type,
+            location=user_location,
             organization_uuid=new_org_uuid, branch_uuid=new_branch_uuid,
-            status=user_status, is_dirty=False
+            status=user_status, role=user_role, is_dirty=False
         )
         db.merge(new_user)
 
         new_auth = Authentication(
             uuid=new_auth_uuid, user_uuid=new_user_uuid, password_hash=hashed_pw,
-            password_salt=salt, is_dirty=False
+            password_salt=salt, is_dirty=False, last_active=datetime.utcnow(),
+            is_logged_in=False
         )
         db.merge(new_auth)
 
-        # ... (Merge Subscription and Settings similarly) ...
+        # Create Subscription
+        sub_status = 'trial' if cloud_plan_type == 'trial' else 'pending'
+        exp_days = 14 if cloud_plan_type == 'trial' else 30
+        new_sub = Subscription(
+            uuid=new_sub_uuid,
+            user_uuid=new_user_uuid,
+            type=cloud_plan_type,
+            status=sub_status,
+            expiration_date=datetime.utcnow() + timedelta(days=exp_days),
+            is_dirty=False
+        )
+        db.merge(new_sub)
+
+        # Create ApplicationSettings
+        new_settings = ApplicationSettings(
+            user_uuid=new_user_uuid,
+            language=payload.language,
+            is_dirty=False
+        )
+        db.merge(new_settings)
+
+        # Create SubscriptionPayment if applicable
+        if payload.amount > 0:
+            new_payment = SubscriptionPayment(
+                subscription_uuid=new_sub_uuid,
+                amount=payload.amount,
+                payment_method=payload.stage6.paymentMethod,
+                trx_no=payload.stage7.referenceNumber,
+                status='under_processing',
+                is_dirty=True # Mark as dirty to sync with cloud
+            )
+
+            # Handle receipt screenshot
+            if payload.stage7.receipt:
+                try:
+                    # Strip data:image/png;base64, prefix if present
+                    header, encoded = payload.stage7.receipt.split(",", 1) if "," in payload.stage7.receipt else (None, payload.stage7.receipt)
+                    new_payment.trx_screenshot = base64.b64decode(encoded)
+                except Exception as e:
+                    print(f"Warning: Failed to decode receipt image: {e}")
+
+            db.add(new_payment)
+
         db.commit()
 
         # --- 6. JWT ISSUANCE (ALWAYS RETRYABLE) ---

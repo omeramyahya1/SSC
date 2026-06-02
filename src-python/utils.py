@@ -136,6 +136,46 @@ def is_jwt_expired_offline(jwt_issued_at):
     # Use client's current UTC time for the check
     return datetime.now(timezone.utc) > expiration_time
 
+def check_session_validity(user_uuid, device_id):
+    """
+    Checks with Supabase if the current session (user_uuid + device_id) is still valid (is_logged_in=True).
+    Returns True if valid, False if explicitly invalidated, or True on connection failure (fail-safe).
+    """
+    from supabase_client import get_service_role_client
+    from postgrest.exceptions import APIError
+    import httpx
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        supabase = get_service_role_client()
+        response = (
+            supabase.table('authentications')
+            .select('is_logged_in')
+            .eq('user_id', user_uuid)
+            .eq('device_id', device_id)
+            .order('created_at', desc=True)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return response.data[0].get('is_logged_in', False)
+        return False
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        logger.warning(f"Session validation failed due to connectivity issues (fail-open): {e}", exc_info=True)
+        return True # Fail-safe: assume valid if check fails due to connectivity
+    except APIError as e:
+        # Fail-open only for 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout
+        status_code = getattr(e, 'status', None)
+        if status_code in (502, 503, 504):
+            logger.warning(f"Session validation failed due to server error {status_code} (fail-open): {e}", exc_info=True)
+            return True
+        logger.error(f"Session validation failed due to Supabase error {status_code} (fail-closed): {e}", exc_info=True)
+        return False
+    except Exception as e:
+        logger.exception(f"Session validation failed due to unexpected error (fail-closed): {e}")
+        return False
+
 if __name__ == "__main__":
     password = "Abcd1234"
     salt = generate_salt()

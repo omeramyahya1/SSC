@@ -9,15 +9,18 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
 use tauri_plugin_shell::process::CommandChild;
+#[cfg(not(debug_assertions))]
 use tauri_plugin_shell::ShellExt;
 
 enum PythonProcess {
     Child(Child),
+    #[allow(dead_code)]
     Sidecar(CommandChild),
 }
 
 struct AppState {
     python_process: Mutex<Option<PythonProcess>>,
+    backend_port: u16,
 }
 
 const SIDECAR_GRACE_SECONDS_ENV: &str = "SIDECAR_GRACE_SECONDS";
@@ -51,6 +54,52 @@ fn splash_screen(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn prepare_for_update(state: State<AppState>) -> Result<(), String> {
+    if let Some(process) = state.python_process.lock().unwrap().take() {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build();
+
+        // Best-effort graceful shutdown via API
+        if let Ok(client) = client {
+            let url = format!("http://127.0.0.1:{}/shutdown", state.backend_port);
+            let _ = client.post(url).send();
+        }
+
+        match process {
+            PythonProcess::Child(mut child) => {
+                let deadline = Instant::now() + python_shutdown_grace_duration();
+                while Instant::now() < deadline {
+                    if matches!(child.try_wait(), Ok(Some(_))) {
+                        return Ok(());
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+            PythonProcess::Sidecar(child) => {
+                std::thread::sleep(python_shutdown_grace_duration());
+                let _ = child.kill();
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn backend_base_url(state: State<AppState>) -> String {
+    format!("http://127.0.0.1:{}/", state.backend_port)
+}
+
+fn choose_backend_port() -> u16 {
+    std::net::TcpListener::bind(("127.0.0.1", 0))
+        .and_then(|listener| listener.local_addr())
+        .map(|addr| addr.port())
+        .expect("failed to choose a random open port for the backend")
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -59,27 +108,37 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![splash_screen])
-        .manage(AppState {
-            python_process: Mutex::new(None),
-        })
+        .invoke_handler(tauri::generate_handler![splash_screen, backend_base_url, prepare_for_update])
         .setup(|app| {
             let app_data_dir = app.path().app_local_data_dir().expect("failed to get app data dir");
-            
+
             // Ensure the directory exists
             std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
 
             let db_dir_str = app_data_dir.to_string_lossy().to_string();
+            let backend_port = choose_backend_port();
+            let backend_port_str = backend_port.to_string();
+            let backend_mode = std::env::var("SSC_MODE")
+                .ok()
+                .filter(|v| v == "dev" || v == "beta" || v == "prod")
+                .unwrap_or_else(|| (if cfg!(debug_assertions) { "dev" } else { "prod" }).to_string());
+            let app_version = app.package_info().version.to_string();
+
+            let state = AppState {
+                python_process: Mutex::new(None),
+                backend_port,
+            };
+            app.manage(state);
 
             #[cfg(debug_assertions)]
             {
                 let mut root_dir = std::env::current_dir().expect("failed to get current dir");
-                
+
                 // If we are inside src-tauri, go up one level to the project root
                 if root_dir.ends_with("src-tauri") {
                     root_dir.pop();
                 }
-                
+
                 // Build Python Executable Path
                 let mut python_exe = root_dir.clone();
                 python_exe.push("src-python");
@@ -100,13 +159,19 @@ fn main() {
                 println!("Project Root detected as: {:?}", root_dir);
                 println!("Searching for python at: {:?}", python_exe);
                 println!("Running script at: {:?}", script_path);
+                println!("Backend will listen on: 127.0.0.1:{}", backend_port);
 
                 let python_process = Command::new(&python_exe)
                     .env("SSC_DB_DIR", &db_dir_str)
+                    .env("SSC_APP_VERSION", &app_version)
                     .arg(&script_path)
+                    .arg("--port")
+                    .arg(&backend_port_str)
+                    .arg("--mode")
+                    .arg(&backend_mode)
                     .spawn()
                     .expect("failed to start python backend - verify virtual environment exists");
-                
+
                 let state: State<AppState> = app.handle().state();
                 *state.python_process.lock().unwrap() = Some(PythonProcess::Child(python_process));
             }
@@ -118,9 +183,11 @@ fn main() {
                     .sidecar("python-sidecar")
                     .expect("failed to find sidecar 'python-sidecar'")
                     .env("SSC_DB_DIR", &db_dir_str)
+                    .env("SSC_APP_VERSION", &app_version)
+                    .args(["--port", &backend_port_str, "--mode", &backend_mode])
                     .spawn()
                     .expect("failed to spawn python sidecar");
-                
+
                 let state: State<AppState> = app.handle().state();
                 *state.python_process.lock().unwrap() = Some(PythonProcess::Sidecar(child));
             }
@@ -146,7 +213,8 @@ fn main() {
 
                             // Best-effort graceful shutdown via API
                             if let Ok(client) = client {
-                                let _ = client.post("http://localhost:5000/shutdown").send();
+                                let url = format!("http://127.0.0.1:{}/shutdown", state.backend_port);
+                                let _ = client.post(url).send();
                             }
 
                             match process {
@@ -167,7 +235,7 @@ fn main() {
                                 }
                                 PythonProcess::Sidecar(child) => {
                                     // CommandChild doesn't have a public try_wait/wait in the same way,
-                                    // but we can at least sleep briefly to allow graceful exit before 
+                                    // but we can at least sleep briefly to allow graceful exit before
                                     // Tauri's own cleanup or we can kill it.
                                     std::thread::sleep(python_shutdown_grace_duration());
                                     let _ = child.kill();

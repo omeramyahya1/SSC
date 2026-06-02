@@ -127,7 +127,7 @@ export default function CustomersPage() {
     };
 
     return (
-        <main className="flex-1 flex flex-col bg-gray-50 overflow-y-auto" dir={i18n.dir()}>
+        <main className="flex-1 flex flex-col h-full overflow-y-auto" dir={i18n.dir()}>
             <SubscriptionBanner />
             <div className="p-6 space-y-6">
                 {/* Header & Toolbar */}

@@ -19,6 +19,10 @@ def _read_json_file(path: Path):
 
 
 def _get_app_version() -> str:
+    env_version = os.environ.get("SSC_APP_VERSION")
+    if env_version and isinstance(env_version, str):
+        return env_version
+
     # Expected repo layout:
     # <root>/package.json
     # <root>/src-tauri/tauri.conf.json

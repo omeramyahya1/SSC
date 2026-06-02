@@ -202,7 +202,12 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
     isLoading: isSystemInfoLoading,
     fetchSystemInfo,
   } = useSystemInfoStore();
-  const { needsTCUpdate, latestTC } = useApplicationSettingsStore();
+  const {
+    needsTCUpdate,
+    latestTC,
+    checkTCStatus,
+    isTCLoading,
+  } = useApplicationSettingsStore();
 
   const isEmployee = currentUser?.role === "employee";
   const isEnterprise = currentUser
@@ -338,7 +343,13 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
 
   useEffect(() => {
     fetchSystemInfo();
-  }, [fetchSystemInfo]);
+  }, [fetchSystemInfo, currentUser]);
+
+  useEffect(() => {
+    if (activeTab === "system" && !latestTC && currentUser?.uuid) {
+      checkTCStatus(currentUser.uuid);
+    }
+  }, [activeTab, latestTC, currentUser?.uuid, checkTCStatus]);
 
   const handleSavePersonalProfile = async () => {
     if (!currentUser) return;
@@ -731,7 +742,7 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
       className="w-[85vw] max-w-4xl h-[85vh] p-0 pb-2 overflow-hidden bg-white border-none rounded-3xl shadow-2xl flex flex-col"
       dir={i18n.dir()}
     >
-      <DialogHeader className="p-8 pb-4 bg-gray-50/50">
+      <DialogHeader className="p-8 pb-4">
         <DialogTitle className="text-3xl font-black">
           {t("dashboard.settings", "Settings")}
         </DialogTitle>
@@ -1514,10 +1525,13 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
                         <div className="flex-1 overflow-hidden px-6">
                           <ScrollArea className="h-[60vh] mt-4 border-2 p-4 rounded-2xl bg-neutral/5">
                             <TCContent
+                              isLoading={isTCLoading}
                               content={
                                 latestTC?.content?.[
                                   i18n.language === "ar" ? "ar" : "en"
-                                ]
+                                ] ||
+                                latestTC?.content?.en ||
+                                latestTC?.content?.ar
                               }
                               metadata={latestTC?.content?.metadata}
                             />

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Table,
@@ -35,6 +35,7 @@ import { EditItemModal } from './EditItemModal';
 import { toast } from "react-hot-toast";
 import { SortDirection, SortOption } from './Inventory';
 import { useSync } from '@/hooks/useSync';
+import isEqual from 'lodash/isEqual';
 
 export interface SortConfig {
     key: SortOption;
@@ -71,6 +72,126 @@ const SortableHeader = ({
     </TableHead>
   );
 };
+
+interface InventoryRowProps {
+    item: InventoryItem;
+    showSKU: boolean;
+    showSpecs: boolean;
+    onAdjust: (item: InventoryItem) => void;
+    onEdit: (item: InventoryItem) => void;
+    onDelete: (item: InventoryItem) => void;
+    t: any;
+    i18n: any;
+}
+
+const InventoryRow = React.memo(({
+    item,
+    showSKU,
+    showSpecs,
+    onAdjust,
+    onEdit,
+    onDelete,
+    t,
+    i18n
+}: InventoryRowProps) => {
+    const getStatusBadge = (item: InventoryItem) => {
+        if (item.quantity_on_hand === 0) {
+            return <Badge className="bg-red-100 text-red-800 hover:bg-red-200 border-red-300">
+                    {t('inventory.status.out_of_stock', 'Out of Stock')}
+                    </Badge>;
+        }
+        if (item.quantity_on_hand <= item.low_stock_threshold) {
+            return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300">
+                {t('inventory.status.low_stock', 'Low Stock')}
+            </Badge>;
+        }
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-300">
+            {t('inventory.status.in_stock', 'In Stock')}
+        </Badge>;
+    };
+
+    const formatSpecs = (specs: Record<string, any>) => {
+        if (!specs) return 'N/A';
+        const specEntries = Object.entries(specs);
+        if (specEntries.length === 0) return 'N/A';
+        return specEntries
+            .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`)
+            .join(' | ');
+    };
+
+    return (
+        <TableRow
+            key={item.uuid}
+            className={cn(
+                item.quantity_on_hand <= item.low_stock_threshold ? "bg-yellow-50/50" : "",
+                item.quantity_on_hand === 0 ? "bg-red-50/100" : ""
+            )}
+        >
+            <TableCell className="font-medium">
+                <div className="flex flex-col">
+                    <span>{item.name}</span>
+                    <span className="text-xs text-muted-foreground">{item.brand} {item.model}</span>
+                </div>
+            </TableCell>
+            {showSKU && <TableCell className="text-xs font-mono">{item.sku}</TableCell>}
+            {showSpecs && <TableCell className="text-xs max-w-[200px] truncate">{formatSpecs(item.technical_specs)}</TableCell>}
+            <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                    <span className={cn(
+                        "font-bold min-w-[30px]",
+                        item.quantity_on_hand <= item.low_stock_threshold ? "text-yellow-700" : "",
+                        item.quantity_on_hand === 0 ? "text-red-600" : ""
+                    )}>
+                        {item.quantity_on_hand}
+                    </span>
+                </div>
+            </TableCell>
+            <TableCell className="text-center font-semibold">{formatCurrency(item.buy_price)}</TableCell>
+            <TableCell className="text-center font-semibold text-primary">{formatCurrency(item.sell_price)}</TableCell>
+            <TableCell className="text-center">{getStatusBadge(item)}</TableCell>
+            <TableCell className="text-center">
+                <DropdownMenu dir={i18n.dir()}>
+                    <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
+                            <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-white">
+                        <DropdownMenuItem
+                            className="cursor-pointer rounded-lg hover:bg-gray-100"
+                            onClick={() => onAdjust(item)}
+                        >
+                            <img src="/eva-icons (2)/outline/swap.png" alt="adjust" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
+                            {t('inventory.adjust_stock', 'Adjust Stock')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            className="cursor-pointer rounded-lg hover:bg-gray-100"
+                            onClick={() => onEdit(item)}
+                        >
+                            <img src="/eva-icons (2)/outline/edit.png" alt="edit" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
+                            {t('common.edit', 'Edit Details')}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                            className="cursor-pointer group rounded-lg text-red-600 hover:bg-red-50 focus:bg-red-500 hover:text-white"
+                            onClick={() => onDelete(item)}
+                        >
+                            <img src="/eva-icons (2)/outline/trash-2.png" alt="delete" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70 group-hover:invert" />
+                            {t('common.delete', 'Delete')}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </TableCell>
+        </TableRow>
+    );
+}, (prev, next) => {
+    return (
+        prev.showSKU === next.showSKU &&
+        prev.showSpecs === next.showSpecs &&
+        prev.i18n.language === next.i18n.language &&
+        isEqual(prev.item, next.item)
+    );
+});
 
 export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProps) {
     const { t, i18n } = useTranslation();
@@ -111,33 +232,7 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
         }
     };
 
-    const getStatusBadge = (item: InventoryItem) => {
-        if (item.quantity_on_hand === 0) {
-            return <Badge className="bg-red-100 text-red-800 hover:bg-red-200 border-red-300">
-                    {t('inventory.status.out_of_stock', 'Out of Stock')}
-                    </Badge>;
-        }
-        if (item.quantity_on_hand <= item.low_stock_threshold) {
-            return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-300">
-                {t('inventory.status.low_stock', 'Low Stock')}
-            </Badge>;
-        }
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-300">
-            {t('inventory.status.in_stock', 'In Stock')}
-        </Badge>;
-    };
-
-    const formatSpecs = (specs: Record<string, any>) => {
-        if (!specs) return 'N/A';
-        const specEntries = Object.entries(specs);
-        if (specEntries.length === 0) return 'N/A';
-        return specEntries
-            .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`)
-            .join(' | ');
-    };
-
     const columnCount = [showSKU, showSpecs, true, true, true, true, true, true].filter(Boolean).length;
-
 
     return (
         <>
@@ -215,76 +310,23 @@ export function InventoryTable({ items, sortConfig, onSort }: InventoryTableProp
                         </TableRow>
                     ) : (
                         items.map((item) => (
-                            <TableRow
+                            <InventoryRow
                                 key={item.uuid}
-                                className={cn(
-                                    item.quantity_on_hand <= item.low_stock_threshold ? "bg-yellow-50/50" : "",
-                                    item.quantity_on_hand === 0 ? "bg-red-50/100" : ""
-                                )}
-                            >
-                                <TableCell className="font-medium">
-                                    <div className="flex flex-col">
-                                        <span>{item.name}</span>
-                                        <span className="text-xs text-muted-foreground">{item.brand} {item.model}</span>
-                                    </div>
-                                </TableCell>
-                                {showSKU && <TableCell className="text-xs font-mono">{item.sku}</TableCell>}
-                                {showSpecs && <TableCell className="text-xs max-w-[200px] truncate">{formatSpecs(item.technical_specs)}</TableCell>}
-                                <TableCell className="text-center">
-                                    <div className="flex items-center justify-center gap-2">
-                                                                                <span className={cn(
-                                            "font-bold min-w-[30px]",
-                                            item.quantity_on_hand <= item.low_stock_threshold ? "text-yellow-700" : "",
-                                            item.quantity_on_hand === 0 ? "text-red-600" : ""
-                                        )}>
-                                            {item.quantity_on_hand}
-                                        </span>
-
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-center font-semibold">{formatCurrency(item.buy_price)}</TableCell>
-                                <TableCell className="text-center font-semibold text-primary">{formatCurrency(item.sell_price)}</TableCell>
-                                <TableCell className="text-center">{getStatusBadge(item)}</TableCell>
-                                <TableCell className="text-center">
-                                    <DropdownMenu dir={i18n.dir()}>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
-                                                <img src="/eva-icons (2)/outline/more-vertical.png" alt="options" className="w-5 h-5" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="bg-white">
-                                            <DropdownMenuItem
-                                                className="cursor-pointer rounded-lg hover:bg-gray-100"
-                                                onClick={() => {
-                                                    setSelectedItem(item);
-                                                    setIsAdjustModalOpen(true);
-                                                }}
-                                            >
-                                                <img src="/eva-icons (2)/outline/swap.png" alt="adjust" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
-                                                {t('inventory.adjust_stock', 'Adjust Stock')}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                className="cursor-pointer rounded-lg hover:bg-gray-100"
-                                                onClick={() => {
-                                                    setSelectedItem(item);
-                                                    setIsEditModalOpen(true);
-                                                }}
-                                            >
-                                                <img src="/eva-icons (2)/outline/edit.png" alt="edit" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70" />
-                                                {t('common.edit', 'Edit Details')}
-                                            </DropdownMenuItem>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem
-                                                className="cursor-pointer group rounded-lg text-red-600 hover:bg-red-50 focus:bg-red-500 hover:text-white"
-                                                onClick={() => setItemToDelete(item)}
-                                            >
-                                                <img src="/eva-icons (2)/outline/trash-2.png" alt="delete" className="w-4 h-4 ltr:mr-2 rtl:ml-2 opacity-70 group-hover:invert" />
-                                                {t('common.delete', 'Delete')}
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
+                                item={item}
+                                showSKU={showSKU}
+                                showSpecs={showSpecs}
+                                onAdjust={(item) => {
+                                    setSelectedItem(item);
+                                    setIsAdjustModalOpen(true);
+                                }}
+                                onEdit={(item) => {
+                                    setSelectedItem(item);
+                                    setIsEditModalOpen(true);
+                                }}
+                                onDelete={(item) => setItemToDelete(item)}
+                                t={t}
+                                i18n={i18n}
+                            />
                         ))
                     )}
                 </TableBody>

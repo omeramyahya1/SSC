@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
+import { getBackendBaseUrl } from "./api/backendBaseUrl";
 
 /**
  * Updates the status message element on the splash.html page.
@@ -18,9 +19,10 @@ function updateStatus(message: string) {
  * Pings the backend server until it's responsive.
  */
 async function pingServer() {
+  const baseUrl = await getBackendBaseUrl();
   while (true) {
     try {
-      const res = await fetch("http://localhost:5000/health");
+      const res = await fetch(`${baseUrl}health`);
       if (res.ok) {
         return;
       }

@@ -1,15 +1,17 @@
 {
   "name": "ssc",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:py && tsc && vite build",
+    "dev:beta": "vite --mode beta",
+    "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint",
     "tauri": "tauri",
-    "build:py": "src-python/.venv/bin/python -m PyInstaller src-python/main.py --name python-sidecar-x86_64-unknown-linux-gnu --onefile --distpath src-tauri --clean"
+    "tauri:beta": "SSC_MODE=beta tauri dev",
+    "build:py": "node scripts/build_py_sidecar.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -77,22 +79,17 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.1.1",
     "@tauri-apps/cli": "^2",
+    "@types/lodash": "^4.17.24",
     "@types/node": "^25.0.2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "autoprefixer": "^10.4.19",
-    "eslint": "^8.57.1",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
     "postcss": "^8.4.38",
-    "prettier": "^3.8.3",
-    "prettier-eslint": "^16.3.0",
     "tailwindcss": "^3.4.4",
-    "typescript": "^4.9.5",
-    "typescript-eslint": "^8.59.3",
+    "typescript": "^5.6.0",
     "vite": "^7.0.4",
     "vite-tsconfig-paths": "^6.0.1"
   }
