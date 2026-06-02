@@ -51,6 +51,9 @@ class RegistrationPayload(BaseModel):
     stage7: Stage7Payload
     distributor_id: Optional[str] = None
 
+class IsRegistration(BaseModel):
+    registration: bool = False
+
 # --- Pydantic Schemas for Login ---
 
 class LoginRequest(BaseModel):

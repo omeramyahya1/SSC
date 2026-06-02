@@ -6,6 +6,7 @@ from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
 from utils import get_db, check_session_validity
 import models
+from auth_schemas import IsRegistration
 from sqlalchemy import LargeBinary, Numeric
 from decimal import Decimal
 from supabase_client import get_user_client, get_service_role_client, get_anon_client
@@ -509,13 +510,14 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
         db.rollback()
         raise Exception(f"Failed to push table {table_name}: {str(e)}")
 
-def push_to_supabase(db: Session, dirty_only: bool = True):
-    auth_record = (
-        db.query(models.Authentication)
-        .filter(models.Authentication.is_logged_in.is_(True))
-        .order_by(models.Authentication.last_active.desc())
-        .first()
-    )
+def push_to_supabase(db: Session, dirty_only: bool = True, auth_record: models.Authentication = None):
+    if not auth_record:
+        auth_record = (
+            db.query(models.Authentication)
+            .filter(models.Authentication.is_logged_in.is_(True))
+            .order_by(models.Authentication.last_active.desc())
+            .first()
+        )
 
     if not auth_record:
         raise Exception("No authenticated user found in local DB.")
@@ -600,13 +602,14 @@ def _get_last_sync_cursor(db: Session, user_uuid: str, device_id: str, supabase)
     # Default for initial sync: Jan 1, 2000 UTC.
     return datetime(2000, 1, 1, tzinfo=timezone.utc)
 
-def pull_from_supabase(db: Session):
-    auth_record = (
-        db.query(models.Authentication)
-        .filter(models.Authentication.is_logged_in == True)
-        .order_by(models.Authentication.last_active.desc())
-        .first()
-    )
+def pull_from_supabase(db: Session, auth_record: models.Authentication = None):
+    if not auth_record:
+        auth_record = (
+            db.query(models.Authentication)
+            .filter(models.Authentication.is_logged_in == True)
+            .order_by(models.Authentication.last_active.desc())
+            .first()
+        )
     if not auth_record:
         return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
 
@@ -713,15 +716,16 @@ def pull_from_supabase(db: Session):
         # Always ensure the flag is reset, even if an error occurs
         setattr(db, 'is_pull_sync_active', False)
 
-def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime):
+def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime, auth_record: models.Authentication = None):
     print("\n--- Finalizing sync operation ---")
     # Explicitly query for the UUID as a scalar to avoid passing a Row/Tuple object.
-    auth_record = (
-        db.query(models.Authentication)
-        .filter(models.Authentication.is_logged_in == True)
-        .order_by(models.Authentication.last_active.desc())
-        .first()
-    )
+    if not auth_record:
+        auth_record = (
+            db.query(models.Authentication)
+            .filter(models.Authentication.is_logged_in == True)
+            .order_by(models.Authentication.last_active.desc())
+            .first()
+        )
     if not auth_record:
         return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
 
@@ -783,14 +787,26 @@ def sync():
     start_time = datetime.now(timezone.utc)
     print(f"Synchronization process started at {start_time.isoformat()} UTC.")
 
+    payload = IsRegistration(**request.json)
+    registration = payload.registration
+
     with get_db() as db:
-        # [MODIFIED] Load the specific logged-in authentication row
+        # Load the specific logged-in authentication row
         auth = (
             db.query(models.Authentication)
             .filter(models.Authentication.is_logged_in.is_(True))
             .order_by(models.Authentication.last_active.desc())
             .first()
         )
+        
+        # [BYPASS] If no active session, but this is a registration sync, look for the newest auth record
+        if not auth and registration:
+            auth = (
+                db.query(models.Authentication)
+                .order_by(models.Authentication.created_at.desc())
+                .first()
+            )
+
         if not auth:
              return jsonify({"status": "failed", "error": "No authenticated session found."}), 401
 
@@ -807,7 +823,7 @@ def sync():
             try:
                 # User is already flagged, only allow pulling for updates.
                 print("Account is locked. Performing pull-only sync.")
-                pull_from_supabase(db)
+                pull_from_supabase(db, auth_record=auth)
                 return jsonify({"status": "tamper_lock", "message": "Account locked due to suspected tampering. Only pull sync is allowed."}), 403
             except Exception as e:
                 return jsonify({"status": "failed", "error": str(e)}), 500
@@ -819,29 +835,31 @@ def sync():
                 # heart_beat has now flagged the user.
                 # Push this change to the server immediately.
                 print("Tampering detected. Pushing lock status to server.")
-                push_to_supabase(db) # This will push the subscription.tampered=True change
+                push_to_supabase(db, auth_record=auth) # This will push the subscription.tampered=True change
                 return jsonify({"status": "tamper_detected", "message": "Time discrepancy detected. Account is being locked."}), 403
         except Exception as e:
             return jsonify({"status": "failed", "error": f"Heartbeat check failed: {e}"}), 500
 
         # [NEW] Verify cloud session validity to enforce single-session policy
-        try:
-            if not check_session_validity(user_uuid, device_id):
-                 auth.is_logged_in = False
-                 auth.is_dirty = True
-                 db.commit()
-                 return jsonify({"status": "failed", "error": "Session expired because this account signed in elsewhere."}), 401
-        except Exception as e:
-            # If check_session_validity raises, invalidate local session to be safe
-            auth.is_logged_in = False
-            auth.is_dirty = True
-            db.commit()
-            return jsonify({"status": "failed", "error": f"Session validation failed: {e}"}), 401
+        # [BYPASS] Skip this check during registration sync to eliminate bottlenecks
+        if not registration:
+            try:
+                if not check_session_validity(user_uuid, device_id):
+                     auth.is_logged_in = False
+                     auth.is_dirty = True
+                     db.commit()
+                     return jsonify({"status": "failed", "error": "Session expired because this account signed in elsewhere."}), 401
+            except Exception as e:
+                # If check_session_validity raises, invalidate local session to be safe
+                auth.is_logged_in = False
+                auth.is_dirty = True
+                db.commit()
+                return jsonify({"status": "failed", "error": f"Session validation failed: {e}"}), 401
 
         # If all checks pass, proceed with normal sync
         try:
-            push_to_supabase(db)
-            pull_from_supabase(db)
+            push_to_supabase(db, auth_record=auth)
+            pull_from_supabase(db, auth_record=auth)
             # Enforce subscription/user status after pulling fresh cloud data.
             # This also covers flows where the UI doesn't fetch /subscriptions immediately after login.
             try:
@@ -849,7 +867,7 @@ def sync():
                 _enforce_cloud_and_refresh_local(user_uuid)
             except Exception as e:
                 print(f"Warning: Post-sync subscription enforcement failed for user_uuid={user_uuid}: {e}")
-            _create_and_push_final_sync_log(db, start_time)
+            _create_and_push_final_sync_log(db, start_time, auth_record=auth)
 
             end_time = datetime.utcnow()
             # duration = (end_time - start_time).total_seconds()

@@ -21,6 +21,12 @@ class _ItemNotFound(Exception):
 
 # --- Categories ---
 
+# Fixed UUIDs for global categories
+CAT_SOLAR_PANELS = "a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60001"
+CAT_INVERTERS = "a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60002"
+CAT_BATTERIES = "a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60003"
+CAT_ACCESSORIES = "a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60004"
+
 def _get_current_user(db):
     auth_record = (
         db.query(Authentication)
@@ -45,9 +51,8 @@ def _get_inventory_scope(user):
     return {"level": "user", "org_uuid": None, "branch_uuid": None, "user_uuid": user.uuid}
 
 def _apply_category_scope(query, scope):
-    if scope["org_uuid"]:
-        return query.filter(InventoryCategory.organization_uuid == scope["org_uuid"])
-    return query.filter(InventoryCategory.user_uuid == scope["user_uuid"])
+    # [GLOBAL] Categories are no longer scoped to org or user
+    return query
 
 def _apply_item_scope(query, scope):
     query = query.filter(InventoryItem.deleted_at.is_(None))
@@ -59,8 +64,8 @@ def _apply_item_scope(query, scope):
     return query.filter(InventoryItem.user_uuid == scope["user_uuid"])
 
 def _get_scoped_category(db, scope, category_uuid):
-    query = db.query(InventoryCategory).filter(InventoryCategory.uuid == category_uuid)
-    return _apply_category_scope(query, scope).first()
+    # [GLOBAL] Look up category directly by UUID, ignoring scope
+    return db.query(InventoryCategory).filter(InventoryCategory.uuid == category_uuid).first()
 
 def _get_scoped_item(db, scope, item_uuid):
     query = db.query(InventoryItem).filter(
@@ -72,6 +77,7 @@ def _get_scoped_item(db, scope, item_uuid):
 def _default_inventory_categories():
     return [
         {
+            "uuid": CAT_SOLAR_PANELS,
             "name": "Solar Panels",
             "spec_schema": {
                 "panel_rated_power": "W",
@@ -79,6 +85,7 @@ def _default_inventory_categories():
             }
         },
         {
+            "uuid": CAT_INVERTERS,
             "name": "Inverters",
             "spec_schema": {
                 "inverter_rated_power": "W",
@@ -89,6 +96,7 @@ def _default_inventory_categories():
             }
         },
         {
+            "uuid": CAT_BATTERIES,
             "name": "Batteries",
             "spec_schema": {
                 "battery_rated_capacity_ah": "Ah",
@@ -100,6 +108,7 @@ def _default_inventory_categories():
             }
         },
         {
+            "uuid": CAT_ACCESSORIES,
             "name": "Accessories",
             "spec_schema": {}
         }
@@ -107,38 +116,7 @@ def _default_inventory_categories():
 
 @inventory_bp.route('/categories', methods=['POST'])
 def create_category():
-    with get_db() as db:
-        try:
-            current_user, error_response = _get_current_user(db)
-            if error_response:
-                return error_response
-            scope = _get_inventory_scope(current_user)
-
-            try:
-                validated_data = InventoryCategoryCreate(**request.json)
-            except ValidationError as e:
-                return jsonify({"errors": e.errors()}), 400
-
-            payload = validated_data.dict()
-            payload.pop("organization_uuid", None)
-            payload.pop("user_uuid", None)
-            if scope["org_uuid"]:
-                payload["organization_uuid"] = scope["org_uuid"]
-                payload["user_uuid"] = None
-            else:
-                payload["organization_uuid"] = None
-                payload["user_uuid"] = scope["user_uuid"]
-
-            new_item = InventoryCategory(**payload)
-            new_item.is_dirty = True
-            db.add(new_item)
-            db.commit()
-            db.refresh(new_item)
-            return jsonify(model_to_dict(new_item)), 201
-        except Exception as e:
-            db.rollback()
-            logging.exception("Error creating category")
-            return jsonify({"error": str(e)}), 500
+    return jsonify({"error": "Category creation is disabled in this version."}), 403
 
 @inventory_bp.route('/categories', methods=['GET'])
 def get_categories():
@@ -148,100 +126,52 @@ def get_categories():
             return error_response
         scope = _get_inventory_scope(current_user)
 
-        items = _apply_category_scope(db.query(InventoryCategory), scope).all()
-        if items:
-            return jsonify([model_to_dict(i) for i in items])
+        items = db.query(InventoryCategory).all()
 
-        if scope["branch_uuid"]:
-            # For employees, categories are derived from branch items only.
-            return jsonify([])
+        # Check if we have the specific global categories. If not, seed them.
+        global_ids = {CAT_SOLAR_PANELS, CAT_INVERTERS, CAT_BATTERIES, CAT_ACCESSORIES}
+        existing_ids = {str(i.uuid) for i in items}
 
-        if not scope["org_uuid"] and not scope["user_uuid"]:
-            return jsonify({"error": "Unable to determine category scope."}), 400
+        if global_ids.issubset(existing_ids):
+            # Only return the global ones to ensure consistency
+            return jsonify([model_to_dict(i) for i in items if str(i.uuid) in global_ids])
 
-        category_org_uuid = scope["org_uuid"] if scope["org_uuid"] else None
-        category_user_uuid = None if scope["org_uuid"] else scope["user_uuid"]
-
+        # Seeding logic for global records
         defaults = []
         for cat in _default_inventory_categories():
-            item = InventoryCategory(
-                name=cat["name"],
-                spec_schema=cat["spec_schema"],
-                organization_uuid=category_org_uuid,
-                user_uuid=category_user_uuid,
-                is_dirty=True
-            )
-            defaults.append(item)
-        db.add_all(defaults)
+            if str(cat["uuid"]) not in existing_ids:
+                item = InventoryCategory(
+                    uuid=cat["uuid"],
+                    name=cat["name"],
+                    spec_schema=cat["spec_schema"],
+                    organization_uuid=None, # Global
+                    user_uuid=None, # Global
+                    is_dirty=False # Do not push to cloud automatically; cloud must be seeded by superadmin
+                )
+                db.add(item)
+                defaults.append(item)
+
         db.commit()
-        for item in defaults:
-            db.refresh(item)
-        return jsonify([model_to_dict(i) for i in defaults])
+
+        # Re-fetch everything to include what was already there plus defaults
+        final_items = db.query(InventoryCategory).filter(InventoryCategory.uuid.in_(list(global_ids))).all()
+        return jsonify([model_to_dict(i) for i in final_items])
 
 @inventory_bp.route('/categories/<string:uuid>', methods=['GET'])
 def get_category(uuid):
     with get_db() as db:
-        current_user, error_response = _get_current_user(db)
-        if error_response:
-            return error_response
-        scope = _get_inventory_scope(current_user)
-
-        item = _get_scoped_category(db, scope, uuid)
+        item = db.query(InventoryCategory).filter(InventoryCategory.uuid == uuid).first()
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))
 
 @inventory_bp.route('/categories/<string:uuid>', methods=['PUT'])
 def update_category(uuid):
-    with get_db() as db:
-        try:
-            current_user, error_response = _get_current_user(db)
-            if error_response:
-                return error_response
-            scope = _get_inventory_scope(current_user)
-
-            item = _get_scoped_category(db, scope, uuid)
-            if not item:
-                return jsonify({"error": "Not found"}), 404
-            try:
-                validated_data = InventoryCategoryUpdate(**request.json)
-            except ValidationError as e:
-                return jsonify({"errors": e.errors()}), 400
-
-            update_data = validated_data.dict(exclude_unset=True)
-            update_data.pop("organization_uuid", None)
-            update_data.pop("user_uuid", None)
-            for key, value in update_data.items():
-                setattr(item, key, value)
-            item.is_dirty = True
-            db.commit()
-            db.refresh(item)
-            return jsonify(model_to_dict(item))
-        except Exception as e:
-            db.rollback()
-            logging.exception("Error updating category")
-            return jsonify({"error": str(e)}), 500
+    return jsonify({"error": "Category updates are disabled in this version."}), 403
 
 @inventory_bp.route('/categories/<string:uuid>', methods=['DELETE'])
 def delete_category(uuid):
-    with get_db() as db:
-        try:
-            current_user, error_response = _get_current_user(db)
-            if error_response:
-                return error_response
-            scope = _get_inventory_scope(current_user)
-
-            item = _get_scoped_category(db, scope, uuid)
-            if not item:
-                return jsonify({"error": "Not found"}), 404
-            db.delete(item)
-            db.commit()
-            return jsonify({"message": "Deleted successfully"}), 200
-        except Exception as e:
-            db.rollback()
-            logging.exception("Error deleting category")
-            return jsonify({"error": str(e)}), 500
-
+    return jsonify({"error": "Category deletion is disabled in this version."}), 403
 
 # --- Items ---
 

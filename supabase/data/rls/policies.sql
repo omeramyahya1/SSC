@@ -585,13 +585,14 @@ ON public.password_reset_requests FOR DELETE USING (is_superadmin() OR user_id =
 -- =================================================================
 -- REFACTORED RLS POLICIES: INVENTORY CATEGORIES
 -- =================================================================
+-- [GLOBAL RESOURCE] Categories are now a static system resource.
 ALTER TABLE public.inventory_categories ENABLE ROW LEVEL SECURITY;
 
 -- Clear any old versions safely
-DROP POLICY IF EXISTS "Allow global full access on inventory_categories" ON public.inventory_categories;
-DROP POLICY IF EXISTS "Allow admin full access on inventory_categories" ON public.inventory_categories;
-DROP POLICY IF EXISTS "Allow employee full access on inventory_categories" ON public.inventory_categories;
-DROP POLICY IF EXISTS "Allow employee read access on inventory_categories" ON public.inventory_categories;
+DROP POLICY IF EXISTS "Allow global select on inventory_categories" ON public.inventory_categories;
+DROP POLICY IF EXISTS "Allow authorized insert on inventory_categories" ON public.inventory_categories;
+DROP POLICY IF EXISTS "Allow authorized update on inventory_categories" ON public.inventory_categories;
+DROP POLICY IF EXISTS "Allow authorized delete on inventory_categories" ON public.inventory_categories;
 DROP POLICY IF EXISTS "Allow user full access on own inventory_categories" ON public.inventory_categories;
 
 -- 1. Everyone can view categories
@@ -600,38 +601,19 @@ ON public.inventory_categories
 FOR SELECT
 USING (true);
 
--- 2. Authorized agents can modify
-CREATE POLICY "Allow authorized insert on inventory_categories"
-ON public.inventory_categories
-FOR INSERT
-WITH CHECK (
-    is_superadmin()
-    OR (jwt_app_role() = 'admin' AND (organization_id = jwt_org_id() OR (organization_id IS NULL AND jwt_org_id() IS NULL)))
-    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
-);
+-- 2. Only Superadmins can modify global categories
+CREATE POLICY "Allow superadmin only insert on inventory_categories"
+ON public.inventory_categories FOR INSERT
+WITH CHECK (is_superadmin());
 
-CREATE POLICY "Allow authorized update on inventory_categories"
-ON public.inventory_categories
-FOR UPDATE
-USING (
-    is_superadmin()
-    OR (jwt_app_role() = 'admin' AND (organization_id = jwt_org_id() OR (organization_id IS NULL AND jwt_org_id() IS NULL)))
-    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
-)
-WITH CHECK (
-    is_superadmin()
-    OR (jwt_app_role() = 'admin' AND (organization_id = jwt_org_id() OR (organization_id IS NULL AND jwt_org_id() IS NULL)))
-    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
-);
+CREATE POLICY "Allow superadmin only update on inventory_categories"
+ON public.inventory_categories FOR UPDATE
+USING (is_superadmin())
+WITH CHECK (is_superadmin());
 
-CREATE POLICY "Allow authorized delete on inventory_categories"
-ON public.inventory_categories
-FOR DELETE
-USING (
-    is_superadmin()
-    OR (jwt_app_role() = 'admin' AND (organization_id = jwt_org_id() OR (organization_id IS NULL AND jwt_org_id() IS NULL)))
-    OR (jwt_app_role() = 'user' AND user_id = jwt_user_id())
-);
+CREATE POLICY "Allow superadmin only delete on inventory_categories"
+ON public.inventory_categories FOR DELETE
+USING (is_superadmin());
 
 
 -- =================================================================
