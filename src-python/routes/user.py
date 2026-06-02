@@ -256,7 +256,7 @@ def register_user():
 
         # --- 4. CLOUD USER REGISTRATION (IDEMPOTENT) ---
         user_location = f"{payload.stage4.locationCity}, {payload.stage4.locationState}" if payload.stage4.locationCity and payload.stage4.locationState else (payload.stage4.locationCity or payload.stage4.locationState)
-        
+
         # Mapping frontend plans to enum types expected by Postgres
         plan_mapping = {
             'free_trial': 'trial',
@@ -273,13 +273,13 @@ def register_user():
         try:
             service_client = get_service_role_client()
             service_client.rpc('register_user', {
-                'p_user_uuid': new_user_uuid, 
-                'p_username': stage1.username, 
+                'p_user_uuid': new_user_uuid,
+                'p_username': stage1.username,
                 'p_email': normalized_email,
-                'p_auth_uuid': new_auth_uuid, 
-                'p_password_hash': hashed_pw, 
+                'p_auth_uuid': new_auth_uuid,
+                'p_password_hash': hashed_pw,
                 'p_password_salt': salt,
-                'p_device_id': device_id, 
+                'p_device_id': device_id,
                 'p_distributor_id': payload.distributor_id,
                 'p_account_type': payload.account_type,
                 'p_business_name': payload.stage4.businessName,
@@ -311,7 +311,7 @@ def register_user():
         new_auth = Authentication(
             uuid=new_auth_uuid, user_uuid=new_user_uuid, password_hash=hashed_pw,
             password_salt=salt, is_dirty=False, last_active=datetime.utcnow(),
-            is_logged_in=True
+            is_logged_in=False
         )
         db.merge(new_auth)
 
@@ -346,7 +346,7 @@ def register_user():
                 status='under_processing',
                 is_dirty=True # Mark as dirty to sync with cloud
             )
-            
+
             # Handle receipt screenshot
             if payload.stage7.receipt:
                 try:

@@ -477,7 +477,7 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
         response = supabase.rpc("sync_apply_and_pull", {"p_table_name": table_name, "p_records": payloads}).execute()
         if hasattr(response, 'error') and response.error:
             raise Exception(f"Supabase RPC error for {table_name}: {response.error.message}")
-        
+
         if hasattr(response, 'data'):
             data = response.data
             confirmed_ids = set(str(x) for x in (data.get('confirmed_ids') or []))
@@ -488,7 +488,7 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
                 if str(record.uuid) in confirmed_ids:
                     record.is_dirty = False
                     confirmed_count += 1
-            
+
             if failures:
                 print(f"Errors during push for {table_name}: {failures}")
                 # We raise if any record failed to ensure atomicity/visibility of sync issues
@@ -534,13 +534,13 @@ def push_to_supabase(db: Session, dirty_only: bool = True, auth_record: models.A
         # Re-raise exceptions from sync_table to ensure atomicity of the overall sync
         sync_table(db, config["model"], table_name, config["mapper"], scope=scope, dirty_only=dirty_only)
 
-def _ensure_device_id(db: Session, user_uuid: str) -> str:
+def _ensure_device_id(db: Session, auth_uuid: str) -> str:
     """
     Uses existing Authentication.device_id if present; otherwise generates and persists one.
     """
     auth = (
         db.query(models.Authentication)
-        .filter(models.Authentication.user_uuid == user_uuid)
+        .filter(models.Authentication.uuid == auth_uuid)
         .order_by(models.Authentication.created_at.desc())
         .first()
     )
@@ -787,7 +787,10 @@ def sync():
     start_time = datetime.now(timezone.utc)
     print(f"Synchronization process started at {start_time.isoformat()} UTC.")
 
-    payload = IsRegistration(**request.json)
+    raw_payload = request.get_json(silent=True)
+    if not isinstance(raw_payload, dict):
+        raw_payload = {}
+    payload = IsRegistration(**raw_payload)
     registration = payload.registration
 
     with get_db() as db:
@@ -798,7 +801,7 @@ def sync():
             .order_by(models.Authentication.last_active.desc())
             .first()
         )
-        
+
         # [BYPASS] If no active session, but this is a registration sync, look for the newest auth record
         if not auth and registration:
             auth = (
@@ -811,7 +814,7 @@ def sync():
              return jsonify({"status": "failed", "error": "No authenticated session found."}), 401
 
         user_uuid = auth.user_uuid
-        device_id = _ensure_device_id(db, user_uuid)
+        device_id = _ensure_device_id(db, auth.uuid)
 
         # Check if already tampered
         tampered_subscription = db.query(models.Subscription).filter(

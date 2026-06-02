@@ -64,8 +64,17 @@ def _apply_item_scope(query, scope):
     return query.filter(InventoryItem.user_uuid == scope["user_uuid"])
 
 def _get_scoped_category(db, scope, category_uuid):
-    # [GLOBAL] Look up category directly by UUID, ignoring scope
-    return db.query(InventoryCategory).filter(InventoryCategory.uuid == category_uuid).first()
+    # [GLOBAL] Only active global categories are valid
+    return (
+        db.query(InventoryCategory)
+        .filter(
+            InventoryCategory.uuid == category_uuid,
+            InventoryCategory.deleted_at.is_(None),
+            InventoryCategory.organization_uuid.is_(None),
+            InventoryCategory.user_uuid.is_(None),
+        )
+        .first()
+    )
 
 def _get_scoped_item(db, scope, item_uuid):
     query = db.query(InventoryItem).filter(
@@ -126,7 +135,7 @@ def get_categories():
             return error_response
         scope = _get_inventory_scope(current_user)
 
-        items = db.query(InventoryCategory).all()
+        items = db.query(InventoryCategory).filter(InventoryCategory.deleted_at.is_(None)).all()
 
         # Check if we have the specific global categories. If not, seed them.
         global_ids = {CAT_SOLAR_PANELS, CAT_INVERTERS, CAT_BATTERIES, CAT_ACCESSORIES}
@@ -160,7 +169,19 @@ def get_categories():
 @inventory_bp.route('/categories/<string:uuid>', methods=['GET'])
 def get_category(uuid):
     with get_db() as db:
-        item = db.query(InventoryCategory).filter(InventoryCategory.uuid == uuid).first()
+        current_user, error_response = _get_current_user(db)
+        if error_response:
+            return error_response
+        item = (
+            db.query(InventoryCategory)
+            .filter(
+                InventoryCategory.uuid == uuid,
+                InventoryCategory.deleted_at.is_(None),
+                InventoryCategory.organization_uuid.is_(None),
+                InventoryCategory.user_uuid.is_(None),
+            )
+            .first()
+        )
         if not item:
             return jsonify({"error": "Not found"}), 404
         return jsonify(model_to_dict(item))

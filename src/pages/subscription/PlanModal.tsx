@@ -234,7 +234,7 @@ export function PlanModal({ isOpen, onOpenChange }: PlanModalProps) {
     if (isOpen) {
       const status = currentUser?.status;
       if (status === "grace" || status === "expired" || status === "trial") {
-        setView(hasPendingPayment ? "activate" : "upgrade");
+        setView(hasPendingPayment || latestSubscription?.status == "pending" ? "activate" : "upgrade");
       } else {
         setView("status");
       }
