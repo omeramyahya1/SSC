@@ -1330,7 +1330,7 @@ const Stage8 = () => {
         setError(null);
         try {
             // Use a longer timeout for the sync process
-            await api.post('/sync_logs/sync', {}, { timeout: 60000 }); // 60-second timeout
+            await api.post('/sync_logs/sync', { registration: true }, { timeout: 60000 }); // 60-second timeout
             setSyncStatus('success');
         } catch (err: any) {
             console.error("Initial sync failed:", err);

@@ -343,7 +343,7 @@ export function SettingsModal({ passwordChange }: SettingsModalProps) {
 
   useEffect(() => {
     fetchSystemInfo();
-  }, [fetchSystemInfo]);
+  }, [fetchSystemInfo, currentUser]);
 
   useEffect(() => {
     if (activeTab === "system" && !latestTC && currentUser?.uuid) {
