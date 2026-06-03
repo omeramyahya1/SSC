@@ -230,7 +230,7 @@ export function Sidebar() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const { currentUser } = useUserStore();
-  const { currentSubscription, fetchSubscriptions } = useSubscriptionStore();
+  const { fetchSubscriptions } = useSubscriptionStore();
 
   const [subscriptionFetched, setSubscriptionFetched] = useState(false);
 
