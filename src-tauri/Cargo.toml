@@ -1,8 +1,8 @@
 [package]
 name = "ssc"
-version = "0.1.1-beta.1"
-description = "A Tauri App"
-authors = ["you"]
+version = "0.1.1-beta.3"
+description = "SSC: Solar System Calculator"
+authors = ["@omeramyahya"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

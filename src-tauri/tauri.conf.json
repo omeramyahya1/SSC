@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ssc",
-  "version": "0.1.1-beta.1",
+  "version": "0.1.1-beta.3",
   "identifier": "com.omeramyahya.ssc",
 
   "build": {
@@ -63,7 +63,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://raw.githubusercontent.com/omeramyahya1/SSC/beta-1/latest-beta.json"
+        "https://raw.githubusercontent.com/omeramyahya1/SSC/beta-3/latest-beta.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGODA1N0UzQzM3MzA5RjMKUldUekNYUEQ0MWVBSDcyVTdZMGo5V1luMUVkWHFWZjFuai9melhranNKaGtqZVM4YkRJa1dVRlcK"
     }
