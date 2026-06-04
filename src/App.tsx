@@ -30,7 +30,6 @@ function App() {
     let aborted = false;
     const hydrateAndCheckAuth = async () => {
       // 1. Wait for Backend Readiness
-      const baseUrl = await getBackendBaseUrl();
       const startTime = Date.now();
       const timeout = 60000; // 60 seconds
       let isReady = false;
@@ -42,6 +41,7 @@ function App() {
         }
 
         try {
+          const baseUrl = await getBackendBaseUrl();
           const res = await fetch(`${baseUrl}health`);
           if (res.ok) {
             isReady = true;

@@ -93,6 +93,7 @@ const args = [
   "--include-onefile-external-data=assets",
   "--include-data-files=public/ssc.svg=ssc.svg",
   "--include-onefile-external-data=ssc.svg",
+  "--include-data-files=src-python/.env=.env",
   "--plugin-enable=numpy",
   // "--collect-all=rasterio",       // <-- Forces Nuitka to grab the embedded GDAL DLLs
   "--include-package=rasterio",    // <-- Explicitly includes the rasterio code bindings
