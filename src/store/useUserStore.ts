@@ -264,18 +264,27 @@ export const useUserStore = create<UserStore>()(
         currentUser: state.currentUser,
         currentUserSnapshot: state.currentUserSnapshot,
       }),
-      onRehydrateStorage: () => (state, error) => {
+      onRehydrateStorage: () => async (state, error) => {
         if (error || !state) return;
-        state.setHasHydrated(true);
+        
         const snapshot = state.currentUserSnapshot;
-        if (snapshot?.user_id) {
-          state.fetchUser(String(snapshot.user_id));
+        if (snapshot?.user_id && !state.currentUser) {
+          try {
+            await state.fetchUser(String(snapshot.user_id));
+          } catch (e) {
+            console.error("User rehydration fetch failed", e);
+          }
         }
+        state.setHasHydrated(true);
       },
     },
   ),
 );
 
 registerStore(StoreKeys.User, () => {
-  // Intentionally avoid eager fetch; fetchUsers should be triggered by admin-only views.
+  const state = useUserStore.getState();
+  const snapshot = state.currentUserSnapshot;
+  if (snapshot?.user_id) {
+    state.fetchUser(String(snapshot.user_id));
+  }
 });

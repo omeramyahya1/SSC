@@ -1086,6 +1086,7 @@ export function IndependentInvoiceEditor({
                   variant="default"
                   className="bg-primary h-14 text-xl font-bold no-print"
                   disabled={
+                    !resolvedUser?.uuid ||
                     (manualItems.length == 0 && inventoryItems.length == 0) ||
                     manualItems.some((item) => item.name == "")
                   }

@@ -25,7 +25,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [backendError, setBackendError] = useState<string | null>(null);
   const { currentAuthentication, fetchLatestAuthentication } = useAuthenticationStore();
-  const { _hasHydrated } = useUserStore();
+  const { currentUser, _hasHydrated } = useUserStore();
 
   useEffect(() => {
     let aborted = false;
@@ -139,7 +139,8 @@ function App() {
     );
   }
 
-  if (isLoggedIn === null || !_hasHydrated) {
+  // User Guard: Ensure stores are hydrated and we have a user if logged in
+  if (isLoggedIn === null || !_hasHydrated || (isLoggedIn && !currentUser)) {
     // Render a loading state or nothing while we determine auth status and stores are rehydrating
     return null;
   }
