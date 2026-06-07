@@ -94,6 +94,7 @@ def login_user():
                 last_active=datetime.utcnow(),
                 is_dirty=True
             )
+            log_out_other_sessions(db) # Log out other sessons first.
             db.add(new_auth_entry)
             db.commit()
             db.refresh(new_auth_entry)
@@ -302,6 +303,7 @@ def handle_online_login(db, email, password, local_user):
             last_active=datetime.utcnow(),
             is_dirty=True
         )
+        log_out_other_sessions(db) # Log out other sessons first.
         db.add(new_auth_entry)
 
         db.commit()
@@ -316,28 +318,54 @@ def handle_online_login(db, email, password, local_user):
         response_auth = LoginResponseAuthentication(**auth_data)
         return jsonify(LoginResponse(user=response_user, authentication=response_auth).model_dump()), 200
 
+def log_out_other_sessions(db):
+    updated = db.query(Authentication).filter(
+            Authentication.is_logged_in == True
+        ).update(
+            {
+                Authentication.is_logged_in: False,
+                Authentication.is_dirty: True # Mark all for syncing
+            },
+            synchronize_session=False # High performance, bypasses loading objects into memory
+        )
+    db.commit()
+
+    if updated == 0:
+        return jsonify({"message": "No other active sessions"}), 200
+
+    return jsonify({"message": f"Successfully logged out of all {updated} sessions"}), 200
+
+
+
 @authentication_bp.route('/logout', methods=['POST'])
 def logout_user():
-    auth_id = request.json.get('auth_id')
-    if not auth_id:
-        return jsonify({"error": "auth_id is required"}), 400
+     # 1. Expect user_id to target all sessions belonging to that specific user
+    user_id = request.json.get('user_id')
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
 
     with get_db() as db:
-        auth_entry = db.query(Authentication).filter(Authentication.auth_id == auth_id).first()
+        # 2. Perform an efficient bulk update on all logged-in rows for this user
+        updated_count = db.query(Authentication).filter(
+            Authentication.user_id == user_id,
+            Authentication.is_logged_in == True
+        ).update(
+            {
+                Authentication.is_logged_in: False,
+                Authentication.last_active: datetime.utcnow(),
+                Authentication.is_dirty: True # Mark all for syncing
+            },
+            synchronize_session=False # High performance, bypasses loading objects into memory
+        )
 
-        if not auth_entry:
-            return jsonify({"error": "Authentication session not found"}), 404
-
-        # Idempotent: if already logged out, no action needed, return success
-        if not auth_entry.is_logged_in:
-            return jsonify({"message": "User was already logged out"}), 200
-
-        auth_entry.is_logged_in = False
-        auth_entry.last_active = datetime.utcnow()
-        auth_entry.is_dirty = True # Mark for syncing
+        # 3. Commit the changes to the database
         db.commit()
 
-        return jsonify({"message": "Logout successful"}), 200
+        # 4. Handle response based on whether active sessions actually existed
+        if updated_count == 0:
+            return jsonify({"message": "User had no active sessions"}), 200
+
+        return jsonify({"message": f"Successfully logged out of all {updated_count} sessions"}), 200
 
 
 @authentication_bp.route('/request-reset', methods=['POST'])

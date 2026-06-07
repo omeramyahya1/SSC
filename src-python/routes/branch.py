@@ -97,11 +97,28 @@ def update_branch(item_id):
 
 @branch_bp.route('/', methods=['GET'])
 def get_all_branch():
-    org_uuid = request.args.get('org_uuid')
     with get_db() as db:
-        query = db.query(Branch)
-        if org_uuid:
-            query = query.filter(Branch.organization_uuid == org_uuid)
+        auth_record = (
+                db.query(Authentication)
+                .filter(Authentication.is_logged_in == True)
+                .order_by(Authentication.last_active.desc())
+                .first()
+            )
+        if not auth_record:
+            return jsonify({"error": "No authenticated user found. Please log in."}), 401
+
+        current_user = db.query(User).filter(User.uuid == auth_record.user_uuid).first()
+        if not current_user:
+            return jsonify({"error": "Authenticated user not found."}), 404
+
+        if current_user.role != 'admin':
+            return jsonify({"error": "Admin privileges required."}), 403
+
+        org = db.query(Organization).filter(Organization.uuid == current_user.organization_uuid).first()
+        if not org:
+            return jsonify({"error": "Organization not found"}), 404
+
+        query = db.query(Branch).filter(Branch.organization_uuid == org.uuid)
         items = query.filter(Branch.deleted_at == None).all()
         return jsonify([model_to_dict(i) for i in items])
 
