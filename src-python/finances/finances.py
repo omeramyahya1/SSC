@@ -1,6 +1,6 @@
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
-from models import Invoice, Payment, InventoryItem, ProjectComponent, StockAdjustment, Project
+from models import Invoice, Payment, InventoryItem, ProjectComponent, StockAdjustment, Project, User
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
@@ -13,12 +13,12 @@ def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = No
     # Base filters for revenue and invoices
     def apply_filters(query, model):
         if organization_uuid:
-            query = query.filter(Project.organization_uuid == organization_uuid)
+            query = query.filter(func.coalesce(Project.organization_uuid, User.organization_uuid) == organization_uuid)
         elif user_uuid:
-            query = query.filter(Project.user_uuid == user_uuid)
+            query = query.filter(or_(Project.user_uuid == user_uuid, Invoice.user_uuid == user_uuid))
 
         if branch_uuid:
-            query = query.filter(Project.branch_uuid == branch_uuid)
+            query = query.filter(func.coalesce(Project.branch_uuid, User.branch_uuid) == branch_uuid)
 
         if model == Payment:
             if start_date:
@@ -35,15 +35,18 @@ def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = No
     # 1. Aggregate Total Revenue (Sum of all payments within range)
     revenue_query = db.query(func.sum(Payment.amount)) \
         .join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
-        .join(Project, Invoice.project_uuid == Project.uuid)
+        .outerjoin(Project, Invoice.project_uuid == Project.uuid) \
+        .outerjoin(User, Invoice.user_uuid == User.uuid) \
+        .filter(Payment.deleted_at.is_(None))
 
     revenue_query = apply_filters(revenue_query, Payment)
     total_revenue = revenue_query.scalar() or 0.0
 
     # 2. Total Invoices Amount (Sum of all invoices issued within range)
     invoice_total_query = db.query(func.sum(Invoice.amount)) \
-        .join(Project, Invoice.project_uuid == Project.uuid) \
-        .filter(Invoice.issued_at != None)
+        .outerjoin(Project, Invoice.project_uuid == Project.uuid) \
+        .outerjoin(User, Invoice.user_uuid == User.uuid) \
+        .filter(Invoice.issued_at != None, Invoice.deleted_at.is_(None))
 
     invoice_total_query = apply_filters(invoice_total_query, Invoice)
     total_invoice_amount = invoice_total_query.scalar() or 0.0
@@ -51,7 +54,8 @@ def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = No
     outstanding_invoices = float(total_invoice_amount) - float(total_revenue)
 
     # 3. Inventory Value (Asset Value: Sum of buy_price * quantity_on_hand)
-    inventory_query = db.query(func.sum(InventoryItem.buy_price * InventoryItem.quantity_on_hand))
+    inventory_query = db.query(func.sum(InventoryItem.buy_price * InventoryItem.quantity_on_hand)) \
+        .filter(InventoryItem.deleted_at.is_(None))
     if organization_uuid:
         inventory_query = inventory_query.filter(InventoryItem.organization_uuid == organization_uuid)
     elif user_uuid:
@@ -70,7 +74,9 @@ def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = No
         func.date(Payment.created_at).label('date'),
         func.sum(Payment.amount).label('revenue')
     ).join(Invoice, Payment.invoice_uuid == Invoice.uuid) \
-     .join(Project, Invoice.project_uuid == Project.uuid)
+     .outerjoin(Project, Invoice.project_uuid == Project.uuid) \
+     .outerjoin(User, Invoice.user_uuid == User.uuid) \
+     .filter(Payment.deleted_at.is_(None))
 
     trend_query = apply_filters(trend_query, Payment)
     trend_results = trend_query.group_by(func.date(Payment.created_at)).order_by(func.date(Payment.created_at)).all()
