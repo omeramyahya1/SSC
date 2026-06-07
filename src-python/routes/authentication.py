@@ -340,14 +340,14 @@ def log_out_other_sessions(db):
 @authentication_bp.route('/logout', methods=['POST'])
 def logout_user():
      # 1. Expect user_id to target all sessions belonging to that specific user
-    user_id = request.json.get('user_id')
-    if not user_id:
-        return jsonify({"error": "user_id is required"}), 400
+    auth_id = request.json.get('auth_id')
+    if not auth_id:
+        return jsonify({"error": "Bad request"}), 400
 
     with get_db() as db:
         # 2. Perform an efficient bulk update on all logged-in rows for this user
         updated_count = db.query(Authentication).filter(
-            Authentication.user_id == user_id,
+            Authentication.auth_id == auth_id,
             Authentication.is_logged_in == True
         ).update(
             {
