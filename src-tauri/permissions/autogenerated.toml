@@ -1,0 +1,8 @@
+[[permission]]
+identifier = "allow-app-commands"
+description = "Allows access to custom commands in main.rs"
+commands.allow = [
+    "splash_screen",
+    "backend_base_url",
+    "prepare_for_update"
+]

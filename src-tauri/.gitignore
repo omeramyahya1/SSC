@@ -15,4 +15,6 @@
 
 latest*.json
 
+main.*
+
 python-sidecar*
