@@ -25,6 +25,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [backendError, setBackendError] = useState<string | null>(null);
   const { currentAuthentication, fetchLatestAuthentication } = useAuthenticationStore();
+  const { _hasHydrated } = useUserStore();
 
   useEffect(() => {
     let aborted = false;
@@ -138,8 +139,8 @@ function App() {
     );
   }
 
-  if (isLoggedIn === null) {
-    // Render a loading state or nothing while we determine auth status
+  if (isLoggedIn === null || !_hasHydrated) {
+    // Render a loading state or nothing while we determine auth status and stores are rehydrating
     return null;
   }
 

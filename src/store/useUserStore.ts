@@ -51,6 +51,8 @@ export interface UserStore {
   currentUserSnapshot: { user_id: number; uuid: string } | null;
   isLoading: boolean;
   error: string | null;
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
   checkEmailUniqueness: (email: string) => Promise<boolean>;
   changeCurrentUserEmail: (email: string) => Promise<User | undefined>;
   fetchUsers: () => Promise<void>;
@@ -74,6 +76,9 @@ export const useUserStore = create<UserStore>()(
       currentUserSnapshot: null,
       isLoading: false,
       error: null,
+      _hasHydrated: false,
+
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       setCurrentUser: (user) => {
         set({
@@ -256,10 +261,12 @@ export const useUserStore = create<UserStore>()(
     {
       name: "user-store",
       partialize: (state) => ({
+        currentUser: state.currentUser,
         currentUserSnapshot: state.currentUserSnapshot,
       }),
       onRehydrateStorage: () => (state, error) => {
         if (error || !state) return;
+        state.setHasHydrated(true);
         const snapshot = state.currentUserSnapshot;
         if (snapshot?.user_id) {
           state.fetchUser(String(snapshot.user_id));
