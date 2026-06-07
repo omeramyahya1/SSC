@@ -362,6 +362,8 @@ def register_user():
 
         # --- 6. JWT ISSUANCE (ALWAYS RETRYABLE) ---
         try:
+            from utils import get_device_id
+            device_id = get_device_id()
             service_client = get_service_role_client()
             jwt_response = service_client.rpc('issue_jwt', {
                 'p_user_id': new_user_uuid, 'p_device_id': device_id

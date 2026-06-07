@@ -141,8 +141,9 @@ def handle_online_login(db, email, password, local_user):
     if local_user and not local_user.deleted_at:
         print(f"Refreshing JWT for existing local user: {email}")
         try:
+            from utils import get_device_id
+            device_id = get_device_id()
             user_auth = db.query(Authentication).filter_by(user_uuid=local_user.uuid).order_by(Authentication.created_at.desc()).first()
-            device_id = user_auth.device_id if user_auth and is_valid_uuid(user_auth.device_id) else str(uuid.uuid4())
 
             service_client = get_service_role_client()
             jwt_response = service_client.rpc('issue_jwt', {'p_user_id': local_user.uuid, 'p_device_id': device_id}).execute()
@@ -187,7 +188,8 @@ def handle_online_login(db, email, password, local_user):
     # If the user does NOT exist locally, perform the full online lookup
     else:
         print(f"Performing online lookup for new user: {email}")
-        new_device_id = str(uuid.uuid4())
+        from utils import get_device_id
+        new_device_id = get_device_id()
         try:
             service_client = get_service_role_client()
             response = service_client.rpc('log_user_in', {'p_email': email, 'p_device_id': new_device_id}).execute()

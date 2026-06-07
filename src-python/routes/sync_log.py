@@ -620,7 +620,8 @@ def pull_from_supabase(db: Session, auth_record: models.Authentication = None):
     user_uuid = current_user.uuid
 
     supabase = get_user_client()
-    device_id = _ensure_device_id(db, user_uuid)
+    from utils import get_device_id
+    device_id = get_device_id()
     last_cursor = _get_last_sync_cursor(db, user_uuid, device_id, supabase)
 
     # Use a server-issued high-water mark to bound the pull window.
@@ -814,7 +815,8 @@ def sync():
              return jsonify({"status": "failed", "error": "No authenticated session found."}), 401
 
         user_uuid = auth.user_uuid
-        device_id = _ensure_device_id(db, auth.uuid)
+        from utils import get_device_id
+        device_id = get_device_id()
 
         # Check if already tampered
         tampered_subscription = db.query(models.Subscription).filter(
