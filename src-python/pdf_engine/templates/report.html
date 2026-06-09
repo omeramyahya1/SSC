@@ -250,9 +250,9 @@
     <table>
         <thead>
             <tr>
-                <th>{{ t.table.payment_id }}</th>
                 <th>{{ t.table.date }}</th>
                 <th>{{ t.table.method }}</th>
+                <th>{{ t.table.reference }}</th>
                 <th>{{ t.table.invoice_no }}</th>
                 <th class="{{ 'text-right' if dir == 'ltr' else 'text-left' }}">{{ t.table.amount }}</th>
             </tr>
@@ -260,9 +260,9 @@
         <tbody>
             {% for p in data.payments_data %}
             <tr>
-                <td>{{ p["Payment ID"] }}</td>
                 <td>{{ p["Date"] }}</td>
                 <td>{{ p["Method"] }}</td>
+                <td>{{ p["Reference"] }}</td>
                 <td>{{ p["Invoice No."] }}</td>
                 <td class="{{ 'text-right' if dir == 'ltr' else 'text-left' }} bold">{{ "{:,.2f}".format(p["Amount"]) }}</td>
             </tr>

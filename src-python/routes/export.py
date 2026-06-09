@@ -517,7 +517,7 @@ def export_pdf(project_uuid):
                 installation_fee=f"{float(details.get('installation_fee') or 0):,.2f}",
                 discount_amount=f"{float(discount_amount):,.2f}",
                 grand_total=f"{float(invoice.amount or 0):,.2f}",
-                terms=details.get('terms_and_conditions', ''),
+                terms=details.get('terms_and_conditions' or '-'),
                 config=config_render,
                 t=TRANSLATIONS.get(lang, TRANSLATIONS['en']),
                 dir=direction,
