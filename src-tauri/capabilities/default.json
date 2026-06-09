@@ -21,7 +21,7 @@
             { "string": "--port" },
             { "validator": "\\d+" },
             { "string": "--mode" },
-            { "validator": ".+" }
+            { "validator": "^(dev|beta|prod)$" }
           ]
         }
       ]

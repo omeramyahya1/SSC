@@ -20,7 +20,11 @@ function updateStatus(message: string) {
  */
 async function pingServer() {
   let attempts = 0;
+  const maxAttempts = 120 // 60 seconds at 500ms intervals
   while (true) {
+    if (attempts >= maxAttempts) {
+      throw new Error("Backend failed to start within 60 seconds");
+    }
     try {
       const baseUrl = await getBackendBaseUrl();
       const res = await fetch(`${baseUrl}health`);

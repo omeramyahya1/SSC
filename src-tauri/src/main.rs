@@ -261,10 +261,10 @@ fn main() {
                     .app_local_data_dir()
                     .expect("failed to get app data dir");
                 log_path.push("sidecar_debug.log");
-                
+
                 let mut log_file_options = OpenOptions::new();
                 log_file_options.create(true).write(true); // Always create/open for writing
-                
+
                 let mut needs_clear = false;
                 if let Ok(file) = File::open(&log_path) {
                     let reader = BufReader::new(file);
@@ -277,7 +277,7 @@ fn main() {
                              let content = &timestamp_str[1..timestamp_str.len() - 1]; // Remove brackets
                              match NaiveDateTime::parse_from_str(content, "%d/%b/%Y %H:%M:%S") {
                                  Ok(naive_dt) => {
-                                     let log_timestamp: DateTime<Utc> = DateTime::from_utc(naive_dt, Utc);
+                                     let log_timestamp: DateTime<Utc> = naive_dt.and_utc();
                                      if Utc::now() - log_timestamp > Duration::weeks(1) {
                                          needs_clear = true;
                                      }
@@ -375,18 +375,19 @@ fn main() {
 
                 // Drain the sidecar's output to prevent pipe-clogging and log errors
                 tauri::async_runtime::spawn(async move {
+                    let mut log_file = log_file;
                     while let Some(event) = rx.recv().await {
                         match event {
                             CommandEvent::Stdout(line) => {
                                 let text = String::from_utf8_lossy(&line);
-                                if let Some(ref mut f) = log_file.as_ref() {
+                                if let Some(ref mut f) = log_file {
                                     let timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
                                     let _ = writeln!(f, "{}{}", timestamp, text);
                                 }
                             }
                             CommandEvent::Stderr(line) => {
                                 let text = String::from_utf8_lossy(&line);
-                                if let Some(ref mut f) = log_file.as_ref() {
+                                if let Some(ref mut f) = log_file {
                                     let timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
                                     let _ = writeln!(f, "{}{}", timestamp, text);
                                 }

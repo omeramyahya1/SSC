@@ -46,7 +46,7 @@ def calculate_dashboard_stats(db: Session, organization_uuid: Optional[str] = No
     invoice_total_query = db.query(func.sum(Invoice.amount)) \
         .outerjoin(Project, Invoice.project_uuid == Project.uuid) \
         .outerjoin(User, Invoice.user_uuid == User.uuid) \
-        .filter(Invoice.issued_at != None, Invoice.deleted_at.is_(None))
+        .filter(Invoice.issued_at.is_not(None), Invoice.deleted_at.is_(None))
 
     invoice_total_query = apply_filters(invoice_total_query, Invoice)
     total_invoice_amount = invoice_total_query.scalar() or 0.0

@@ -30,4 +30,7 @@ def run_postgrest_pydantic_self_test() -> None:
         b'{"ok": true, "items": [1, "two", null, {"nested": false}]}'
     )
     if not isinstance(sample, dict) or sample.get("ok") is not True:
-        raise RuntimeError("PostGREST JSONAdapter returned an unexpected value.")
+        raise RuntimeError(
+            f"PostGREST JSONAdapter self-test failed. "
+            f"Expected dict with 'ok': True, got {type(sample).__name__}: {sample!r}"
+        )

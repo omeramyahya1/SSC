@@ -336,7 +336,7 @@ def handle_online_login(db, email, password, local_user):
 
 def log_out_other_sessions(db):
     updated = db.query(Authentication).filter(
-            Authentication.is_logged_in == True
+            Authentication.is_logged_in.is_(True)
         ).update(
             {
                 Authentication.is_logged_in: False,
@@ -364,7 +364,7 @@ def logout_user():
         # 2. Perform an efficient bulk update on all logged-in rows for this user
         updated_count = db.query(Authentication).filter(
             Authentication.auth_id == auth_id,
-            Authentication.is_logged_in == True
+            Authentication.is_logged_in.is_(True)
         ).update(
             {
                 Authentication.is_logged_in: False,

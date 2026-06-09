@@ -534,27 +534,6 @@ def push_to_supabase(db: Session, dirty_only: bool = True, auth_record: models.A
         # Re-raise exceptions from sync_table to ensure atomicity of the overall sync
         sync_table(db, config["model"], table_name, config["mapper"], scope=scope, dirty_only=dirty_only)
 
-def _ensure_device_id(db: Session, auth_uuid: str) -> str:
-    """
-    Uses existing Authentication.device_id if present; otherwise generates and persists one.
-    """
-    auth = (
-        db.query(models.Authentication)
-        .filter(models.Authentication.uuid == auth_uuid)
-        .order_by(models.Authentication.created_at.desc())
-        .first()
-    )
-    if auth and auth.device_id:
-        return str(auth.device_id)
-
-    import uuid as _uuid
-    device_id = str(_uuid.uuid4())
-    if auth:
-        auth.device_id = device_id
-        auth.is_dirty = True
-        db.commit()
-    return device_id
-
 def _get_local_cursor(db: Session, user_uuid: str, device_id: str) -> Optional[datetime]:
     row = (
         db.query(models.SyncState)
