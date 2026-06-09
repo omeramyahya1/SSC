@@ -37,45 +37,10 @@ if (!fs.existsSync(entry)) {
 }
 
 const distPath = path.join(repoRoot, "src-tauri");
-// const args = [
-//   "-m",
-//   "PyInstaller",
-//   entry,
-//   "--collect-all",
-//   "numpy",
-//   "--collect-all",
-//   "pandas",
-//   "--collect-all",
-//   "weasyprint",
-//   "--name",
-//   "python-sidecar",
-//   "--onefile",
-//   "--distpath",
-//   distPath,
-//   "--clean",
-// ];
 
-// const args = [
-//   "-m", "PyInstaller",
-//   "--clean",                       // Wipes cache folders before building
-//   "--onefile",                     // Compiles into a single binary runner executable
-//   "--name=python-sidecar",          // Maps to --output-filename
-//   "--distpath=" + distPath,         // Maps to --output-dir
-
-//   // Include Data Directories & Assets (Format: "source_path:dest_path")
-//   "--add-data=src-python/ble/dataset:dataset",
-//   "--add-data=src-python/pdf_engine/templates:templates",
-//   "--add-data=src-python/pdf_engine/assets:assets",
-//   "--add-data=public/ssc.svg:.",    // Places ssc.svg in the root execution context
-
-//   // Hidden Imports (Ensures dynamic modules like Jinja templates and Weasyprint styles bundle correctly)
-//   "--hidden-import=jinja2",
-//   "--hidden-import=weasyprint",
-//   "--hidden-import=pandas",
-//   "--hidden-import=alembic",
-
-//   entry
-// ];
+// Build commands for windows:
+// npx cross-env SSC_MODE=beta npm run build:py
+// npx cross-env SSC_MODE=beta VITE_APP_CHANNEL=beta npm run tauri build
 
 const args = [
   "-m", "nuitka",
@@ -93,9 +58,11 @@ const args = [
   "--include-onefile-external-data=assets",
   "--include-data-files=public/ssc.svg=ssc.svg",
   "--include-onefile-external-data=ssc.svg",
+  "--include-data-files=src-python/.env=.env",
   "--plugin-enable=numpy",
-  "--collect-all=rasterio",       // <-- Forces Nuitka to grab the embedded GDAL DLLs
-  "--include-package=rasterio",    // <-- Explicitly includes the rasterio code bindings
+  "--prefer-source-code",
+  "--include-package=typing_extensions",
+  "--include-package=rasterio",
   "--include-package=weasyprint",
   "--include-package=jinja2",
   "--output-filename=python-sidecar",
@@ -129,6 +96,17 @@ const suffixedPath = path.join(distPath, `${baseName}-${targetTriple}${ext}`);
 if (!fs.existsSync(builtPath)) {
   // fail(`Expected PyInstaller output not found: ${builtPath}`);
   fail(`Expected Nuitka output not found: ${builtPath}`);
+}
+
+const selfTest = spawnSync(builtPath, ["--self-test"], {
+  stdio: "inherit",
+  env: process.env,
+});
+if (selfTest.error) {
+  fail(`Failed to run sidecar self-test: ${String(selfTest.error)}`);
+}
+if (selfTest.status !== 0) {
+  fail(`Sidecar self-test failed with exit code ${selfTest.status ?? 1}.`);
 }
 
 try {

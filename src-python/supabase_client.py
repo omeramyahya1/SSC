@@ -1,10 +1,14 @@
 import os
 import sys
+
+from pydantic_postgrest_bootstrap import apply_postgrest_pydantic_bootstrap
+
+apply_postgrest_pydantic_bootstrap()
+
 from supabase import create_client, Client, ClientOptions
 from dotenv import load_dotenv
 from utils import get_db
 import models
-
 
 if getattr(sys, 'frozen', False):
     # Running as a compiled binary (.deb production environment)
@@ -23,11 +27,11 @@ load_dotenv(dotenv_path)
 # They are used only if env vars are not set.
 DEFAULT_SUPABASE_URL = "https://igmwwmtacuedbexsslco.supabase.co"
 DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_Wvgufg11pZE9asGjQZxWHQ_eHwDKD8t"
-DEFAULT_SUPABASE_SRK_KEY = os.environ.get("SERVICE_ROLE_KEY") # Note: this is not duplication, i need to hard-code the srk here bc bundling will Nuitka
+DEFAULT_SUPABASE_SRK_KEY = os.getenv("SERVICE_ROLE_KEY") # Note: this is not duplication, i need to hard-code the srk here bc bundling will Nuitka
 
-url: str = os.environ.get("SUPABASE_URL") or DEFAULT_SUPABASE_URL
-anon_key: str = os.environ.get("SUPABASE_KEY") or DEFAULT_SUPABASE_ANON_KEY
-service_role_key: str = os.environ.get("SERVICE_ROLE_KEY") or DEFAULT_SUPABASE_SRK_KEY
+url: str = os.getenv("SUPABASE_URL") or DEFAULT_SUPABASE_URL
+anon_key: str = os.getenv("SUPABASE_KEY") or DEFAULT_SUPABASE_ANON_KEY
+service_role_key: str = os.getenv("SERVICE_ROLE_KEY") or DEFAULT_SUPABASE_SRK_KEY
 
 
 def get_service_role_client() -> Client:

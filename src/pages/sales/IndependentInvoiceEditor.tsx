@@ -101,6 +101,7 @@ export function IndependentInvoiceEditor({
 
   const { getClimateDataForCity } = useLocationData();
   const { currentUser } = useUserStore();
+  const resolvedUser = useMemo(() => user ?? currentUser, [user, currentUser]);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [manualItems, setManualItems] = useState<ManualItem[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryLineItem[]>([]);
@@ -448,7 +449,7 @@ export function IndependentInvoiceEditor({
   };
 
   const handleIssue = useCallback(async () => {
-    if (!currentUser?.uuid) {
+    if (!resolvedUser?.uuid) {
       toast.error(t("invoicing.error_no_user", "User not authenticated."));
       return;
     }
@@ -477,7 +478,7 @@ export function IndependentInvoiceEditor({
         invoice_items: { manual: manualItems, inventory: inventoryItems },
         amount: grandTotal,
       });
-      await issueInvoice(currentInvoice.uuid, currentUser.uuid);
+      await issueInvoice(currentInvoice.uuid, resolvedUser.uuid);
       toast.success(
         t("invoicing.issue_success", "Invoice issued successfully!"),
       );
@@ -487,7 +488,7 @@ export function IndependentInvoiceEditor({
       );
     }
   }, [
-    currentUser?.uuid,
+    resolvedUser,
     currentInvoice,
     shippingFee,
     installationFee,
@@ -1085,6 +1086,7 @@ export function IndependentInvoiceEditor({
                   variant="default"
                   className="bg-primary h-14 text-xl font-bold no-print"
                   disabled={
+                    !resolvedUser?.uuid ||
                     (manualItems.length == 0 && inventoryItems.length == 0) ||
                     manualItems.some((item) => item.name == "")
                   }
@@ -1103,13 +1105,12 @@ export function IndependentInvoiceEditor({
                       {format(new Date(currentInvoice?.issued_at!), "PPP")}
                     </p>
                     <p className="text-sm opacity-80">
-                      {t("invoicing.issued_by", "by") +
-                        ": " +
-                        (currentInvoice?.issued_by_username ||
-                          user?.username ||
-                          t("common.unknown", "Unknown"))}
-                    </p>
-                  </div>
+                        {t("invoicing.issued_by", "by") +
+                          ": " +
+                          (currentInvoice?.issued_by_username ||
+                            resolvedUser?.username ||
+                            t("common.unknown", "Unknown"))}
+                      </p>                  </div>
                 </div>
               )}
 

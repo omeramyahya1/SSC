@@ -1223,6 +1223,7 @@ export function InvoiceEditor({ project, User, onBack }: InvoiceEditorProps) {
                     variant="default"
                     className="bg-primary h-14 text-xl font-bold no-print"
                     disabled={
+                      !resolvedUser?.uuid ||
                       (manualItems.length == 0 && components.length == 0) ||
                       manualItems.some((item) => item.name == "")
                     }

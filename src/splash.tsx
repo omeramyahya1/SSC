@@ -19,15 +19,24 @@ function updateStatus(message: string) {
  * Pings the backend server until it's responsive.
  */
 async function pingServer() {
-  const baseUrl = await getBackendBaseUrl();
+  let attempts = 0;
+  const maxAttempts = 120 // 60 seconds at 500ms intervals
   while (true) {
+    if (attempts >= maxAttempts) {
+      throw new Error("Backend failed to start within 60 seconds");
+    }
     try {
+      const baseUrl = await getBackendBaseUrl();
       const res = await fetch(`${baseUrl}health`);
       if (res.ok) {
         return;
       }
     } catch (error) {
-      // Ignore fetch errors and retry
+      attempts++;
+      if (attempts > 20) {
+        const msg = error instanceof Error ? error.message : "Backend unreachable";
+        updateStatus(`Waiting for backend... (${msg})`);
+      }
     }
     await new Promise(resolve => setTimeout(resolve, 500));
   }
@@ -93,4 +102,9 @@ export async function runSplashScreenLogic() {
     // Still try to close the splash screen to not block the app entirely
     await invoke("splash_screen").catch(e => console.error("Failed to close splash screen on error:", e));
   }
+}
+
+// Auto-execute when loaded in the browser
+if (typeof window !== 'undefined') {
+  runSplashScreenLogic();
 }

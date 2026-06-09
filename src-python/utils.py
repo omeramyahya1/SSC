@@ -160,7 +160,9 @@ def check_session_validity(user_uuid, device_id):
         )
         if response.data:
             return response.data[0].get('is_logged_in', False)
-        return False
+        
+        # Fail-open: If no record is found for this device, it hasn't been invalidated yet.
+        return True
     except (httpx.ConnectError, httpx.TimeoutException) as e:
         logger.warning(f"Session validation failed due to connectivity issues (fail-open): {e}", exc_info=True)
         return True # Fail-safe: assume valid if check fails due to connectivity
@@ -175,6 +177,45 @@ def check_session_validity(user_uuid, device_id):
     except Exception as e:
         logger.exception(f"Session validation failed due to unexpected error (fail-closed): {e}")
         return False
+
+# --- Hardware-Bound Device ID Helper ---
+
+def get_device_id():
+    """
+    Returns a persistent UUID for this machine.
+    Stored in a hidden file in the app data directory.
+    """
+    import uuid
+    # Use the same logic as models.py to resolve the app data directory
+    db_dir = os.environ.get("SSC_DB_DIR")
+    if db_dir:
+        data_dir = db_dir
+    else:
+        # Fallback for manual/standalone execution
+        data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db')
+    
+    os.makedirs(data_dir, exist_ok=True)
+    device_id_path = os.path.join(data_dir, '.device_id')
+    
+    if os.path.exists(device_id_path):
+        try:
+            with open(device_id_path, 'r') as f:
+                stored_id = f.read().strip()
+                # Validate it's a real UUID
+                uuid.UUID(stored_id)
+                return stored_id
+        except Exception as e:
+            print(f"Warning: Failed to read device_id from {device_id_path}: {e}")
+
+    # Generate and persist a new one
+    new_id = str(uuid.uuid4())
+    try:
+        with open(device_id_path, 'w') as f:
+            f.write(new_id)
+    except Exception as e:
+        print(f"Warning: Failed to persist device_id to {device_id_path}: {e}")
+        
+    return new_id
 
 if __name__ == "__main__":
     password = "Abcd1234"

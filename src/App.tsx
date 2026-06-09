@@ -25,12 +25,12 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [backendError, setBackendError] = useState<string | null>(null);
   const { currentAuthentication, fetchLatestAuthentication } = useAuthenticationStore();
+  const { currentUser, _hasHydrated } = useUserStore();
 
   useEffect(() => {
     let aborted = false;
     const hydrateAndCheckAuth = async () => {
       // 1. Wait for Backend Readiness
-      const baseUrl = await getBackendBaseUrl();
       const startTime = Date.now();
       const timeout = 60000; // 60 seconds
       let isReady = false;
@@ -42,6 +42,7 @@ function App() {
         }
 
         try {
+          const baseUrl = await getBackendBaseUrl();
           const res = await fetch(`${baseUrl}health`);
           if (res.ok) {
             isReady = true;
@@ -138,8 +139,9 @@ function App() {
     );
   }
 
-  if (isLoggedIn === null) {
-    // Render a loading state or nothing while we determine auth status
+  // User Guard: Ensure stores are hydrated and we have a user if logged in
+  if (isLoggedIn === null || !_hasHydrated || (isLoggedIn && !currentUser)) {
+    // Render a loading state or nothing while we determine auth status and stores are rehydrating
     return null;
   }
 

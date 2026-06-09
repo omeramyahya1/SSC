@@ -1,11 +1,15 @@
 {
-  "version": "0.1.1-beta.2",
+  "version": "0.1.1-beta.3",
   "notes": "Beta updater test release.",
-  "pub_date": "2026-05-27T00:00:00Z",
+  "pub_date": "2026-06-03T00:00:00Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSHhma3lYNThzSG15YjZZbGtEelR2bytueHVidWluOWcrd3B5aXF0S0g0QUNQOG5UZkxhKzczUzhxcCtKSnFlQ0tDRVlQWFFsWFpnNm5sTXRIcHI3bEFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5OTE0MDc4CWZpbGU6c3NjXzAuMS4xLWJldGEuMl9hbWQ2NC5kZWIKZnh3dnhZZ3pPQ0J5NzgvSlkyVlVEREJRMFpTZGpSQmgrZEp4bHBwTFpZRVNGczJITFBqZ3NLWThiS1hLWmlRekU1UTEyTGtJVHc1VUxENC8wUG13QWc9PQo=",
-      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.2/ssc_0.1.1-beta.2_amd64.deb"
+      "signature": "CONTENT_OF_MSI_ZIP_SIG_FILE",
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.3/ssc_0.1.1-beta.3_amd64.deb"
+    },
+    "windows-x86_64": {
+      "signature": "CONTENT_OF_MSI_ZIP_SIG_FILE",
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.3/ssc_0.1.1-beta.3_x64_en-US.msi.zip"
     }
   }
 }

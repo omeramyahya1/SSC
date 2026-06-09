@@ -2,9 +2,10 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main"],
+  "windows": ["main", "splash"],
   "permissions": [
     "core:default",
+    "allow-app-commands",
     "opener:allow-open-url",
     "dialog:allow-save",
     "fs:allow-write-file",
@@ -14,8 +15,14 @@
       "identifier": "shell:allow-spawn",
       "allow": [
         {
-          "args": [],
-          "sidecar": "python-sidecar"
+          "name": "python-sidecar",
+          "sidecar": true,
+          "args": [
+            { "string": "--port" },
+            { "validator": "\\d+" },
+            { "string": "--mode" },
+            { "validator": "^(dev|beta|prod)$" }
+          ]
         }
       ]
     }

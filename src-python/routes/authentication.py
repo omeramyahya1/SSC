@@ -70,30 +70,45 @@ def login_user():
 
         # Check if the existing JWT is valid for offline login
         if user_auth.current_jwt and not is_jwt_expired_offline(user_auth.jwt_issued_at):
+            from utils import get_device_id
+            machine_id = get_device_id()
+
             # [NEW] If online, verify cloud session validity to enforce single-session policy
             if get_server_time_or_none():
-                 if not check_session_validity(user.uuid, user_auth.device_id):
-                     # If invalidated in the cloud, mark as logged out locally
-                     db.query(Authentication).filter_by(user_uuid=user.uuid).update({"is_logged_in": False, "is_dirty": True})
+                 if not check_session_validity(user.uuid, machine_id):
+                     # FIX A: Added synchronize_session=False here to prevent local cache poisoning
+                     db.query(Authentication).filter_by(user_uuid=user.uuid).update(
+                         {"is_logged_in": False, "is_dirty": True},
+                         synchronize_session=False
+                     )
                      db.commit()
                      return jsonify({"error": "Session expired because this account signed in elsewhere."}), 401
 
             # --- 2a. OFFLINE LOGIN SUCCESS ---
             print("JWT is valid, performing offline login.")
-            # Mark other sessions as logged out and create a new one, reusing the valid JWT
-            db.query(Authentication).filter_by(user_uuid=user.uuid, is_logged_in=True).update({"is_logged_in": False, "is_dirty": True})
 
+            # Extract raw values into plain local variables BEFORE executing database updates
+            saved_hash = user_auth.password_hash
+            saved_salt = user_auth.password_salt
+            saved_jwt = user_auth.current_jwt
+            saved_issued_at = user_auth.jwt_issued_at
+
+            # Mark old database records for THIS user as logged out safely
+            log_out_other_sessions(db)
+
+            # Create a completely isolated, clean new record using our raw variables
             new_auth_entry = Authentication(
                 user_uuid=user.uuid,
-                password_hash=user_auth.password_hash,
-                password_salt=user_auth.password_salt,
-                current_jwt=user_auth.current_jwt, # Reuse existing valid JWT
-                jwt_issued_at=user_auth.jwt_issued_at,
-                device_id=user_auth.device_id,
+                password_hash=saved_hash,
+                password_salt=saved_salt,
+                current_jwt=saved_jwt,
+                jwt_issued_at=saved_issued_at,
+                device_id=machine_id,
                 is_logged_in=True,
                 last_active=datetime.utcnow(),
                 is_dirty=True
             )
+
             db.add(new_auth_entry)
             db.commit()
             db.refresh(new_auth_entry)
@@ -140,8 +155,9 @@ def handle_online_login(db, email, password, local_user):
     if local_user and not local_user.deleted_at:
         print(f"Refreshing JWT for existing local user: {email}")
         try:
+            from utils import get_device_id
+            device_id = get_device_id()
             user_auth = db.query(Authentication).filter_by(user_uuid=local_user.uuid).order_by(Authentication.created_at.desc()).first()
-            device_id = user_auth.device_id if user_auth and is_valid_uuid(user_auth.device_id) else str(uuid.uuid4())
 
             service_client = get_service_role_client()
             jwt_response = service_client.rpc('issue_jwt', {'p_user_id': local_user.uuid, 'p_device_id': device_id}).execute()
@@ -186,7 +202,8 @@ def handle_online_login(db, email, password, local_user):
     # If the user does NOT exist locally, perform the full online lookup
     else:
         print(f"Performing online lookup for new user: {email}")
-        new_device_id = str(uuid.uuid4())
+        from utils import get_device_id
+        new_device_id = get_device_id()
         try:
             service_client = get_service_role_client()
             response = service_client.rpc('log_user_in', {'p_email': email, 'p_device_id': new_device_id}).execute()
@@ -302,6 +319,7 @@ def handle_online_login(db, email, password, local_user):
             last_active=datetime.utcnow(),
             is_dirty=True
         )
+        log_out_other_sessions(db) # Log out other sessons first.
         db.add(new_auth_entry)
 
         db.commit()
@@ -316,28 +334,54 @@ def handle_online_login(db, email, password, local_user):
         response_auth = LoginResponseAuthentication(**auth_data)
         return jsonify(LoginResponse(user=response_user, authentication=response_auth).model_dump()), 200
 
+def log_out_other_sessions(db):
+    updated = db.query(Authentication).filter(
+            Authentication.is_logged_in.is_(True)
+        ).update(
+            {
+                Authentication.is_logged_in: False,
+                Authentication.is_dirty: True # Mark all for syncing
+            },
+            synchronize_session=False # High performance, bypasses loading objects into memory
+        )
+    db.commit()
+
+    if updated == 0:
+        return jsonify({"message": "No other active sessions"}), 200
+
+    return jsonify({"message": f"Successfully logged out of all {updated} sessions"}), 200
+
+
+
 @authentication_bp.route('/logout', methods=['POST'])
 def logout_user():
+     # 1. Expect user_id to target all sessions belonging to that specific user
     auth_id = request.json.get('auth_id')
     if not auth_id:
-        return jsonify({"error": "auth_id is required"}), 400
+        return jsonify({"error": "Bad request"}), 400
 
     with get_db() as db:
-        auth_entry = db.query(Authentication).filter(Authentication.auth_id == auth_id).first()
+        # 2. Perform an efficient bulk update on all logged-in rows for this user
+        updated_count = db.query(Authentication).filter(
+            Authentication.auth_id == auth_id,
+            Authentication.is_logged_in.is_(True)
+        ).update(
+            {
+                Authentication.is_logged_in: False,
+                Authentication.last_active: datetime.utcnow(),
+                Authentication.is_dirty: True # Mark all for syncing
+            },
+            synchronize_session=False # High performance, bypasses loading objects into memory
+        )
 
-        if not auth_entry:
-            return jsonify({"error": "Authentication session not found"}), 404
-
-        # Idempotent: if already logged out, no action needed, return success
-        if not auth_entry.is_logged_in:
-            return jsonify({"message": "User was already logged out"}), 200
-
-        auth_entry.is_logged_in = False
-        auth_entry.last_active = datetime.utcnow()
-        auth_entry.is_dirty = True # Mark for syncing
+        # 3. Commit the changes to the database
         db.commit()
 
-        return jsonify({"message": "Logout successful"}), 200
+        # 4. Handle response based on whether active sessions actually existed
+        if updated_count == 0:
+            return jsonify({"message": "User had no active sessions"}), 200
+
+        return jsonify({"message": f"Successfully logged out of all {updated_count} sessions"}), 200
 
 
 @authentication_bp.route('/request-reset', methods=['POST'])

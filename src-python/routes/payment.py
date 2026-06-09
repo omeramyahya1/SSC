@@ -49,7 +49,7 @@ def update_payment(item_id):
 @payment_bp.route('/', methods=['GET'])
 def get_all_payment():
     with get_db() as db:
-        items = db.query(Payment).all()
+        items = db.query(Payment).filter(Payment.deleted_at.is_(None)).all()
         return jsonify([model_to_dict(i) for i in items])
 
 @payment_bp.route('/<string:item_id>', methods=['GET'])

@@ -9,12 +9,10 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State, WindowEvent};
 
 use tauri_plugin_shell::process::CommandChild;
-#[cfg(not(debug_assertions))]
 use tauri_plugin_shell::ShellExt;
 
 enum PythonProcess {
     Child(Child),
-    #[allow(dead_code)]
     Sidecar(CommandChild),
 }
 
@@ -100,6 +98,79 @@ fn choose_backend_port() -> u16 {
         .expect("failed to choose a random open port for the backend")
 }
 
+fn load_env_from_file(path: std::path::PathBuf) -> Vec<(String, String)> {
+    let mut variables = Vec::new();
+    if let Ok(content) = std::fs::read_to_string(path) {
+        for line in content.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            if let Some((key, value)) = line.split_once('=') {
+                let value = value.trim().trim_matches('"').trim_matches('\'');
+                variables.push((key.trim().to_string(), value.to_string()));
+            }
+        }
+    }
+    variables
+}
+
+fn valid_backend_mode(value: &str) -> bool {
+    matches!(value, "dev" | "beta" | "prod")
+}
+
+fn resolve_backend_mode() -> String {
+    std::env::var("SSC_MODE")
+        .ok()
+        .filter(|value| valid_backend_mode(value))
+        .or_else(|| {
+            let build_mode = option_env!("SSC_BUILD_MODE").unwrap_or("");
+            valid_backend_mode(build_mode).then(|| build_mode.to_string())
+        })
+        .unwrap_or_else(|| {
+            (if cfg!(debug_assertions) {
+                "dev"
+            } else {
+                "prod"
+            })
+            .to_string()
+        })
+}
+
+fn find_env_resource(
+    filename: &str,
+    res_dir: Option<&std::path::PathBuf>,
+) -> Option<std::path::PathBuf> {
+    if let Some(path) = res_dir {
+        for candidate in [
+            path.join(filename),
+            path.join("resources").join(filename),
+            path.join("src-python").join(filename),
+        ] {
+            if candidate.exists() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        let mut curr = exe_path.parent();
+        for _ in 0..6 {
+            if let Some(path) = curr {
+                let candidate = path.join(filename);
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+                curr = path.parent();
+            } else {
+                break;
+            }
+        }
+    }
+
+    None
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -108,9 +179,16 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![splash_screen, backend_base_url, prepare_for_update])
+        .invoke_handler(tauri::generate_handler![
+            splash_screen,
+            backend_base_url,
+            prepare_for_update
+        ])
         .setup(|app| {
-            let app_data_dir = app.path().app_local_data_dir().expect("failed to get app data dir");
+            let app_data_dir = app
+                .path()
+                .app_local_data_dir()
+                .expect("failed to get app data dir");
 
             // Ensure the directory exists
             std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
@@ -118,10 +196,7 @@ fn main() {
             let db_dir_str = app_data_dir.to_string_lossy().to_string();
             let backend_port = choose_backend_port();
             let backend_port_str = backend_port.to_string();
-            let backend_mode = std::env::var("SSC_MODE")
-                .ok()
-                .filter(|v| v == "dev" || v == "beta" || v == "prod")
-                .unwrap_or_else(|| (if cfg!(debug_assertions) { "dev" } else { "prod" }).to_string());
+            let backend_mode = resolve_backend_mode();
             let app_version = app.package_info().version.to_string();
 
             let state = AppState {
@@ -132,15 +207,11 @@ fn main() {
 
             #[cfg(debug_assertions)]
             {
-                let mut root_dir = std::env::current_dir().expect("failed to get current dir");
+                let mut app_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+                app_dir.pop(); // Move up from src-tauri to the project root
 
-                // If we are inside src-tauri, go up one level to the project root
-                if root_dir.ends_with("src-tauri") {
-                    root_dir.pop();
-                }
-
-                // Build Python Executable Path
-                let mut python_exe = root_dir.clone();
+                // Build Python Executable Path (relative to app_dir)
+                let mut python_exe = app_dir.clone();
                 python_exe.push("src-python");
                 python_exe.push(".venv");
                 if cfg!(target_os = "windows") {
@@ -151,12 +222,12 @@ fn main() {
                     python_exe.push("python");
                 }
 
-                // Build Script Path
-                let mut script_path = root_dir.clone();
+                // Build Script Path (relative to app_dir)
+                let mut script_path = app_dir.clone();
                 script_path.push("src-python");
                 script_path.push("main.py");
 
-                println!("Project Root detected as: {:?}", root_dir);
+                println!("App Dir detected as: {:?}", app_dir);
                 println!("Searching for python at: {:?}", python_exe);
                 println!("Running script at: {:?}", script_path);
                 println!("Backend will listen on: 127.0.0.1:{}", backend_port);
@@ -164,6 +235,7 @@ fn main() {
                 let python_process = Command::new(&python_exe)
                     .env("SSC_DB_DIR", &db_dir_str)
                     .env("SSC_APP_VERSION", &app_version)
+                    .env("PYTHONIOENCODING", "utf-8")
                     .arg(&script_path)
                     .arg("--port")
                     .arg(&backend_port_str)
@@ -178,15 +250,152 @@ fn main() {
 
             #[cfg(not(debug_assertions))]
             {
+                use std::fs::{self, OpenOptions, File}; // Added File
+                use std::io::{self, BufReader, BufRead, Write}; // Added BufReader, BufRead
+                use tauri_plugin_shell::process::CommandEvent;
+                use chrono::{Utc, Duration, DateTime, NaiveDateTime, ParseError}; // Added NaiveDateTime, ParseError
+
+                // Create a persistent log file in the app data dir
+                let mut log_path = app
+                    .path()
+                    .app_local_data_dir()
+                    .expect("failed to get app data dir");
+                log_path.push("sidecar_debug.log");
+
+                let mut log_file_options = OpenOptions::new();
+                log_file_options.create(true).write(true); // Always create/open for writing
+
+                let mut needs_clear = false;
+                if let Ok(file) = File::open(&log_path) {
+                    let reader = BufReader::new(file);
+                    if let Some(Ok(first_line)) = reader.lines().next() {
+                        // Attempt to parse the timestamp from the first line
+                        let timestamp_str = first_line.trim();
+                        // Expected format: "[DD/Mon/YYYY HH:MM:SS]"
+                        // Example: "[01/Jan/2024 12:30:45]"
+                        if timestamp_str.starts_with('[') && timestamp_str.ends_with(']') {
+                             let content = &timestamp_str[1..timestamp_str.len() - 1]; // Remove brackets
+                             match NaiveDateTime::parse_from_str(content, "%d/%b/%Y %H:%M:%S") {
+                                 Ok(naive_dt) => {
+                                     let log_timestamp: DateTime<Utc> = naive_dt.and_utc();
+                                     if Utc::now() - log_timestamp > Duration::weeks(1) {
+                                         needs_clear = true;
+                                     }
+                                 },
+                                 Err(_) => {
+                                     // Parsing failed, treat as if it needs clearing
+                                     needs_clear = true;
+                                 }
+                             }
+                        } else {
+                            // First line not a timestamp, treat as if it needs clearing
+                            needs_clear = true;
+                        }
+                    } else {
+                        // File is empty, treat as if it needs clearing
+                        needs_clear = true;
+                    }
+                } else {
+                    // File doesn't exist, will be created, so it needs initial timestamp
+                    needs_clear = true;
+                }
+
+                if needs_clear {
+                    log_file_options.truncate(true).append(false); // Truncate and rewrite
+                } else {
+                    log_file_options.append(true).truncate(false); // Append
+                }
+
+                // Open the log file for writing (either truncated or appended)
+                let mut log_file = log_file_options.open(&log_path).ok();
+
+                if needs_clear {
+                    if let Some(ref mut f) = log_file {
+                        let current_timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
+                        let _ = writeln!(f, "{}", current_timestamp);
+                        let _ = writeln!(f, "--- Sidecar Launch Log ---");
+                    }
+                } else {
+                    // If not cleared, just add a separator or new launch log for clarity, or nothing.
+                    if let Some(ref mut f) = log_file {
+                         let _ = writeln!(f, "\n--- Sidecar Relaunch Log ---"); // Add a distinction
+                    }
+                }
+
+                // 1. Locate the .env resource using the official Resource Dir
+                let res_dir = app.path().resource_dir().ok();
+
+                let env_files = match backend_mode.as_str() {
+                    "beta" => vec!["src-python/.env", ".env", ".env.beta"],
+                    "prod" => vec!["src-python/.env", ".env", ".env.production"],
+                    _ => vec!["src-python/.env", ".env"],
+                };
+
+                let mut env_sources: Vec<std::path::PathBuf> = Vec::new();
+                let mut env_vars: std::collections::BTreeMap<String, String> =
+                    std::collections::BTreeMap::new();
+
+                for filename in &env_files {
+                    if let Some(path) = find_env_resource(filename, res_dir.as_ref()) {
+                        for (key, value) in load_env_from_file(path.clone()) {
+                            env_vars.insert(key, value);
+                        }
+                        env_sources.push(path);
+                    }
+                }
+
+                if let Some(ref mut f) = log_file {
+                    let _ = writeln!(f, "RUST: Mode is: {}", backend_mode);
+                    let _ = writeln!(f, "RUST: Env files loaded: {:?}", env_sources);
+                    let _ = writeln!(f, "RUST: Resource Dir is: {:?}", res_dir);
+                    let _ = writeln!(
+                        f,
+                        "RUST: Loaded {} merged variables from .env files",
+                        env_vars.len()
+                    );
+                };
+
                 // In production, we use the sidecar
-                let (_rx, child) = app.shell()
+                let mut sidecar_cmd = app
+                    .shell()
                     .sidecar("python-sidecar")
                     .expect("failed to find sidecar 'python-sidecar'")
                     .env("SSC_DB_DIR", &db_dir_str)
                     .env("SSC_APP_VERSION", &app_version)
-                    .args(["--port", &backend_port_str, "--mode", &backend_mode])
-                    .spawn()
-                    .expect("failed to spawn python sidecar");
+                    .env("PYTHONIOENCODING", "utf-8")
+                    .env("PYTHONUNBUFFERED", "1")
+                    .args(["--port", &backend_port_str, "--mode", &backend_mode]);
+
+                // 2. Inject .env variables
+                for (key, val) in env_vars {
+                    sidecar_cmd = sidecar_cmd.env(key, val);
+                }
+
+                let (mut rx, child) = sidecar_cmd.spawn().expect("failed to spawn python sidecar");
+
+                // Drain the sidecar's output to prevent pipe-clogging and log errors
+                tauri::async_runtime::spawn(async move {
+                    let mut log_file = log_file;
+                    while let Some(event) = rx.recv().await {
+                        match event {
+                            CommandEvent::Stdout(line) => {
+                                let text = String::from_utf8_lossy(&line);
+                                if let Some(ref mut f) = log_file {
+                                    let timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
+                                    let _ = writeln!(f, "{}{}", timestamp, text);
+                                }
+                            }
+                            CommandEvent::Stderr(line) => {
+                                let text = String::from_utf8_lossy(&line);
+                                if let Some(ref mut f) = log_file {
+                                    let timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
+                                    let _ = writeln!(f, "{}{}", timestamp, text);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                });
 
                 let state: State<AppState> = app.handle().state();
                 *state.python_process.lock().unwrap() = Some(PythonProcess::Sidecar(child));
@@ -213,14 +422,16 @@ fn main() {
 
                             // Best-effort graceful shutdown via API
                             if let Ok(client) = client {
-                                let url = format!("http://127.0.0.1:{}/shutdown", state.backend_port);
+                                let url =
+                                    format!("http://127.0.0.1:{}/shutdown", state.backend_port);
                                 let _ = client.post(url).send();
                             }
 
                             match process {
                                 PythonProcess::Child(mut child) => {
                                     // Wait briefly for Python to exit, then force cleanup.
-                                    let deadline = Instant::now() + python_shutdown_grace_duration();
+                                    let deadline =
+                                        Instant::now() + python_shutdown_grace_duration();
                                     loop {
                                         if matches!(child.try_wait(), Ok(Some(_))) {
                                             break;
@@ -234,9 +445,6 @@ fn main() {
                                     }
                                 }
                                 PythonProcess::Sidecar(child) => {
-                                    // CommandChild doesn't have a public try_wait/wait in the same way,
-                                    // but we can at least sleep briefly to allow graceful exit before
-                                    // Tauri's own cleanup or we can kill it.
                                     std::thread::sleep(python_shutdown_grace_duration());
                                     let _ = child.kill();
                                 }

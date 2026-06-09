@@ -51,6 +51,9 @@ export interface UserStore {
   currentUserSnapshot: { user_id: number; uuid: string } | null;
   isLoading: boolean;
   error: string | null;
+  fetchError: string | null;
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
   checkEmailUniqueness: (email: string) => Promise<boolean>;
   changeCurrentUserEmail: (email: string) => Promise<User | undefined>;
   fetchUsers: () => Promise<void>;
@@ -73,7 +76,11 @@ export const useUserStore = create<UserStore>()(
       currentUser: null,
       currentUserSnapshot: null,
       isLoading: false,
+      fetchError: null,
       error: null,
+      _hasHydrated: false,
+
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
 
       setCurrentUser: (user) => {
         set({
@@ -155,10 +162,11 @@ export const useUserStore = create<UserStore>()(
             currentUser: data,
             currentUserSnapshot: { user_id: data.user_id, uuid: data.uuid },
             isLoading: false,
+            fetchError: null,
           });
         } catch (e: any) {
           const errorMsg = e.message || `Failed to fetch user ${id}`;
-          set({ error: errorMsg, isLoading: false });
+          set({ error: errorMsg, isLoading: false, fetchError: errorMsg });
           console.error(errorMsg, e);
         }
       },
@@ -256,19 +264,29 @@ export const useUserStore = create<UserStore>()(
     {
       name: "user-store",
       partialize: (state) => ({
+        currentUser: state.currentUser,
         currentUserSnapshot: state.currentUserSnapshot,
       }),
-      onRehydrateStorage: () => (state, error) => {
+      onRehydrateStorage: () => async (state, error) => {
         if (error || !state) return;
+
         const snapshot = state.currentUserSnapshot;
-        if (snapshot?.user_id) {
-          state.fetchUser(String(snapshot.user_id));
+        if (snapshot?.user_id && !state.currentUser) {
+          try {
+            await state.fetchUser(String(snapshot.user_id));
+          } catch (e) {
+            state.setHasHydrated(true);
+            state.setCurrentUser(null);
+            console.error("User rehydration fetch failed", e);
+          }
         }
+        state.setHasHydrated(true);
       },
     },
   ),
 );
 
 registerStore(StoreKeys.User, () => {
-  // Intentionally avoid eager fetch; fetchUsers should be triggered by admin-only views.
+  // Rely on onRehydrateStorage for initial fetch based on snapshot
+  // No-op here to prevent duplicate fetches
 });

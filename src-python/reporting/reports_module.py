@@ -67,7 +67,7 @@ def get_finance_report_data(db, org_uuid=None, branch_uuid=None, user_uuid=None,
                     "Date": p.payment_date.strftime('%d-%m-%Y') if p.payment_date else p.created_at.strftime('%d-%m-%Y'),
                     "Method": method,
                     "Amount": float(p.amount),
-                    "Reference": p.payment_reference or "",
+                    "Reference": p.payment_reference or "-",
                     "Created By": creator,
                     "Invoice No.": f"{inv.invoice_id:05d}" if inv.invoice_id else "N/A"
                 })

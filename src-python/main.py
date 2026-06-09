@@ -1,13 +1,44 @@
 # src-python/main.py
+import argparse
+import os
+import signal
+import sys
+
+from pydantic_postgrest_bootstrap import (
+    apply_postgrest_pydantic_bootstrap,
+    run_postgrest_pydantic_self_test,
+)
+
+apply_postgrest_pydantic_bootstrap()
+
+if "--self-test" in sys.argv:
+    from dotenv import load_dotenv
+
+    env_candidates = [
+        os.path.join(os.path.dirname(sys.executable), ".env"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"),
+        os.path.join(os.getcwd(), "src-python", ".env"),
+    ]
+    for env_path in env_candidates:
+        if os.path.exists(env_path):
+            load_dotenv(env_path, override=False)
+
+    run_postgrest_pydantic_self_test()
+    required_env = ["SUPABASE_URL", "SUPABASE_KEY", "SERVICE_ROLE_KEY"]
+    missing_env = [key for key in required_env if not os.environ.get(key)]
+    if missing_env:
+        raise RuntimeError(f"Sidecar self-test missing env values: {', '.join(missing_env)}")
+    print(
+        "Sidecar self-test passed. "
+        f"PostGREST/Pydantic OK. Env present: {len(required_env)}/{len(required_env)}."
+    )
+    sys.exit(0)
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from routes import all_blueprints
 from werkzeug.exceptions import HTTPException
 from db_setup import create_db_and_tables
-import signal
-import os
-import argparse
 
 
 # --- Flask App Setup ---

@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 from typing import Optional
@@ -149,12 +149,17 @@ def get_all_invoices():
 
         # Use outerjoin to include invoices without projects
         query = (
-            db.query(Invoice)
-            .outerjoin(Project, Invoice.project_uuid == Project.uuid)
-            .outerjoin(User, Invoice.user_uuid == User.uuid)
-            .filter(Invoice.deleted_at.is_(None))
-            .filter(Project.deleted_at.is_(None) | Invoice.project_uuid.is_(None))
-        )
+                db.query(Invoice)
+                .outerjoin(
+                    Project,
+                    and_(
+                        Invoice.project_uuid == Project.uuid,
+                        Project.deleted_at.is_(None)
+                    )
+                )
+                .outerjoin(User, Invoice.user_uuid == User.uuid)
+                .filter(Invoice.deleted_at.is_(None))
+            )
 
         query = apply_invoice_visibility_filter(_apply_invoice_scope(query, scope), ctx)
 

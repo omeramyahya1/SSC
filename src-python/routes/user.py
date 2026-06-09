@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
-from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password, require_internet, verify_password
+from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password, require_internet, verify_password, get_device_id
 from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch, SyncLog
 from schemas import UserCreate, UserUpdate
 from auth_schemas import RegistrationPayload
@@ -197,7 +197,7 @@ def register_user():
         else:
             salt = generate_salt()
             hashed_pw = hash_password(stage1.password, salt)
-        device_id = str(uuid.uuid4())
+        device_id = get_device_id()
 
         # --- 3. CLOUD ORG REGISTRATION (IDEMPOTENT) ---
         new_org_uuid = existing_user.organization_uuid if existing_user else None
@@ -362,6 +362,7 @@ def register_user():
 
         # --- 6. JWT ISSUANCE (ALWAYS RETRYABLE) ---
         try:
+            device_id = get_device_id()
             service_client = get_service_role_client()
             jwt_response = service_client.rpc('issue_jwt', {
                 'p_user_id': new_user_uuid, 'p_device_id': device_id
