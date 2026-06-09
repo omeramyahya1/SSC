@@ -250,8 +250,10 @@ fn main() {
 
             #[cfg(not(debug_assertions))]
             {
-                use std::io::Write;
+                use std::fs::{self, OpenOptions, File}; // Added File
+                use std::io::{self, BufReader, BufRead, Write}; // Added BufReader, BufRead
                 use tauri_plugin_shell::process::CommandEvent;
+                use chrono::{Utc, Duration, DateTime, NaiveDateTime, ParseError}; // Added NaiveDateTime, ParseError
 
                 // Create a persistent log file in the app data dir
                 let mut log_path = app
@@ -259,10 +261,65 @@ fn main() {
                     .app_local_data_dir()
                     .expect("failed to get app data dir");
                 log_path.push("sidecar_debug.log");
-                let mut log_file = std::fs::File::create(log_path).ok();
+                
+                let mut log_file_options = OpenOptions::new();
+                log_file_options.create(true).write(true); // Always create/open for writing
+                
+                let mut needs_clear = false;
+                if let Ok(file) = File::open(&log_path) {
+                    let reader = BufReader::new(file);
+                    if let Some(Ok(first_line)) = reader.lines().next() {
+                        // Attempt to parse the timestamp from the first line
+                        let timestamp_str = first_line.trim();
+                        // Expected format: "[DD/Mon/YYYY HH:MM:SS]"
+                        // Example: "[01/Jan/2024 12:30:45]"
+                        if timestamp_str.starts_with('[') && timestamp_str.ends_with(']') {
+                             let content = &timestamp_str[1..timestamp_str.len() - 1]; // Remove brackets
+                             match NaiveDateTime::parse_from_str(content, "%d/%b/%Y %H:%M:%S") {
+                                 Ok(naive_dt) => {
+                                     let log_timestamp: DateTime<Utc> = DateTime::from_utc(naive_dt, Utc);
+                                     if Utc::now() - log_timestamp > Duration::weeks(1) {
+                                         needs_clear = true;
+                                     }
+                                 },
+                                 Err(_) => {
+                                     // Parsing failed, treat as if it needs clearing
+                                     needs_clear = true;
+                                 }
+                             }
+                        } else {
+                            // First line not a timestamp, treat as if it needs clearing
+                            needs_clear = true;
+                        }
+                    } else {
+                        // File is empty, treat as if it needs clearing
+                        needs_clear = true;
+                    }
+                } else {
+                    // File doesn't exist, will be created, so it needs initial timestamp
+                    needs_clear = true;
+                }
 
-                if let Some(ref mut f) = log_file {
-                    let _ = writeln!(f, "--- Sidecar Launch Log ---");
+                if needs_clear {
+                    log_file_options.truncate(true).append(false); // Truncate and rewrite
+                } else {
+                    log_file_options.append(true).truncate(false); // Append
+                }
+
+                // Open the log file for writing (either truncated or appended)
+                let mut log_file = log_file_options.open(&log_path).ok();
+
+                if needs_clear {
+                    if let Some(ref mut f) = log_file {
+                        let current_timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
+                        let _ = writeln!(f, "{}", current_timestamp);
+                        let _ = writeln!(f, "--- Sidecar Launch Log ---");
+                    }
+                } else {
+                    // If not cleared, just add a separator or new launch log for clarity, or nothing.
+                    if let Some(ref mut f) = log_file {
+                         let _ = writeln!(f, "\n--- Sidecar Relaunch Log ---"); // Add a distinction
+                    }
                 }
 
                 // 1. Locate the .env resource using the official Resource Dir
@@ -322,14 +379,16 @@ fn main() {
                         match event {
                             CommandEvent::Stdout(line) => {
                                 let text = String::from_utf8_lossy(&line);
-                                if let Some(mut f) = log_file.as_ref() {
-                                    let _ = writeln!(f, "STDOUT: {}", text);
+                                if let Some(ref mut f) = log_file.as_ref() {
+                                    let timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
+                                    let _ = writeln!(f, "{}{}", timestamp, text);
                                 }
                             }
                             CommandEvent::Stderr(line) => {
                                 let text = String::from_utf8_lossy(&line);
-                                if let Some(mut f) = log_file.as_ref() {
-                                    let _ = writeln!(f, "STDERR: {}", text);
+                                if let Some(ref mut f) = log_file.as_ref() {
+                                    let timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
+                                    let _ = writeln!(f, "{}{}", timestamp, text);
                                 }
                             }
                             _ => {}
