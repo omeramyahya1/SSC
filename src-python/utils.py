@@ -160,7 +160,9 @@ def check_session_validity(user_uuid, device_id):
         )
         if response.data:
             return response.data[0].get('is_logged_in', False)
-        return False
+        
+        # Fail-open: If no record is found for this device, it hasn't been invalidated yet.
+        return True
     except (httpx.ConnectError, httpx.TimeoutException) as e:
         logger.warning(f"Session validation failed due to connectivity issues (fail-open): {e}", exc_info=True)
         return True # Fail-safe: assume valid if check fails due to connectivity

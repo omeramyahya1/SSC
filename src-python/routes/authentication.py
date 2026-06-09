@@ -70,31 +70,45 @@ def login_user():
 
         # Check if the existing JWT is valid for offline login
         if user_auth.current_jwt and not is_jwt_expired_offline(user_auth.jwt_issued_at):
+            from utils import get_device_id
+            machine_id = get_device_id()
+            
             # [NEW] If online, verify cloud session validity to enforce single-session policy
             if get_server_time_or_none():
-                 if not check_session_validity(user.uuid, user_auth.device_id):
-                     # If invalidated in the cloud, mark as logged out locally
-                     db.query(Authentication).filter_by(user_uuid=user.uuid).update({"is_logged_in": False, "is_dirty": True})
+                 if not check_session_validity(user.uuid, machine_id):
+                     # FIX A: Added synchronize_session=False here to prevent local cache poisoning
+                     db.query(Authentication).filter_by(user_uuid=user.uuid).update(
+                         {"is_logged_in": False, "is_dirty": True},
+                         synchronize_session=False
+                     )
                      db.commit()
                      return jsonify({"error": "Session expired because this account signed in elsewhere."}), 401
 
             # --- 2a. OFFLINE LOGIN SUCCESS ---
             print("JWT is valid, performing offline login.")
-            # Mark other sessions as logged out and create a new one, reusing the valid JWT
-            db.query(Authentication).filter_by(user_uuid=user.uuid, is_logged_in=True).update({"is_logged_in": False, "is_dirty": True})
 
+            # Extract raw values into plain local variables BEFORE executing database updates
+            saved_hash = user_auth.password_hash
+            saved_salt = user_auth.password_salt
+            saved_jwt = user_auth.current_jwt
+            saved_issued_at = user_auth.jwt_issued_at
+
+            # Mark old database records for THIS user as logged out safely
+            log_out_other_sessions(db, user.uuid)
+
+            # Create a completely isolated, clean new record using our raw variables
             new_auth_entry = Authentication(
                 user_uuid=user.uuid,
-                password_hash=user_auth.password_hash,
-                password_salt=user_auth.password_salt,
-                current_jwt=user_auth.current_jwt, # Reuse existing valid JWT
-                jwt_issued_at=user_auth.jwt_issued_at,
-                device_id=user_auth.device_id,
+                password_hash=saved_hash,
+                password_salt=saved_salt,
+                current_jwt=saved_jwt,
+                jwt_issued_at=saved_issued_at,
+                device_id=machine_id,
                 is_logged_in=True,
                 last_active=datetime.utcnow(),
                 is_dirty=True
             )
-            log_out_other_sessions(db) # Log out other sessons first.
+
             db.add(new_auth_entry)
             db.commit()
             db.refresh(new_auth_entry)
