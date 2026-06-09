@@ -82,6 +82,7 @@ const MainContent = () => {
       toast.success(t("tc.success.title", "Terms Accepted"));
     } catch (e) {
       toast.error(t("tc.error", "Failed to save agreement"));
+      setShowTCModal(false);
     } finally {
       setIsAgreeing(false);
     }

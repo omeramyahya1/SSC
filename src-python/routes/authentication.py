@@ -72,7 +72,7 @@ def login_user():
         if user_auth.current_jwt and not is_jwt_expired_offline(user_auth.jwt_issued_at):
             from utils import get_device_id
             machine_id = get_device_id()
-            
+
             # [NEW] If online, verify cloud session validity to enforce single-session policy
             if get_server_time_or_none():
                  if not check_session_validity(user.uuid, machine_id):
@@ -94,7 +94,7 @@ def login_user():
             saved_issued_at = user_auth.jwt_issued_at
 
             # Mark old database records for THIS user as logged out safely
-            log_out_other_sessions(db, user.uuid)
+            log_out_other_sessions(db)
 
             # Create a completely isolated, clean new record using our raw variables
             new_auth_entry = Authentication(
