@@ -5,11 +5,11 @@
   "platforms": {
     "linux-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSHlNYk1OVVNXam12czkvMTQ4bDdiTXo1aEUxTUlKcGwyNE9HQkRvQy9oOFZoakVQQXdXWUpJMm5DT0h4SDVxTURWMm9lSndlRGF1cjlpd1p0VENTbUFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgxMzUyMTM0CWZpbGU6U1NDXzAuMS4xLWJldGEuM19hbWQ2NC5kZWIKNW96eFlwTVE2V0h6N1YwNWRvdk9Ma1FQQ1N3UzdXbEVqUHp3Qm9vSHZFeHZnSG5wVE5BM0hGVkVDZHRQVEtEZ2tXOC8xWi82cStSRk1VZXQwTzBLQVE9PQo=",
-      "url": "https://github.com/omeramyahya1/SSC/archive/refs/tags/v0.1.1-beta.3.tar.gz"
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.3/SSC_0.1.1-beta.3_amd64.deb"
     },
     "windows-x86_64": {
       "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSHhwSUVxWHViSmZkcE5lNVlPQzNBTXBOT2FuTVZJakRCN0h3ZmFicUN4U0p1L0E3LzEyUUs2UlFYZ3Q1d3I1Ymt4WWpCNlpGRitpMGtDbUlmeHBjZmdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgxMzYxMTQ1CWZpbGU6U1NDXzAuMS4xLWJldGEuM194NjRfZW4tVVMubXNpCm0rdmxSQTc1T0FNQ1hoMFVVNlZkblNSdlZrT2FZNEtuUFJFM1JYbmZ5ak5kVXRmRk9uRTd2SHE0bDZWaXZmMnZvMktTRkpVSTU2Z0JEcDJnK21CMURRPT0K",
-      "url": "https://github.com/omeramyahya1/SSC/archive/refs/tags/v0.1.1-beta.3.zip"
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.3/SSC_0.1.1-beta.3_x64_en-US.msi"
     }
   }
 }
