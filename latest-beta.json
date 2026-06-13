@@ -1,15 +1,15 @@
 {
   "version": "0.1.1-beta.3",
   "notes": "Beta updater test release.",
-  "pub_date": "2026-06-03T00:00:00Z",
+  "pub_date": "2026-06-13T00:00:00Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "CONTENT_OF_MSI_ZIP_SIG_FILE",
-      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.3/ssc_0.1.1-beta.3_amd64.deb"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSHlNYk1OVVNXam12czkvMTQ4bDdiTXo1aEUxTUlKcGwyNE9HQkRvQy9oOFZoakVQQXdXWUpJMm5DT0h4SDVxTURWMm9lSndlRGF1cjlpd1p0VENTbUFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgxMzUyMTM0CWZpbGU6U1NDXzAuMS4xLWJldGEuM19hbWQ2NC5kZWIKNW96eFlwTVE2V0h6N1YwNWRvdk9Ma1FQQ1N3UzdXbEVqUHp3Qm9vSHZFeHZnSG5wVE5BM0hGVkVDZHRQVEtEZ2tXOC8xWi82cStSRk1VZXQwTzBLQVE9PQo=",
+      "url": "https://github.com/omeramyahya1/SSC/archive/refs/tags/v0.1.1-beta.3.tar.gz"
     },
     "windows-x86_64": {
-      "signature": "CONTENT_OF_MSI_ZIP_SIG_FILE",
-      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.3/ssc_0.1.1-beta.3_x64_en-US.msi.zip"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSHhwSUVxWHViSmZkcE5lNVlPQzNBTXBOT2FuTVZJakRCN0h3ZmFicUN4U0p1L0E3LzEyUUs2UlFYZ3Q1d3I1Ymt4WWpCNlpGRitpMGtDbUlmeHBjZmdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgxMzYxMTQ1CWZpbGU6U1NDXzAuMS4xLWJldGEuM194NjRfZW4tVVMubXNpCm0rdmxSQTc1T0FNQ1hoMFVVNlZkblNSdlZrT2FZNEtuUFJFM1JYbmZ5ak5kVXRmRk9uRTd2SHE0bDZWaXZmMnZvMktTRkpVSTU2Z0JEcDJnK21CMURRPT0K",
+      "url": "https://github.com/omeramyahya1/SSC/archive/refs/tags/v0.1.1-beta.3.zip"
     }
   }
 }
