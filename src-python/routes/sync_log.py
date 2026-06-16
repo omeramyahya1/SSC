@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import Session
+from supabase import Client
 from utils import get_db, check_session_validity
 import models
 from auth_schemas import IsRegistration
@@ -461,7 +462,7 @@ def _scope_query_for_model(db: Session, model, scope: dict):
         return q.filter(models.ProjectComponent.project_uuid.in_(scoped_projects_query()))
     return q
 
-def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_only=True):
+def sync_table(db: Session, supabase: Client, model, table_name: str, mapper, scope: dict, dirty_only=True):
     if dirty_only:
         records = _scope_query_for_model(db, model, scope).filter(model.is_dirty == True).all()
     else:
@@ -472,7 +473,7 @@ def sync_table(db: Session, model, table_name: str, mapper, scope: dict, dirty_o
     payloads = [mapper(rec) for rec in records]
 
     try:
-        supabase = get_user_client()
+        # supabase = get_user_client(auth_entry=auth_entry)
         # Note: The push RPC is currently named 'sync_apply_and_pull'
         response = supabase.rpc("sync_apply_and_pull", {"p_table_name": table_name, "p_records": payloads}).execute()
         if hasattr(response, 'error') and response.error:
@@ -528,11 +529,14 @@ def push_to_supabase(db: Session, dirty_only: bool = True, auth_record: models.A
         raise Exception("Authenticated user not found in local DB.")
 
     scope = _build_sync_scope(db, user)
+
+    supabase = get_user_client(auth_entry=auth_record)
+
     for config in SYNC_CONFIG:
         table_name = config["table_name"]
         print(f"Pushing dirty records for table: {table_name}...")
         # Re-raise exceptions from sync_table to ensure atomicity of the overall sync
-        sync_table(db, config["model"], table_name, config["mapper"], scope=scope, dirty_only=dirty_only)
+        sync_table(db, supabase, config["model"], table_name, config["mapper"], scope=scope, dirty_only=dirty_only)
 
 def _get_local_cursor(db: Session, user_uuid: str, device_id: str) -> Optional[datetime]:
     row = (
@@ -598,7 +602,7 @@ def pull_from_supabase(db: Session, auth_record: models.Authentication = None):
 
     user_uuid = current_user.uuid
 
-    supabase = get_user_client()
+    supabase = get_user_client(auth_entry=auth_record)
     from utils import get_device_id
     device_id = get_device_id()
     last_cursor = _get_last_sync_cursor(db, user_uuid, device_id, supabase)
@@ -744,7 +748,7 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime, auth
         "hq_branch_uuid": None
     }
     try:
-        sync_table(db, models.SyncLog, "sync_logs", generic_mapper,scope=scope, dirty_only=True)
+        sync_table(db, models.SyncLog, "sync_logs", generic_mapper, scope=scope, dirty_only=True, auth_entry=auth_record)
         print("Final sync log pushed successfully.")
     except Exception as e:
         print(f"Warning: Failed to push final sync log to remote: {str(e)}")
@@ -761,6 +765,7 @@ def trigger_immediate_sync(db, user_uuid, table_name):
     db.add(new_log)
     db.commit()
     sync()
+
 
 @sync_log_bp.route('/sync', methods=['POST'])
 def sync():
@@ -853,14 +858,15 @@ def sync():
                 print(f"Warning: Post-sync subscription enforcement failed for user_uuid={user_uuid}: {e}")
             _create_and_push_final_sync_log(db, start_time, auth_record=auth)
 
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             # duration = (end_time - start_time).total_seconds()
-            print(f"Synchronization process finished successfully in {0:.2f} seconds.")
+            print(f"Synchronization process finished successfully in {(end_time - start_time).total_seconds():.2f} seconds.")
+
             return jsonify({"status": "ok", "duration_seconds": 0}), 200
         except Exception as e:
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             # duration = (end_time - start_time).total_seconds()
-            print(f"Synchronization process failed after {0:.2f} seconds.")
+            print(f"Synchronization process failed after {(end_time - start_time).total_seconds():.2f} seconds.")
             return jsonify({"status": "failed", "error": str(e), "duration_seconds": 0}), 500
 
 @sync_log_bp.route('/', methods=['GET'])

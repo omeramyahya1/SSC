@@ -162,7 +162,7 @@ export function ProjectCard({
                 />
               </Button>
             </div>
-          ) : isViewOnly || isInvoiceIssued ? (
+          ) : isViewOnly ? (
             <div />
           ) : (
             <DropdownMenu dir={i18n.dir()}>
@@ -185,7 +185,7 @@ export function ProjectCard({
                 onClick={(e) => e.stopPropagation()}
                 className="bg-white"
               >
-                {project.status !== "archived" && (
+                {!isInvoiceIssued && project.status !== "archived" && (
                   <DropdownMenuItem
                     className="cursor-pointer rounded-lg hover:bg-gray-100"
                     onClick={handleArchive}
