@@ -35,7 +35,7 @@ interface VersionStore {
 }
 
 const MANIFEST_URLS: Record<Exclude<AppChannel, "dev">, string> = {
-  beta: "https://raw.githubusercontent.com/omeramyahya1/SSC/beta-1/manifest.json",
+  beta: "https://raw.githubusercontent.com/omeramyahya1/SSC/beta/manifest.json",
   prod: "https://raw.githubusercontent.com/omeramyahya1/SSC/main/manifest.json",
 };
 
@@ -88,7 +88,7 @@ export const useVersionStore = create<VersionStore>((set, get) => ({
       let isUpdateRequired = false;
       let isUpdateAvailable = false;
 
-      // We allow beta to check for updates too. 
+      // We allow beta to check for updates too.
       // isUpdateVersionAllowed will ensure they only see beta updates.
       tauriUpdate = await check();
 
