@@ -700,58 +700,58 @@ def pull_from_supabase(db: Session, auth_record: models.Authentication = None):
         # Always ensure the flag is reset, even if an error occurs
         setattr(db, 'is_pull_sync_active', False)
 
-# def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime, auth_record: models.Authentication = None):
-#     print("\n--- Finalizing sync operation ---")
-#     # Explicitly query for the UUID as a scalar to avoid passing a Row/Tuple object.
-#     if not auth_record:
-#         auth_record = (
-#             db.query(models.Authentication)
-#             .filter(models.Authentication.is_logged_in == True)
-#             .order_by(models.Authentication.last_active.desc())
-#             .first()
-#         )
-#     if not auth_record:
-#         return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
+def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime, auth_record: models.Authentication = None):
+    print("\n--- Finalizing sync operation ---")
+    # Explicitly query for the UUID as a scalar to avoid passing a Row/Tuple object.
+    if not auth_record:
+        auth_record = (
+            db.query(models.Authentication)
+            .filter(models.Authentication.is_logged_in == True)
+            .order_by(models.Authentication.last_active.desc())
+            .first()
+        )
+    if not auth_record:
+        return None, (jsonify({"error": "No authenticated user found. Please log in."}), 401)
 
-#     current_user = db.query(models.User).filter(models.User.uuid == auth_record.user_uuid).first()
-#     if not current_user:
-#         return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
+    current_user = db.query(models.User).filter(models.User.uuid == auth_record.user_uuid).first()
+    if not current_user:
+        return None, (jsonify({"error": "Authenticated user not found in user table."}), 404)
 
-#     user_uuid = current_user.uuid
+    user_uuid = current_user.uuid
 
-#     # Determine if this is the first sync to correctly label it 'full' or 'incremental'.
-#     exists = db.query(models.SyncLog.sync_id).first() is not None
-#     sync_type = "incremental" if exists else "full"
+    # Determine if this is the first sync to correctly label it 'full' or 'incremental'.
+    exists = db.query(models.SyncLog.sync_id).first() is not None
+    sync_type = "incremental" if exists else "full"
 
-#     sync_log_entry = models.SyncLog(
-#         sync_type=sync_type,
-#         table_name="all",
-#         status="success",
-#         user_uuid=user_uuid,
-#         created_at=sync_start_time,
-#         updated_at=datetime.now(timezone.utc),
-#         is_dirty=True
-#     )
-#     db.add(sync_log_entry)
-#     db.commit()
+    sync_log_entry = models.SyncLog(
+        sync_type=sync_type,
+        table_name="all",
+        status="success",
+        user_uuid=user_uuid,
+        created_at=sync_start_time,
+        updated_at=datetime.now(timezone.utc),
+        is_dirty=True
+    )
+    db.add(sync_log_entry)
+    db.commit()
 
-#     current_user, error_response = _get_current_user(db)
-#     if error_response:
-#         return error_response
+    current_user, error_response = _get_current_user(db)
+    if error_response:
+        return error_response
 
-#     print("Pushing final sync log to remote...")
-#     scope = {
-#         "role": current_user.role,
-#         "user_uuid": current_user.uuid,
-#         "organization_uuid": None,
-#         "branch_uuid": None,
-#         "hq_branch_uuid": None
-#     }
-#     try:
-#         sync_table(db, models.SyncLog, "sync_logs", generic_mapper, scope=scope, dirty_only=True, auth_entry=auth_record)
-#         print("Final sync log pushed successfully.")
-#     except Exception as e:
-#         print(f"Warning: Failed to push final sync log to remote: {str(e)}")
+    print("Pushing final sync log to remote...")
+    scope = {
+        "role": current_user.role,
+        "user_uuid": current_user.uuid,
+        "organization_uuid": None,
+        "branch_uuid": None,
+        "hq_branch_uuid": None
+    }
+    try:
+        sync_table(db, models.SyncLog, "sync_logs", generic_mapper, scope=scope, dirty_only=True, auth_entry=auth_record)
+        print("Final sync log pushed successfully.")
+    except Exception as e:
+        print(f"Warning: Failed to push final sync log to remote: {str(e)}")
 
 def trigger_immediate_sync(db, user_uuid, table_name):
     """Creates a local sync log and triggers the sync process."""
@@ -766,14 +766,9 @@ def trigger_immediate_sync(db, user_uuid, table_name):
     db.commit()
     sync()
 
-import cProfile
-import pstats
 
 @sync_log_bp.route('/sync', methods=['POST'])
 def sync():
-    profiler = cProfile.Profile()
-    profiler.enable()
-
     start_time = datetime.now(timezone.utc)
     print(f"Synchronization process started at {start_time.isoformat()} UTC.")
 
@@ -794,8 +789,6 @@ def sync():
 
         # [BYPASS] If no active session, but this is a registration sync, look for the newest auth record
         if not auth and registration:
-            print("CHECKING AUTH SESSION")
-
             auth = (
                 db.query(models.Authentication)
                 .order_by(models.Authentication.created_at.desc())
@@ -810,7 +803,6 @@ def sync():
         device_id = get_device_id()
 
         # Check if already tampered
-        print("CHECKING TAMPERED SUBSCRIPTION")
         tampered_subscription = db.query(models.Subscription).filter(
             models.Subscription.user_uuid == user_uuid,
             models.Subscription.tampered == True
@@ -827,9 +819,7 @@ def sync():
 
         # If not tampered, proceed with heartbeat check
         try:
-            print("CHECKING HEARTBEAT")
             is_tampered = heart_beat(db, user_uuid)
-            print("DONE WITH HEARTBEAT")
             if is_tampered:
                 # heart_beat has now flagged the user.
                 # Push this change to the server immediately.
@@ -842,11 +832,8 @@ def sync():
         # [NEW] Verify cloud session validity to enforce single-session policy
         # [BYPASS] Skip this check during registration sync to eliminate bottlenecks
         if not registration:
-            print("CHECKING IF IS NOT REGISTRATION")
             try:
-                print("CHECKING SESSION VALIDITY")
                 if not check_session_validity(user_uuid, device_id):
-                     print("DONE WITH SESSION VALIDITY CHECK")
                      auth.is_logged_in = False
                      auth.is_dirty = True
                      db.commit()
@@ -860,25 +847,21 @@ def sync():
 
         # If all checks pass, proceed with normal sync
         try:
-            print("STARTING THE PUSH")
             push_to_supabase(db, auth_record=auth)
             pull_from_supabase(db, auth_record=auth)
             # Enforce subscription/user status after pulling fresh cloud data.
             # This also covers flows where the UI doesn't fetch /subscriptions immediately after login.
-            # try:
-            #     from .subscription import _enforce_cloud_and_refresh_local
-            #     _enforce_cloud_and_refresh_local(user_uuid)
-            # except Exception as e:
-            #     print(f"Warning: Post-sync subscription enforcement failed for user_uuid={user_uuid}: {e}")
-            # _create_and_push_final_sync_log(db, start_time, auth_record=auth)
+            try:
+                from .subscription import _enforce_cloud_and_refresh_local
+                _enforce_cloud_and_refresh_local(user_uuid)
+            except Exception as e:
+                print(f"Warning: Post-sync subscription enforcement failed for user_uuid={user_uuid}: {e}")
+            _create_and_push_final_sync_log(db, start_time, auth_record=auth)
 
             end_time = datetime.now(timezone.utc)
             # duration = (end_time - start_time).total_seconds()
             print(f"Synchronization process finished successfully in {(end_time - start_time).total_seconds():.2f} seconds.")
-            profiler.disable()
 
-            stats = pstats.Stats(profiler).sort_stats('cumulative')
-            stats.print_stats(30)
             return jsonify({"status": "ok", "duration_seconds": 0}), 200
         except Exception as e:
             end_time = datetime.now(timezone.utc)

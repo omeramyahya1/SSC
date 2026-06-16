@@ -1,10 +1,5 @@
 import os
 import sys
-
-from pydantic_postgrest_bootstrap import apply_postgrest_pydantic_bootstrap
-
-apply_postgrest_pydantic_bootstrap()
-
 from supabase import create_client, Client, ClientOptions
 from dotenv import load_dotenv
 from utils import get_db
@@ -81,5 +76,5 @@ def get_user_client(auth_entry=None) -> Client:
         return _anon_client_singleton
 
     # Fallback to anonymous credentials if token validation drops out
-    _anon_client_singleton.postgrest.auth(anon_key)
+    _anon_client_singleton.postgrest.auth()
     return _anon_client_singleton

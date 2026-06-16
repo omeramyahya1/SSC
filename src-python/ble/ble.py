@@ -28,7 +28,10 @@ def get_geo_data(location: str="Khartoum"):
         with open(csv_path, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                if row['city'].strip().lower() == city:
+                row_city = (row.get('city') or '').stript().lower()
+                if not row_city:
+                    continue
+                if row_city == city:
                     # Convert numeric fields to float
                     for key in row:
                         if key not in ('city', 'city_ar', 'state', 'state_ar'):

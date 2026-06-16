@@ -468,7 +468,7 @@ def create_and_sync_subscription():
             for attempt in range(sync_retries):
                 try:
                     print(f"Pushing subscription to cloud (Attempt {attempt+1}/{sync_retries})...")
-                    sync_table(db, Subscription, subscription_config["table_name"], subscription_config["mapper"], scope=scope, dirty_only=True)
+                    sync_table(db, service_client, Subscription, subscription_config["table_name"], subscription_config["mapper"], scope=scope, dirty_only=True)
                     sync_success = True
                     break
                 except Exception as sync_err:
@@ -620,8 +620,11 @@ def cancel_subscription(item_id):
             return jsonify({"error": "Subscription sync configuration not found."}), 500
 
         try:
+            service_client = get_service_role_client()
+
             sync_table(
                 db,
+                service_client,
                 Subscription,
                 subscription_config["table_name"],
                 subscription_config["mapper"],
