@@ -15,20 +15,18 @@ from models import ApplicationSettings
 def get_geo_data(location: str="Khartoum"):
     """Load geo data from CSV and find the matching location."""
     import csv
+    from utils import get_resource_path
     try:
         if not location or not location.strip():
            location = "Khartoum"
-        if getattr(sys, 'frozen', False) and "__compiled__" in globals():
-            base_dir = os.path.dirname(sys.argv[0])
-        else:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-        csv_path = os.path.join(base_dir, "dataset", "geo_data.csv")
+
+        csv_path = get_resource_path(os.path.join("ble", "dataset", "geo_data.csv"))
 
         city = location.split(',')[0].strip().lower()
         with open(csv_path, newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                row_city = (row.get('city') or '').stript().lower()
+                row_city = (row.get('city') or '').strip().lower()
                 if not row_city:
                     continue
                 if row_city == city:
@@ -41,7 +39,8 @@ def get_geo_data(location: str="Khartoum"):
                                 pass
                     return row
         return None
-    except FileNotFoundError:
+    except (OSError, csv.Error) as e:
+        print(f"Error loading geo data: {e}")
         return None
 
 def convert_units(value, conversion_type, voltage=None):

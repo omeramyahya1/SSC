@@ -1,5 +1,5 @@
 from flask import Blueprint, request, send_file, jsonify
-from utils import inject_db_session
+from utils import inject_db_session, get_resource_path
 from reporting.reports_module import (
     get_finance_report_data,
     get_inventory_report_data,
@@ -21,9 +21,8 @@ except ImportError:
 reporting_bp = Blueprint('reporting_bp', __name__, url_prefix='/reporting')
 
 # --- Resource Path Resolution ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-TEMPLATE_DIR = os.path.join(BASE_DIR, '..', 'pdf_engine', 'templates')
-LOGO_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'public', 'ssc.svg'))
+TEMPLATE_DIR = get_resource_path(os.path.join('pdf_engine', 'templates'))
+LOGO_PATH = get_resource_path('ssc.svg')
 
 def _load_ssc_logo_svg():
     try:

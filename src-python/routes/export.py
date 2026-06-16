@@ -1,5 +1,5 @@
 from flask import Blueprint, request, send_file, jsonify
-from utils import get_db
+from utils import get_db, get_resource_path
 from models import Project, Invoice, ProjectComponent, Customer
 from sqlalchemy.orm import joinedload
 import io
@@ -28,20 +28,10 @@ def _get_pandas():
 export_bp = Blueprint('export_bp', __name__, url_prefix='/export')
 
 # --- Resource Path Resolution ---
-if getattr(sys, 'frozen', False) and "__compiled__" in globals():
-    # Bundled mode (Nuitka)
-    BUNDLE_DIR = os.path.dirname(sys.argv[0])
-    TEMPLATE_DIR = os.path.join(BUNDLE_DIR, 'templates')
-    GEO_DATA_PATH = os.path.join(BUNDLE_DIR, 'dataset', 'geo_data.csv')
-    LOGO_PATH = os.path.join(BUNDLE_DIR, 'ssc.svg')
-    ASSETS_DIR = os.path.join(BUNDLE_DIR, 'assets')
-else:
-    # Development mode
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    TEMPLATE_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'pdf_engine', 'templates'))
-    GEO_DATA_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', 'ble', 'dataset', 'geo_data.csv'))
-    LOGO_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', '..', 'public', 'ssc.svg'))
-    ASSETS_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'pdf_engine', 'assets'))
+TEMPLATE_DIR = get_resource_path(os.path.join('pdf_engine', 'templates'))
+GEO_DATA_PATH = get_resource_path(os.path.join('ble', 'dataset', 'geo_data.csv'))
+LOGO_PATH = get_resource_path('ssc.svg')
+ASSETS_DIR = get_resource_path(os.path.join('pdf_engine', 'assets'))
 
 jinja_env = Environment(
     loader=FileSystemLoader(TEMPLATE_DIR),

@@ -131,18 +131,23 @@ export const VersionHandler = () => {
       </AlertDialog>
 
       {/* Force Update Overlay */}
-      {isUpdateRequired && (
+      {isUpdateRequired && !isFinalizing && (
         <div className="fixed inset-0 z-[9999] bg-background/80 backdrop-blur-xl flex items-center justify-center p-4">
           <div className="bg-white border shadow-lg rounded-lg max-w-md w-full p-6 text-center">
             <h2 className="text-2xl font-bold mb-4">
-              {t("versioning.update_required_title")}
+              {isDownloading? t("downloading"):t("versioning.update_required_title")}
             </h2>
-            <p className="mb-6 text-muted-foreground">
-              {t("versioning.update_required_description")}
+            <p className="mb-4">
+              {!isDownloading && t("versioning.update_required_description", {
+                  version: tauriUpdate?.version || manifest?.latest_version,
+                })}
             </p>
             {isDownloading ? (
               <div className="space-y-4">
-                <Progress value={downloadProgress} />
+                <Progress
+                  value={downloadProgress}
+                  className="h-2  bg-primary-foreground/20 border"
+                  />
                 <p className="text-sm">{Math.round(downloadProgress)}%</p>
               </div>
             ) : (

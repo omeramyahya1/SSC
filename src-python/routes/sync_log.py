@@ -719,6 +719,8 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime, auth
 
     user_uuid = current_user.uuid
 
+    supabase = get_user_client(auth_entry=auth_record)
+
     # Determine if this is the first sync to correctly label it 'full' or 'incremental'.
     exists = db.query(models.SyncLog.sync_id).first() is not None
     sync_type = "incremental" if exists else "full"
@@ -748,7 +750,8 @@ def _create_and_push_final_sync_log(db: Session, sync_start_time: datetime, auth
         "hq_branch_uuid": None
     }
     try:
-        sync_table(db, models.SyncLog, "sync_logs", generic_mapper, scope=scope, dirty_only=True, auth_entry=auth_record)
+                  #db, supabase, model,          table_name,  mapper,         scope,       dirty_only=True
+        sync_table(db, supabase, models.SyncLog, "sync_logs", generic_mapper, scope=scope, dirty_only=True)
         print("Final sync log pushed successfully.")
     except Exception as e:
         print(f"Warning: Failed to push final sync log to remote: {str(e)}")
