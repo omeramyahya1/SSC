@@ -19,7 +19,7 @@ def get_geo_data(location: str="Khartoum"):
     try:
         if not location or not location.strip():
            location = "Khartoum"
-        
+
         csv_path = get_resource_path(os.path.join("ble", "dataset", "geo_data.csv"))
 
         city = location.split(',')[0].strip().lower()
@@ -39,7 +39,7 @@ def get_geo_data(location: str="Khartoum"):
                                 pass
                     return row
         return None
-    except Exception as e:
+    except (OSError, csv.Error) as e:
         print(f"Error loading geo data: {e}")
         return None
 

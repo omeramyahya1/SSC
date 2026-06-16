@@ -25,20 +25,22 @@ if "--self-test" in sys.argv:
             load_dotenv(env_path, override=False)
 
     run_postgrest_pydantic_self_test()
-    
+
     # Verify Data Resources
     resources_to_check = {
         "Geo Dataset": os.path.join("ble", "dataset", "geo_data.csv"),
         "Invoice Template": os.path.join("pdf_engine", "templates", "invoice.html"),
+        "Reporting Template": os.path.join("pdf_engine", "templates", "report.html"),
+        "PDF Assets Dir": os.path.join("pdf_engine", "assets"),
         "SSC Logo": "ssc.svg"
     }
-    
+
     missing_resources = []
     for name, rel_path in resources_to_check.items():
         abs_path = get_resource_path(rel_path)
         if not os.path.exists(abs_path):
             missing_resources.append(f"{name} ({abs_path})")
-    
+
     if missing_resources:
         raise RuntimeError(f"Sidecar self-test failed. Missing resources: {', '.join(missing_resources)}")
 
@@ -46,7 +48,7 @@ if "--self-test" in sys.argv:
     missing_env = [key for key in required_env if not os.environ.get(key)]
     if missing_env:
         raise RuntimeError(f"Sidecar self-test missing env values: {', '.join(missing_env)}")
-    
+
     print(
         "Sidecar self-test passed. "
         "PostGREST/Pydantic OK. "
