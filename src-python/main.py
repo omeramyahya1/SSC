@@ -13,6 +13,7 @@ apply_postgrest_pydantic_bootstrap()
 
 if "--self-test" in sys.argv:
     from dotenv import load_dotenv
+    from utils import get_resource_path
 
     env_candidates = [
         os.path.join(os.path.dirname(sys.executable), ".env"),
@@ -24,13 +25,32 @@ if "--self-test" in sys.argv:
             load_dotenv(env_path, override=False)
 
     run_postgrest_pydantic_self_test()
+    
+    # Verify Data Resources
+    resources_to_check = {
+        "Geo Dataset": os.path.join("ble", "dataset", "geo_data.csv"),
+        "Invoice Template": os.path.join("pdf_engine", "templates", "invoice.html"),
+        "SSC Logo": "ssc.svg"
+    }
+    
+    missing_resources = []
+    for name, rel_path in resources_to_check.items():
+        abs_path = get_resource_path(rel_path)
+        if not os.path.exists(abs_path):
+            missing_resources.append(f"{name} ({abs_path})")
+    
+    if missing_resources:
+        raise RuntimeError(f"Sidecar self-test failed. Missing resources: {', '.join(missing_resources)}")
+
     required_env = ["SUPABASE_URL", "SUPABASE_KEY", "SERVICE_ROLE_KEY"]
     missing_env = [key for key in required_env if not os.environ.get(key)]
     if missing_env:
         raise RuntimeError(f"Sidecar self-test missing env values: {', '.join(missing_env)}")
+    
     print(
         "Sidecar self-test passed. "
-        f"PostGREST/Pydantic OK. Env present: {len(required_env)}/{len(required_env)}."
+        "PostGREST/Pydantic OK. "
+        f"Resources OK. Env present: {len(required_env)}/{len(required_env)}."
     )
     sys.exit(0)
 
