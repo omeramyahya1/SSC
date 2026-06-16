@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import api from "@/api/client";
 import { registerStore, StoreKeys } from "@/api/storeRegistry";
+import { useUserStore } from "@/store/useUserStore";
 
 // --- 1. Define Types ---
 
@@ -55,6 +56,11 @@ export const useBranchStore = create<BranchStore>((set, get) => ({
   },
 
   fetchBranches: async (params) => {
+    const currentUser = useUserStore.getState().currentUser;
+    if (currentUser?.role !== 'admin') {
+      set({ branches: [], isLoading: false });
+      return;
+    }
     const resolvedParams = params ?? get().lastFetchParams;
     set({ isLoading: true, error: null });
     try {
@@ -139,5 +145,8 @@ export const useBranchStore = create<BranchStore>((set, get) => ({
 }));
 
 registerStore(StoreKeys.Branch, () => {
-  useBranchStore.getState().fetchBranches();
+  const currentUser = useUserStore.getState().currentUser;
+  if (currentUser?.role === 'admin') {
+    useBranchStore.getState().fetchBranches();
+  }
 });
