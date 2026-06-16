@@ -15,9 +15,16 @@ os.makedirs(os.path.dirname(DB_FILE_PATH), exist_ok=True)
 # for multi-threaded applications like Flask.
 engine = create_engine(
     SQLITE_URL,
-    connect_args={"check_same_thread": False},
+    connect_args={"check_same_thread": False, "timeout": 30},
     echo=False # Set to True for debugging SQL queries
 )
+
+# Enable WAL mode for better concurrent read/write performance
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.close()
 
 # Create a single, module-level session factory to be used throughout the app
 SessionLocal = sessionmaker(
