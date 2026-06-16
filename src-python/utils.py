@@ -58,6 +58,25 @@ def generate_salt():
     """Generates a random salt for password hashing."""
     return os.urandom(16).hex() # 16 bytes = 32 hex characters
 
+def get_resource_path(relative_path):
+    """
+    Resolves the absolute path to a resource.
+    Works for both development and Nuitka --onefile mode.
+    """
+    import sys
+    # In Nuitka --onefile, os.path.dirname(__file__) points to the temporary extraction directory.
+    # utils.py is in the root of src-python, so its dirname is the root of the bundled resources.
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Special case: logo is in public/ in dev, but root in bundle
+    if relative_path == "ssc.svg":
+        if getattr(sys, 'frozen', False):
+            return os.path.join(base_dir, "ssc.svg")
+        else:
+            return os.path.abspath(os.path.join(base_dir, "..", "public", "ssc.svg"))
+            
+    return os.path.join(base_dir, relative_path)
+
 def hash_password(password, salt):
     """Hashes a password with the given salt using SHA256."""
     # Encode password and salt to bytes before hashing
