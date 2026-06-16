@@ -41,7 +41,7 @@
 
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage"],
+    "targets": ["deb"],
     "createUpdaterArtifacts": true,
     "externalBin": [
       "python-sidecar"
