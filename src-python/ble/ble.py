@@ -10,35 +10,33 @@ from models import ApplicationSettings
 
 # --- Helper Functions ---
 
-def _get_pandas():
-    try:
-        import pandas as pd  # type: ignore
-        return pd
-    except Exception as e:
-        raise RuntimeError(
-            "Optional dependency 'pandas' failed to import. "
-            "This feature is required for geo dataset loading."
-        ) from e
+
 
 def get_geo_data(location: str="Khartoum"):
     """Load geo data from CSV and find the matching location."""
+    import csv
     try:
         if not location or not location.strip():
            location = "Khartoum"
-        # Construct the absolute path for the CSV file
-        pd = _get_pandas()
         if getattr(sys, 'frozen', False) and "__compiled__" in globals():
             base_dir = os.path.dirname(sys.argv[0])
         else:
             base_dir = os.path.dirname(os.path.abspath(__file__))
         csv_path = os.path.join(base_dir, "dataset", "geo_data.csv")
-        geo_df = pd.read_csv(csv_path)
 
-        # Search for the location (case-insensitive)
-        city = location.split(',')[0]
-        location_data = geo_df[geo_df['city'].str.lower() == city.strip().lower()]
-        if not location_data.empty:
-            return location_data.iloc[0]
+        city = location.split(',')[0].strip().lower()
+        with open(csv_path, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['city'].strip().lower() == city:
+                    # Convert numeric fields to float
+                    for key in row:
+                        if key not in ('city', 'city_ar', 'state', 'state_ar'):
+                            try:
+                                row[key] = float(row[key])
+                            except (ValueError, TypeError):
+                                pass
+                    return row
         return None
     except FileNotFoundError:
         return None

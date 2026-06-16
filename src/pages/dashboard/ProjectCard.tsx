@@ -162,7 +162,7 @@ export function ProjectCard({
                 />
               </Button>
             </div>
-          ) : isViewOnly || isInvoiceIssued ? (
+          ) : isViewOnly ? (
             <div />
           ) : (
             <DropdownMenu dir={i18n.dir()}>
