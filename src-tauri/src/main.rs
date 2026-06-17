@@ -6,7 +6,7 @@
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use std::io::BufRead;
+use std::io::{BufRead, BufReader};
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 use tauri_plugin_shell::process::CommandChild;
@@ -314,10 +314,10 @@ fn main() {
 
             #[cfg(not(debug_assertions))]
             {
-                use std::fs::{self, OpenOptions, File}; 
+                use std::fs::{self, OpenOptions, File};
                 use std::io::Write;
                 use tauri_plugin_shell::process::CommandEvent;
-                use chrono::{Utc, Duration, DateTime, NaiveDateTime}; 
+                use chrono::{Utc, Duration, DateTime, NaiveDateTime};
 
                 let mut log_file_options = OpenOptions::new();
                 log_file_options.create(true).write(true); // Always create/open for writing

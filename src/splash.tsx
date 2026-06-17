@@ -33,11 +33,11 @@ async function pingServer() {
     try {
       const baseUrl = await getBackendBaseUrl();
       const res = await fetch(`${baseUrl}health`);
-      
+
       if (res.ok) {
         return;
       }
-      
+
       attempts++;
     } catch (error) {
       attempts++;
@@ -57,42 +57,47 @@ export async function runSplashScreenLogic() {
   try {
     // 1. Wait for the backend to be ready
     updateStatus('Starting up...');
-    
-    await new Promise<void>(async (resolve, reject) => {
-      let resolved = false;
-      const timeout = setTimeout(() => {
-        if (!resolved) reject(new Error("Backend startup timed out (60s)"));
-      }, 60000);
 
-      const cleanup = (unlistenFn?: () => void) => {
-        resolved = true;
-        clearTimeout(timeout);
-        if (unlistenFn) unlistenFn();
-      };
+        await waitForBackendReady();
 
-      // 1a. Listen for the push signal
-      const unlisten = await listen('backend-ready', () => {
-        if (!resolved) {
-          console.log("SPLASH: Backend signal received (Event)");
-          cleanup(unlisten);
-          resolve();
-        }
-      });
+// Add this helper function outside runSplashScreenLogic:
+async function waitForBackendReady(): Promise<void> {
+  let resolved = false;
+  let unlistenFn: (() => void) | undefined;
 
-      // 1b. Fallback polling
-      pingServer().then(() => {
-        if (!resolved) {
-          console.log("SPLASH: Backend ready (Polling fallback)");
-          cleanup(unlisten);
-          resolve();
-        }
-      }).catch((err) => {
-        if (!resolved) {
-          cleanup(unlisten);
-          reject(err);
-        }
-      });
-    });
+  const cleanup = () => {
+    resolved = true;
+    if (unlistenFn) unlistenFn();
+  };
+
+  // Set up listener first
+  unlistenFn = await listen('backend-ready', () => {
+    if (!resolved) {
+      console.log("SPLASH: Backend signal received (Event)");
+      cleanup();
+    }
+  });
+
+  // Race: event, polling, or timeout
+  const eventPromise = new Promise<string>((resolve) => {
+    const checkResolved = setInterval(() => {
+      if (resolved) { clearInterval(checkResolved); resolve("event"); }
+    }, 50);
+  });
+
+  const pollingPromise = pingServer().then(() => "polling");
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Backend startup timed out (60s)")), 60000)
+  );
+
+  try {
+    const winner = await Promise.race([eventPromise, pollingPromise, timeoutPromise]);
+    console.log(`SPLASH: Backend ready (${winner})`);
+  } finally {
+    cleanup();
+  }
+}
 
     console.log("SPLASH: Backend is ready, proceeding to data load...");
 
@@ -112,7 +117,7 @@ export async function runSplashScreenLogic() {
       const userUUID = latestAuth.user_uuid;
       updateStatus('Fetching user data...');
       await useUserStore.getState().fetchUser(userUUID);
-      
+
       updateStatus('Loading settings...');
       await useApplicationSettingsStore.getState().fetchSettings();
 
