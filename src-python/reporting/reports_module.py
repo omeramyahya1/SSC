@@ -1,5 +1,4 @@
 import io
-import xlsxwriter
 from datetime import datetime
 from sqlalchemy.orm import joinedload
 from models import Invoice, Payment, Project, InventoryItem, ProjectComponent, StockAdjustment
@@ -225,6 +224,7 @@ def get_inventory_report_data(db, org_uuid=None, branch_uuid=None, start_date=No
     }
 
 def generate_excel_report(data, report_type='finance', lang='en', t=None):
+    import xlsxwriter
     output = io.BytesIO()
     workbook = xlsxwriter.Workbook(output, {'in_memory': True})
 

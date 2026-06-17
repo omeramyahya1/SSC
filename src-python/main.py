@@ -27,14 +27,16 @@ if do_profile:
     profiler.enable()
     print("PYTHON: Profiling enabled...")
 
-from pydantic_postgrest_bootstrap import (
-    apply_postgrest_pydantic_bootstrap,
-    run_postgrest_pydantic_self_test,
-)
+# --- Pydantic PostGREST Bootstrap (Critical for Windows Bundle) ---
+# We gate this because it's slow (21s+ on Linux/NTFS) and only strictly 
+# needed for Nuitka-bundled Windows executables to prevent stripping.
+if getattr(sys, 'frozen', False) and sys.platform == "win32":
+    from pydantic_postgrest_bootstrap import apply_postgrest_pydantic_bootstrap
+    print("PYTHON: Running Pydantic/PostGREST bootstrap (Frozen Windows mode)")
+    apply_postgrest_pydantic_bootstrap()
 
-apply_postgrest_pydantic_bootstrap()
+from flask import Flask, jsonify, request
 
-if "--self-test" in sys.argv:
     from dotenv import load_dotenv
     from utils import get_resource_path
 
