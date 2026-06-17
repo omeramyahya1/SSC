@@ -1,15 +1,15 @@
 {
-  "version": "0.1.1-beta.5",
+  "version": "0.1.1-beta.6",
   "notes": "Fixing sidcar bundle: include assets & non-py files.",
   "pub_date": "2026-06-16T00:00:00Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSDBWbTczT1BWb0EyUXdMMkdIeEFqMlpwL01VM3p5b2V4SE9Yd0s5M3hRN0dDanJLeExyQmJtbnk4b2l3UjVRZGgwM1lKU3lFbGdGc0M1T3cwQmpLTFE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgxNjMyMDU5CWZpbGU6U1NDXzAuMS4xLWJldGEuNF9hbWQ2NC5kZWIKcXExNHo0QmRXbVYrRXBJY2I0L2RmMTg1ZTFOVjdJL2VZNW9kUGtvdGI5YVM3M2w5ZTF3MDJSVVV0cVMvREExRGFXZnBhS1JnRUl6aGRrOUtwMlliQ3c9PQo=",
-      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.5/SSC_0.1.1-beta.5_amd64.deb"
+      "signature": "TB_PASTED",
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.6/SSC_0.1.1-beta.6_amd64.deb"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSDNjQldQRGtCOFdwTkhXRHpkNXFOQ0RBOVArYUFRYkRseWhBZVJMMUJXQy9HbU5JZCtvVnNRbG0wUFlKVEIzRXYyanJmVEJTMzVIQTZNSUZZQ2UwaFFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgxNjM0NjM5CWZpbGU6U1NDXzAuMS4xLWJldGEuNV94NjRfZW4tVVMubXNpCm1hM2Z3MExreHVMNzQ3ay9FTmZHcEg0R3ZJRTR0ZTJjMzJXZGtHUVIxNHdYVUc0ZllUNkZxS1NVelNjNjJpRmFYYlY1eFBWNktKR01JRSt2ZGt1ekF3PT0K",
-      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.5/SSC_0.1.1-beta.5_x64_en-US.msi"
+      "signature": "TB_PASTED",
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.6/SSC_0.1.1-beta.6_x64_en-US.msi"
     }
   }
 }
