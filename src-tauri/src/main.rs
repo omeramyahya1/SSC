@@ -10,6 +10,7 @@ use std::io::{BufRead, BufReader};
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 use tauri_plugin_shell::process::CommandChild;
+use tauri_plugin_shell::ShellExt;
 
 enum PythonProcess {
     Child(Child),
@@ -408,6 +409,8 @@ fn main() {
 
                 let (mut rx, child) = sidecar_cmd.spawn().expect("failed to spawn python sidecar");
 
+                let app_handle = app.handle().clone();
+
                 // Drain the sidecar's output to prevent pipe-clogging and log errors
                 tauri::async_runtime::spawn(async move {
                     let mut log_file = log_file;
@@ -418,7 +421,7 @@ fn main() {
                                 let trimmed = text.trim();
                                 if trimmed == "BACKEND_READY" {
                                     println!("RUST: Backend signal detected (Sidecar), emitting event...");
-                                    let _ = app.emit("backend-ready", ());
+                                    let _ = app_handle.emit("backend-ready", ());
                                 }
                                 if let Some(ref mut f) = log_file {
                                     let timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
