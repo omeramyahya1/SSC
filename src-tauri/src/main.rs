@@ -6,7 +6,9 @@
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use std::io::{BufRead, BufReader, Write};
 use tauri::{AppHandle, Manager, State, WindowEvent};
+use chrono::Utc;
 
 use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
@@ -273,8 +275,38 @@ fn main() {
                     cmd.env(key, val);
                 }
 
-                let python_process = cmd.spawn()
+                let mut python_process = cmd
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::piped())
+                    .spawn()
                     .expect("failed to start python backend - verify virtual environment exists");
+
+                let stdout = python_process.stdout.take().unwrap();
+                let stderr = python_process.stderr.take().unwrap();
+                let app_handle = app.handle().clone();
+
+                // Thread to read stdout
+                std::thread::spawn(move || {
+                    let reader = std::io::BufReader::new(stdout);
+                    for line in reader.lines() {
+                        if let Ok(l) = line {
+                            println!("{}", l);
+                            if l.contains("BACKEND_READY") {
+                                let _ = app_handle.emit("backend-ready", ());
+                            }
+                        }
+                    }
+                });
+
+                // Thread to read stderr
+                std::thread::spawn(move || {
+                    let reader = std::io::BufReader::new(stderr);
+                    for line in reader.lines() {
+                        if let Ok(l) = line {
+                            eprintln!("{}", l);
+                        }
+                    }
+                });
 
                 let state: State<AppState> = app.handle().state();
                 *state.python_process.lock().unwrap() = Some(PythonProcess::Child(python_process));
@@ -283,9 +315,8 @@ fn main() {
             #[cfg(not(debug_assertions))]
             {
                 use std::fs::{self, OpenOptions, File}; 
-                use std::io::{self, BufReader, BufRead, Write}; 
                 use tauri_plugin_shell::process::CommandEvent;
-                use chrono::{Utc, Duration, DateTime, NaiveDateTime}; 
+                use chrono::{Duration, DateTime, NaiveDateTime}; 
 
                 let mut log_file_options = OpenOptions::new();
                 log_file_options.create(true).write(true); // Always create/open for writing
@@ -383,6 +414,9 @@ fn main() {
                         match event {
                             CommandEvent::Stdout(line) => {
                                 let text = String::from_utf8_lossy(&line);
+                                if text.contains("BACKEND_READY") {
+                                    let _ = app.emit("backend-ready", ());
+                                }
                                 if let Some(ref mut f) = log_file {
                                     let timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
                                     let _ = writeln!(f, "{}{}", timestamp, text);

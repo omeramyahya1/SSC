@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
@@ -17,6 +18,7 @@ function updateStatus(message: string) {
 
 /**
  * Pings the backend server until it's responsive.
+ * Used as a fallback and to ensure the port is actually listening.
  */
 async function pingServer() {
   let attempts = 0;
@@ -36,7 +38,6 @@ async function pingServer() {
         return;
       }
       
-      // If response is not OK, we still treat it as a failed attempt
       attempts++;
     } catch (error) {
       attempts++;
@@ -54,9 +55,29 @@ async function pingServer() {
  */
 export async function runSplashScreenLogic() {
   try {
-    // 1. Ping the server to ensure it's running
+    // 1. Wait for the backend to be ready
     updateStatus('Starting up...');
-    await pingServer();
+    
+    // We use a race between the event signal and polling for maximum reliability
+    await new Promise<void>(async (resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Backend startup timed out (60s)"));
+      }, 60000);
+
+      // Listener for the "I am alive!" push signal
+      const unlisten = await listen('backend-ready', () => {
+        clearTimeout(timeout);
+        unlisten();
+        resolve();
+      });
+
+      // Fallback polling (essential for dev mode and edge cases)
+      pingServer().then(() => {
+        clearTimeout(timeout);
+        unlisten();
+        resolve();
+      }).catch(reject);
+    });
 
     // 2. Check for internet connectivity
     updateStatus('Checking connectivity...');

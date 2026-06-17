@@ -27,18 +27,27 @@ if do_profile:
     profiler.enable()
     print("PYTHON: Profiling enabled...")
 
-# --- Pydantic PostGREST Bootstrap (Critical for Windows Bundle) ---
-# We gate this because it's slow (21s+ on Linux/NTFS) and only strictly 
-# needed for Nuitka-bundled Windows executables to prevent stripping.
+# =================================================================
+# 1. WINDOWS PRODUCTION PATCH
+# =================================================================
+# This runs EVERY time the compiled Windows binary launches to keep
+# Nuitka from stripping vital postgrest/pydantic parsing logic.
 if getattr(sys, 'frozen', False) and sys.platform == "win32":
     from pydantic_postgrest_bootstrap import apply_postgrest_pydantic_bootstrap
-    print("PYTHON: Running Pydantic/PostGREST bootstrap (Frozen Windows mode)")
+    print("PYTHON: Applying PostGREST/Pydantic binary patch...")
     apply_postgrest_pydantic_bootstrap()
 
-from flask import Flask, jsonify, request
-
+# =================================================================
+# 2. GATED COMPILATION SELF-TEST
+# =================================================================
+# This ONLY runs if Tauri or your build pipeline explicitly requests it
+# via the CLI argument. It will gracefully terminate the binary after validation.
+if "--self-test" in sys.argv:
+    from pydantic_postgrest_bootstrap import run_postgrest_pydantic_self_test
     from dotenv import load_dotenv
     from utils import get_resource_path
+
+    print("PYTHON: Running sidecar verification checklist...")
 
     env_candidates = [
         os.path.join(os.path.dirname(sys.executable), ".env"),
@@ -49,9 +58,10 @@ from flask import Flask, jsonify, request
         if os.path.exists(env_path):
             load_dotenv(env_path, override=False)
 
+    # Run library integrity validation
     run_postgrest_pydantic_self_test()
 
-    # Verify Data Resources
+    # Verify Data Resources are bundled accurately
     resources_to_check = {
         "Geo Dataset": os.path.join("ble", "dataset", "geo_data.csv"),
         "Invoice Template": os.path.join("pdf_engine", "templates", "invoice.html"),
@@ -67,18 +77,14 @@ from flask import Flask, jsonify, request
             missing_resources.append(f"{name} ({abs_path})")
 
     if missing_resources:
-        raise RuntimeError(f"Sidecar self-test failed. Missing resources: {', '.join(missing_resources)}")
+        raise RuntimeError(f"Sidecar self-test failed. Missing assets: {', '.join(missing_resources)}")
 
     required_env = ["SUPABASE_URL", "SUPABASE_KEY", "SERVICE_ROLE_KEY"]
     missing_env = [key for key in required_env if not os.environ.get(key)]
     if missing_env:
         raise RuntimeError(f"Sidecar self-test missing env values: {', '.join(missing_env)}")
 
-    print(
-        "Sidecar self-test passed. "
-        "PostGREST/Pydantic OK. "
-        f"Resources OK. Env present: {len(required_env)}/{len(required_env)}."
-    )
+    print(f"Sidecar self-test passed. Verified {len(resources_to_check)} resource paths securely.")
     sys.exit(0)
 
 from flask import Flask, jsonify, request
@@ -159,7 +165,7 @@ if __name__ == "__main__":
         ps.print_stats(30)
         print(s.getvalue())
         print("="*50 + "\n")
-        
+
         if flag_file and profile_env == "once":
             try:
                 with open(flag_file, "w") as f:
@@ -170,8 +176,10 @@ if __name__ == "__main__":
 
     if mode == "dev":
         print("Serving for dev mode")
+        print("BACKEND_READY")
         app.run(host="127.0.0.1", port=port, debug=True, use_reloader=True)
     else:
         from waitress import serve
         print("Serving for prod mode")
+        print("BACKEND_READY")
         serve(app, host="127.0.0.1", port=port, threads=12)
