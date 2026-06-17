@@ -1,5 +1,5 @@
 import math
-from models import InventoryItem, InventoryCategory, ProjectComponent
+from models import InventoryItem, InventoryCategory
 from sqlalchemy.orm import Session
 from sqlalchemy import false
 

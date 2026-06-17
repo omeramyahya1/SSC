@@ -2,12 +2,10 @@ from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db, get_by_id_or_uuid
 from models import Customer, Project
-from .authentication import get_latest_authentication
 from schemas import CustomerCreate, CustomerUpdate
 from serializer import model_to_dict
 from sqlalchemy import func
 from datetime import datetime
-import json
 from authz import get_current_user
 
 customer_bp = Blueprint('customer_bp', __name__, url_prefix='/customers')

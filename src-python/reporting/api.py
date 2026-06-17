@@ -13,11 +13,6 @@ from datetime import datetime
 from urllib.parse import quote
 from models import Branch, User
 
-try:
-    from weasyprint import HTML
-except ImportError:
-    HTML = None
-
 reporting_bp = Blueprint('reporting_bp', __name__, url_prefix='/reporting')
 
 # --- Resource Path Resolution ---
@@ -181,6 +176,11 @@ def export_report(db):
         generated_files.append((f"{report_type}_report_{current_date_str}.xlsx", excel_io, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
 
     if 'pdf' in formats:
+        try:
+            from weasyprint import HTML
+        except ImportError:
+            HTML = None
+
         if HTML is None:
             return jsonify({"error": "PDF engine not available"}), 500
 

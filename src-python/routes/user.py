@@ -2,10 +2,10 @@ from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db, get_by_id_or_uuid, generate_salt, hash_password, generate_temp_password, require_internet, verify_password, get_device_id
 from models import User, Authentication, ApplicationSettings, Subscription, SubscriptionPayment, Organization, Branch, SyncLog
-from schemas import UserCreate, UserUpdate
+from schemas import UserUpdate
 from auth_schemas import RegistrationPayload
 from serializer import model_to_dict
-from routes.sync_log import sync, upload_blob, trigger_immediate_sync, map_user_to_payload, generic_mapper
+from routes.sync_log import map_user_to_payload
 import base64
 import uuid
 from datetime import datetime, timedelta, timezone
