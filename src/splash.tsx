@@ -21,19 +21,26 @@ function updateStatus(message: string) {
 async function pingServer() {
   let attempts = 0;
   const maxAttempts = 120 // 60 seconds at 500ms intervals
+  const warningThreshold = 40; // 20 seconds at 500ms intervals
+
   while (true) {
     if (attempts >= maxAttempts) {
       throw new Error("Backend failed to start within 60 seconds");
     }
+
     try {
       const baseUrl = await getBackendBaseUrl();
       const res = await fetch(`${baseUrl}health`);
+      
       if (res.ok) {
         return;
       }
+      
+      // If response is not OK, we still treat it as a failed attempt
+      attempts++;
     } catch (error) {
       attempts++;
-      if (attempts > 20) {
+      if (attempts > warningThreshold) {
         const msg = error instanceof Error ? error.message : "Backend unreachable";
         updateStatus(`Waiting for backend... (${msg})`);
       }

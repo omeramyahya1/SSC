@@ -3,6 +3,29 @@ import argparse
 import os
 import signal
 import sys
+import cProfile
+import pstats
+import io
+
+# --- Profiling Setup ---
+profile_env = os.environ.get("SSC_PROFILE_BACKEND", "").lower()
+do_profile = profile_env in ("1", "true", "once")
+profiler = None
+flag_file = None
+
+if do_profile:
+    # If mode is 'once', check for flag file in the DB directory
+    if profile_env == "once":
+        db_dir = os.environ.get("SSC_DB_DIR")
+        if db_dir:
+            flag_file = os.path.join(db_dir, ".profile_done")
+            if os.path.exists(flag_file):
+                do_profile = False
+
+if do_profile:
+    profiler = cProfile.Profile()
+    profiler.enable()
+    print("PYTHON: Profiling enabled...")
 
 from pydantic_postgrest_bootstrap import (
     apply_postgrest_pydantic_bootstrap,
@@ -122,6 +145,26 @@ if __name__ == "__main__":
 
     port = int(args.port)
     mode = (args.mode or "dev").lower()
+
+    if do_profile and profiler:
+        profiler.disable()
+        s = io.StringIO()
+        sortby = 'cumulative'
+        ps = pstats.Stats(profiler, stream=s).sort_stats(sortby)
+        print("\n" + "="*50)
+        print("PYTHON STARTUP PROFILE (TOP 30 FUNCTIONS)")
+        print("="*50)
+        ps.print_stats(30)
+        print(s.getvalue())
+        print("="*50 + "\n")
+        
+        if flag_file and profile_env == "once":
+            try:
+                with open(flag_file, "w") as f:
+                    f.write("done")
+                print(f"PYTHON: Profile flag file created at {flag_file}")
+            except Exception as e:
+                print(f"PYTHON: Failed to create flag file: {e}")
 
     if mode == "dev":
         print("Serving for dev mode")
