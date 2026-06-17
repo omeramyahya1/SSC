@@ -58,26 +58,43 @@ export async function runSplashScreenLogic() {
     // 1. Wait for the backend to be ready
     updateStatus('Starting up...');
     
-    // We use a race between the event signal and polling for maximum reliability
     await new Promise<void>(async (resolve, reject) => {
+      let resolved = false;
       const timeout = setTimeout(() => {
-        reject(new Error("Backend startup timed out (60s)"));
+        if (!resolved) reject(new Error("Backend startup timed out (60s)"));
       }, 60000);
 
-      // Listener for the "I am alive!" push signal
-      const unlisten = await listen('backend-ready', () => {
+      const cleanup = (unlistenFn?: () => void) => {
+        resolved = true;
         clearTimeout(timeout);
-        unlisten();
-        resolve();
+        if (unlistenFn) unlistenFn();
+      };
+
+      // 1a. Listen for the push signal
+      const unlisten = await listen('backend-ready', () => {
+        if (!resolved) {
+          console.log("SPLASH: Backend signal received (Event)");
+          cleanup(unlisten);
+          resolve();
+        }
       });
 
-      // Fallback polling (essential for dev mode and edge cases)
+      // 1b. Fallback polling
       pingServer().then(() => {
-        clearTimeout(timeout);
-        unlisten();
-        resolve();
-      }).catch(reject);
+        if (!resolved) {
+          console.log("SPLASH: Backend ready (Polling fallback)");
+          cleanup(unlisten);
+          resolve();
+        }
+      }).catch((err) => {
+        if (!resolved) {
+          cleanup(unlisten);
+          reject(err);
+        }
+      });
     });
+
+    console.log("SPLASH: Backend is ready, proceeding to data load...");
 
     // 2. Check for internet connectivity
     updateStatus('Checking connectivity...');
@@ -88,16 +105,15 @@ export async function runSplashScreenLogic() {
     }
 
     // 3. Load required data
-    updateStatus('Loading...');
-
+    updateStatus('Loading profile...');
     const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
 
     if (latestAuth && latestAuth.user_uuid) {
       const userUUID = latestAuth.user_uuid;
-      // Fetch user data and settings
+      updateStatus('Fetching user data...');
       await useUserStore.getState().fetchUser(userUUID);
-      // In a real scenario you would fetch settings related to the user
-      // For now we will fetch all settings as an example
+      
+      updateStatus('Loading settings...');
       await useApplicationSettingsStore.getState().fetchSettings();
 
 

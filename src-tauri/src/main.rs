@@ -6,12 +6,10 @@
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use std::io::{BufRead, BufReader, Write};
-use tauri::{AppHandle, Manager, State, WindowEvent};
-use chrono::Utc;
+use std::io::BufRead;
+use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 use tauri_plugin_shell::process::CommandChild;
-use tauri_plugin_shell::ShellExt;
 
 enum PythonProcess {
     Child(Child),
@@ -290,8 +288,10 @@ fn main() {
                     let reader = std::io::BufReader::new(stdout);
                     for line in reader.lines() {
                         if let Ok(l) = line {
-                            println!("{}", l);
-                            if l.contains("BACKEND_READY") {
+                            let trimmed = l.trim();
+                            println!("{}", trimmed);
+                            if trimmed == "BACKEND_READY" {
+                                println!("RUST: Backend signal detected, emitting event...");
                                 let _ = app_handle.emit("backend-ready", ());
                             }
                         }
@@ -315,8 +315,9 @@ fn main() {
             #[cfg(not(debug_assertions))]
             {
                 use std::fs::{self, OpenOptions, File}; 
+                use std::io::Write;
                 use tauri_plugin_shell::process::CommandEvent;
-                use chrono::{Duration, DateTime, NaiveDateTime}; 
+                use chrono::{Utc, Duration, DateTime, NaiveDateTime}; 
 
                 let mut log_file_options = OpenOptions::new();
                 log_file_options.create(true).write(true); // Always create/open for writing
@@ -414,7 +415,9 @@ fn main() {
                         match event {
                             CommandEvent::Stdout(line) => {
                                 let text = String::from_utf8_lossy(&line);
-                                if text.contains("BACKEND_READY") {
+                                let trimmed = text.trim();
+                                if trimmed == "BACKEND_READY" {
+                                    println!("RUST: Backend signal detected (Sidecar), emitting event...");
                                     let _ = app.emit("backend-ready", ());
                                 }
                                 if let Some(ref mut f) = log_file {

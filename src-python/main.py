@@ -176,7 +176,9 @@ if __name__ == "__main__":
 
     if mode == "dev":
         print("Serving for dev mode")
-        print("BACKEND_READY")
+        # Only print BACKEND_READY in the main worker process, not the reloader parent
+        if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+            print("BACKEND_READY")
         app.run(host="127.0.0.1", port=port, debug=True, use_reloader=True)
     else:
         from waitress import serve
