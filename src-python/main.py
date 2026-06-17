@@ -157,8 +157,8 @@ if __name__ == "__main__":
     if do_profile and profiler:
         profiler.disable()
         s = io.StringIO()
-        sortby = 'cumulative'
-        ps = pstats.Stats(profiler, stream=s).sort_stats(sortby)
+        sortby = ('tottime', 'cumulative')
+        ps = pstats.Stats(profiler, stream=s).sort_stats(*sortby)
         print("\n" + "="*50)
         print("PYTHON STARTUP PROFILE (TOP 30 FUNCTIONS)")
         print("="*50)
