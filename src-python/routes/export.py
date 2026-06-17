@@ -4,15 +4,9 @@ from models import Project, Invoice, ProjectComponent, Customer
 from sqlalchemy.orm import joinedload
 import io
 import os
-import sys
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from urllib.parse import quote
-
-try:
-    from weasyprint import HTML
-except ImportError:
-    HTML = None
 
 
 def _get_pandas():
@@ -381,6 +375,11 @@ def export_excel_invoice(invoice_uuid):
 
 @export_bp.route('/pdf/<string:project_uuid>', methods=['GET'])
 def export_pdf(project_uuid):
+    try:
+        from weasyprint import HTML
+    except ImportError:
+        HTML = None
+
     if HTML is None:
         return jsonify({"error": "WeasyPrint is not installed or configured on the server"}), 500
 
@@ -535,6 +534,11 @@ def export_pdf(project_uuid):
 
 @export_bp.route('/pdf/invoice/<string:invoice_uuid>', methods=['GET'])
 def export_pdf_invoice(invoice_uuid):
+    try:
+        from weasyprint import HTML
+    except ImportError:
+        HTML = None
+
     if HTML is None:
         return jsonify({"error": "WeasyPrint is not installed or configured on the server"}), 500
 

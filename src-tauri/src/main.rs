@@ -6,10 +6,10 @@
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager, State, WindowEvent};
+use std::io::{BufRead, BufReader};
+use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 use tauri_plugin_shell::process::CommandChild;
-use tauri_plugin_shell::ShellExt;
 
 enum PythonProcess {
     Child(Child),
@@ -205,6 +205,32 @@ fn main() {
             };
             app.manage(state);
 
+            // 1. Resolve .env variables (Shared between Dev and Prod)
+            let res_dir = app.path().resource_dir().ok();
+            let env_files = match backend_mode.as_str() {
+                "beta" => vec!["src-python/.env", ".env", ".env.beta"],
+                "prod" => vec!["src-python/.env", ".env", ".env.production"],
+                _ => vec!["src-python/.env", ".env"],
+            };
+
+            let mut env_sources: Vec<std::path::PathBuf> = Vec::new();
+            let mut env_vars: std::collections::BTreeMap<String, String> =
+                std::collections::BTreeMap::new();
+
+            for filename in &env_files {
+                if let Some(path) = find_env_resource(filename, res_dir.as_ref()) {
+                    for (key, value) in load_env_from_file(path.clone()) {
+                        env_vars.insert(key, value);
+                    }
+                    env_sources.push(path);
+                }
+            }
+
+            // 2. Setup Logging Path
+            let mut log_path = app_data_dir.clone();
+            log_path.push("sidecar_debug.log");
+            println!("Sidecar log file located at: {:?}", log_path);
+
             #[cfg(debug_assertions)]
             {
                 let mut app_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -232,17 +258,55 @@ fn main() {
                 println!("Running script at: {:?}", script_path);
                 println!("Backend will listen on: 127.0.0.1:{}", backend_port);
 
-                let python_process = Command::new(&python_exe)
-                    .env("SSC_DB_DIR", &db_dir_str)
-                    .env("SSC_APP_VERSION", &app_version)
-                    .env("PYTHONIOENCODING", "utf-8")
-                    .arg(&script_path)
-                    .arg("--port")
-                    .arg(&backend_port_str)
-                    .arg("--mode")
-                    .arg(&backend_mode)
+                let mut cmd = Command::new(&python_exe);
+                cmd.env("SSC_DB_DIR", &db_dir_str)
+                   .env("SSC_APP_VERSION", &app_version)
+                   .env("PYTHONIOENCODING", "utf-8")
+                   .arg(&script_path)
+                   .arg("--port")
+                   .arg(&backend_port_str)
+                   .arg("--mode")
+                   .arg(&backend_mode);
+
+                // Inject .env variables in dev mode too
+                for (key, val) in &env_vars {
+                    cmd.env(key, val);
+                }
+
+                let mut python_process = cmd
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::piped())
                     .spawn()
                     .expect("failed to start python backend - verify virtual environment exists");
+
+                let stdout = python_process.stdout.take().unwrap();
+                let stderr = python_process.stderr.take().unwrap();
+                let app_handle = app.handle().clone();
+
+                // Thread to read stdout
+                std::thread::spawn(move || {
+                    let reader = std::io::BufReader::new(stdout);
+                    for line in reader.lines() {
+                        if let Ok(l) = line {
+                            let trimmed = l.trim();
+                            println!("{}", trimmed);
+                            if trimmed == "BACKEND_READY" {
+                                println!("RUST: Backend signal detected, emitting event...");
+                                let _ = app_handle.emit("backend-ready", ());
+                            }
+                        }
+                    }
+                });
+
+                // Thread to read stderr
+                std::thread::spawn(move || {
+                    let reader = std::io::BufReader::new(stderr);
+                    for line in reader.lines() {
+                        if let Ok(l) = line {
+                            eprintln!("{}", l);
+                        }
+                    }
+                });
 
                 let state: State<AppState> = app.handle().state();
                 *state.python_process.lock().unwrap() = Some(PythonProcess::Child(python_process));
@@ -250,17 +314,10 @@ fn main() {
 
             #[cfg(not(debug_assertions))]
             {
-                use std::fs::{self, OpenOptions, File}; // Added File
-                use std::io::{self, BufReader, BufRead, Write}; // Added BufReader, BufRead
+                use std::fs::{self, OpenOptions, File};
+                use std::io::Write;
                 use tauri_plugin_shell::process::CommandEvent;
-                use chrono::{Utc, Duration, DateTime, NaiveDateTime, ParseError}; // Added NaiveDateTime, ParseError
-
-                // Create a persistent log file in the app data dir
-                let mut log_path = app
-                    .path()
-                    .app_local_data_dir()
-                    .expect("failed to get app data dir");
-                log_path.push("sidecar_debug.log");
+                use chrono::{Utc, Duration, DateTime, NaiveDateTime};
 
                 let mut log_file_options = OpenOptions::new();
                 log_file_options.create(true).write(true); // Always create/open for writing
@@ -322,28 +379,6 @@ fn main() {
                     }
                 }
 
-                // 1. Locate the .env resource using the official Resource Dir
-                let res_dir = app.path().resource_dir().ok();
-
-                let env_files = match backend_mode.as_str() {
-                    "beta" => vec!["src-python/.env", ".env", ".env.beta"],
-                    "prod" => vec!["src-python/.env", ".env", ".env.production"],
-                    _ => vec!["src-python/.env", ".env"],
-                };
-
-                let mut env_sources: Vec<std::path::PathBuf> = Vec::new();
-                let mut env_vars: std::collections::BTreeMap<String, String> =
-                    std::collections::BTreeMap::new();
-
-                for filename in &env_files {
-                    if let Some(path) = find_env_resource(filename, res_dir.as_ref()) {
-                        for (key, value) in load_env_from_file(path.clone()) {
-                            env_vars.insert(key, value);
-                        }
-                        env_sources.push(path);
-                    }
-                }
-
                 if let Some(ref mut f) = log_file {
                     let _ = writeln!(f, "RUST: Mode is: {}", backend_mode);
                     let _ = writeln!(f, "RUST: Env files loaded: {:?}", env_sources);
@@ -380,6 +415,11 @@ fn main() {
                         match event {
                             CommandEvent::Stdout(line) => {
                                 let text = String::from_utf8_lossy(&line);
+                                let trimmed = text.trim();
+                                if trimmed == "BACKEND_READY" {
+                                    println!("RUST: Backend signal detected (Sidecar), emitting event...");
+                                    let _ = app.emit("backend-ready", ());
+                                }
                                 if let Some(ref mut f) = log_file {
                                     let timestamp = Utc::now().format("[%d/%b/%Y %H:%M:%S]").to_string();
                                     let _ = writeln!(f, "{}{}", timestamp, text);

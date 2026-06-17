@@ -1,7 +1,6 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from sqlalchemy import and_, func
-from sqlalchemy.orm import joinedload
 from datetime import datetime
 from typing import Optional
 from utils import get_db

@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useUserStore } from "./store/useUserStore";
 import { useApplicationSettingsStore } from "./store/useApplicationSettingsStore";
 import { useAuthenticationStore } from "./store/useAuthenticationStore";
@@ -17,23 +18,30 @@ function updateStatus(message: string) {
 
 /**
  * Pings the backend server until it's responsive.
+ * Used as a fallback and to ensure the port is actually listening.
  */
 async function pingServer() {
   let attempts = 0;
   const maxAttempts = 120 // 60 seconds at 500ms intervals
+  const warningThreshold = 40; // 20 seconds at 500ms intervals
+
   while (true) {
     if (attempts >= maxAttempts) {
       throw new Error("Backend failed to start within 60 seconds");
     }
+
     try {
       const baseUrl = await getBackendBaseUrl();
       const res = await fetch(`${baseUrl}health`);
+
       if (res.ok) {
         return;
       }
+
+      attempts++;
     } catch (error) {
       attempts++;
-      if (attempts > 20) {
+      if (attempts > warningThreshold) {
         const msg = error instanceof Error ? error.message : "Backend unreachable";
         updateStatus(`Waiting for backend... (${msg})`);
       }
@@ -47,9 +55,51 @@ async function pingServer() {
  */
 export async function runSplashScreenLogic() {
   try {
-    // 1. Ping the server to ensure it's running
+    // 1. Wait for the backend to be ready
     updateStatus('Starting up...');
-    await pingServer();
+
+        await waitForBackendReady();
+
+// Add this helper function outside runSplashScreenLogic:
+async function waitForBackendReady(): Promise<void> {
+  let resolved = false;
+  let unlistenFn: (() => void) | undefined;
+
+  const cleanup = () => {
+    resolved = true;
+    if (unlistenFn) unlistenFn();
+  };
+
+  // Set up listener first
+  unlistenFn = await listen('backend-ready', () => {
+    if (!resolved) {
+      console.log("SPLASH: Backend signal received (Event)");
+      cleanup();
+    }
+  });
+
+  // Race: event, polling, or timeout
+  const eventPromise = new Promise<string>((resolve) => {
+    const checkResolved = setInterval(() => {
+      if (resolved) { clearInterval(checkResolved); resolve("event"); }
+    }, 50);
+  });
+
+  const pollingPromise = pingServer().then(() => "polling");
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Backend startup timed out (60s)")), 60000)
+  );
+
+  try {
+    const winner = await Promise.race([eventPromise, pollingPromise, timeoutPromise]);
+    console.log(`SPLASH: Backend ready (${winner})`);
+  } finally {
+    cleanup();
+  }
+}
+
+    console.log("SPLASH: Backend is ready, proceeding to data load...");
 
     // 2. Check for internet connectivity
     updateStatus('Checking connectivity...');
@@ -60,16 +110,15 @@ export async function runSplashScreenLogic() {
     }
 
     // 3. Load required data
-    updateStatus('Loading...');
-
+    updateStatus('Loading profile...');
     const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
 
     if (latestAuth && latestAuth.user_uuid) {
       const userUUID = latestAuth.user_uuid;
-      // Fetch user data and settings
+      updateStatus('Fetching user data...');
       await useUserStore.getState().fetchUser(userUUID);
-      // In a real scenario you would fetch settings related to the user
-      // For now we will fetch all settings as an example
+
+      updateStatus('Loading settings...');
       await useApplicationSettingsStore.getState().fetchSettings();
 
 

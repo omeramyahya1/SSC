@@ -3,17 +3,51 @@ import argparse
 import os
 import signal
 import sys
+import cProfile
+import pstats
+import io
 
-from pydantic_postgrest_bootstrap import (
-    apply_postgrest_pydantic_bootstrap,
-    run_postgrest_pydantic_self_test,
-)
+# --- Profiling Setup ---
+profile_env = os.environ.get("SSC_PROFILE_BACKEND", "").lower()
+do_profile = profile_env in ("1", "true", "once")
+profiler = None
+flag_file = None
 
-apply_postgrest_pydantic_bootstrap()
+if do_profile:
+    # If mode is 'once', check for flag file in the DB directory
+    if profile_env == "once":
+        db_dir = os.environ.get("SSC_DB_DIR")
+        if db_dir:
+            flag_file = os.path.join(db_dir, ".profile_done")
+            if os.path.exists(flag_file):
+                do_profile = False
 
+if do_profile:
+    profiler = cProfile.Profile()
+    profiler.enable()
+    print("PYTHON: Profiling enabled...")
+
+# =================================================================
+# 1. WINDOWS PRODUCTION PATCH
+# =================================================================
+# This runs EVERY time the compiled Windows binary launches to keep
+# Nuitka from stripping vital postgrest/pydantic parsing logic.
+if getattr(sys, 'frozen', False) and sys.platform == "win32":
+    from pydantic_postgrest_bootstrap import apply_postgrest_pydantic_bootstrap
+    print("PYTHON: Applying PostGREST/Pydantic binary patch...")
+    apply_postgrest_pydantic_bootstrap()
+
+# =================================================================
+# 2. GATED COMPILATION SELF-TEST
+# =================================================================
+# This ONLY runs if Tauri or your build pipeline explicitly requests it
+# via the CLI argument. It will gracefully terminate the binary after validation.
 if "--self-test" in sys.argv:
+    from pydantic_postgrest_bootstrap import run_postgrest_pydantic_self_test
     from dotenv import load_dotenv
     from utils import get_resource_path
+
+    print("PYTHON: Running sidecar verification checklist...")
 
     env_candidates = [
         os.path.join(os.path.dirname(sys.executable), ".env"),
@@ -24,9 +58,10 @@ if "--self-test" in sys.argv:
         if os.path.exists(env_path):
             load_dotenv(env_path, override=False)
 
+    # Run library integrity validation
     run_postgrest_pydantic_self_test()
 
-    # Verify Data Resources
+    # Verify Data Resources are bundled accurately
     resources_to_check = {
         "Geo Dataset": os.path.join("ble", "dataset", "geo_data.csv"),
         "Invoice Template": os.path.join("pdf_engine", "templates", "invoice.html"),
@@ -42,18 +77,14 @@ if "--self-test" in sys.argv:
             missing_resources.append(f"{name} ({abs_path})")
 
     if missing_resources:
-        raise RuntimeError(f"Sidecar self-test failed. Missing resources: {', '.join(missing_resources)}")
+        raise RuntimeError(f"Sidecar self-test failed. Missing assets: {', '.join(missing_resources)}")
 
     required_env = ["SUPABASE_URL", "SUPABASE_KEY", "SERVICE_ROLE_KEY"]
     missing_env = [key for key in required_env if not os.environ.get(key)]
     if missing_env:
         raise RuntimeError(f"Sidecar self-test missing env values: {', '.join(missing_env)}")
 
-    print(
-        "Sidecar self-test passed. "
-        "PostGREST/Pydantic OK. "
-        f"Resources OK. Env present: {len(required_env)}/{len(required_env)}."
-    )
+    print(f"Sidecar self-test passed. Verified {len(resources_to_check)} resource paths securely.")
     sys.exit(0)
 
 from flask import Flask, jsonify, request
@@ -123,10 +154,34 @@ if __name__ == "__main__":
     port = int(args.port)
     mode = (args.mode or "dev").lower()
 
+    if do_profile and profiler:
+        profiler.disable()
+        s = io.StringIO()
+        sortby = ('tottime', 'cumulative')
+        ps = pstats.Stats(profiler, stream=s).sort_stats(*sortby)
+        print("\n" + "="*50)
+        print("PYTHON STARTUP PROFILE (TOP 30 FUNCTIONS)")
+        print("="*50)
+        ps.print_stats(30)
+        print(s.getvalue())
+        print("="*50 + "\n")
+
+        if flag_file and profile_env == "once":
+            try:
+                with open(flag_file, "w") as f:
+                    f.write("done")
+                print(f"PYTHON: Profile flag file created at {flag_file}")
+            except Exception as e:
+                print(f"PYTHON: Failed to create flag file: {e}")
+
     if mode == "dev":
         print("Serving for dev mode")
+        # Only print BACKEND_READY in the main worker process, not the reloader parent
+        if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+            print("BACKEND_READY")
         app.run(host="127.0.0.1", port=port, debug=True, use_reloader=True)
     else:
         from waitress import serve
         print("Serving for prod mode")
+        print("BACKEND_READY")
         serve(app, host="127.0.0.1", port=port, threads=12)

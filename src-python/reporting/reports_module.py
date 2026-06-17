@@ -1,11 +1,8 @@
 import io
-import xlsxwriter
-from datetime import datetime, timedelta
-from sqlalchemy import func, and_, or_
+from datetime import datetime
 from sqlalchemy.orm import joinedload
-from models import Invoice, Payment, Project, Customer, User, Branch, InventoryItem, ProjectComponent, StockAdjustment
+from models import Invoice, Payment, Project, InventoryItem, ProjectComponent, StockAdjustment
 from decimal import Decimal
-import json
 
 def get_finance_report_data(db, org_uuid=None, branch_uuid=None, user_uuid=None, start_date=None, end_date=None, lang='en'):
     """
@@ -227,6 +224,7 @@ def get_inventory_report_data(db, org_uuid=None, branch_uuid=None, start_date=No
     }
 
 def generate_excel_report(data, report_type='finance', lang='en', t=None):
+    import xlsxwriter
     output = io.BytesIO()
     workbook = xlsxwriter.Workbook(output, {'in_memory': True})
 
