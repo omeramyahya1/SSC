@@ -4,7 +4,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy import or_
 from datetime import datetime
 from utils import get_db, get_by_id_or_uuid
-from models import Project, Customer, User, Authentication, SystemConfiguration, Appliance, Invoice, Payment, Document
+from models import Project, Customer, User, Authentication, Invoice
 from schemas import ProjectCreate, ProjectUpdate, ProjectWithCustomerCreate, ProjectDetailsUpdate, ProjectStatusUpdate
 from serializer import model_to_dict
 from authz import get_current_user

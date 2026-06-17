@@ -11,13 +11,13 @@ from utils import (
     is_jwt_expired_offline,
     check_session_validity
 )
-from models import Authentication, User, Subscription, SyncLog
-from schemas import AuthenticationCreate, AuthenticationUpdate
+from models import Authentication, User, Subscription
+from schemas import AuthenticationUpdate
 from auth_schemas import LoginRequest, LoginResponse, LoginResponseUser, LoginResponseAuthentication
 from serializer import model_to_dict
 from datetime import datetime, timedelta, timezone
 import uuid
-from routes.sync_log import sync, trigger_immediate_sync, generic_mapper
+from routes.sync_log import sync
 from sqlalchemy import func
 from supabase_client import get_service_role_client
 

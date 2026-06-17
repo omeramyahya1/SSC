@@ -1,9 +1,8 @@
 from flask import Blueprint, request, jsonify
 from pydantic import ValidationError
 from utils import get_db
-from models import InventoryCategory, InventoryItem, StockAdjustment, ProjectComponent, SyncLog, User, Authentication, Branch
+from models import InventoryCategory, InventoryItem, StockAdjustment, ProjectComponent, User, Authentication, Branch
 from schemas import (
-    InventoryCategoryCreate, InventoryCategoryUpdate,
     InventoryItemCreate, InventoryItemUpdate,
     StockAdjustmentCreate, ProjectComponentCreate
 )
@@ -11,13 +10,6 @@ from serializer import model_to_dict
 import logging
 
 inventory_bp = Blueprint('inventory_bp', __name__, url_prefix='/inventory')
-
-
-class _InsufficientStock(Exception):
-                pass
-
-class _ItemNotFound(Exception):
-    pass
 
 # --- Categories ---
 
@@ -147,7 +139,7 @@ def get_categories():
             if not item or item.deleted_at is not None:
                 all_active = False
                 break
-        
+
         if all_active:
             # Return only the global ones to ensure consistency
             return jsonify([model_to_dict(existing_map[gid]) for gid in global_ids])

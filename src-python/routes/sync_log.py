@@ -8,7 +8,7 @@ from supabase import Client
 from utils import get_db, check_session_validity
 import models
 from auth_schemas import IsRegistration
-from sqlalchemy import LargeBinary, Numeric
+from sqlalchemy import LargeBinary
 from decimal import Decimal
 from supabase_client import get_user_client, get_service_role_client, get_anon_client
 from serializer import model_to_dict
