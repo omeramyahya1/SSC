@@ -40,7 +40,7 @@ export function registerStore(key: StoreKey, fetcher: Fetcher, store?: any) {
   if (store && !store.__patched) {
     store.__patched = true;
     const originalSetState = store.setState;
-    
+
     store.setState = (nextStateOrUpdater: any, replace?: boolean) => {
       if (store.__isSilent) {
         let isSettingLoadingTrue = false;
@@ -88,8 +88,8 @@ export function registerStore(key: StoreKey, fetcher: Fetcher, store?: any) {
   }
 }
 
-export function refreshStores(keys: StoreKey[], options?: RefreshOptions) {
-  keys.forEach((key) => {
+export async function refreshStores(keys: StoreKey[], options?: RefreshOptions) {
+  await Promise.all(keys.map(async (key) => {
     const entry = registry.get(key);
     if (!entry) return;
 
@@ -98,7 +98,7 @@ export function refreshStores(keys: StoreKey[], options?: RefreshOptions) {
     }
 
     try {
-      entry.fetcher();
+      await Promise.resolve(entry.fetcher());
     } catch (e) {
       if (options?.silent && entry.store) {
         entry.store.__isSilent = false;
@@ -110,5 +110,5 @@ export function refreshStores(keys: StoreKey[], options?: RefreshOptions) {
     if (options?.silent && entry.store && !entry.store.__silentActive) {
       entry.store.__isSilent = false;
     }
-  });
+  }));
 }

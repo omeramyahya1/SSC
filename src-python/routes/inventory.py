@@ -119,6 +119,15 @@ def _default_inventory_categories():
 def create_category():
     return jsonify({"error": "Category creation is disabled in this version."}), 403
 
+@inventory_bp.route('/categories/update', methods=['POST'])
+def update_categories():
+    with get_db() as db:
+        db.query(InventoryCategory).update({
+            InventoryCategory.is_dirty: True
+        }, synchronize_session=False)
+        db.commit()
+    return jsonify({"message": "All updated"}), 200
+
 @inventory_bp.route('/categories', methods=['GET'])
 def get_categories():
     with get_db() as db:

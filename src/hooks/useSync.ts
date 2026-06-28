@@ -77,7 +77,7 @@ export const useSync = () => {
     if (!isLoggedIn) return;
 
     const timeoutId = window.setTimeout(async () => {
-      if (isSyncingRef.current) return;
+      if (!isOnline || isUpdateRequired || isSyncingRef.current) return;
       await requestSync();
       // Silently refresh only the stores relevant to the current page path
       const targetStores = getStoresForPath(location.pathname);
@@ -85,7 +85,7 @@ export const useSync = () => {
     }, 10000);
 
     return () => window.clearTimeout(timeoutId);
-  }, [location.pathname, isLoggedIn, requestSync]);
+  }, [location.pathname, isLoggedIn, isOnline, isUpdateRequired, requestSync]);
 
   // 3) back online
   useEffect(() => {
@@ -99,13 +99,13 @@ export const useSync = () => {
     if (!isLoggedIn) return;
 
     const id = setInterval(async () => {
-      if (isSyncingRef.current) return;
+      if (!isOnline || isUpdateRequired || isSyncingRef.current) return;
       await requestSync();
       // Silently refresh all stores periodically to keep data fresh without interrupting the user
       refreshStores(Object.values(StoreKeys), { silent: true });
     }, 2 * 60 * 1000);
     return () => clearInterval(id);
-  }, [isLoggedIn, requestSync]);
+  }, [isLoggedIn, isOnline, isUpdateRequired, requestSync]);
 
   if (!isSyncLogStoreRegistered) {
     registerStore(StoreKeys.SyncLog, () => {

@@ -1,3 +1,16 @@
+-- TODO:
+-- ----------------------------------------------------------
+-- Verify each finding against current code. Fix only still-valid issues, skip the
+-- rest with a brief reason, keep changes minimal, and validate.
+
+-- In `@supabase/functions/daily_database_cleanup.sql` around lines 77 - 84, The
+-- cleanup script is swallowing every failure from cron.unschedule in the DO block,
+-- which can hide real deployment problems. Update the unscheduling logic to use
+-- cron.job as a pre-check or handle only the specific “job not found” case instead
+-- of a blanket WHEN OTHERS THEN NULL. Keep the fix localized to the DO $$ block
+-- that removes the daily-cleanup-job so legitimate errors still surface.
+-- ----------------------------------------------------------
+
 CREATE OR REPLACE FUNCTION public.daily_database_cleanup()
 RETURNS void
 LANGUAGE plpgsql
@@ -84,16 +97,16 @@ EXCEPTION
 END $$;
 
 SELECT cron.schedule(
-    'daily-cleanup-job', 
+    'daily-cleanup-job',
     '0 2 * * *', -- Fires every day at 02:00 UTC
     $$
     BEGIN;
         -- Automated delete targeting 'created'
-        DELETE FROM net._http_response 
+        DELETE FROM net._http_response
         WHERE created < NOW() - INTERVAL '7 days';
 
         -- Automated delete targeting 'start_time'
-        DELETE FROM cron.job_run_details 
+        DELETE FROM cron.job_run_details
         WHERE start_time < NOW() - INTERVAL '7 days';
     COMMIT;
     $$

@@ -114,8 +114,8 @@ async function waitForBackendReady(): Promise<void> {
     const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
     const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
 
-    if (latestAuth && latestAuth.user_uuid) {
-      const issuedAtMs = new Date(latestAuth.jwt_issued_at).getTime();
+    if (latestAuth?.is_logged_in && latestAuth.user_uuid) {
+      const issuedAtMs = new Date(`${latestAuth.jwt_issued_at}Z`).getTime();
 
       if (!isNaN(issuedAtMs) && (Date.now() - issuedAtMs > FOURTEEN_DAYS)) {
         // Token is older than 14 days
