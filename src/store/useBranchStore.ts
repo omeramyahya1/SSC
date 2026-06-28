@@ -149,4 +149,4 @@ registerStore(StoreKeys.Branch, () => {
   if (currentUser?.role === 'admin') {
     useBranchStore.getState().fetchBranches();
   }
-});
+}, useBranchStore);

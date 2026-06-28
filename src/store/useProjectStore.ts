@@ -384,4 +384,4 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
 registerStore(StoreKeys.Project, () => {
   useProjectStore.getState().fetchProjects();
-});
+}, useProjectStore);

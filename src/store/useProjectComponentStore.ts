@@ -125,4 +125,4 @@ registerStore(StoreKeys.ProjectComponent, () => {
   if (lastProjectUuid) {
     fetchComponents(lastProjectUuid);
   }
-});
+}, useProjectComponentStore);
