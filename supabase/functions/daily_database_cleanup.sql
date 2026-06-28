@@ -72,3 +72,30 @@ SELECT cron.schedule(
   '0 0 * * *',
   'SELECT public.daily_database_cleanup();'
 );
+
+-- Unschedule daily-cleanup-job first if it exists to avoid conflicts
+DO $$
+BEGIN
+  PERFORM cron.unschedule('daily-cleanup-job');
+EXCEPTION
+  WHEN OTHERS THEN
+    -- ignore if not scheduled yet
+    NULL;
+END $$;
+
+SELECT cron.schedule(
+    'daily-cleanup-job', 
+    '0 2 * * *', -- Fires every day at 02:00 UTC
+    $$
+    BEGIN;
+        -- Automated delete targeting 'created'
+        DELETE FROM net._http_response 
+        WHERE created < NOW() - INTERVAL '7 days';
+
+        -- Automated delete targeting 'start_time'
+        DELETE FROM cron.job_run_details 
+        WHERE start_time < NOW() - INTERVAL '7 days';
+    COMMIT;
+    $$
+);
+
