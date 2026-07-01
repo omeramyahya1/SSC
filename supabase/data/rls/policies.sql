@@ -595,6 +595,7 @@ DROP POLICY IF EXISTS "Allow authorized update on inventory_categories" ON publi
 DROP POLICY IF EXISTS "Allow authorized delete on inventory_categories" ON public.inventory_categories;
 DROP POLICY IF EXISTS "Allow user full access on own inventory_categories" ON public.inventory_categories;
 DROP POLICY IF EXISTS "Allow superadmin only insert on inventory_categories" ON public.inventory_categories;
+DROP POLICY IF EXISTS "Allow superadmin or user insert on inventory_categories" ON public.inventory_categories;
 DROP POLICY IF EXISTS "Allow superadmin only update on inventory_categories" ON public.inventory_categories;
 DROP POLICY IF EXISTS "Allow superadmin only delete on inventory_categories" ON public.inventory_categories;
 

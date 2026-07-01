@@ -148,6 +148,60 @@ CREATE TABLE public.inventory_categories (
   CONSTRAINT inventory_categories_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
   CONSTRAINT inventory_categories_user_uuid_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
+INSERT INTO public.inventory_categories (id, organization_id, user_id, name, spec_schema, created_at, updated_at, deleted_at, is_dirty)
+VALUES
+  (
+    'a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60001',
+    NULL,
+    NULL,
+    'Panels',
+    '{"panel_rated_power":"W","panel_mpp_voltage":"V"}'::jsonb,
+    now(),
+    now(),
+    NULL,
+    false
+  ),
+  (
+    'a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60002',
+    NULL,
+    NULL,
+    'Inverters',
+    '{"inverter_rated_power":"W","system_voltage_v":"V","inverter_mppt_min_v":"V","inverter_mppt_max_v":"V","output_voltage_v":"V"}'::jsonb,
+    now(),
+    now(),
+    NULL,
+    false
+  ),
+  (
+    'a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60003',
+    NULL,
+    NULL,
+    'Batteries',
+    '{"battery_rated_capacity_ah":"Ah","battery_rated_voltage":"V","battery_max_parallel":"count","dod":"%","efficiency":"%","battery_type":"type"}'::jsonb,
+    now(),
+    now(),
+    NULL,
+    false
+  ),
+  (
+    'a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60004',
+    NULL,
+    NULL,
+    'Accessories',
+    '{}'::jsonb,
+    now(),
+    now(),
+    NULL,
+    false
+  )
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  spec_schema = EXCLUDED.spec_schema,
+  organization_id = EXCLUDED.organization_id,
+  user_id = EXCLUDED.user_id,
+  deleted_at = EXCLUDED.deleted_at,
+  is_dirty = EXCLUDED.is_dirty,
+  updated_at = EXCLUDED.updated_at;
 CREATE TABLE public.inventory_items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   organization_id uuid,

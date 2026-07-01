@@ -1,19 +1,19 @@
 import math
-from models import InventoryItem, InventoryCategory
+from models import InventoryItem, INVENTORY_CATEGORY_BY_KEY
 from sqlalchemy.orm import Session
 from sqlalchemy import false
 
 def get_category_uuid(db: Session, category_name: str, scope: dict | None = None):
-    query = db.query(InventoryCategory).filter(InventoryCategory.name.ilike(f"%{category_name}%"))
-    if scope:
-        if scope.get("org_uuid"):
-            query = query.filter(InventoryCategory.organization_uuid == scope["org_uuid"])
-        elif scope.get("user_uuid"):
-            query = query.filter(InventoryCategory.user_uuid == scope["user_uuid"])
-        else:
-            return None
-    cat = query.first()
-    return cat.uuid if cat else None
+    normalized = (category_name or "").strip().lower()
+    if "inverter" in normalized:
+        return INVENTORY_CATEGORY_BY_KEY["inverters"]["uuid"]
+    if "battery" in normalized:
+        return INVENTORY_CATEGORY_BY_KEY["batteries"]["uuid"]
+    if "panel" in normalized:
+        return INVENTORY_CATEGORY_BY_KEY["panels"]["uuid"]
+    if "accessor" in normalized:
+        return INVENTORY_CATEGORY_BY_KEY["accessories"]["uuid"]
+    return None
 
 def safe_float(value, default=0.0):
     try:

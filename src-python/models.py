@@ -11,6 +11,54 @@ import os
 # The base class that all your models will inherit from
 Base = declarative_base()
 
+# Canonical inventory categories used by both Supabase and the local cache.
+INVENTORY_CATEGORY_DEFINITIONS = (
+    {
+        "key": "panels",
+        "uuid": "a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60001",
+        "name": "Panels",
+        "spec_schema": {
+            "panel_rated_power": "W",
+            "panel_mpp_voltage": "V",
+        },
+    },
+    {
+        "key": "inverters",
+        "uuid": "a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60002",
+        "name": "Inverters",
+        "spec_schema": {
+            "inverter_rated_power": "W",
+            "system_voltage_v": "V",
+            "inverter_mppt_min_v": "V",
+            "inverter_mppt_max_v": "V",
+            "output_voltage_v": "V",
+        },
+    },
+    {
+        "key": "batteries",
+        "uuid": "a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60003",
+        "name": "Batteries",
+        "spec_schema": {
+            "battery_rated_capacity_ah": "Ah",
+            "battery_rated_voltage": "V",
+            "battery_max_parallel": "count",
+            "dod": "%",
+            "efficiency": "%",
+            "battery_type": "type",
+        },
+    },
+    {
+        "key": "accessories",
+        "uuid": "a1b2c3d4-e5f6-4001-a1b2-c3d4e5f60004",
+        "name": "Accessories",
+        "spec_schema": {},
+    },
+)
+
+INVENTORY_CATEGORY_BY_KEY = {entry["key"]: entry for entry in INVENTORY_CATEGORY_DEFINITIONS}
+INVENTORY_CATEGORY_BY_UUID = {entry["uuid"]: entry for entry in INVENTORY_CATEGORY_DEFINITIONS}
+INVENTORY_CATEGORY_UUIDS = tuple(entry["uuid"] for entry in INVENTORY_CATEGORY_DEFINITIONS)
+
 class TimestampDirtyMixin:
     """
     Mixin to add created_at, updated_at, and is_dirty columns to a model.
