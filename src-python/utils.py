@@ -158,7 +158,7 @@ def is_jwt_expired_offline(jwt_issued_at):
 def check_session_validity(user_uuid, device_id):
     """Return True if the given (user_uuid, device_id) pair has any active
     authentication row (`is_logged_in=True`) in Supabase.
-    Implements a fail‑open policy: network or server errors are treated as
+    Implements a fail-open policy: network or server errors are treated as
     valid to avoid locking the user out when connectivity is intermittent.
     """
     from supabase_client import get_service_role_client
@@ -182,12 +182,15 @@ def check_session_validity(user_uuid, device_id):
         return bool(response.data)
     except (httpx.ConnectError, httpx.TimeoutException) as e:
         logger.warning(f"Session validation failed (network) - assuming valid: {e}")
-        return True  # fail‑open
+        return True  # fail-open
     except APIError as e:
         status = getattr(e, 'status', None)
-        if status in (502, 503, 504):
-            logger.warning(f"Session validation failed (server {status}) - assuming valid: {e}")
-            return True  # fail‑open for transient server errors
+        code = getattr(e, 'code', None)
+        if status in (502, 503, 504) or code in {"PGRST000", "PGRST001", "PGRST002", "PGRST003"}:
+            logger.warning(
+                f"Session validation failed (server {status or code}) - assuming valid: {e}"
+            )
+            return True  # fail-open for transient server errors
         logger.error(f"Session validation failed (Supabase) - rejecting: {e}")
         return False
     except Exception as e:
