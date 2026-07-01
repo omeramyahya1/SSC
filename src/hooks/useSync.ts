@@ -3,9 +3,31 @@ import { useLocation } from "react-router-dom";
 import { useSyncLogStore } from "@/store/useSyncLogStore";
 import { useAuthenticationStore } from "@/store/useAuthenticationStore";
 import { useVersionStore } from "@/store/useVersionStore";
-import { refreshStores, registerStore, StoreKeys } from "@/api/storeRegistry";
+import { refreshStores, registerStore, StoreKeys, StoreKey } from "@/api/storeRegistry";
 
 let isSyncLogStoreRegistered = false;
+
+function getStoresForPath(pathname: string): StoreKey[] {
+  const path = pathname.replace(/\/$/, "");
+
+  if (path.includes("/home/customers")) {
+    return [StoreKeys.Customer, StoreKeys.Project];
+  }
+  if (path.includes("/home/inventory")) {
+    return [StoreKeys.Inventory];
+  }
+  if (path.includes("/home/sales")) {
+    return [StoreKeys.Invoice, StoreKeys.Payment, StoreKeys.Customer];
+  }
+  if (path.includes("/home/team")) {
+    return [StoreKeys.Organization, StoreKeys.Branch, StoreKeys.User];
+  }
+  if (path.includes("/home/dashboard")) {
+    return [StoreKeys.Project, StoreKeys.Customer, StoreKeys.Subscription, StoreKeys.ApplicationSettings];
+  }
+
+  return Object.values(StoreKeys);
+}
 
 export const useSync = () => {
   const { performSync, isSyncing, lastSyncTime } = useSyncLogStore();
@@ -55,14 +77,17 @@ export const useSync = () => {
     if (!isLoggedIn) return;
 
     const timeoutId = window.setTimeout(async () => {
-      if (isSyncingRef.current) return;
+      if (!isOnline || isUpdateRequired || isSyncingRef.current) return;
       await requestSync();
-      // Refresh all stores to ensure UI has latest local data after sync
-      refreshStores(Object.values(StoreKeys));
+      // Silently refresh only the stores relevant to the current page path
+      const targetStores = getStoresForPath(location.pathname);
+      void refreshStores(targetStores, { silent: true }).catch((error) => {
+        console.error("Silent store refresh failed:", error);
+      });
     }, 10000);
 
     return () => window.clearTimeout(timeoutId);
-  }, [location.pathname, isLoggedIn, requestSync]);
+  }, [location.pathname, isLoggedIn, isOnline, isUpdateRequired, requestSync]);
 
   // 3) back online
   useEffect(() => {
@@ -75,14 +100,21 @@ export const useSync = () => {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    const id = setInterval(() => requestSync(), 2 * 60 * 1000);
+    const id = setInterval(async () => {
+      if (!isOnline || isUpdateRequired || isSyncingRef.current) return;
+      await requestSync();
+      // Silently refresh all stores periodically to keep data fresh without interrupting the user
+      void refreshStores(Object.values(StoreKeys), { silent: true }).catch((error) => {
+        console.error("Silent store refresh failed:", error);
+      });
+    }, 2 * 60 * 1000);
     return () => clearInterval(id);
-  }, [isLoggedIn, requestSync]);
+  }, [isLoggedIn, isOnline, isUpdateRequired, requestSync]);
 
   if (!isSyncLogStoreRegistered) {
     registerStore(StoreKeys.SyncLog, () => {
       useSyncLogStore.getState().fetchSyncLogs();
-    });
+    }, useSyncLogStore);
     isSyncLogStoreRegistered = true;
   }
 

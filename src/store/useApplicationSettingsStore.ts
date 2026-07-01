@@ -244,4 +244,4 @@ export const useApplicationSettingsStore = create<ApplicationSettingsStore>((set
 
 registerStore(StoreKeys.ApplicationSettings, () => {
   useApplicationSettingsStore.getState().fetchSettings();
-});
+}, useApplicationSettingsStore);

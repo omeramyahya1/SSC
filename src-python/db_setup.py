@@ -93,6 +93,10 @@ def create_db_and_tables():
         print(f"Ensuring tables are created for database at: {DB_FILE_PATH}")
         # Base.metadata.create_all checks for table existence before creating
         Base.metadata.create_all(bind=engine)
+        from inventory_categories import ensure_inventory_categories
+
+        with SessionLocal() as db:
+            ensure_inventory_categories(db, commit=True)
         print("✅ Tables created successfully (if they didn't exist).")
     except Exception as e:
         print(f"❌ Error during table creation: {e}")

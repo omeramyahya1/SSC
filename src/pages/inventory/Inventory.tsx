@@ -305,10 +305,10 @@ export default function Inventory() {
               {t("inventory.tabs.all", "All Items")}
             </TabsTrigger>
             <TabsTrigger
-              value="solar panels"
+              value="panels"
               className={cn(
                 "font-bold px-6 h-9 rounded-lg",
-                activeTab == "solar panels" ? "text-white bg-primary" : "",
+                activeTab == "panels" ? "text-white bg-primary" : "",
               )}
             >
               {t("inventory.tabs.panels", "Panels")}

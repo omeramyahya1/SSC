@@ -125,4 +125,4 @@ export const useCustomerStore = create<CustomerStore>((set) => ({
 
 registerStore(StoreKeys.Customer, () => {
   useCustomerStore.getState().fetchCustomers();
-});
+}, useCustomerStore);

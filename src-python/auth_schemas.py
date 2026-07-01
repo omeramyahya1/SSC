@@ -62,6 +62,7 @@ class LoginRequest(BaseModel):
 
 class LoginResponseAuthentication(BaseModel):
     auth_id: int
+    uuid:str
     user_id: int
     is_logged_in: bool
     current_jwt: Optional[str] = None
@@ -74,6 +75,7 @@ class LoginResponseAuthentication(BaseModel):
 
 class LoginResponseUser(BaseModel):
     user_id: int
+    uuid: str
     username: str
     email: str
     business_name: Optional[str] = None

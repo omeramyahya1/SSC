@@ -297,4 +297,4 @@ export const useAuthenticationStore = create<AuthenticationStore>()(
 
 registerStore(StoreKeys.Authentication, () => {
   useAuthenticationStore.getState().fetchAuthentications();
-});
+}, useAuthenticationStore);

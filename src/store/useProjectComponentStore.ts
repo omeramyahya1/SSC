@@ -23,7 +23,7 @@ interface ProjectComponentState {
     lastFetchRequestId: number;
     lastProjectUuid: string | null;
 
-    fetchComponents: (projectUuid: string) => Promise<void>;
+    fetchComponents: (projectUuid: string, options?: { silent?: boolean }) => Promise<void>;
     addComponent: (component: Partial<ProjectComponent>) => Promise<ProjectComponent | undefined>;
     updateComponent: (uuid: string, updates: Partial<ProjectComponent>) => Promise<ProjectComponent | undefined>;
     removeComponent: (uuid: string) => Promise<void>;
@@ -41,9 +41,19 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
     lastFetchRequestId: 0,
     lastProjectUuid: null,
 
-    fetchComponents: async (projectUuid) => {
-        const requestId = get().lastFetchRequestId + 1;
-        set({ isLoading: true, error: null, components: [], lastFetchRequestId: requestId, lastProjectUuid: projectUuid });
+    fetchComponents: async (projectUuid, options?: { silent?: boolean }) => {
+        const { isLoading, lastFetchRequestId } = get();
+        const requestId =
+            options?.silent && isLoading
+                ? lastFetchRequestId
+                : lastFetchRequestId + 1;
+        set((state) => ({
+        isLoading: options?.silent ? state.isLoading : true,
+        error: null,
+        components: options?.silent ? state.components : [],
+        lastFetchRequestId: requestId,
+        lastProjectUuid: projectUuid,
+    }));
         try {
             const { data } = await api.get<ProjectComponent[]>(`/inventory/projects/${projectUuid}/components`);
             if (get().lastFetchRequestId === requestId) {
@@ -123,6 +133,6 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
 registerStore(StoreKeys.ProjectComponent, () => {
   const { lastProjectUuid, fetchComponents } = useProjectComponentStore.getState();
   if (lastProjectUuid) {
-    fetchComponents(lastProjectUuid);
+    fetchComponents(lastProjectUuid, { silent: true });
   }
-});
+}, useProjectComponentStore);
