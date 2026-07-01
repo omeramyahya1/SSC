@@ -87,39 +87,46 @@ def ensure_inventory_categories(db: Session, commit: bool = False) -> list[model
             break
 
     if needs_refresh:
-        from supabase_client import get_service_role_client
+        try:
+            from supabase_client import get_service_role_client
 
-        supabase = get_service_role_client()
-        response = (
-            supabase.table("inventory_categories")
-            .select("*")
-            .in_("id", list(required_uuids))
-            .execute()
-        )
-
-        if hasattr(response, "error") and response.error:
-            raise RuntimeError(f"Failed to fetch inventory categories from Supabase: {response.error.message}")
-
-        remote_rows = getattr(response, "data", None) or []
-        remote_by_uuid = {row.get("id"): row for row in remote_rows}
-
-        still_missing = [uuid for uuid in required_uuids if uuid not in remote_by_uuid]
-        if still_missing:
-            missing_labels = [
-                entry["name"]
-                for entry in canonical_inventory_categories()
-                if entry["uuid"] in still_missing
-            ]
-            raise RuntimeError(
-                "Supabase inventory_categories is missing canonical rows: "
-                + ", ".join(missing_labels)
+            supabase = get_service_role_client()
+            response = (
+                supabase.table("inventory_categories")
+                .select("*")
+                .in_("id", list(required_uuids))
+                .execute()
             )
 
-        for uuid in required_uuids:
-            _upsert_local_category(db, remote_by_uuid[uuid])
+            if hasattr(response, "error") and response.error:
+                raise RuntimeError(
+                    f"Failed to fetch inventory categories from Supabase: {response.error.message}"
+                )
 
-        if commit:
-            db.commit()
+            remote_rows = getattr(response, "data", None) or []
+            remote_by_uuid = {row.get("id"): row for row in remote_rows}
+
+            still_missing = [uuid for uuid in required_uuids if uuid not in remote_by_uuid]
+            if still_missing:
+                missing_labels = [
+                    entry["name"]
+                    for entry in canonical_inventory_categories()
+                    if entry["uuid"] in still_missing
+                ]
+                raise RuntimeError(
+                    "Supabase inventory_categories is missing canonical rows: "
+                    + ", ".join(missing_labels)
+                )
+
+            for uuid in required_uuids:
+                _upsert_local_category(db, remote_by_uuid[uuid])
+
+            db.flush()
+            if commit:
+                db.commit()
+        except Exception as exc:
+            print(f"Warning: using local inventory category cache because Supabase sync failed: {exc}")
+            db.rollback()
 
     final_rows = {
         row.uuid: row

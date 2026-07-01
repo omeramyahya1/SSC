@@ -79,7 +79,7 @@ def update_categories():
 @inventory_bp.route('/categories', methods=['GET'])
 def get_categories():
     with get_db() as db:
-        current_user, error_response = _get_current_user(db)
+        _current_user, error_response = _get_current_user(db)
         if error_response:
             return error_response
         ensure_inventory_categories(db)
@@ -99,7 +99,7 @@ def get_categories():
 @inventory_bp.route('/categories/<string:uuid>', methods=['GET'])
 def get_category(uuid):
     with get_db() as db:
-        current_user, error_response = _get_current_user(db)
+        _current_user, error_response = _get_current_user(db)
         if error_response:
             return error_response
         ensure_inventory_categories(db)

@@ -23,7 +23,7 @@ interface ProjectComponentState {
     lastFetchRequestId: number;
     lastProjectUuid: string | null;
 
-    fetchComponents: (projectUuid: string, options: {silent: boolean}) => Promise<void>;
+    fetchComponents: (projectUuid: string, options?: { silent?: boolean }) => Promise<void>;
     addComponent: (component: Partial<ProjectComponent>) => Promise<ProjectComponent | undefined>;
     updateComponent: (uuid: string, updates: Partial<ProjectComponent>) => Promise<ProjectComponent | undefined>;
     removeComponent: (uuid: string) => Promise<void>;

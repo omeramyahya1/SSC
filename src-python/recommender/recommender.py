@@ -3,11 +3,11 @@ from models import InventoryItem, INVENTORY_CATEGORY_BY_KEY
 from sqlalchemy.orm import Session
 from sqlalchemy import false
 
-def get_category_uuid(db: Session, category_name: str, scope: dict | None = None):
+def get_category_uuid(category_name: str):
     normalized = (category_name or "").strip().lower()
     if "inverter" in normalized:
         return INVENTORY_CATEGORY_BY_KEY["inverters"]["uuid"]
-    if "battery" in normalized:
+    if "batter" in normalized:
         return INVENTORY_CATEGORY_BY_KEY["batteries"]["uuid"]
     if "panel" in normalized:
         return INVENTORY_CATEGORY_BY_KEY["panels"]["uuid"]
@@ -60,7 +60,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
     selected_battery = None
 
     # 1. Inverter Selection
-    inverter_cat_uuid = get_category_uuid(db, "inverter", scope)
+    inverter_cat_uuid = get_category_uuid("inverter")
     if inverter_cat_uuid:
         inverters = _apply_item_scope(db.query(InventoryItem), scope).filter(
             InventoryItem.category_uuid == inverter_cat_uuid,
@@ -124,7 +124,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
 
     # 2. Battery Selection
     battery_qty = int(safe_float(battery_req.get("quantity"), 0.0))
-    battery_cat_uuid = get_category_uuid(db, "batteries", scope)
+    battery_cat_uuid = get_category_uuid("batteries")
     if battery_qty > 0 and battery_cat_uuid:
         batteries = _apply_item_scope(db.query(InventoryItem), scope).filter(
             InventoryItem.category_uuid == battery_cat_uuid,
@@ -208,7 +208,7 @@ def generate_recommendations(db: Session, ble_results: dict, scope: dict | None 
             })
 
     # 3. Panel Selection & MPPT Re-calculation
-    panel_cat_uuid = get_category_uuid(db, "panel", scope)
+    panel_cat_uuid = get_category_uuid("panel")
     if panel_cat_uuid:
         panels = _apply_item_scope(db.query(InventoryItem), scope).filter(
             InventoryItem.category_uuid == panel_cat_uuid,
