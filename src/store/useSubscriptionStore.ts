@@ -188,4 +188,4 @@ registerStore(StoreKeys.Subscription, () => {
   const userUuid = currentUser?.uuid || currentUserSnapshot?.uuid;
   if (!userUuid) return;
   return useSubscriptionStore.getState().fetchSubscriptions(userUuid);
-});
+}, useSubscriptionStore);

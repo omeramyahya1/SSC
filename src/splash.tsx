@@ -112,27 +112,51 @@ async function waitForBackendReady(): Promise<void> {
     // 3. Load required data
     updateStatus('Loading profile...');
     const latestAuth = await useAuthenticationStore.getState().fetchLatestAuthentication();
+    const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
 
-    if (latestAuth && latestAuth.user_uuid) {
-      const userUUID = latestAuth.user_uuid;
-      updateStatus('Fetching user data...');
-      await useUserStore.getState().fetchUser(userUUID);
+    if (latestAuth?.is_logged_in && latestAuth.user_uuid) {
+      const issuedAtMs = new Date(`${latestAuth.jwt_issued_at}Z`).getTime();
 
-      updateStatus('Loading settings...');
-      await useApplicationSettingsStore.getState().fetchSettings();
+      if (!isNaN(issuedAtMs) && (Date.now() - issuedAtMs > FOURTEEN_DAYS)) {
+        // Token is older than 14 days
+        // don't preload the user's data and let force the user to login.
+        try {
+          await useAuthenticationStore.getState().logout();
+        } catch (error) {
+          console.error("Failed to log out expired session on backend:", error);
+        }
+        // Force clear local authentication and user state to prevent blank screen/auto-login
+        useAuthenticationStore.setState({
+          currentAuthentication: null,
+          currentAuthenticationSnapshot: null,
+        });
+        useUserStore.setState({ currentUser: null });
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("preloaded-user");
+        localStorage.removeItem("preloaded-settings");
+      } else {
+        const userUUID = latestAuth.user_uuid;
+        updateStatus('Fetching user data...');
+        await useUserStore.getState().fetchUser(userUUID);
+
+        updateStatus('Loading settings...');
+        await useApplicationSettingsStore.getState().fetchSettings();
 
 
-      // Persist the loaded data to localStorage for the main window
-      const { currentUser } = useUserStore.getState();
-      const { settings } = useApplicationSettingsStore.getState();
+        // Persist the loaded data to localStorage for the main window
+        const { currentUser } = useUserStore.getState();
+        const { settings } = useApplicationSettingsStore.getState();
 
-      if (currentUser) {
-        localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
+        if (currentUser) {
+          localStorage.setItem('preloaded-user', JSON.stringify(currentUser));
+        }
+        if (settings && settings.length > 0) {
+          // Assuming we store the settings for the logged in user, or the first one for this example
+          localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
+        }
       }
-      if (settings && settings.length > 0) {
-        // Assuming we store the settings for the logged in user, or the first one for this example
-        localStorage.setItem('preloaded-settings', JSON.stringify(settings[0]));
-      }
+
+
     }
 
     updateStatus('Launching...');

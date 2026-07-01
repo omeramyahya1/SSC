@@ -41,7 +41,7 @@ interface FormDataType {
 
 export const SPEC_TRANSLATIONS = {
   categories: {
-    "Solar Panels": { en: "Solar Panels", ar: "الألواح الشمسية" },
+    Panels: { en: "Panels", ar: "الألواح الشمسية" },
     Inverters: { en: "Inverters", ar: "العواكس (Inverters)" },
     Batteries: { en: "Batteries", ar: "البطاريات" },
   },
@@ -289,7 +289,7 @@ export function AddItemModal({ onOpenChange }: AddItemModalProps) {
                 {categories.map((cat) => (
                   <SelectItem key={cat.uuid} value={cat.uuid}>
                     {t(
-                      `inventory.tabs.${cat.name === "Solar Panels" ? "panels" : cat.name.toLocaleLowerCase()}`,
+                      `inventory.tabs.${cat.name.toLocaleLowerCase()}`,
                       `${cat.name}`,
                     )}
                   </SelectItem>

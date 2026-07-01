@@ -170,4 +170,4 @@ export const useSyncLogStore = create<SyncLogStore>((set, get) => ({
 
 registerStore(StoreKeys.SyncLog, () => {
   useSyncLogStore.getState().fetchSyncLogs();
-});
+}, useSyncLogStore);
