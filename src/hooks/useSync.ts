@@ -81,7 +81,9 @@ export const useSync = () => {
       await requestSync();
       // Silently refresh only the stores relevant to the current page path
       const targetStores = getStoresForPath(location.pathname);
-      refreshStores(targetStores, { silent: true });
+      void refreshStores(targetStores, { silent: true }).catch((error) => {
+        console.error("Silent store refresh failed:", error);
+      });
     }, 10000);
 
     return () => window.clearTimeout(timeoutId);
@@ -102,7 +104,9 @@ export const useSync = () => {
       if (!isOnline || isUpdateRequired || isSyncingRef.current) return;
       await requestSync();
       // Silently refresh all stores periodically to keep data fresh without interrupting the user
-      refreshStores(Object.values(StoreKeys), { silent: true });
+      void refreshStores(Object.values(StoreKeys), { silent: true }).catch((error) => {
+        console.error("Silent store refresh failed:", error);
+      });
     }, 2 * 60 * 1000);
     return () => clearInterval(id);
   }, [isLoggedIn, isOnline, isUpdateRequired, requestSync]);

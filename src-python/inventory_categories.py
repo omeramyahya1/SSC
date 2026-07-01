@@ -102,6 +102,29 @@ def ensure_inventory_categories(db: Session, commit: bool = False) -> list[model
         except (APIError, httpx.ConnectError, httpx.TimeoutException) as exc:
             print(f"Warning: using local inventory category cache because Supabase sync failed: {exc}")
             db.rollback()
+            for definition in canonical_inventory_categories():
+                existing = local_by_uuid.get(definition["uuid"])
+                if existing:
+                    existing.name = definition["name"]
+                    existing.spec_schema = definition["spec_schema"]
+                    existing.organization_uuid = None
+                    existing.user_uuid = None
+                    existing.deleted_at = None
+                    existing.is_dirty = False
+                else:
+                    db.add(
+                        models.InventoryCategory(
+                            uuid=definition["uuid"],
+                            name=definition["name"],
+                            spec_schema=definition["spec_schema"],
+                            organization_uuid=None,
+                            user_uuid=None,
+                            is_dirty=False,
+                        )
+                    )
+            db.flush()
+            if commit:
+                db.commit()
         else:
             if hasattr(response, "error") and response.error:
                 print(
