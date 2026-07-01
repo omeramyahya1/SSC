@@ -67,10 +67,11 @@ def get_resource_path(relative_path):
     # In Nuitka --onefile, os.path.dirname(__file__) points to the temporary extraction directory.
     # utils.py is in the root of src-python, so its dirname is the root of the bundled resources.
     base_dir = os.path.dirname(os.path.abspath(__file__))
+    is_frozen = getattr(sys, 'frozen', False) or "__compiled__" in globals()
 
     # Special case: logo is in public/ in dev, but root in bundle
     if relative_path == "ssc.svg":
-        if getattr(sys, 'frozen', False):
+        if is_frozen:
             return os.path.join(base_dir, "ssc.svg")
         else:
             return os.path.abspath(os.path.join(base_dir, "..", "public", "ssc.svg"))
