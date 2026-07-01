@@ -67,14 +67,14 @@ def get_resource_path(relative_path):
     # In Nuitka --onefile, os.path.dirname(__file__) points to the temporary extraction directory.
     # utils.py is in the root of src-python, so its dirname is the root of the bundled resources.
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    
+
     # Special case: logo is in public/ in dev, but root in bundle
     if relative_path == "ssc.svg":
         if getattr(sys, 'frozen', False):
             return os.path.join(base_dir, "ssc.svg")
         else:
             return os.path.abspath(os.path.join(base_dir, "..", "public", "ssc.svg"))
-            
+
     return os.path.join(base_dir, relative_path)
 
 def hash_password(password, salt):
@@ -156,14 +156,14 @@ def is_jwt_expired_offline(jwt_issued_at):
     return datetime.now(timezone.utc) > expiration_time
 
 def check_session_validity(user_uuid, device_id):
-    """
-    Checks with Supabase if the current session (user_uuid + device_id) is still valid (is_logged_in=True).
-    Returns True if valid, False if explicitly invalidated, or True on connection failure (fail-safe).
+    """Return True if the given (user_uuid, device_id) pair has any active
+    authentication row (`is_logged_in=True`) in Supabase.
+    Implements a fail‑open policy: network or server errors are treated as
+    valid to avoid locking the user out when connectivity is intermittent.
     """
     from supabase_client import get_service_role_client
     from postgrest.exceptions import APIError
-    import httpx
-    import logging
+    import httpx, logging
     logger = logging.getLogger(__name__)
 
     try:
@@ -173,25 +173,22 @@ def check_session_validity(user_uuid, device_id):
             .select('is_logged_in')
             .eq('user_id', user_uuid)
             .eq('device_id', device_id)
+            .eq('is_logged_in', True)  # only rows that are still active
             .order('created_at', desc=True)
             .limit(1)
             .execute()
         )
-        if response.data:
-            return response.data[0].get('is_logged_in', False)
-        
-        # Fail-open: If no record is found for this device, it hasn't been invalidated yet.
-        return True
+        # If any active row exists → session is valid
+        return bool(response.data)
     except (httpx.ConnectError, httpx.TimeoutException) as e:
-        logger.warning(f"Session validation failed due to connectivity issues (fail-open): {e}", exc_info=True)
-        return True # Fail-safe: assume valid if check fails due to connectivity
+        logger.warning(f"Session validation failed (network) - assuming valid: {e}")
+        return True  # fail‑open
     except APIError as e:
-        # Fail-open only for 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout
-        status_code = getattr(e, 'status', None)
-        if status_code in (502, 503, 504):
-            logger.warning(f"Session validation failed due to server error {status_code} (fail-open): {e}", exc_info=True)
-            return True
-        logger.error(f"Session validation failed due to Supabase error {status_code} (fail-closed): {e}", exc_info=True)
+        status = getattr(e, 'status', None)
+        if status in (502, 503, 504):
+            logger.warning(f"Session validation failed (server {status}) - assuming valid: {e}")
+            return True  # fail‑open for transient server errors
+        logger.error(f"Session validation failed (Supabase) - rejecting: {e}")
         return False
     except Exception as e:
         logger.exception(f"Session validation failed due to unexpected error (fail-closed): {e}")
@@ -212,10 +209,10 @@ def get_device_id():
     else:
         # Fallback for manual/standalone execution
         data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db')
-    
+
     os.makedirs(data_dir, exist_ok=True)
     device_id_path = os.path.join(data_dir, '.device_id')
-    
+
     if os.path.exists(device_id_path):
         try:
             with open(device_id_path, 'r') as f:
@@ -233,7 +230,7 @@ def get_device_id():
             f.write(new_id)
     except Exception as e:
         print(f"Warning: Failed to persist device_id to {device_id_path}: {e}")
-        
+
     return new_id
 
 if __name__ == "__main__":
