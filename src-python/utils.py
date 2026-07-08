@@ -9,6 +9,7 @@ import os
 import string
 import secrets
 from datetime import datetime, timedelta, timezone
+from runtime_env import is_compiled_runtime
 
 def generate_temp_password(length=12):
     """Generates a random alphanumeric temporary password."""
@@ -63,14 +64,13 @@ def get_resource_path(relative_path):
     Resolves the absolute path to a resource.
     Works for both development and Nuitka --onefile mode.
     """
-    import sys
     # In Nuitka --onefile, os.path.dirname(__file__) points to the temporary extraction directory.
     # utils.py is in the root of src-python, so its dirname is the root of the bundled resources.
     base_dir = os.path.dirname(os.path.abspath(__file__))
     
     # Special case: logo is in public/ in dev, but root in bundle
     if relative_path == "ssc.svg":
-        if getattr(sys, 'frozen', False):
+        if is_compiled_runtime():
             return os.path.join(base_dir, "ssc.svg")
         else:
             return os.path.abspath(os.path.join(base_dir, "..", "public", "ssc.svg"))

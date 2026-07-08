@@ -6,6 +6,7 @@ import sys
 import cProfile
 import pstats
 import io
+from runtime_env import is_compiled_runtime, is_windows_compiled_runtime
 
 # --- Profiling Setup ---
 profile_env = os.environ.get("SSC_PROFILE_BACKEND", "").lower()
@@ -32,7 +33,7 @@ if do_profile:
 # =================================================================
 # This runs EVERY time the compiled Windows binary launches to keep
 # Nuitka from stripping vital postgrest/pydantic parsing logic.
-if getattr(sys, 'frozen', False) and sys.platform == "win32":
+if is_windows_compiled_runtime():
     from pydantic_postgrest_bootstrap import apply_postgrest_pydantic_bootstrap
     print("PYTHON: Applying PostGREST/Pydantic binary patch...")
     apply_postgrest_pydantic_bootstrap()
@@ -48,6 +49,7 @@ if "--self-test" in sys.argv:
     from utils import get_resource_path
 
     print("PYTHON: Running sidecar verification checklist...")
+    print(f"PYTHON: Compiled runtime detected: {is_compiled_runtime()}")
 
     env_candidates = [
         os.path.join(os.path.dirname(sys.executable), ".env"),

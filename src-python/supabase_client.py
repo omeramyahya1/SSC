@@ -1,11 +1,11 @@
 import os
-import sys
 from supabase import create_client, Client, ClientOptions
 from dotenv import load_dotenv
 from utils import get_db
 import models
+from runtime_env import is_compiled_runtime
 
-if getattr(sys, 'frozen', False):
+if is_compiled_runtime():
     # Running as a compiled binary (.deb production environment)
     # This points to the directory where Tauri places the .env resource
     bundle_dir = os.path.dirname(sys.executable)
