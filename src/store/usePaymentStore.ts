@@ -134,4 +134,4 @@ export const usePaymentStore = create<PaymentStore>((set, get) => ({
 registerStore(StoreKeys.Payment, () => {
   const { fetchPayments, lastFetchParams } = usePaymentStore.getState();
   fetchPayments(lastFetchParams ?? undefined);
-});
+}, usePaymentStore);

@@ -238,7 +238,6 @@ SYNC_CONFIG = [
     {"model": models.Customer, "table_name": "customers", "mapper": map_customer_to_payload, "reverse_mapper": _map_cloud_to_local},
     {"model": models.SystemConfiguration, "table_name": "system_configurations", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.Project, "table_name": "projects", "mapper": map_project_to_payload, "reverse_mapper": _map_cloud_to_local},
-    {"model": models.InventoryCategory, "table_name": "inventory_categories", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.InventoryItem, "table_name": "inventory_items", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.StockAdjustment, "table_name": "stock_adjustments", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},
     {"model": models.ProjectComponent, "table_name": "project_components", "mapper": generic_mapper, "reverse_mapper": _map_cloud_to_local},

@@ -119,4 +119,4 @@ export const useDocumentStore = create<DocumentStore>((set) => ({
 
 registerStore(StoreKeys.Document, () => {
   useDocumentStore.getState().fetchDocuments();
-});
+}, useDocumentStore);

@@ -206,4 +206,4 @@ export const useInventoryStore = create<InventoryState>((set) => ({
 registerStore(StoreKeys.Inventory, () => {
   const { refreshInventory } = useInventoryStore.getState();
   refreshInventory({ silent: true });
-});
+}, useInventoryStore);

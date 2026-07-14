@@ -112,4 +112,4 @@ registerStore(StoreKeys.Appliance, () => {
   if (lastProjectUuid) {
     fetchAppliancesByProject(lastProjectUuid);
   }
-});
+}, useApplianceStore);

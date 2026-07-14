@@ -3,6 +3,7 @@ from supabase import create_client, Client, ClientOptions
 from dotenv import load_dotenv
 from utils import get_db
 import models
+import sys
 from runtime_env import is_compiled_runtime
 
 if is_compiled_runtime():

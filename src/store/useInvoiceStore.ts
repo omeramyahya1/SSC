@@ -229,4 +229,4 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
 registerStore(StoreKeys.Invoice, () => {
   const { fetchInvoices, lastFetchParams } = useInvoiceStore.getState();
   fetchInvoices(lastFetchParams ?? undefined);
-});
+}, useInvoiceStore);

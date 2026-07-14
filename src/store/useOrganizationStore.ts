@@ -105,4 +105,4 @@ export const useOrganizationStore = create<OrganizationStore>((set) => ({
 
 registerStore(StoreKeys.Organization, () => {
   // Can be used to register store if needed
-});
+}, useOrganizationStore);

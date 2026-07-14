@@ -728,7 +728,6 @@ def delete_user(user_id_or_uuid):
             ProjectComponent,
             StockAdjustment,
             InventoryItem,
-            InventoryCategory,
             Appliance,
             SystemConfiguration,
         )
@@ -836,10 +835,6 @@ def delete_user(user_id_or_uuid):
                     {Subscription.deleted_at: now, Subscription.is_dirty: True},
                     synchronize_session=False,
                 )
-                db.query(InventoryCategory).filter(InventoryCategory.user_uuid.in_(org_employee_uuids)).update(
-                    {InventoryCategory.deleted_at: now, InventoryCategory.is_dirty: True},
-                    synchronize_session=False,
-                )
                 db.query(InventoryItem).filter(InventoryItem.user_uuid.in_(org_employee_uuids)).update(
                     {InventoryItem.deleted_at: now, InventoryItem.is_dirty: True},
                     synchronize_session=False,
@@ -934,10 +929,6 @@ def delete_user(user_id_or_uuid):
             synchronize_session=False,
         )
 
-        db.query(InventoryCategory).filter(InventoryCategory.user_uuid == user.uuid).update(
-            {InventoryCategory.deleted_at: now, InventoryCategory.is_dirty: True},
-            synchronize_session=False,
-        )
         db.query(InventoryItem).filter(InventoryItem.user_uuid == user.uuid).update(
             {InventoryItem.deleted_at: now, InventoryItem.is_dirty: True},
             synchronize_session=False,

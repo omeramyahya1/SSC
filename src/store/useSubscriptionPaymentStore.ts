@@ -121,4 +121,4 @@ export const useSubscriptionPaymentStore = create<SubscriptionPaymentStore>((set
 
 registerStore(StoreKeys.SubscriptionPayment, () => {
   useSubscriptionPaymentStore.getState().fetchSubscriptionPayments();
-});
+}, useSubscriptionPaymentStore);
