@@ -1,21 +1,26 @@
 import os
-from supabase import create_client, Client, ClientOptions
+import sys
 from dotenv import load_dotenv
+
+# Apply Pydantic/PostGREST bootstrap patch early before importing supabase or postgrest
+from pydantic_postgrest_bootstrap import apply_postgrest_pydantic_bootstrap
+apply_postgrest_pydantic_bootstrap()
+
+# Try to find the .env from candidate paths
+env_candidates = [
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"),  # Bundled / PyInstaller / Nuitka temp dir
+    os.path.join(os.path.dirname(sys.executable), ".env"),            # Next to binary
+    os.path.join(os.getcwd(), "src-python", ".env"),                  # Development path
+]
+for env_path in env_candidates:
+    if os.path.exists(env_path):
+        load_dotenv(env_path)
+        break
+
+from supabase import create_client, Client, ClientOptions
 from utils import get_db
 import models
-import sys
 from runtime_env import is_compiled_runtime
-
-if is_compiled_runtime():
-    # Running as a compiled binary (.deb production environment)
-    # This points to the directory where Tauri places the .env resource
-    bundle_dir = os.path.dirname(sys.executable)
-else:
-    # Running as raw script (local development environment)
-    bundle_dir = os.path.dirname(os.path.abspath(__file__))
-
-dotenv_path = os.path.join(bundle_dir, '.env')
-load_dotenv(dotenv_path)
 
 
 

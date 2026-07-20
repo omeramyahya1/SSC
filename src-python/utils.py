@@ -71,11 +71,7 @@ def get_resource_path(relative_path):
 
     # Special case: logo is in public/ in dev, but root in bundle
     if relative_path == "ssc.svg":
-<<<<<<< HEAD
         if is_compiled_runtime():
-=======
-        if is_frozen:
->>>>>>> 11c20b7acc083f6972147cb8926d7c5afddd4d3b
             return os.path.join(base_dir, "ssc.svg")
         else:
             return os.path.abspath(os.path.join(base_dir, "..", "public", "ssc.svg"))
