@@ -74,7 +74,7 @@ def create_category():
 def update_categories():
     return jsonify({
         "message": "Inventory categories are managed globally and cannot be updated from the app."
-    }), 200
+    }), 403
 
 @inventory_bp.route('/categories', methods=['GET'])
 def get_categories():

@@ -42,9 +42,13 @@ export const useProjectComponentStore = create<ProjectComponentState>((set, get)
     lastProjectUuid: null,
 
     fetchComponents: async (projectUuid, options?: { silent?: boolean }) => {
-        const requestId = get().lastFetchRequestId + 1;
+        const { isLoading, lastFetchRequestId } = get();
+        const requestId =
+            options?.silent && isLoading
+                ? lastFetchRequestId
+                : lastFetchRequestId + 1;
         set((state) => ({
-        isLoading: !options?.silent,
+        isLoading: options?.silent ? state.isLoading : true,
         error: null,
         components: options?.silent ? state.components : [],
         lastFetchRequestId: requestId,

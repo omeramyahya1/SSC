@@ -185,7 +185,7 @@ def check_session_validity(user_uuid, device_id):
         )
         # If any active row exists → session is valid
         return bool(response.data)
-    except (httpx.ConnectError, httpx.TimeoutException) as e:
+    except httpx.TransportError as e:
         logger.warning(f"Session validation failed (network) - assuming valid: {e}")
         return True  # fail-open
     except APIError as e:
