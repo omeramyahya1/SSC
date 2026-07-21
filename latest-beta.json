@@ -1,7 +1,7 @@
 {
   "version": "0.1.1-beta.8",
-  "notes": "Fixing sidcar bundle: include assets & non-py files.",
-  "pub_date": "2026-07-21sT00:00:00Z",
+  "notes": "Fixing sidecar bundle",
+  "pub_date": "2026-07-21T00:00:00Z",
   "platforms": {
     "linux-x86_64": {
       "signature": "TBP",
