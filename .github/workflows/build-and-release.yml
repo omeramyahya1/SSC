@@ -33,6 +33,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r src-python/requirements.txt
 
+      - name: Create Python Virtual Environment
+        run: |
+          python -m venv src-python/.venv
+          src-python/.venv/bin/python -m pip install --upgrade pip
+          src-python/.venv/bin/python -m pip install -r src-python/requirements.txt
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -60,10 +66,17 @@ jobs:
           echo "SUPABASE_KEY=$SUPABASE_KEY" >> src-python/.env
           echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> src-python/.env
 
+      - name: Create Python Virtual Environment
+        run: |
+          python -m venv src-python/.venv
+          src-python/.venv/bin/python -m pip install --upgrade pip
+          src-python/.venv/bin/python -m pip install -r src-python/requirements.txt
+
       - name: Build Python Sidecar
         env:
           SSC_MODE: beta
-        run: npm run build:py
+          NUITKA_ASSUME_YES_FOR_DOWNLOADS: 1
+        run: npx cross-env SSC_MODE=beta NUITKA_ASSUME_YES_FOR_DOWNLOADS=1 npm run build:py
 
       - name: Verify Python Sidecar Integration
         run: python scripts/test_sidecar.py
@@ -141,7 +154,8 @@ jobs:
       - name: Build Python Sidecar
         env:
           SSC_MODE: beta
-        run: npx cross-env SSC_MODE=beta npm run build:py
+          NUITKA_ASSUME_YES_FOR_DOWNLOADS: 1
+        run: npx cross-env SSC_MODE=beta NUITKA_ASSUME_YES_FOR_DOWNLOADS=1 npm run build:py
 
       - name: Verify Python Sidecar Integration
         run: python scripts/test_sidecar.py
