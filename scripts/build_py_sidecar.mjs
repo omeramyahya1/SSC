@@ -44,6 +44,7 @@ const distPath = path.join(repoRoot, "src-tauri");
 
 const args = [
   "-m", "nuitka",
+  "--assume-yes-for-downloads",
   "--standalone",
   "--onefile",
   "--file-reference-choice=runtime",

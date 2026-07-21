@@ -66,12 +66,6 @@ jobs:
           echo "SUPABASE_KEY=$SUPABASE_KEY" >> src-python/.env
           echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> src-python/.env
 
-      - name: Create Python Virtual Environment
-        run: |
-          python -m venv src-python/.venv
-          src-python/.venv/bin/python -m pip install --upgrade pip
-          src-python/.venv/bin/python -m pip install -r src-python/requirements.txt
-
       - name: Build Python Sidecar
         env:
           SSC_MODE: beta
