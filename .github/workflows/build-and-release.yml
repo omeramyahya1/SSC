@@ -17,12 +17,19 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      - name: Install Python dependencies
+      - name: Create and install into Python virtualenv
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
-          pip install -r src-python/requirements.txt
+          python -m venv src-python/.venv
+          if [ -x src-python/.venv/bin/python ]; then
+            VENV_PY=src-python/.venv/bin/python
+          else
+            VENV_PY=src-python/.venv/Scripts/python.exe
+          fi
+          $VENV_PY -m pip install --upgrade pip
+          $VENV_PY -m pip install -r src-python/requirements.txt
+          echo "VENV python: $VENV_PY"
 
       - name: Install Tauri system dependencies
         run: |
@@ -99,12 +106,19 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      - name: Install Python dependencies
+      - name: Create and install into Python virtualenv
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
-          pip install -r src-python/requirements.txt
+          python -m venv src-python/.venv
+          if [ -x src-python/.venv/bin/python ]; then
+            VENV_PY=src-python/.venv/bin/python
+          else
+            VENV_PY=src-python/.venv/Scripts/python.exe
+          fi
+          $VENV_PY -m pip install --upgrade pip
+          $VENV_PY -m pip install -r src-python/requirements.txt
+          echo "VENV python: $VENV_PY"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
