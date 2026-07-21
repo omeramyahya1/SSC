@@ -16,7 +16,6 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-size: '3.11'
           python-version: '3.11'
           cache: 'pip'
 
@@ -146,3 +145,33 @@ jobs:
         with:
           name: ssc-windows-beta
           path: src-tauri/target/release/bundle/msi/*.msi
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ssc-linux-beta
+          path: ./dist-release
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ssc-windows-beta
+          path: ./dist-release
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./dist-release/*.deb
+            ./dist-release/*.msi
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
