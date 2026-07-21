@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Python build / cairo system deps
         run: |
-          sudo apt-get update sudo apt-get install -y libcairo2-dev pkg-config python3-dev ninja-build
+          sudo apt-get update && sudo apt-get install -y libcairo2-dev pkg-config python3-dev ninja-build
 
       - name: Create and install into Python virtualenv
         shell: bash
