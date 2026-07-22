@@ -97,8 +97,8 @@ def create_db_and_tables():
 
         with SessionLocal() as db:
             ensure_inventory_categories(db, commit=True)
-        print("✅ Tables created successfully (if they didn't exist).")
+        print("Tables created successfully (if they didn't exist).")
     except Exception as e:
-        print(f"❌ Error during table creation: {e}")
+        print(f"Error during table creation: {e}")
         # This is a critical failure for the app, so we re-raise it
         raise RuntimeError(f"Failed to create database tables: {e}")

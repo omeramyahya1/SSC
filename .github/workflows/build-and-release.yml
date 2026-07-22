@@ -85,6 +85,16 @@ jobs:
       - name: Verify Python Sidecar Integration
         run: python scripts/test_sidecar.py
 
+      - name: Create src-tauri/.env from Secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+        run: |
+          echo "SUPABASE_URL=$SUPABASE_URL" > src-tauri/.env
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> src-tauri/.env
+          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> src-tauri/.env
+
       - name: Build Tauri App (.deb)
         env:
           SSC_MODE: beta
@@ -169,6 +179,16 @@ jobs:
 
       - name: Verify Python Sidecar Integration
         run: python scripts/test_sidecar.py
+
+      - name: Create src-tauri/.env from Secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+        run: |
+          echo "SUPABASE_URL=$SUPABASE_URL" > src-tauri/.env
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> src-tauri/.env
+          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> src-tauri/.env
 
       - name: Build Tauri App (.msi)
         env:
