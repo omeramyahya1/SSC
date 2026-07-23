@@ -85,15 +85,17 @@ jobs:
       - name: Verify Python Sidecar Integration
         run: python scripts/test_sidecar.py
 
-      - name: Create src-tauri/.env from Secrets
+      - name: Create root .env files from Secrets
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
         run: |
-          echo "SUPABASE_URL=$SUPABASE_URL" > src-tauri/.env
-          echo "SUPABASE_KEY=$SUPABASE_KEY" >> src-tauri/.env
-          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> src-tauri/.env
+          echo "SUPABASE_URL=$SUPABASE_URL" > .env
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> .env
+          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> .env
+          cp .env .env.beta
+          cp .env .env.production
 
       - name: Build Tauri App (.deb)
         env:
@@ -180,15 +182,18 @@ jobs:
       - name: Verify Python Sidecar Integration
         run: python scripts/test_sidecar.py
 
-      - name: Create src-tauri/.env from Secrets
+      - name: Create root .env files from Secrets
+        shell: bash
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
         run: |
-          echo "SUPABASE_URL=$SUPABASE_URL" > src-tauri/.env
-          echo "SUPABASE_KEY=$SUPABASE_KEY" >> src-tauri/.env
-          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> src-tauri/.env
+          echo "SUPABASE_URL=$SUPABASE_URL" > .env
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> .env
+          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> .env
+          cp .env .env.beta
+          cp .env .env.production
 
       - name: Build Tauri App (.msi)
         env:
