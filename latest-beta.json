@@ -1,15 +1,15 @@
 {
-  "version": "0.1.1-beta.7",
-  "notes": "Fixing sidcar bundle: include assets & non-py files.",
-  "pub_date": "2026-07-01sT00:00:00Z",
+  "version": "0.1.1-beta.8",
+  "notes": "Fixing sidecar bundle",
+  "pub_date": "2026-07-21T00:00:00Z",
   "platforms": {
     "linux-x86_64": {
       "signature": "TBP",
-      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.7/SSC_0.1.1-beta.7_amd64.deb"
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.8/SSC_0.1.1-beta.8_amd64.deb"
     },
     "windows-x86_64": {
       "signature": "TBP",
-      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.7/SSC_0.1.1-beta.7_x64_en-US.msi"
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.8/SSC_0.1.1-beta.8_x64_en-US.msi"
     }
   }
 }
