@@ -25,6 +25,7 @@ def run_postgrest_pydantic_self_test() -> None:
     apply_postgrest_pydantic_bootstrap()
 
     import postgrest.types as postgrest_types
+    from postgrest.base_request_builder import APIResponse, SingleAPIResponse
 
     sample = postgrest_types.JSONAdapter.validate_json(
         b'{"ok": true, "items": [1, "two", null, {"nested": false}]}'
@@ -34,3 +35,6 @@ def run_postgrest_pydantic_self_test() -> None:
             f"PostGREST JSONAdapter self-test failed. "
             f"Expected dict with 'ok': True, got {type(sample).__name__}: {sample!r}"
         )
+
+    APIResponse(data=[sample], count=None)
+    SingleAPIResponse(data=sample, count=None)

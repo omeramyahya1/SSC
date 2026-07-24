@@ -49,6 +49,8 @@ keys.py
 .gemini/
 gha-creds-*.json
 
+.secrets
+
 # Tauri updater / signing material (keep private keys out of git)
 src-tauri/signer.key
 src-tauri/signer.key.pub
