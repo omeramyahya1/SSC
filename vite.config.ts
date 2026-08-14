@@ -36,6 +36,10 @@ export default defineConfig(async () => ({
     },
   },
 
+  // Tauri serves packaged frontend assets from its custom protocol rather
+  // than from the domain root.
+  base: "./",
+
   build: {
     rollupOptions: {
       input: {

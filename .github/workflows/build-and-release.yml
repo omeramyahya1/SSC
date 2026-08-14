@@ -83,7 +83,13 @@ jobs:
         run: npm run build:py
 
       - name: Verify Python Sidecar Integration
-        run: python scripts/test_sidecar.py
+        shell: bash
+        run: |
+          if [ -x src-python/.venv/bin/python ]; then
+            src-python/.venv/bin/python scripts/test_sidecar.py
+          else
+            src-python/.venv/Scripts/python.exe scripts/test_sidecar.py
+          fi
 
       - name: Create root .env files from Secrets
         env:
@@ -94,8 +100,18 @@ jobs:
           echo "SUPABASE_URL=$SUPABASE_URL" > .env
           echo "SUPABASE_KEY=$SUPABASE_KEY" >> .env
           echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> .env
+          echo "VITE_SUPABASE_URL=$SUPABASE_URL" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY" >> .env
           cp .env .env.beta
           cp .env .env.production
+
+      - name: Build React Frontend
+        env:
+          SSC_MODE: beta
+          VITE_APP_CHANNEL: beta
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: npm run build
 
       - name: Build Tauri App (.deb)
         env:
@@ -109,7 +125,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ssc-linux-beta
-          path: src-tauri/target/release/bundle/deb/*.deb
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/deb/*.deb.sig
 
   build-windows:
     name: Build Windows (.msi)
@@ -180,7 +198,13 @@ jobs:
         run: npx cross-env SSC_MODE=beta npm run build:py
 
       - name: Verify Python Sidecar Integration
-        run: python scripts/test_sidecar.py
+        shell: bash
+        run: |
+          if [ -x src-python/.venv/bin/python ]; then
+            src-python/.venv/bin/python scripts/test_sidecar.py
+          else
+            src-python/.venv/Scripts/python.exe scripts/test_sidecar.py
+          fi
 
       - name: Create root .env files from Secrets
         shell: bash
@@ -192,8 +216,18 @@ jobs:
           echo "SUPABASE_URL=$SUPABASE_URL" > .env
           echo "SUPABASE_KEY=$SUPABASE_KEY" >> .env
           echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> .env
+          echo "VITE_SUPABASE_URL=$SUPABASE_URL" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY" >> .env
           cp .env .env.beta
           cp .env .env.production
+
+      - name: Build React Frontend
+        env:
+          SSC_MODE: beta
+          VITE_APP_CHANNEL: beta
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: npm run build
 
       - name: Build Tauri App (.msi)
         env:
@@ -207,7 +241,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ssc-windows-beta
-          path: src-tauri/target/release/bundle/msi/*.msi
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/msi/*.msi.sig
 
   create-release:
     name: Create GitHub Release
@@ -216,24 +252,88 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout beta branch
+        uses: actions/checkout@v4
+        with:
+          ref: beta
+          fetch-depth: 0
+
       - name: Download Linux Artifact
         uses: actions/download-artifact@v4
         with:
           name: ssc-linux-beta
-          path: ./dist-release
+          path: ./dist-release/linux
 
       - name: Download Windows Artifact
         uses: actions/download-artifact@v4
         with:
           name: ssc-windows-beta
-          path: ./dist-release
+          path: ./dist-release/windows
+
+      - name: Generate updater manifest
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: omeramyahya1/SSC
+        run: |
+          set -euo pipefail
+          APP_VERSION="${RELEASE_TAG#v}"
+
+          linux_file=$(find dist-release/linux -maxdepth 1 -type f -name '*.deb' -print -quit)
+          windows_file=$(find dist-release/windows -maxdepth 1 -type f -name '*.msi' -print -quit)
+
+          test -n "$linux_file"
+          test -n "$windows_file"
+          test -f "${linux_file}.sig"
+          test -f "${windows_file}.sig"
+
+          linux_name=$(basename "$linux_file")
+          windows_name=$(basename "$windows_file")
+
+          jq -n \
+            --arg version "$APP_VERSION" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg linux_signature "$(cat "${linux_file}.sig")" \
+            --arg windows_signature "$(cat "${windows_file}.sig")" \
+            --arg linux_url "https://github.com/$REPOSITORY/releases/download/$RELEASE_TAG/$linux_name" \
+            --arg windows_url "https://github.com/$REPOSITORY/releases/download/$RELEASE_TAG/$windows_name" \
+            '{
+              version: $version,
+              notes: "Beta release",
+              pub_date: $pub_date,
+              platforms: {
+                "linux-x86_64": {
+                  signature: $linux_signature,
+                  url: $linux_url
+                },
+                "windows-x86_64": {
+                  signature: $windows_signature,
+                  url: $windows_url
+                }
+              }
+            }' > latest-beta.json
+
+      - name: Commit updater manifest to beta branch
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latest-beta.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update beta updater manifest for ${RELEASE_TAG}"
+          git push origin HEAD:beta
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ./dist-release/*.deb
-            ./dist-release/*.msi
+            ./dist-release/linux/*.deb
+            ./dist-release/linux/*.deb.sig
+            ./dist-release/windows/*.msi
+            ./dist-release/windows/*.msi.sig
           draft: false
           prerelease: true
         env:
