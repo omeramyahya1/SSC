@@ -1,15 +1,15 @@
 {
-  "version": "0.1.1-beta.8",
+  "version": "0.1.1-beta.9",
   "notes": "Fixing sidecar bundle",
-  "pub_date": "2026-07-21T00:00:00Z",
+  "pub_date": "2026-08-14T00:00:00Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "TBP",
-      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.8/SSC_0.1.1-beta.8_amd64.deb"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSDExNVBMN3RpSjIwNVVaYkxCQTF5QktFVG8zaU4wQUtCbi92eTd3djU0T2tzdHVNb1R5bGVUQzB5V3pIR1NBeEVMcXNVVG03Yk5NRkVoM0hxSVpmWXcwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NzI3NzM4CWZpbGU6U1NDXzAuMS4xLWJldGEuOV9hbWQ2NC5kZWIKZlhFQ0FnZ3dhU0pzNndTdkpWbXo1TElzM1J0Z0JNa1ErN2dVcmkwQ3lVdGp3OFNZWUU0N0xYaHdoTFZVdVJXa0xiYjBSS2M4bkRybldXWndURng5Q2c9PQo=",
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.9/SSC_0.1.1-beta.9_amd64.deb"
     },
     "windows-x86_64": {
-      "signature": "TBP",
-      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.8/SSC_0.1.1-beta.8_x64_en-US.msi"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSDJRQVdPTGVyd1BsSlpMc0FNYXJ0bjhGbGJnMDdQUnNJU2RHc1BEVWlMY1E3dTNsY3hyMEFzTjBCY1J2Y3FsVy8rSTZSYUFEdWZ6NkdZdUdGanl1OXdrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NzI5Njk4CWZpbGU6U1NDXzAuMS4xLWJldGEuOV94NjRfZW4tVVMubXNpClB0R3U0czhvMzZZMmZCbUxLQ0RVakJ6eFpXKzVJUHBkeTZ5TTlVL0JYbGkxL0FqSDB4RWF3elZxK3dlMFZ4bVdwclQ1SGxvQkhVdStadmFZWDVKWENBPT0K",
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.9/SSC_0.1.1-beta.9_x64_en-US.msi"
     }
   }
 }
