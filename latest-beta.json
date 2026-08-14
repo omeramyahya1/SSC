@@ -4,7 +4,7 @@
   "pub_date": "2026-07-21T00:00:00Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "TBP",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSDNLSWl1ZUtMZVpsZVJ3MTlrYmNTUFVqa3RKV3RNYXdzQ0J4M0k1c0Y2dTUrVTltOWRzU0YrZk04TXJYQVBad0R1Wk5XRlNtZ0hIWGRYY3VobGMvcWdNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2NjYxNTQ1CWZpbGU6U1NDXzAuMS4xLWJldGEuOF9hbWQ2NC5kZWIKT0VJMERrVXJrTG5UYzF4aVJQT0J5YzZwbHJXalJwT2tTRHk1Rm54bld6SVloa3NReDJSbUx4dFUwNWNHbGZlUERVajgvbGRDdk5UczdVWU5aTEFHQlE9PQo=",
       "url": "https://github.com/omeramyahya1/SSC/releases/download/v0.1.1-beta.8/SSC_0.1.1-beta.8_amd64.deb"
     },
     "windows-x86_64": {
