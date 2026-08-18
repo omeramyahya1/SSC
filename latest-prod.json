@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "notes": "First Release",
+  "pub_date": "2026-08-14T00:00:00Z",
+  "platforms": {
+    "linux-x86_64": {
+      "signature": "",
+      "url": ""
+    },
+    "windows-x86_64": {
+      "signature": "",
+      "url": ""
+    }
+  }
+}
