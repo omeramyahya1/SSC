@@ -24,13 +24,16 @@ const emailWrapper = (
   const appName = "SSC";
   const dir = lang === "ar" ? "rtl" : "ltr";
   const textAlign = lang === "ar" ? "right" : "left";
-  const formattedDate = new Date(date).toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const formattedDate = new Date(date).toLocaleString(
+    lang === "ar" ? "ar-EG" : "en-US",
+    {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  );
 
   return `
 <div style="font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; box-sizing: border-box; background-color: #ffffff; color: #333; line-height: 1.6; max-width: 600px; margin: 20px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;" dir="${dir}">
@@ -50,15 +53,19 @@ const emailWrapper = (
 };
 
 const escapeHtml = (value: unknown) =>
-  String(value ?? "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  }[char]!));
+  String(value ?? "").replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char]!,
+  );
 
-  serve(async (_req) => {
+serve(async (_req) => {
   const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
   const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
   const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL");
@@ -68,22 +75,24 @@ const escapeHtml = (value: unknown) =>
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-const templates: Templates = {
-  account_deactivated_superadmin: {
-    en: {
-      subject: "User Account Deactivated - SSC Notification",
-      body: (p, date) => {
-        const username = escapeHtml(p.deactivated_username || "N/A");
-        const userId = escapeHtml(p.deactivated_user_id || "N/A");
-        const accountType = escapeHtml(p.account_type || "N/A");
-        const role = escapeHtml(p.role || "N/A");
-        const orgName = escapeHtml(p.organization_name || "N/A");
-        const deactivatedByAdmin = p.deactivated_by_admin ? "by an admin" : "by themselves";
-        const email = escapeHtml(p.deactivated_user_email || "N/A");
+  const templates: Templates = {
+    account_deactivated_superadmin: {
+      en: {
+        subject: "User Account Deactivated - SSC Notification",
+        body: (p, date) => {
+          const username = escapeHtml(p.deactivated_username || "N/A");
+          const userId = escapeHtml(p.deactivated_user_id || "N/A");
+          const accountType = escapeHtml(p.account_type || "N/A");
+          const role = escapeHtml(p.role || "N/A");
+          const orgName = escapeHtml(p.organization_name || "N/A");
+          const deactivatedByAdmin = p.deactivated_by_admin
+            ? "by an admin"
+            : "by themselves";
+          const email = escapeHtml(p.deactivated_user_email || "N/A");
 
-        return emailWrapper(
-          "User Account Deactivated",
-          `
+          return emailWrapper(
+            "User Account Deactivated",
+            `
           <p>Hello Super Admin,</p>
           <p>A user account has been deactivated in the SSC.</p>
           <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px;">
@@ -96,30 +105,32 @@ const templates: Templates = {
             <tr><td style="padding: 8px; border: 1px solid #ddd;">User ID</td><td style="padding: 8px; border: 1px solid #ddd;">${userId}</td></tr>
             <tr><td style="padding: 8px; border: 1px solid #ddd;">Account Type</td><td style="padding: 8px; border: 1px solid #ddd;">${accountType}</td></tr>
             <tr><td style="padding: 8px; border: 1px solid #ddd;">Role</td><td style="padding: 8px; border: 1px solid #ddd;">${role}</td></tr>
-            ${p.organization_id ? `<tr><td style="padding: 8px; border: 1px solid #ddd;">Organization</td><td style="padding: 8px; border: 1px solid #ddd;">${orgName} (ID: ${p.organization_id})</td></tr>` : ''}
+            ${p.organization_id ? `<tr><td style="padding: 8px; border: 1px solid #ddd;">Organization</td><td style="padding: 8px; border: 1px solid #ddd;">${orgName} (ID: ${p.organization_id})</td></tr>` : ""}
             <tr><td style="padding: 8px; border: 1px solid #ddd;">Deactivated By</td><td style="padding: 8px; border: 1px solid #ddd;">${deactivatedByAdmin}</td></tr>
           </table>
           <p>Please review the details above.</p>
           `,
-          date,
-          "en"
-        );
+            date,
+            "en",
+          );
+        },
       },
-    },
-    ar: {
-      subject: "تم إلغاء تفعيل حساب المستخدم - إشعار SSC",
-      body: (p, date) => {
-        const username = escapeHtml(p.deactivated_username || "N/A");
-        const userId = escapeHtml(p.deactivated_user_id || "N/A");
-        const accountType = escapeHtml(p.account_type || "N/A");
-        const role = escapeHtml(p.role || "N/A");
-        const orgName = escapeHtml(p.organization_name || "N/A");
-        const deactivatedByAdmin = p.deactivated_by_admin ? "بواسطة مسؤول" : "بواسطة المستخدم نفسه";
-        const email = escapeHtml(p.deactivated_user_email || "N/A");
+      ar: {
+        subject: "تم إلغاء تفعيل حساب المستخدم - إشعار SSC",
+        body: (p, date) => {
+          const username = escapeHtml(p.deactivated_username || "N/A");
+          const userId = escapeHtml(p.deactivated_user_id || "N/A");
+          const accountType = escapeHtml(p.account_type || "N/A");
+          const role = escapeHtml(p.role || "N/A");
+          const orgName = escapeHtml(p.organization_name || "N/A");
+          const deactivatedByAdmin = p.deactivated_by_admin
+            ? "بواسطة مسؤول"
+            : "بواسطة المستخدم نفسه";
+          const email = escapeHtml(p.deactivated_user_email || "N/A");
 
-        return emailWrapper(
-          "تم إلغاء تفعيل حساب المستخدم",
-          `
+          return emailWrapper(
+            "تم إلغاء تفعيل حساب المستخدم",
+            `
           <p>مرحباً مشرف النظام،</p>
           <p>تم إلغاء تفعيل حساب مستخدم في SSC.</p>
           <table style="width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 30px;" dir="rtl">
@@ -132,18 +143,18 @@ const templates: Templates = {
             <tr><td style="padding: 8px; border: 1px solid #ddd;">معرف المستخدم</td><td style="padding: 8px; border: 1px solid #ddd;">${userId}</td></tr>
             <tr><td style="padding: 8px; border: 1px solid #ddd;">نوع الحساب</td><td style="padding: 8px; border: 1px solid #ddd;">${accountType}</td></tr>
             <tr><td style="padding: 8px; border: 1px solid #ddd;">الدور</td><td style="padding: 8px; border: 1px solid #ddd;">${role}</td></tr>
-            ${p.organization_id ? `<tr><td style="padding: 8px; border: 1px solid #ddd;">المنظمة</td><td style="padding: 8px; border: 1px solid #ddd;">${orgName} (ID: ${p.organization_id})</td></tr>` : ''}
+            ${p.organization_id ? `<tr><td style="padding: 8px; border: 1px solid #ddd;">المؤسسة</td><td style="padding: 8px; border: 1px solid #ddd;">${orgName} (ID: ${p.organization_id})</td></tr>` : ""}
             <tr><td style="padding: 8px; border: 1px solid #ddd;">تم إلغاء التفعيل بواسطة</td><td style="padding: 8px; border: 1px solid #ddd;">${deactivatedByAdmin}</td></tr>
           </table>
           <p>يرجى مراجعة التفاصيل أعلاه.</p>
           `,
-          date,
-          "ar"
-        );
+            date,
+            "ar",
+          );
+        },
       },
     },
-  },
-};
+  };
 
   // 1. Fetch all pending superadmin jobs
   const { data: allJobs, error } = await supabase
@@ -167,23 +178,44 @@ const templates: Templates = {
   const sentJobIds: string[] = [];
   try {
     // 2. Group jobs by event type
-    const registrationJobs = allJobs.filter(j => j.event_type !== 'license_tamper_detected_admin' && j.event_type !== 'support_ticket_submitted' && j.event_type !== 'account_deactivated_superadmin' && j.event_type !== 'tier2_sales_request');
-    const tamperJobs = allJobs.filter(j => j.event_type === 'license_tamper_detected_admin');
-    const ticketJobs = allJobs.filter(j => j.event_type === 'support_ticket_submitted');
-    const salesJobs = allJobs.filter(j => j.event_type === 'tier2_sales_request');
-    const deactivatedJobs = allJobs.filter(j => j.event_type === 'account_deactivated_superadmin');
+    const registrationJobs = allJobs.filter(
+      (j) =>
+        j.event_type !== "license_tamper_detected_admin" &&
+        j.event_type !== "support_ticket_submitted" &&
+        j.event_type !== "account_deactivated_superadmin" &&
+        j.event_type !== "tier2_sales_request",
+    );
+    const tamperJobs = allJobs.filter(
+      (j) => j.event_type === "license_tamper_detected_admin",
+    );
+    const ticketJobs = allJobs.filter(
+      (j) => j.event_type === "support_ticket_submitted",
+    );
+    const salesJobs = allJobs.filter(
+      (j) => j.event_type === "tier2_sales_request",
+    );
+    const deactivatedJobs = allJobs.filter(
+      (j) => j.event_type === "account_deactivated_superadmin",
+    );
 
     let reportContent = "";
-    const summaryJobs = [...registrationJobs, ...tamperJobs, ...ticketJobs, ...salesJobs];
+    const summaryJobs = [
+      ...registrationJobs,
+      ...tamperJobs,
+      ...ticketJobs,
+      ...salesJobs,
+    ];
     const summaryJobIds = summaryJobs.map((j) => j.id);
 
     // Process Super Admin Deactivation Jobs Individually
     for (const job of deactivatedJobs) {
       try {
         const lang = "en"; // Super Admin notifications typically English
-        const tpl = templates['account_deactivated_superadmin'][lang];
+        const tpl = templates["account_deactivated_superadmin"][lang];
         if (!tpl) {
-          throw new Error(`Template not found for event type: ${job.event_type} and lang: ${lang}`);
+          throw new Error(
+            `Template not found for event type: ${job.event_type} and lang: ${lang}`,
+          );
         }
 
         const emailData = {
@@ -196,7 +228,7 @@ const templates: Templates = {
         const response = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
           headers: {
-            "accept": "application/json",
+            accept: "application/json",
             "api-key": BREVO_API_KEY || "",
             "content-type": "application/json",
           },
@@ -208,31 +240,39 @@ const templates: Templates = {
           throw new Error(`Brevo API Error for job ${job.id}: ${errText}`);
         }
 
-        await supabase.from("notification_jobs").update({
-          status: "sent",
-          sent_at: new Date().toISOString(),
-        }).eq("id", job.id);
-
+        await supabase
+          .from("notification_jobs")
+          .update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+          })
+          .eq("id", job.id);
       } catch (e: any) {
         console.error(`Failed to send email for job ${job.id}:`, e);
-        await supabase.from("notification_jobs").update({
-          status: "failed",
-          error: e.message || String(e),
-        }).eq("id", job.id);
+        await supabase
+          .from("notification_jobs")
+          .update({
+            status: "failed",
+            error: e.message || String(e),
+          })
+          .eq("id", job.id);
       }
     }
 
     // 3. Build content for Support Tickets
     if (ticketJobs.length > 0) {
-      const ticketRows = ticketJobs.map((job) => {
-        const p = job.payload || {};
-        const date = escapeHtml(new Date(job.created_at).toLocaleString("en-US"));
-       const username = escapeHtml(p.username || "N/A");
-        const userEmail = escapeHtml(p.user_email || "N/A");
-        const businessName = escapeHtml(p.business_name || "");
-        const subject = escapeHtml(p.subject || "No Subject");
-        const body = escapeHtml(p.body || "");
-        return `
+      const ticketRows = ticketJobs
+        .map((job) => {
+          const p = job.payload || {};
+          const date = escapeHtml(
+            new Date(job.created_at).toLocaleString("en-US"),
+          );
+          const username = escapeHtml(p.username || "N/A");
+          const userEmail = escapeHtml(p.user_email || "N/A");
+          const businessName = escapeHtml(p.business_name || "");
+          const subject = escapeHtml(p.subject || "No Subject");
+          const body = escapeHtml(p.body || "");
+          return `
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd;">${date}</td>
             <td style="padding: 8px; border: 1px solid #ddd;">
@@ -246,7 +286,8 @@ const templates: Templates = {
             </td>
           </tr>
         `;
-      }).join("");
+        })
+        .join("");
 
       reportContent += `
         <h3 style="color: #2980b9;">New Support Tickets</h3>
@@ -266,10 +307,13 @@ const templates: Templates = {
 
     // New Section for Enterprise Sales Requests
     if (salesJobs.length > 0) {
-      const salesRows = salesJobs.map((job) => {
-        const p = job.payload || {};
-        const date = escapeHtml(new Date(job.created_at).toLocaleString("en-US"));
-        return `
+      const salesRows = salesJobs
+        .map((job) => {
+          const p = job.payload || {};
+          const date = escapeHtml(
+            new Date(job.created_at).toLocaleString("en-US"),
+          );
+          return `
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd;">${date}</td>
             <td style="padding: 8px; border: 1px solid #ddd;">
@@ -286,7 +330,8 @@ const templates: Templates = {
             </td>
           </tr>
         `;
-      }).join("");
+        })
+        .join("");
 
       reportContent += `
         <h3 style="color: #e67e22;">New Enterprise Sales Requests</h3>
@@ -306,10 +351,11 @@ const templates: Templates = {
 
     // 4. Build content for Tamper Alerts
     if (tamperJobs.length > 0) {
-      const tamperRows = tamperJobs.map((job) => {
-        const p = job.payload || {};
-        const date = new Date(job.created_at).toLocaleString("en-US");
-        return `
+      const tamperRows = tamperJobs
+        .map((job) => {
+          const p = job.payload || {};
+          const date = new Date(job.created_at).toLocaleString("en-US");
+          return `
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd;">${date}</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${p.user_id || "N/A"}</td>
@@ -317,7 +363,8 @@ const templates: Templates = {
             <td style="padding: 8px; border: 1px solid #ddd;">${p.username || "N/A"}</td>
           </tr>
         `;
-      }).join("");
+        })
+        .join("");
 
       reportContent += `
         <h3 style="color: #c0392b;">Security Alerts: License Tampering</h3>
@@ -338,10 +385,11 @@ const templates: Templates = {
 
     // 4. Build content for Registration Alerts
     if (registrationJobs.length > 0) {
-      const registrationRows = registrationJobs.map((job) => {
-        const p = job.payload || {};
-        const date = new Date(job.created_at).toLocaleString("en-US");
-        return `
+      const registrationRows = registrationJobs
+        .map((job) => {
+          const p = job.payload || {};
+          const date = new Date(job.created_at).toLocaleString("en-US");
+          return `
           <tr>
             <td style="padding: 8px; border: 1px solid #ddd;">${date}</td>
             <td style="padding: 8px; border: 1px solid #ddd;">${p.user_id || "N/A"}</td>
@@ -350,7 +398,8 @@ const templates: Templates = {
             <td style="padding: 8px; border: 1px solid #ddd;">${p.subscription_payment_id || "N/A"}</td>
           </tr>
         `;
-      }).join("");
+        })
+        .join("");
 
       reportContent += `
         <h3>New Registrations Pending Review</h3>
@@ -370,11 +419,14 @@ const templates: Templates = {
       `;
     }
 
-     if (summaryJobIds.length === 0) {
-      return new Response(JSON.stringify({ success: true, count: deactivatedJobs.length }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (summaryJobIds.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, count: deactivatedJobs.length }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
 
     const emailHtml = emailWrapper(
@@ -394,7 +446,7 @@ const templates: Templates = {
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
-        "accept": "application/json",
+        accept: "application/json",
         "api-key": BREVO_API_KEY || "",
         "content-type": "application/json",
       },
@@ -418,19 +470,28 @@ const templates: Templates = {
 
     if (updateError) throw updateError;
 
-    return new Response(JSON.stringify({ success: true, count: summaryJobIds.length + deactivatedJobs.length }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        count: summaryJobIds.length + deactivatedJobs.length,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   } catch (e: any) {
     console.error(`Batch send failed:`, e);
     const jobIds = allJobs
-      .map((j: { id: any; }) => j.id)
+      .map((j: { id: any }) => j.id)
       .filter((id: any) => !sentJobIds.includes(id));
-    await supabase.from("notification_jobs").update({
-      status: "failed",
-      error: e.message || String(e),
-    }).in("id", jobIds);
+    await supabase
+      .from("notification_jobs")
+      .update({
+        status: "failed",
+        error: e.message || String(e),
+      })
+      .in("id", jobIds);
 
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
