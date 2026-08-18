@@ -13,7 +13,7 @@ import { refreshStores, StoreKeys } from "./api/storeRegistry";
 import { Dashboard } from "./pages/dashboard/Dashboard";
 import CustomersPage from "./pages/customers/Customers";
 import Inventory from "./pages/inventory/Inventory";
-import Sales from "./pages/sales/Sales"
+import Sales from "./pages/sales/Sales";
 import TeamOrganization from "./pages/team & organization/TeamOrganization";
 import { VersionHandler } from "./components/versioning/VersionHandler";
 
@@ -24,8 +24,31 @@ function App() {
   const { t } = useTranslation();
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [backendError, setBackendError] = useState<string | null>(null);
-  const { currentAuthentication, fetchLatestAuthentication } = useAuthenticationStore();
+  const { currentAuthentication, fetchLatestAuthentication } =
+    useAuthenticationStore();
   const { currentUser, _hasHydrated } = useUserStore();
+
+  // Disable right-click context menu in production
+  if (import.meta.env.VITE_APP_CHANNEL == "prod") {
+    document.addEventListener("contextmenu", (e) => {
+      const target = e.target as HTMLElement;
+
+      // allow standard form fields
+      const isInputField =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable;
+
+      // allow areas where the user has actively highlighted text
+      const hasSelectedText = window.getSelection()?.toString().length ?? 0 > 0;
+
+      if (isInputField || hasSelectedText) {
+        return; // do nothing -> show the ctx menu
+      }
+
+      e.preventDefault(); // else disable the ctx menu
+    });
+  }
 
   useEffect(() => {
     let aborted = false;
@@ -47,18 +70,18 @@ function App() {
           if (res.ok) {
             isReady = true;
           } else {
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise((r) => setTimeout(r, 1000));
           }
         } catch (e) {
           // Swallow connection errors and retry
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise((r) => setTimeout(r, 1000));
         }
       }
       if (aborted) return;
 
       // 2. Hydrate stores from data pre-loaded by the splash screen
-      const preloadedUser = localStorage.getItem('preloaded-user');
-      const preloadedSettings = localStorage.getItem('preloaded-settings');
+      const preloadedUser = localStorage.getItem("preloaded-user");
+      const preloadedSettings = localStorage.getItem("preloaded-settings");
 
       if (preloadedUser) {
         try {
@@ -75,7 +98,7 @@ function App() {
           useApplicationSettingsStore.setState({
             settings: [settingsData],
             currentSetting: settingsData,
-            isLoading: false
+            isLoading: false,
           });
         } catch (e) {
           console.error("Failed to parse preloaded settings data:", e);
@@ -86,13 +109,13 @@ function App() {
           currentSetting: null,
           isLoading: false,
           latestTC: null,
-          needsTCUpdate: false
+          needsTCUpdate: false,
         });
       }
 
       // Clean up localStorage
-      localStorage.removeItem('preloaded-user');
-      localStorage.removeItem('preloaded-settings');
+      localStorage.removeItem("preloaded-user");
+      localStorage.removeItem("preloaded-settings");
 
       // Fetch the latest authentication state to determine login status
       const auth = await fetchLatestAuthentication();
@@ -107,16 +130,18 @@ function App() {
     };
 
     hydrateAndCheckAuth();
-    return () => { aborted = true; };
+    return () => {
+      aborted = true;
+    };
   }, [fetchLatestAuthentication, t]);
 
   useEffect(() => {
     // This effect runs whenever currentAuthentication changes or after the initial fetch
-    if (currentAuthentication !== undefined) { // Check if the fetch is complete
+    if (currentAuthentication !== undefined) {
+      // Check if the fetch is complete
       setIsLoggedIn(!!currentAuthentication?.is_logged_in);
     }
   }, [currentAuthentication]);
-
 
   if (backendError) {
     return (
@@ -125,9 +150,7 @@ function App() {
           <h2 className="text-2xl font-bold mb-4 text-destructive">
             {t("errors.connection_failed")}
           </h2>
-          <p className="mb-6 text-muted-foreground">
-            {backendError}
-          </p>
+          <p className="mb-6 text-muted-foreground">{backendError}</p>
           <button
             className="w-full bg-primary text-primary-foreground py-2 rounded-md hover:bg-primary/90"
             onClick={() => window.location.reload()}
@@ -149,32 +172,31 @@ function App() {
     <>
       <VersionHandler />
       <Routes>
-      {isLoggedIn ? (
-        <>
-          <Route path="/home" element={<MainContent />}>
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="customers" element={<CustomersPage />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="sales" element={<Sales />} />
-            <Route path="team" element={<TeamOrganization />} />
-          </Route>
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="*" element={<Navigate to="/home" replace />} />
-        </>
-      ) : (
-        <>
-          <Route path="/" element={<Login />} />
-          <Route path="/registration" element={<Registration />} />
-          <Route path="/forgotpassword" element={<ForgotPassword />} />
-          <Route path="/contact_sales" element={<ContactSales />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </>
-      )}
-    </Routes>
+        {isLoggedIn ? (
+          <>
+            <Route path="/home" element={<MainContent />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="customers" element={<CustomersPage />} />
+              <Route path="inventory" element={<Inventory />} />
+              <Route path="sales" element={<Sales />} />
+              <Route path="team" element={<TeamOrganization />} />
+            </Route>
+            <Route path="/" element={<Navigate to="/home" replace />} />
+            <Route path="*" element={<Navigate to="/home" replace />} />
+          </>
+        ) : (
+          <>
+            <Route path="/" element={<Login />} />
+            <Route path="/registration" element={<Registration />} />
+            <Route path="/forgotpassword" element={<ForgotPassword />} />
+            <Route path="/contact_sales" element={<ContactSales />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </>
+        )}
+      </Routes>
     </>
   );
 }
 
 export default App;
-
