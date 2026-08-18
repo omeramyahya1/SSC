@@ -1,0 +1,342 @@
+name: Build and Release Prod
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-linux:
+    name: Build Linux (.deb)
+    if: github.event.base_ref == 'refs/heads/prod'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python build / cairo system deps
+        run: |
+          sudo apt-get update && sudo apt-get install -y libcairo2-dev pkg-config python3-dev ninja-build
+
+      - name: Create and install into Python virtualenv
+        shell: bash
+        run: |
+          python -m venv src-python/.venv
+          if [ -x src-python/.venv/bin/python ]; then
+            VENV_PY=src-python/.venv/bin/python
+          else
+            VENV_PY=src-python/.venv/Scripts/python.exe
+          fi
+          $VENV_PY -m pip install --upgrade pip
+          $VENV_PY -m pip install -r src-python/requirements.txt
+          echo "VENV python: $VENV_PY"
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Recreate src-python/.env from Secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+        run: |
+          echo "SUPABASE_URL=$SUPABASE_URL" > src-python/.env
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> src-python/.env
+          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> src-python/.env
+
+      - name: Cache Nuitka Linux Binary
+        id: cache-nuitka
+        uses: actions/cache@v4
+        with:
+          path: |
+            src-tauri/python-sidecar
+            src-tauri/python-sidecar-x86_64-unknown-linux-gnu
+          key: ${{ runner.os }}-nuitka-${{ hashFiles('src-python/**/*.py', 'src-python/requirements.txt', 'scripts/build_py_sidecar.mjs') }}
+
+      - name: Build Python Sidecar
+        if: steps.cache-nuitka.outputs.cache-hit != 'true'
+        env:
+          SSC_MODE: prod
+        run: npm run build:py
+
+      - name: Verify Python Sidecar Integration
+        shell: bash
+        run: |
+          if [ -x src-python/.venv/bin/python ]; then
+            src-python/.venv/bin/python scripts/test_sidecar.py
+          else
+            src-python/.venv/Scripts/python.exe scripts/test_sidecar.py
+          fi
+
+      - name: Create root .env files from Secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+        run: |
+          echo "SUPABASE_URL=$SUPABASE_URL" > .env
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> .env
+          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> .env
+          echo "VITE_SUPABASE_URL=$SUPABASE_URL" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY" >> .env
+          cp .env .env.beta
+          cp .env .env.production
+
+      - name: Build React Frontend
+        env:
+          SSC_MODE: prod
+          VITE_APP_CHANNEL: prod
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: npm run build
+
+      - name: Build Tauri App (.deb)
+        env:
+          SSC_MODE: prod
+          VITE_APP_CHANNEL: prod
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri build
+
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssc-linux-prod
+          path: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/deb/*.deb.sig
+
+  build-windows:
+    name: Build Windows (.msi)
+    if: github.event.base_ref == 'refs/heads/prod'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Create and install into Python virtualenv
+        shell: bash
+        run: |
+          python -m venv src-python/.venv
+          if [ -x src-python/.venv/bin/python ]; then
+            VENV_PY=src-python/.venv/bin/python
+          else
+            VENV_PY=src-python/.venv/Scripts/python.exe
+          fi
+          $VENV_PY -m pip install --upgrade pip
+          $VENV_PY -m pip install -r src-python/requirements.txt
+          echo "VENV python: $VENV_PY"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Recreate src-python/.env from Secrets (Windows)
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+        run: |
+          echo "SUPABASE_URL=$SUPABASE_URL" > src-python/.env
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> src-python/.env
+          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> src-python/.env
+
+      - name: Cache Nuitka Windows Binary
+        id: cache-nuitka
+        uses: actions/cache@v4
+        with:
+          path: |
+            src-tauri/python-sidecar.exe
+            src-tauri/python-sidecar-x86_64-pc-windows-msvc.exe
+          key: ${{ runner.os }}-nuitka-${{ hashFiles('src-python/**/*.py', 'src-python/requirements.txt', 'scripts/build_py_sidecar.mjs') }}
+
+      - name: Build Python Sidecar
+        if: steps.cache-nuitka.outputs.cache-hit != 'true'
+        env:
+          SSC_MODE: prod
+        run: npx cross-env SSC_MODE=prod npm run build:py
+
+      - name: Verify Python Sidecar Integration
+        shell: bash
+        run: |
+          if [ -x src-python/.venv/bin/python ]; then
+            src-python/.venv/bin/python scripts/test_sidecar.py
+          else
+            src-python/.venv/Scripts/python.exe scripts/test_sidecar.py
+          fi
+
+      - name: Create root .env files from Secrets
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SERVICE_ROLE_KEY: ${{ secrets.SERVICE_ROLE_KEY }}
+        run: |
+          echo "SUPABASE_URL=$SUPABASE_URL" > .env
+          echo "SUPABASE_KEY=$SUPABASE_KEY" >> .env
+          echo "SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> .env
+          echo "VITE_SUPABASE_URL=$SUPABASE_URL" >> .env
+          echo "VITE_SUPABASE_ANON_KEY=$SUPABASE_KEY" >> .env
+          cp .env .env.beta
+          cp .env .env.production
+
+      - name: Build React Frontend
+        env:
+          SSC_MODE: prod
+          VITE_APP_CHANNEL: prod
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: npm run build
+
+      - name: Build Tauri App (.msi)
+        env:
+          SSC_MODE: prod
+          VITE_APP_CHANNEL: prod
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx cross-env SSC_MODE=prod VITE_APP_CHANNEL=prod npm run tauri build
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ssc-windows-prod
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/msi/*.msi.sig
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout prod branch
+        uses: actions/checkout@v4
+        with:
+          ref: prod
+          fetch-depth: 0
+
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ssc-linux-prod
+          path: ./dist-release/linux
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ssc-windows-prod
+          path: ./dist-release/windows
+
+      - name: Generate updater manifest
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          REPOSITORY: omeramyahya1/SSC
+        run: |
+          set -euo pipefail
+          APP_VERSION="${RELEASE_TAG#v}"
+
+          linux_file=$(find dist-release/linux -maxdepth 1 -type f -name '*.deb' -print -quit)
+          windows_file=$(find dist-release/windows -maxdepth 1 -type f -name '*.msi' -print -quit)
+
+          test -n "$linux_file"
+          test -n "$windows_file"
+          test -f "${linux_file}.sig"
+          test -f "${windows_file}.sig"
+
+          linux_name=$(basename "$linux_file")
+          windows_name=$(basename "$windows_file")
+
+          jq -n \
+            --arg version "$APP_VERSION" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg linux_signature "$(cat "${linux_file}.sig")" \
+            --arg windows_signature "$(cat "${windows_file}.sig")" \
+            --arg linux_url "https://github.com/$REPOSITORY/releases/download/$RELEASE_TAG/$linux_name" \
+            --arg windows_url "https://github.com/$REPOSITORY/releases/download/$RELEASE_TAG/$windows_name" \
+            '{
+              version: $version,
+              notes: "Release",
+              pub_date: $pub_date,
+              platforms: {
+                "linux-x86_64": {
+                  signature: $linux_signature,
+                  url: $linux_url
+                },
+                "windows-x86_64": {
+                  signature: $windows_signature,
+                  url: $windows_url
+                }
+              }
+            }' > latest-prod.json
+
+      - name: Commit updater manifest to beta branch
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latest-prod.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update beta updater manifest for ${RELEASE_TAG}"
+          git push origin HEAD:prod
+
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ./dist-release/linux/*.deb
+            ./dist-release/linux/*.deb.sig
+            ./dist-release/windows/*.msi
+            ./dist-release/windows/*.msi.sig
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
