@@ -3,7 +3,7 @@ name: Build and Release Beta
 on:
   push:
     tags:
-      - 'v*.*.*-beta.*'
+      - "v*.*.*-beta.*"
 
 jobs:
   validate-beta-tag:
@@ -39,7 +39,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install Python build / cairo system deps
         run: |
@@ -67,7 +67,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install npm dependencies
         run: npm ci
@@ -78,7 +78,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
       - name: Recreate src-python/.env from Secrets
         env:
@@ -97,7 +97,7 @@ jobs:
           path: |
             src-tauri/python-sidecar
             src-tauri/python-sidecar-x86_64-unknown-linux-gnu
-          key: ${{ runner.os }}-nuitka-${{ hashFiles('src-python/**/*.py', 'src-python/requirements.txt', 'scripts/build_py_sidecar.mjs') }}
+          key: ${{ runner.os }}-nuitka-beta-${{ hashFiles('src-python/**/*.py', 'src-python/requirements.txt', 'scripts/build_py_sidecar.mjs') }}
 
       - name: Build Python Sidecar
         if: steps.cache-nuitka.outputs.cache-hit != 'true'
@@ -154,6 +154,7 @@ jobs:
 
   build-windows:
     name: Build Windows (.msi)
+    needs: validate-beta-tag
     runs-on: windows-latest
     steps:
       - name: Checkout repository
@@ -162,7 +163,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Create and install into Python virtualenv
         shell: bash
@@ -181,7 +182,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install npm dependencies
         run: npm ci
@@ -192,7 +193,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
       - name: Recreate src-python/.env from Secrets (Windows)
         shell: bash
@@ -270,7 +271,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-linux, build-windows]
+    needs: [validate-beta-tag, build-linux, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
