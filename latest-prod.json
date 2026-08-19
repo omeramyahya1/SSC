@@ -1,15 +1,15 @@
 {
   "version": "1.0.0",
-  "notes": "First Release",
-  "pub_date": "2026-08-14T00:00:00Z",
+  "notes": "Release",
+  "pub_date": "2026-08-19T15:06:28Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "",
-      "url": ""
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSDE3TGc5UUpXcE91L3J2SkdaeEFsR0R2bXYzcUJGMFVqbkROcExBZnBwcFFPSk4wRHlaZXBaZTlhOFFxcXp6bHZMaUhJWlFkejlodnh0OXptVTViSXdZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MTUwNDc5CWZpbGU6U1NDXzEuMC4wX2FtZDY0LmRlYgppbUc0ZWhFazhZbk5iazNJTURUM0s1V0VJOXFOc2RGdGJaQWwxSGMxbEd3OVdsN29xWWtEdHRoOEpOLzNWNk9JRVIyL2R4bnZxWkxLa0lwQjV6Wk9BUT09Cg==",
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v1.0.0/SSC_1.0.0_amd64.deb"
     },
     "windows-x86_64": {
-      "signature": "",
-      "url": ""
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUekNYUEQ0MWVBSDBCUWNZc05nYjBLRExMY2hXTW0xS1YzbkdIY1RreU5BNHRRZlRBWEFPTWlBY2ppSjU1cTMvTDJ0MXFHYWFST0tvY0x0MWNNZGc3bmhTTnUwWGZ0RndrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg3MTUxODkwCWZpbGU6U1NDXzEuMC4wX3g2NF9lbi1VUy5tc2kKODB0OXZpdHNKTk5YNHJhMnA0Rk82cnA3YVpTcHBxdVpXZ0JDdmZpS01QeVlvdDBldHh3SnREMXBWL0cwVjJyWnRXam1VaVVQMk5jTnFISU5rYWFNRGc9PQo=",
+      "url": "https://github.com/omeramyahya1/SSC/releases/download/v1.0.0/SSC_1.0.0_x64_en-US.msi"
     }
   }
 }
