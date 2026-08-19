@@ -10,7 +10,7 @@ Manage inventory, sales, projects, and automatic solar system configurations —
 <br/>
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-blue?style=for-the-badge&logo=windows)](https://tauri.app)
-[![Version](https://img.shields.io/badge/Version-0.1.1--beta.9-orange?style=for-the-badge)](package.json)
+[![Version](https://img.shields.io/badge/Version-1.0.0-orange?style=for-the-badge)](package.json)
 [![License](https://img.shields.io/badge/License-Private-red?style=for-the-badge)](#)
 [![Bilingual](https://img.shields.io/badge/Language-Arabic%20%7C%20English-green?style=for-the-badge&logo=googletranslate&logoColor=white)](#)
 
@@ -195,7 +195,7 @@ npm run dev:beta
 npm run tauri build
 ```
 
-This compiles the React frontend, bundles the Python sidecar, and packages everything into a native installer for your platform (`.exe` for Windows, `.deb`/`.AppImage` for Linux).
+This compiles the React frontend, bundles the Python sidecar, and packages everything into a native installer for your platform (`.msi` for Windows, `.deb` for Linux).
 
 ### Frontend Build Only
 
@@ -220,9 +220,9 @@ Translation files are located in:
 ```
 public/locales/
 ├── ar/
-│   └── translation.json
+│   └── translations.json
 └── en/
-    └── translation.json
+    └── translations.json
 ```
 
 ---

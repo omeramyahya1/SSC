@@ -29,8 +29,10 @@ function App() {
   const { currentUser, _hasHydrated } = useUserStore();
 
   // Disable right-click context menu in production
-  if (import.meta.env.VITE_APP_CHANNEL == "prod") {
-    document.addEventListener("contextmenu", (e) => {
+  useEffect(() => {
+    if (import.meta.env.VITE_APP_CHANNEL != "prod") return;
+
+    const handleCtxMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
 
       // allow standard form fields
@@ -40,15 +42,19 @@ function App() {
         target.isContentEditable;
 
       // allow areas where the user has actively highlighted text
-      const hasSelectedText = window.getSelection()?.toString().length ?? 0 > 0;
+      const hasSelectedText =
+        (window.getSelection()?.toString().length ?? 0) > 0;
 
       if (isInputField || hasSelectedText) {
         return; // do nothing -> show the ctx menu
       }
 
       e.preventDefault(); // else disable the ctx menu
-    });
-  }
+    };
+
+    document.addEventListener("contextmenu", handleCtxMenu);
+    return () => document.removeEventListener("contextmenu", handleCtxMenu);
+  }, []);
 
   useEffect(() => {
     let aborted = false;
