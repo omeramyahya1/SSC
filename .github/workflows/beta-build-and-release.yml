@@ -3,11 +3,34 @@ name: Build and Release Beta
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*-beta.*'
 
 jobs:
+  validate-beta-tag:
+    name: Validate beta tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate SemVer beta tag and beta ancestry
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          TAG_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]
+          git fetch origin beta --force
+          git merge-base --is-ancestor "$TAG_COMMIT" "origin/beta"
+
   build-linux:
     name: Build Linux (.deb)
+    needs: validate-beta-tag
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -313,19 +336,6 @@ jobs:
               }
             }' > latest-beta.json
 
-      - name: Commit updater manifest to beta branch
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add latest-beta.json
-          git diff --cached --quiet && exit 0
-          git commit -m "chore: update beta updater manifest for ${RELEASE_TAG}"
-          git push origin HEAD:beta
-
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
@@ -338,3 +348,16 @@ jobs:
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit updater manifest to beta branch
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latest-beta.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update beta updater manifest for ${RELEASE_TAG}"
+          git push origin HEAD:beta

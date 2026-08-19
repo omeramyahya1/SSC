@@ -3,12 +3,35 @@ name: Build and Release Prod
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"
+      - "!v*.*.*-*"
 
 jobs:
+  validate-release-source:
+    name: Validate production tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate stable SemVer tag and prod ancestry
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          TAG_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git fetch origin prod --force
+          git merge-base --is-ancestor "$TAG_COMMIT" "origin/prod"
+
   build-linux:
     name: Build Linux (.deb)
-    if: github.event.base_ref == 'refs/heads/prod'
+    needs: validate-release-source
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -132,7 +155,7 @@ jobs:
 
   build-windows:
     name: Build Windows (.msi)
-    if: github.event.base_ref == 'refs/heads/prod'
+    needs: validate-release-source
     runs-on: windows-latest
     steps:
       - name: Checkout repository
@@ -249,7 +272,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-linux, build-windows]
+    needs: [validate-release-source, build-linux, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -315,19 +338,6 @@ jobs:
               }
             }' > latest-prod.json
 
-      - name: Commit updater manifest to beta branch
-        shell: bash
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add latest-prod.json
-          git diff --cached --quiet && exit 0
-          git commit -m "chore: update beta updater manifest for ${RELEASE_TAG}"
-          git push origin HEAD:prod
-
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
@@ -340,3 +350,16 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit updater manifest to prod branch
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latest-prod.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update prod updater manifest for ${RELEASE_TAG}"
+          git push origin HEAD:prod
