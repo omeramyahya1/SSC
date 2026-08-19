@@ -15,7 +15,7 @@ const venvPython = path.join(
   "src-python",
   ".venv",
   isWindows ? "Scripts" : "bin",
-  isWindows ? "python.exe" : "python"
+  isWindows ? "python.exe" : "python",
 );
 
 const pythonExe = process.env.PYTHON_EXE || venvPython;
@@ -27,7 +27,7 @@ if (!fs.existsSync(pythonExe)) {
       "Fix options:",
       "- Create the venv at src-python/.venv",
       "- Or set PYTHON_EXE to your python path for the venv",
-    ].join("\n")
+    ].join("\n"),
   );
 }
 
@@ -43,7 +43,8 @@ const distPath = path.join(repoRoot, "src-tauri");
 // npx cross-env SSC_MODE=beta VITE_APP_CHANNEL=beta npm run tauri build
 
 const args = [
-  "-m", "nuitka",
+  "-m",
+  "nuitka",
   "--assume-yes-for-downloads",
   "--standalone",
   "--onefile",
@@ -52,7 +53,7 @@ const args = [
   "--include-data-dir=src-python/pdf_engine/templates=pdf_engine/templates",
   "--company-name=oay",
   "--product-name=ssc",
-  "--product-version=0.1.1",
+  "--product-version=1.0.0",
   "--include-data-dir=src-python/pdf_engine/assets=pdf_engine/assets",
   "--include-data-files=public/ssc.svg=ssc.svg",
   "--include-data-files=src-python/.env=.env",
@@ -64,9 +65,8 @@ const args = [
   "--include-package=jinja2",
   "--output-filename=python-sidecar",
   "--output-dir=" + distPath,
-  entry
+  entry,
 ];
-
 
 const result = spawnSync(pythonExe, args, { stdio: "inherit" });
 if (result.error) {

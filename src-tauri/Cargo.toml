@@ -1,6 +1,6 @@
 [package]
 name = "SSC"
-version = "0.1.1"
+version = "1.0.0"
 description = "SSC: Solar System Calculator"
 authors = ["@omeramyahya"]
 edition = "2021"

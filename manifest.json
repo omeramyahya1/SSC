@@ -1,8 +1,8 @@
 {
-  "latest_version": "0.1.1-beta.9",
+  "latest_version": "1.0.0",
   "critical_min_version": "0.1.1-beta.9",
   "notification": {
-    "id": "welcome_v0.1.1-beta.9",
+    "id": "welcome_v1.0.0",
     "message": "Welcome to the new Solar System Calculator!",
     "type": "info"
   }

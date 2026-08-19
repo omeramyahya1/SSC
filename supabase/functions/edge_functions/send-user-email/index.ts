@@ -68,13 +68,13 @@ const templates: Templates = {
          <p><strong>Amount:</strong> ${p.amount}</p>
          <p><strong>Method:</strong> ${p.method}</p>
          <p><strong>Status:</strong> <span style="color:green;font-weight:bold;">${
-            p.status
-          }</span></p>
+           p.status
+         }</span></p>
          <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 25px;">Your License</h3>
          <p>Please use the following code to activate your software:</p>
          <p style="background-color: #f0f0f0; border: 1px solid #ccc; padding: 10px; border-radius: 4px; font-family: monospace; text-align: center; font-size: 16px;">${
-            p.license_code || "N/A"
-          }</p>
+           p.license_code || "N/A"
+         }</p>
          <p>Thank you for using our service!</p>`,
           date,
           lang,
@@ -92,13 +92,13 @@ const templates: Templates = {
          <p><strong>المبلغ:</strong> ${p.amount}</p>
          <p><strong>طريقة الدفع:</strong> ${p.method}</p>
          <p><strong>الحالة:</strong> <span style="color:green;font-weight:bold;">${
-            p.status
-          }</span></p>
+           p.status
+         }</span></p>
         <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 25px;">الترخيص الخاص بك</h3>
          <p>يرجى استخدام الرمز التالي لتفعيل البرنامج:</p>
          <p style="background-color: #f0f0f0; border: 1px solid #ccc; padding: 10px; border-radius: 4px; font-family: monospace; text-align: center; font-size: 16px; direction: ltr;">${
-            p.license_code || "N/A"
-          }</p>
+           p.license_code || "N/A"
+         }</p>
          <p>شكراً لاستخدامك خدمتنا!</p>`,
           date,
           lang,
@@ -118,8 +118,8 @@ const templates: Templates = {
          <p><strong>Amount:</strong> ${p.amount}</p>
          <p><strong>Method:</strong> ${p.method}</p>
          <p><strong>Status:</strong> <span style="color:red;font-weight:bold;">${
-            p.status
-          }</span></p>
+           p.status
+         }</span></p>
          <p>Please check your payment details. If you continue to have issues, please open a support ticket from the 'Help' section in the application.</p>`,
           date,
           lang,
@@ -137,8 +137,8 @@ const templates: Templates = {
          <p><strong>المبلغ:</strong> ${p.amount}</p>
          <p><strong>طريقة الدفع:</strong> ${p.method}</p>
          <p><strong>الحالة:</strong> <span style="color:red;font-weight:bold;">${
-            p.status
-          }</span></p>
+           p.status
+         }</span></p>
          <p>يرجى التحقق من تفاصيل الدفع. إذا استمرت المشكلة، يرجى فتح تذكرة دعم من قسم "المساعدة" في التطبيق.</p>`,
           date,
           lang,
@@ -216,7 +216,7 @@ const templates: Templates = {
           <p>If you believe this is an error, please contact our support team immediately. Our security team will review this activity and we will notify you with an update on your account status.</p>
           <p>We take account security very seriously and apologize for any inconvenience this may cause.</p>`,
           date,
-          lang
+          lang,
         ),
     },
     ar: {
@@ -235,7 +235,7 @@ const templates: Templates = {
           <p>إذا كنت تعتقد أن هذا الإجراء تم عن طريق الخطأ، يرجى الاتصال بفريق الدعم على الفور. سيقوم فريق الأمان بمراجعة هذا النشاط وسنبلغك بآخر المستجدات حول حالة حسابك.</p>
           <p>نحن نأخذ أمن الحساب على محمل الجد ونعتذر عن أي إزعاج قد يسببه هذا الإجراء.</p>`,
           date,
-          lang
+          lang,
         ),
     },
   },
@@ -254,7 +254,8 @@ const templates: Templates = {
             <p>If you believe this is an error, please reach out to your organization's admin or our support team.</p>
           `;
         } else {
-          if (p.role === 'admin' && p.account_type !== 'standard') { // Admin of an enterprise account
+          if (p.role === "admin" && p.account_type !== "standard") {
+            // Admin of an enterprise account
             title = "Your Enterprise Account Has Been Deactivated";
             message = `
               <p>Hello ${p.username || "Admin"},</p>
@@ -262,7 +263,8 @@ const templates: Templates = {
               <p>If you need to recover your account and data, please contact our support team within 14 days of this notification. After this period, data recovery may not be possible.</p>
               <p>We're sorry to see you go!</p>
             `;
-          } else { // Standard user
+          } else {
+            // Standard user
             message = `
               <p>Hello ${p.username || "User"},</p>
               <p>Your account with SSC has been successfully deactivated.</p>
@@ -285,10 +287,11 @@ const templates: Templates = {
             <p>مرحباً ${p.username || "مستخدم"},</p>
             <p>نود إبلاغك بأن حسابك في SSC قد تم إلغاء تفعيله بواسطة المسؤول الخاص بك.</p>
             <p>يرجى التواصل مع المسؤول للحصول على مزيد من المعلومات بخصوص هذا الإجراء.</p>
-            <p>إذا كنت تعتقد أن هذا خطأ، يرجى التواصل مع مسؤول منظمتك أو فريق الدعم لدينا.</p>
+            <p>إذا كنت تعتقد أن هذا خطأ، يرجى التواصل مع مسؤول مؤسستك أو فريق الدعم لدينا.</p>
           `;
         } else {
-          if (p.role === 'admin' && p.account_type !== 'standard') { // Admin of an enterprise account
+          if (p.role === "admin" && p.account_type !== "standard") {
+            // Admin of an enterprise account
             title = "تم إلغاء تفعيل حسابك التجاري";
             message = `
               <p>مرحباً ${p.username || "مسؤول"},</p>
@@ -296,7 +299,8 @@ const templates: Templates = {
               <p>إذا كنت بحاجة إلى استعادة حسابك وبياناتك، يرجى التواصل مع فريق الدعم لدينا خلال 14 يومًا من هذا الإشعار. بعد هذه الفترة، قد لا تكون استعادة البيانات ممكنة.</p>
               <p>يؤسفنا رؤيتك تغادر!</p>
             `;
-          } else { // Standard user
+          } else {
+            // Standard user
             message = `
               <p>مرحباً ${p.username || "مستخدم"},</p>
               <p>تم إلغاء تفعيل حسابك في SSC بنجاح.</p>
@@ -315,11 +319,11 @@ const templates: Templates = {
       body: (p, lang, date) => {
         let title = "Your Subscription Has Expired";
         let message = "";
-        if (p.role === 'admin') {
+        if (p.role === "admin") {
           message = `<p>Hello ${p.username || "Admin"},</p>
           <p>Your organization's subscription for SSC has expired. Access for your team has been suspended.</p>
           <p>Please renew your plan to restore access and continue using all features.</p>`;
-        } else if (p.role === 'employee') {
+        } else if (p.role === "employee") {
           message = `<p>Hello ${p.username || "User"},</p>
           <p>Your organization's subscription for SSC has expired. Access has been temporarily suspended.</p>
           <p>Please contact your administrator to restore access.</p>`;
@@ -336,13 +340,13 @@ const templates: Templates = {
       body: (p, lang, date) => {
         let title = "لقد انتهى اشتراكك";
         let message = "";
-        if (p.role === 'admin') {
+        if (p.role === "admin") {
           message = `<p>مرحباً ${p.username || "مسؤول"},</p>
-          <p>لقد انتهى اشتراك منظمتك في SSC. تم تعليق الوصول لفريقك.</p>
+          <p>لقد انتهى اشتراك مؤسستك في SSC. تم تعليق الوصول لفريقك.</p>
           <p>يرجى تجديد خطتك لاستعادة الوصول والاستمرار في استخدام جميع الميزات.</p>`;
-        } else if (p.role === 'employee') {
+        } else if (p.role === "employee") {
           message = `<p>مرحباً ${p.username || "مستخدم"},</p>
-          <p>لقد انتهى اشتراك منظمتك في SSC. تم تعليق الوصول مؤقتاً.</p>
+          <p>لقد انتهى اشتراك مؤسستك في SSC. تم تعليق الوصول مؤقتاً.</p>
           <p>يرجى التواصل مع المسؤول الخاص بك لاستعادة الوصول.</p>`;
         } else {
           message = `<p>مرحباً ${p.username || "مستخدم"},</p>
@@ -359,12 +363,16 @@ const templates: Templates = {
       body: (p, lang, date) => {
         let title = "Your Subscription is in Grace Period";
         let message = "";
-        const graceEnd = p.grace_period_end ? new Date(p.grace_period_end).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US') : 'soon';
-        if (p.role === 'admin') {
+        const graceEnd = p.grace_period_end
+          ? new Date(p.grace_period_end).toLocaleDateString(
+              lang === "ar" ? "ar-EG" : "en-US",
+            )
+          : "soon";
+        if (p.role === "admin") {
           message = `<p>Hello ${p.username || "Admin"},</p>
           <p>Your organization's subscription for SSC has expired, but you are currently in a grace period until ${graceEnd}.</p>
           <p>Please renew your plan soon to avoid service interruption for your team.</p>`;
-        } else if (p.role === 'employee') {
+        } else if (p.role === "employee") {
           message = `<p>Hello ${p.username || "User"},</p>
           <p>Your organization's subscription for SSC has expired. You are currently in a grace period until ${graceEnd}.</p>
           <p>Please contact your administrator to ensure continued service.</p>`;
@@ -381,14 +389,16 @@ const templates: Templates = {
       body: (p, lang, date) => {
         let title = "اشتراكك في فترة السماح";
         let message = "";
-        const graceEnd = p.grace_period_end ? new Date(p.grace_period_end).toLocaleDateString('ar-EG') : 'قريباً';
-        if (p.role === 'admin') {
+        const graceEnd = p.grace_period_end
+          ? new Date(p.grace_period_end).toLocaleDateString("ar-EG")
+          : "قريباً";
+        if (p.role === "admin") {
           message = `<p>مرحباً ${p.username || "مسؤول"},</p>
-          <p>لقد انتهى اشتراك منظمتك في SSC، ولكنك حالياً في فترة سماح حتى ${graceEnd}.</p>
+          <p>لقد انتهى اشتراك مؤسستك في SSC، ولكنك حالياً في فترة سماح حتى ${graceEnd}.</p>
           <p>يرجى تجديد خطتك قريباً لتجنب انقطاع الخدمة لفريقك.</p>`;
-        } else if (p.role === 'employee') {
+        } else if (p.role === "employee") {
           message = `<p>مرحباً ${p.username || "مستخدم"},</p>
-          <p>لقد انتهى اشتراك منظمتك في SSC. أنت حالياً في فترة سماح حتى ${graceEnd}.</p>
+          <p>لقد انتهى اشتراك مؤسستك في SSC. أنت حالياً في فترة سماح حتى ${graceEnd}.</p>
           <p>يرجى التواصل مع المسؤول الخاص بك لضمان استمرار الخدمة.</p>`;
         } else {
           message = `<p>مرحباً ${p.username || "مستخدم"},</p>
@@ -402,7 +412,7 @@ const templates: Templates = {
 };
 
 serve(async (req) => {
-  const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY');
+  const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
   const SENDER_EMAIL = Deno.env.get("SENDER_EMAIL");
 
   if (!BREVO_API_KEY) {
@@ -421,7 +431,7 @@ serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
   // Fetch Pending Jobs
@@ -446,17 +456,21 @@ serve(async (req) => {
       // Fetch User & Settings
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select(`
+        .select(
+          `
           email,
           application_settings!user_id (
             language
           )
-        `)
+        `,
+        )
         .eq("id", job.recipient_user_id)
         .single();
 
       if (userError || !userData) {
-        throw new Error(`User not found or settings missing: ${userError?.message}`);
+        throw new Error(
+          `User not found or settings missing: ${userError?.message}`,
+        );
       }
 
       // Determine Language
@@ -472,21 +486,21 @@ serve(async (req) => {
         throw new Error(`Template not found for event type: ${job.event_type}`);
       }
 
-      const tpl = templateGroup[lang] || templateGroup['en'];
+      const tpl = templateGroup[lang] || templateGroup["en"];
 
       // Prepare Brevo Payload
       const emailData = {
         sender: { name: "SSC", email: SENDER_EMAIL },
         to: [{ email: userData.email, name: "User" }],
         subject: tpl.subject,
-        htmlContent: `<html><body>${tpl.body(job.payload, lang, job.created_at)}</body></html>`
+        htmlContent: `<html><body>${tpl.body(job.payload, lang, job.created_at)}</body></html>`,
       };
 
       // Send via Brevo API
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
-          "accept": "application/json",
+          accept: "application/json",
           "api-key": BREVO_API_KEY,
           "content-type": "application/json",
         },
@@ -501,37 +515,46 @@ serve(async (req) => {
       // Helpful for debugging deliverability in Supabase logs (Brevo returns JSON with messageId).
       try {
         const okText = await response.text();
-        if (okText) console.log(`Brevo send response for job ${job.id}:`, okText);
+        if (okText)
+          console.log(`Brevo send response for job ${job.id}:`, okText);
       } catch {
         // ignore
       }
 
       // Update Job Status: Sent
-      await supabase.from("notification_jobs").update({
-        status: "sent",
-        sent_at: new Date().toISOString(),
-      }).eq("id", job.id);
+      await supabase
+        .from("notification_jobs")
+        .update({
+          status: "sent",
+          sent_at: new Date().toISOString(),
+        })
+        .eq("id", job.id);
       sentCount += 1;
-
     } catch (e: any) {
       console.error(`Failed job ${job.id}:`, e);
       // Update Job Status: Failed
-      await supabase.from("notification_jobs").update({
-        status: "failed",
-        error: e.message || String(e),
-      }).eq("id", job.id);
+      await supabase
+        .from("notification_jobs")
+        .update({
+          status: "failed",
+          error: e.message || String(e),
+        })
+        .eq("id", job.id);
       failedCount += 1;
     }
   }
 
   // Supabase dashboard "Test" expects JSON, so always respond with valid JSON.
-  return new Response(JSON.stringify({
-    success: true,
-    total: (jobs ?? []).length,
-    sent: sentCount,
-    failed: failedCount,
-  }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" }
-  });
+  return new Response(
+    JSON.stringify({
+      success: true,
+      total: (jobs ?? []).length,
+      sent: sentCount,
+      failed: failedCount,
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
 });
